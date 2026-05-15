@@ -176,7 +176,7 @@ export default function PreMatchLineup({
   return (
     <div className="flex flex-col gap-4">
       {/* Formation Balance Bar + Auto-Select */}
-      <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-3 flex items-center justify-between transition-colors duration-300">
+      <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-3 flex items-center justify-between transition-colors duration-300">
         <div className="flex items-center gap-4">
           <span className="text-[10px] font-heading uppercase tracking-widest text-gray-700 dark:text-gray-500">
             {t("match.formationFit")}
@@ -208,7 +208,7 @@ export default function PreMatchLineup({
           onClick={onAutoSelect}
           disabled={isAutoSelecting}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${isAutoSelecting
-            ? "bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-400 cursor-wait"
+            ? "bg-gray-200 dark:bg-surface-700 text-gray-600 dark:text-gray-400 cursor-wait"
             : "bg-accent-100 text-accent-700 hover:bg-accent-200 dark:bg-accent-500/20 dark:text-accent-300 dark:hover:bg-accent-500/30"
             }`}
         >
@@ -219,7 +219,7 @@ export default function PreMatchLineup({
 
       <div className="grid grid-cols-2 gap-4">
         {/* Starting XI */}
-        <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+        <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
               {t("match.startingXI")}
@@ -294,7 +294,7 @@ export default function PreMatchLineup({
                       onClick={() => onSelectStarter(isSelected ? null : p.id)}
                       className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${isSelected
                         ? "bg-primary-500/20 ring-1 ring-primary-500/50"
-                        : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
+                        : "hover:bg-gray-100 dark:hover:bg-surface-700/50"
                         }`}
                     >
                       <div
@@ -354,7 +354,7 @@ export default function PreMatchLineup({
         </div>
 
         {/* Bench */}
-        <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+        <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
               {t("match.substitutes")}
@@ -404,7 +404,7 @@ export default function PreMatchLineup({
                       : "opacity-60 cursor-not-allowed"
                       }`}
                   >
-                    <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors duration-300">
+                    <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-surface-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors duration-300">
                       {posOvr}
                     </div>
                     <span className="text-sm text-gray-700 dark:text-gray-300 font-medium flex-1 truncate">
@@ -453,7 +453,7 @@ export default function PreMatchLineup({
           )}
 
           {/* Opponent Info */}
-          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-navy-700">
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-surface-700">
             <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
               {t("match.opponent")}
             </h3>

@@ -34,7 +34,7 @@ function getOptionButtonClassName(isActive: boolean): string {
     return "rounded-lg bg-primary-500 px-3 py-2 text-sm font-heading font-bold text-white shadow-sm transition-all";
   }
 
-  return "rounded-lg bg-gray-100 px-3 py-2 text-sm font-heading font-bold text-gray-500 transition-all hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:bg-navy-600";
+  return "rounded-lg bg-gray-100 px-3 py-2 text-sm font-heading font-bold text-gray-500 transition-all hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-400 dark:hover:bg-surface-600";
 }
 
 function getPlayStyleDescription(activePlayStyle: string): string {
@@ -91,7 +91,7 @@ export default function TacticsSetupPanel({
               </button>
             ))}
           </div>
-          <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 dark:border-navy-600 dark:bg-navy-800/70">
+          <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 dark:border-surface-600 dark:bg-surface-800/70">
             <div className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               {t("squad.playStyleImpactTitle")}
             </div>

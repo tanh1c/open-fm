@@ -79,7 +79,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-5 gap-px bg-gray-200 dark:bg-navy-600">
+                <div className="grid grid-cols-5 gap-px bg-gray-200 dark:bg-surface-600">
                   <StatCell label={t('teams.squad')} value={String(roster.length)} />
                   <StatCell label={t('teams.avgOvr')} value={String(avgOvr)} />
                   <StatCell label={t('teams.rep')} value={String(team.reputation)} />
@@ -116,7 +116,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
 
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white dark:bg-navy-800 px-2 py-2.5 text-center">
+    <div className="bg-white dark:bg-surface-800 px-2 py-2.5 text-center">
       <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">{label}</p>
       <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 mt-0.5">{value}</p>
     </div>

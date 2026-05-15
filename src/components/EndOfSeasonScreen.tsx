@@ -90,7 +90,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
           <div className="text-center mb-8">
             <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-4 ${isChampion
                 ? "bg-gradient-to-br from-accent-400 to-accent-600 shadow-lg shadow-accent-500/30"
-                : "bg-gradient-to-br from-navy-700 to-navy-800"
+                : "bg-gradient-to-br from-surface-700 to-surface-800"
               }`}>
               {isChampion ? <Crown className="w-10 h-10 text-white" /> : <Trophy className="w-10 h-10 text-gray-300" />}
             </div>
@@ -122,7 +122,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
                     <p className="text-4xl font-heading font-bold text-gray-900 dark:text-gray-100">{posLabel(userPosition)}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">{t('endOfSeason.position')}</p>
                   </div>
-                  <div className="w-px h-12 bg-gray-200 dark:bg-navy-600" />
+                  <div className="w-px h-12 bg-gray-200 dark:bg-surface-600" />
                   <div>
                     <p className="text-4xl font-heading font-bold text-primary-500">{userStanding?.points || 0}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">{t('endOfSeason.points')}</p>
@@ -146,7 +146,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
               <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-accent-500" /> {t('endOfSeason.finalStandings')}
               </h3>
-              <div className="divide-y divide-gray-100 dark:divide-navy-600">
+              <div className="divide-y divide-gray-100 dark:divide-surface-600">
                 {standings.slice(0, 5).map((entry, idx) => {
                   const teamName = gameState.teams.find(t => t.id === entry.team_id)?.name || "";
                   const isUser = entry.team_id === userTeamId;

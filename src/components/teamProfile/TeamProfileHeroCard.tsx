@@ -75,7 +75,7 @@ export default function TeamProfileHeroCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600 md:hidden">
+      <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-surface-600 md:hidden">
         <QuickStat
           label={t("teams.avgOvr")}
           value={String(viewModel.avgOvr)}

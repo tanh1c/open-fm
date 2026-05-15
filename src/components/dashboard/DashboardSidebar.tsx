@@ -141,12 +141,12 @@ export default function DashboardSidebar({
 
   return (
     <aside
-      className={`bg-navy-800 dark:bg-navy-800 border-r border-navy-700 text-white flex h-screen sticky top-0 shrink-0 flex-col transition-[width] duration-200 ${collapsed ? "w-20" : "w-64"
+      className={`bg-surface-800 dark:bg-surface-800 border-r border-surface-700 text-white flex h-screen sticky top-0 shrink-0 flex-col transition-[width] duration-200 ${collapsed ? "w-20" : "w-64"
         }`}
     >
       {/* Brand */}
       <div
-        className={`border-b border-navy-700 ${collapsed ? "px-3 py-4" : "p-5"}`}
+        className={`border-b border-surface-700 ${collapsed ? "px-3 py-4" : "p-5"}`}
       >
         <div
           className={`flex ${collapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-3"}`}
@@ -194,7 +194,7 @@ export default function DashboardSidebar({
           aria-label={t("dashboard.manager")}
           className={`hover:bg-white/5 mt-3 w-full rounded-lg transition-colors hover:cursor-pointer ${collapsed
               ? "flex justify-center px-0 py-2 text-gray-300"
-              : "-mx-1 border-t border-navy-700 px-1 py-1 pt-3 text-left"
+              : "-mx-1 border-t border-surface-700 px-1 py-1 pt-3 text-left"
             }`}
         >
           {collapsed ? (
@@ -217,7 +217,7 @@ export default function DashboardSidebar({
 
       {/* Navigation */}
       <nav
-        className={`scrollbar-thin scrollbar-thumb-navy-600 scrollbar-track-transparent flex flex-1 flex-col gap-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"
+        className={`scrollbar-thin scrollbar-thumb-surface-600 scrollbar-track-transparent flex flex-1 flex-col gap-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"
           }`}
       >
         <NavItem
@@ -290,7 +290,7 @@ export default function DashboardSidebar({
 
       {/* Settings & Exit */}
       <div
-        className={`border-t border-navy-700 flex flex-col gap-1 ${collapsed ? "p-2" : "p-3"
+        className={`border-t border-surface-700 flex flex-col gap-1 ${collapsed ? "p-2" : "p-3"
           }`}
       >
         <button

@@ -312,7 +312,7 @@ export default function SquadRosterView({
               value={playerSearch}
               onChange={(event) => setPlayerSearch(event.target.value)}
               placeholder={t("squad.filterPlayers")}
-              className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              className="w-full rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             />
           </div>
           <div>
@@ -367,8 +367,8 @@ export default function SquadRosterView({
             }}
             disabled={!hasActiveFilters}
             className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${hasActiveFilters
-              ? "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600"
-              : "bg-gray-100 dark:bg-navy-700 text-gray-400 cursor-not-allowed"
+              ? "bg-gray-100 dark:bg-surface-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-surface-600"
+              : "bg-gray-100 dark:bg-surface-700 text-gray-400 cursor-not-allowed"
               }`}
           >
             {t("common.clear")}
@@ -391,7 +391,7 @@ export default function SquadRosterView({
       </Card>
 
       <Card>
-        <div className="p-4 border-b border-gray-100 dark:border-navy-600 bg-linear-to-r from-navy-700 to-navy-800 rounded-t-xl">
+        <div className="p-4 border-b border-gray-100 dark:border-surface-600 bg-linear-to-r from-surface-700 to-surface-800 rounded-t-xl">
           <h3 className="text-sm font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
             <Users className="w-4 h-4 text-accent-400" />
             {t("squad.title", { team: myTeam.name })}
@@ -404,7 +404,7 @@ export default function SquadRosterView({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+              <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                 <SortHeader col="pos" label={t("squad.pos")} />
                 <SortHeader col="name" label={t("common.name")} />
                 <SortHeader col="age" label={t("common.age")} />
@@ -431,7 +431,7 @@ export default function SquadRosterView({
                 <SortHeader col="ovr" label={t("common.ovr")} />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+            <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
               {filteredRoster.map((player) => {
                 const inXI = xiIds.has(player.id);
                 const currentPos = inXI
@@ -538,7 +538,7 @@ export default function SquadRosterView({
                   <ContextMenu items={contextItems} key={player.id}>
                     <tr
                       onClick={() => onSelectPlayer(player.id)}
-                      className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors group cursor-pointer"
+                      className="hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors group cursor-pointer"
                     >
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-1.5">

@@ -209,7 +209,7 @@ export default function PlayersListTab({
             placeholder={t("players.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-surface-800 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
         </div>
 
@@ -218,7 +218,7 @@ export default function PlayersListTab({
             onClick={() => setPosFilter(null)}
             className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!posFilter
               ? "bg-primary-500 text-white shadow-sm"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
               }`}
           >
             {t("players.allPos")}
@@ -229,7 +229,7 @@ export default function PlayersListTab({
               onClick={() => setPosFilter(posFilter === pos ? null : pos)}
               className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${posFilter === pos
                 ? "bg-primary-500 text-white shadow-sm"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+                : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
                 }`}
             >
               {t(`common.posAbbr.${pos}`)}
@@ -240,19 +240,19 @@ export default function PlayersListTab({
         <div className="flex gap-1.5">
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "all" ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "all" ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
           >
             {t("common.all")}
           </button>
           <button
             onClick={() => setStatusFilter("transfer")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "transfer" ? "bg-accent-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "transfer" ? "bg-accent-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
           >
             {t("transfers.transfer")}
           </button>
           <button
             onClick={() => setStatusFilter("loan")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "loan" ? "bg-blue-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "loan" ? "bg-blue-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
           >
             {t("transfers.loan")}
           </button>
@@ -293,7 +293,7 @@ export default function PlayersListTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                   <SortHeader
                     label={t("common.position")}
                     sortKey="position"
@@ -344,7 +344,7 @@ export default function PlayersListTab({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                 {filtered
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((player) => {
@@ -414,7 +414,7 @@ export default function PlayersListTab({
                       <tr
                         key={player.id}
                         onClick={() => onSelectPlayer(player.id)}
-                        className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors cursor-pointer group"
+                        className="hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors cursor-pointer group"
                       >
                         <td className="py-2.5 px-4">
                           <Badge
@@ -511,7 +511,7 @@ export default function PlayersListTab({
             (() => {
               const totalPages = Math.ceil(filtered.length / pageSize);
               return (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-navy-600">
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-surface-600">
                   <p className="text-xs text-gray-400 dark:text-gray-500 font-heading">
                     {t("players.showingRange", {
                       from: (page - 1) * pageSize + 1,
@@ -523,14 +523,14 @@ export default function PlayersListTab({
                     <button
                       onClick={() => setPage(1)}
                       disabled={page === 1}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-navy-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                     >
                       <ChevronsLeft className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-navy-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -542,14 +542,14 @@ export default function PlayersListTab({
                         setPage((p) => Math.min(totalPages, p + 1))
                       }
                       disabled={page === totalPages}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-navy-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setPage(totalPages)}
                       disabled={page === totalPages}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-navy-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                     >
                       <ChevronsRight className="w-4 h-4" />
                     </button>
@@ -603,7 +603,7 @@ function SortHeader({
       <span className="flex items-center gap-1">
         {label}
         <ArrowUpDown
-          className={`w-3 h-3 ${isActive ? "text-primary-500" : "text-gray-300 dark:text-navy-600"}`}
+          className={`w-3 h-3 ${isActive ? "text-primary-500" : "text-gray-300 dark:text-surface-600"}`}
         />
       </span>
     </th>

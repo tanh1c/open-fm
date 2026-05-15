@@ -39,7 +39,7 @@ export default function DashboardCloseConfirmModal({
         </button>
         <button
           onClick={onCancel}
-          className="w-full rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-heading font-bold uppercase tracking-wider text-gray-700 transition-colors hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-300 dark:hover:bg-navy-600"
+          className="w-full rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-heading font-bold uppercase tracking-wider text-gray-700 transition-colors hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-300 dark:hover:bg-surface-600"
         >
           {t("common.cancel")}
         </button>

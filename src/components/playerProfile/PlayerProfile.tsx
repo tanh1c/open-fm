@@ -729,7 +729,7 @@ export default function PlayerProfile({
             </div>
 
             {terminationPreview ? (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-navy-600 dark:bg-navy-700/60">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-surface-600 dark:bg-surface-700/60">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-gray-500 dark:text-gray-400">
                     {t("playerProfile.terminationSeverance")}

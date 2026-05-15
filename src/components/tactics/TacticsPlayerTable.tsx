@@ -119,7 +119,7 @@ function renderTableRow(props: {
       onClick={() => onSelectPlayer(player.id)}
       className={`group cursor-pointer transition-colors ${isHighlighted
           ? "bg-primary-500/10 dark:bg-primary-500/10"
-          : "hover:bg-gray-50 dark:hover:bg-navy-700/50"
+          : "hover:bg-gray-50 dark:hover:bg-surface-700/50"
         }`}
     >
       <td className="px-4 py-2.5">
@@ -207,8 +207,8 @@ export default function TacticsPlayerTable({
   const { t } = useTranslation();
   const headingClassName =
     section === "xi"
-      ? "rounded-t-xl border-b border-gray-100 bg-linear-to-r from-navy-700 to-navy-800 p-4 dark:border-navy-600"
-      : "border-b border-gray-100 p-4 dark:border-navy-600";
+      ? "rounded-t-xl border-b border-gray-100 bg-linear-to-r from-surface-700 to-surface-800 p-4 dark:border-surface-600"
+      : "border-b border-gray-100 p-4 dark:border-surface-600";
   const titleClassName =
     section === "xi"
       ? "flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-white"
@@ -234,7 +234,7 @@ export default function TacticsPlayerTable({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-xs dark:border-navy-600 dark:bg-navy-800">
+            <tr className="border-b border-gray-200 bg-gray-50 text-xs dark:border-surface-600 dark:bg-surface-800">
               <SortHeader
                 column="pos"
                 label={t("squad.pos")}
@@ -285,7 +285,7 @@ export default function TacticsPlayerTable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+          <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
             {players.map((player) =>
               renderTableRow({
                 highlightedPlayerId,

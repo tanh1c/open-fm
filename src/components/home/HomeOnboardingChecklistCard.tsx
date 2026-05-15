@@ -57,7 +57,7 @@ export default function HomeOnboardingChecklistCard({
               className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
                 step.done
                   ? "bg-primary-50 dark:bg-primary-500/5 opacity-70"
-                  : "bg-gray-50 dark:bg-navy-700/50 hover:bg-gray-100 dark:hover:bg-navy-700"
+                  : "bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700"
               }`}
             >
               <div

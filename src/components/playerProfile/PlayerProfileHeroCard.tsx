@@ -62,7 +62,7 @@ export default function PlayerProfileHeroCard({
 
     return (
         <Card accent="primary" className="mb-5">
-            <div className="bg-linear-to-r from-navy-700 to-navy-800 p-8 rounded-t-xl">
+            <div className="bg-linear-to-r from-surface-700 to-surface-800 p-8 rounded-t-xl">
                 <div className="flex items-start gap-6">
                     <div
                         className={`w-24 h-24 rounded-2xl flex items-center justify-center font-heading font-bold text-4xl border-2 ${ovr >= 75
@@ -169,7 +169,7 @@ export default function PlayerProfileHeroCard({
                 </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600 md:hidden">
+            <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-surface-600 md:hidden">
                 <MobileQuickStat
                     label={t("common.condition")}
                     value={`${player.condition}%`}
@@ -226,7 +226,7 @@ function MobileQuickStat({
     color: string;
 }) {
     return (
-        <div className="bg-white dark:bg-navy-800 p-3 text-center">
+        <div className="bg-white dark:bg-surface-800 p-3 text-center">
             <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
                 {label}
             </p>

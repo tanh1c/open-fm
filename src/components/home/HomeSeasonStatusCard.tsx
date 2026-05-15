@@ -53,7 +53,7 @@ export default function HomeSeasonStatusCard({
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:min-w-[22rem]">
-            <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-navy-700/50">
+            <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-surface-700/50">
               <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                 {t("season.opener")}
               </p>
@@ -70,7 +70,7 @@ export default function HomeSeasonStatusCard({
                 </p>
               )}
             </div>
-            <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-navy-700/50">
+            <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-surface-700/50">
               <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                 {t("transfers.centre")}
               </p>

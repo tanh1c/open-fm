@@ -42,9 +42,9 @@ function NationalityFieldFallback({
                 <button
                     type="button"
                     disabled
-                    className={`w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-navy-900 ${error
+                    className={`w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-surface-900 ${error
                         ? "border-red-400 dark:border-red-500"
-                        : "border-gray-300 dark:border-navy-600"
+                        : "border-gray-300 dark:border-surface-600"
                         }`}
                 >
                     <span className="text-gray-400 dark:text-gray-500">
@@ -85,7 +85,7 @@ export default function CreateManagerForm({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-navy-600 dark:hover:text-white"
+                    className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-surface-600 dark:hover:text-white"
                 >
                     <X className="h-5 w-5" />
                 </button>
@@ -95,8 +95,8 @@ export default function CreateManagerForm({
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-white">
                     1
                 </div>
-                <div className="h-0.5 flex-1 bg-gray-200 dark:bg-navy-600" />
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-400 dark:bg-navy-600 dark:text-gray-500">
+                <div className="h-0.5 flex-1 bg-gray-200 dark:bg-surface-600" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-400 dark:bg-surface-600 dark:text-gray-500">
                     2
                 </div>
             </div>
@@ -108,9 +108,9 @@ export default function CreateManagerForm({
                     </label>
                     <input
                         maxLength={30}
-                        className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-navy-900 dark:text-white dark:placeholder:text-gray-500 ${formErrors.firstName
+                        className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-surface-900 dark:text-white dark:placeholder:text-gray-500 ${formErrors.firstName
                             ? "border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500"
-                            : "border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-navy-600"
+                            : "border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-surface-600"
                             }`}
                         placeholder={t("createManager.placeholderFirst")}
                         value={formData.firstName}
@@ -133,9 +133,9 @@ export default function CreateManagerForm({
                     </label>
                     <input
                         maxLength={30}
-                        className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-navy-900 dark:text-white dark:placeholder:text-gray-500 ${formErrors.lastName
+                        className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-surface-900 dark:text-white dark:placeholder:text-gray-500 ${formErrors.lastName
                             ? "border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500"
-                            : "border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-navy-600"
+                            : "border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-surface-600"
                             }`}
                         placeholder={t("createManager.placeholderLast")}
                         value={formData.lastName}

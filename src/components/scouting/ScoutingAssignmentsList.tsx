@@ -71,7 +71,7 @@ export default function ScoutingAssignmentsList({
 
             const row = (
               <div
-                className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-navy-700/50"
+                className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-surface-700/50"
                 data-testid={`scouting-assignment-${assignment.id}`}
                 key={assignment.id}
               >

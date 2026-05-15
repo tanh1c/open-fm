@@ -43,7 +43,7 @@ export default function ScoutingScoutDetailsCard({
             return (
               <div
                 key={scout.id}
-                className="p-3 rounded-lg border border-gray-200 dark:border-navy-600"
+                className="p-3 rounded-lg border border-gray-200 dark:border-surface-600"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-accent-500/10 flex items-center justify-center">

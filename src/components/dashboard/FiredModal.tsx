@@ -17,7 +17,7 @@ export default function FiredModal(): JSX.Element | null {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl dark:bg-navy-800 dark:border dark:border-navy-700">
+      <div className="mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl dark:bg-surface-800 dark:border dark:border-surface-700">
         {/* Header */}
         <div className="flex flex-col items-center pt-8 pb-4 px-6">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center mb-4 shadow-lg shadow-red-600/30">
@@ -35,7 +35,7 @@ export default function FiredModal(): JSX.Element | null {
 
         {/* Letter body */}
         <div className="px-8 pb-6">
-          <div className="rounded-lg bg-gray-50 dark:bg-navy-900/50 p-5 border border-gray-200 dark:border-navy-700">
+          <div className="rounded-lg bg-gray-50 dark:bg-surface-900/50 p-5 border border-gray-200 dark:border-surface-700">
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
               {t("sacked.dismissalLetter", { team: teamName })}
             </p>
@@ -46,7 +46,7 @@ export default function FiredModal(): JSX.Element | null {
         <div className="px-8 pb-8">
           <button
             onClick={() => setShowFiredModal(false)}
-            className="w-full rounded-xl bg-gray-700 dark:bg-navy-700 px-6 py-3 font-heading font-bold text-sm uppercase tracking-wider text-white transition-all hover:bg-gray-800 dark:hover:bg-navy-600 shadow-lg"
+            className="w-full rounded-xl bg-gray-700 dark:bg-surface-700 px-6 py-3 font-heading font-bold text-sm uppercase tracking-wider text-white transition-all hover:bg-gray-800 dark:hover:bg-surface-600 shadow-lg"
           >
             {t("dashboard.continue")}
           </button>

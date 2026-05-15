@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "react-router-dom";
@@ -149,19 +149,28 @@ export default function MainMenu() {
   })();
   const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
 
-  const updateFormField = (field: keyof CreateManagerFormData, value: string) => {
-    setFormData((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
-  };
+  // Memoised so DatePicker's useEffect doesn't see a fresh callback every
+  // render — without useCallback, that effect re-runs forever and the form
+  // hits React's "Maximum update depth exceeded" guard.
+  const updateFormField = useCallback(
+    (field: keyof CreateManagerFormData, value: string) => {
+      setFormData((previous) => ({
+        ...previous,
+        [field]: value,
+      }));
+    },
+    [],
+  );
 
-  const clearFormError = (field: keyof CreateManagerFormData) => {
-    setFormErrors((previous) => ({
-      ...previous,
-      [field]: "",
-    }));
-  };
+  const clearFormError = useCallback(
+    (field: keyof CreateManagerFormData) => {
+      setFormErrors((previous) => ({
+        ...previous,
+        [field]: "",
+      }));
+    },
+    [],
+  );
 
   const validateForm = (): {
     ok: boolean;
@@ -286,40 +295,24 @@ export default function MainMenu() {
   const handleStartGame = async () => {
     setIsStarting(true);
     try {
-      // Determine world source
-      let worldSource: string | undefined = selectedWorldId;
-      if (selectedWorldId === "random") {
-        worldSource = undefined;
-      } else if (
+      const importedJson =
         selectedWorldId.startsWith("file:") &&
-        sessionStorage.getItem("imported_world_json")
-      ) {
-        // For imported files, write to a temp location first
-        const json = sessionStorage.getItem("imported_world_json")!;
-        // Write it via a temp file approach — just pass "random" and override
-        // Actually, better to write the file to user databases dir first
-        const path = await invoke<string>("write_temp_database", {
-          json,
-        }).catch(() => null);
-        if (path) {
-          worldSource = `file:${path}`;
-        } else {
-          // Fallback: pass the imported data inline — won't work with current backend
-          // So fall back to random
-          worldSource = undefined;
-          console.warn(
-            "Could not write imported database, falling back to random",
-          );
-        }
-      }
+        sessionStorage.getItem("imported_world_json");
 
-      const game = await invoke<GameStateData>("start_new_game", {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        dob: formData.dob,
-        nationality: formData.nationality,
-        worldSource,
-      });
+      const game = importedJson
+        ? await invoke<GameStateData>("start_new_game_with_world", {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            dob: formData.dob,
+            nationality: formData.nationality,
+            worldJson: importedJson,
+          })
+        : await invoke<GameStateData>("start_new_game", {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            dob: formData.dob,
+            nationality: formData.nationality,
+          });
       sessionStorage.removeItem("imported_world_json");
       setGameState(game);
       navigate("/select-team");
@@ -382,7 +375,7 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-navy-900 transition-colors duration-500 relative overflow-x-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-surface-900 transition-colors duration-500 relative overflow-x-hidden">
       {/* Background gradient accents */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/10 dark:bg-primary-500/5 rounded-full blur-3xl" />
@@ -397,7 +390,7 @@ export default function MainMenu() {
         {/* Top accent bar */}
         <div className="h-1.5 bg-gradient-to-r from-primary-500 via-accent-400 to-primary-500 rounded-t-2xl" />
 
-        <div className="bg-white dark:bg-navy-800 p-8 rounded-b-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-navy-600 border-t-0 transition-all duration-500">
+        <div className="bg-white dark:bg-surface-800 p-8 rounded-b-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-surface-600 border-t-0 transition-all duration-500">
           {/* Logo */}
           <img
             src="/openfootlogo.svg"
@@ -405,7 +398,7 @@ export default function MainMenu() {
             className="text-center w-full h-full object-cover"
           />
 
-          <div className="border-t border-gray-200 dark:border-navy-600 my-8 transition-colors duration-500" />
+          <div className="border-t border-gray-200 dark:border-surface-600 my-8 transition-colors duration-500" />
 
           {/* Main Menu */}
           {menuState === "main" && (
@@ -425,7 +418,7 @@ export default function MainMenu() {
 
               <button
                 onClick={handleOpenLoadMenu}
-                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-navy-700 hover:bg-gray-50 dark:hover:bg-navy-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-navy-600 hover:border-accent-400 dark:hover:border-accent-400 shadow-sm"
+                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-surface-700 hover:bg-gray-50 dark:hover:bg-surface-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-surface-600 hover:border-accent-400 dark:hover:border-accent-400 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <FolderOpen className="w-6 h-6 text-accent-500 dark:text-accent-400" />
@@ -438,7 +431,7 @@ export default function MainMenu() {
 
               <button
                 onClick={() => navigate("/settings", { state: { from: "/" } })}
-                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-navy-700 hover:bg-gray-50 dark:hover:bg-navy-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-600 shadow-sm"
+                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-surface-700 hover:bg-gray-50 dark:hover:bg-surface-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-surface-600 hover:border-gray-300 dark:hover:border-surface-600 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <Settings className="w-6 h-6 text-gray-400 dark:text-gray-500" />
@@ -453,7 +446,7 @@ export default function MainMenu() {
                 onClick={() => {
                   void handleExitApp();
                 }}
-                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-navy-700 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-navy-600 hover:border-red-200 dark:hover:border-red-500/30 shadow-sm"
+                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-surface-700 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-surface-600 hover:border-red-200 dark:hover:border-red-500/30 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <Power className="w-6 h-6 text-red-500 dark:text-red-400" />

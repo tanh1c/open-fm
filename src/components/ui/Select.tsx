@@ -207,15 +207,15 @@ export function Select({
 
   const variants = {
     default:
-      "bg-white dark:bg-navy-800 border-gray-200 dark:border-navy-600 text-gray-700 dark:text-gray-200",
+      "bg-white dark:bg-surface-800 border-gray-200 dark:border-surface-600 text-gray-700 dark:text-gray-200",
     subtle:
-      "bg-gray-100 dark:bg-navy-700 border-gray-200 dark:border-navy-600 text-gray-600 dark:text-gray-300",
+      "bg-gray-100 dark:bg-surface-700 border-gray-200 dark:border-surface-600 text-gray-600 dark:text-gray-300",
     muted:
-      "bg-gray-50 dark:bg-navy-700 border-gray-200 dark:border-navy-600 text-gray-700 dark:text-gray-300",
+      "bg-gray-50 dark:bg-surface-700 border-gray-200 dark:border-surface-600 text-gray-700 dark:text-gray-300",
     highlighted:
       "bg-primary-50 dark:bg-primary-500/10 border-primary-300 dark:border-primary-500/40 text-primary-700 dark:text-primary-300 font-bold",
     placeholder:
-      "bg-gray-50 dark:bg-navy-700 border-gray-200 dark:border-navy-600 text-gray-400 dark:text-gray-500",
+      "bg-gray-50 dark:bg-surface-700 border-gray-200 dark:border-surface-600 text-gray-400 dark:text-gray-500",
   };
 
   const sizes = {
@@ -295,7 +295,7 @@ export function Select({
       </span>
 
       {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-navy-600 dark:bg-navy-800">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-surface-600 dark:bg-surface-800">
           <div
             id={listboxId}
             role="listbox"
@@ -312,7 +312,7 @@ export function Select({
                   role="option"
                   aria-selected={isSelected}
                   disabled={option.disabled}
-                  className={`${optionTextSize} flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${isSelected ? "bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400" : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-navy-700"} ${option.disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                  className={`${optionTextSize} flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${isSelected ? "bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400" : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-surface-700"} ${option.disabled ? "cursor-not-allowed opacity-50" : ""}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (!option.disabled) {

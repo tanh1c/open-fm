@@ -64,7 +64,7 @@ export default function TransferBidModal({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm"
+        className="bg-white dark:bg-surface-800 rounded-xl shadow-2xl border border-gray-200 dark:border-surface-600 p-6 w-full max-w-sm"
         onClick={(event) => event.stopPropagation()}
       >
         <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
@@ -104,10 +104,10 @@ export default function TransferBidModal({
           min="0"
           value={bidAmount}
           onChange={(event) => onBidAmountChange(event.target.value)}
-          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
         />
         {myTeam && bidFee !== null && bidProjection ? (
-          <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
+          <div className="rounded-lg border border-gray-200 dark:border-surface-700 bg-white/70 dark:bg-surface-900/40 p-3 mb-3 space-y-2">
             <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               {t("transfers.bidImpactTitle")}
             </p>
@@ -172,7 +172,7 @@ export default function TransferBidModal({
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
+            className="px-4 py-2 bg-gray-200 dark:bg-surface-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-surface-600 transition-colors"
           >
             {t("transfers.close")}
           </button>

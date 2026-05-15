@@ -205,7 +205,7 @@ export default function TacticsRolesPanel({
       <Card>
         <CardHeader>{t("tactics.teamRoles")}</CardHeader>
         <CardBody>
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-navy-600 dark:bg-navy-800/70">
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-surface-600 dark:bg-surface-800/70">
             <p className="text-sm text-gray-600 dark:text-gray-300">
               {t("tactics.rolesHint")}
             </p>

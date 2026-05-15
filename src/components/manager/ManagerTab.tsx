@@ -21,7 +21,7 @@ export default function ManagerTab({ gameState, onSelectTeam }: ManagerTabProps)
     <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5">
       {/* Profile card */}
       <Card accent="primary" className="md:col-span-3">
-        <div className="bg-gradient-to-r from-navy-700 to-navy-800 p-6 rounded-t-xl flex items-center gap-6">
+        <div className="bg-gradient-to-r from-surface-700 to-surface-800 p-6 rounded-t-xl flex items-center gap-6">
           <div className="w-20 h-20 rounded-xl bg-primary-500/20 flex items-center justify-center font-heading font-bold text-3xl text-primary-400 border-2 border-primary-500/30">
             {mgr.first_name.charAt(0)}{mgr.last_name.charAt(0)}
           </div>
@@ -114,7 +114,7 @@ export default function ManagerTab({ gameState, onSelectTeam }: ManagerTabProps)
           <CardBody className="p-0">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                   <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('manager.club')}</th>
                   <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('manager.period')}</th>
                   <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.played')}</th>
@@ -123,7 +123,7 @@ export default function ManagerTab({ gameState, onSelectTeam }: ManagerTabProps)
                   <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.lost')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                 {mgr.career_history.map((entry, i) => {
                   const canSelectTeam =
                     !!onSelectTeam &&
@@ -141,7 +141,7 @@ export default function ManagerTab({ gameState, onSelectTeam }: ManagerTabProps)
                       } : undefined}
                       role={canSelectTeam ? "button" : undefined}
                       tabIndex={canSelectTeam ? 0 : undefined}
-                      className={canSelectTeam ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors" : undefined}
+                      className={canSelectTeam ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-surface-700/30 transition-colors" : undefined}
                     >
                       <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">{entry.team_name}</td>
                       <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">{entry.start_date.substring(0, 4)} — {entry.end_date?.substring(0, 4) || t('common.present')}</td>
@@ -176,7 +176,7 @@ export default function ManagerTab({ gameState, onSelectTeam }: ManagerTabProps)
 
 function StatBlock({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="text-center p-3 bg-gray-50 dark:bg-navy-700 rounded-lg">
+    <div className="text-center p-3 bg-gray-50 dark:bg-surface-700 rounded-lg">
       <p className="font-heading font-bold text-xl text-gray-800 dark:text-gray-100 tabular-nums">{value}</p>
       <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">{label}</p>
     </div>

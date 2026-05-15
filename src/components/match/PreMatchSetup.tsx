@@ -219,7 +219,7 @@ export default function PreMatchSetup({
 
   return (
     <MatchScreenLayout
-      headerClassName="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-navy-800 dark:via-navy-900 dark:to-navy-800"
+      headerClassName="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800"
       headerContentClassName="max-w-5xl py-6"
       contentClassName="overflow-auto"
       header={
@@ -295,7 +295,7 @@ export default function PreMatchSetup({
         {/* Formation & Play Style */}
         <div className="grid grid-cols-2 gap-4">
           {/* Formation */}
-          <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+          <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
             <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
               {t("match.formation")}
             </h3>
@@ -306,7 +306,7 @@ export default function PreMatchSetup({
                   onClick={() => handleFormationChange(f)}
                   className={`py-2.5 rounded-lg text-sm font-heading font-bold transition-all ${userTeam.formation === f
                     ? "bg-primary-500/20 text-primary-400 ring-2 ring-primary-500/50"
-                    : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-navy-600"
+                    : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-surface-600"
                     }`}
                 >
                   {f}
@@ -316,7 +316,7 @@ export default function PreMatchSetup({
           </div>
 
           {/* Play Style */}
-          <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+          <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
             <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
               {t("match.playStyle")}
             </h3>
@@ -327,7 +327,7 @@ export default function PreMatchSetup({
                   onClick={() => handlePlayStyleChange(style)}
                   className={`flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm font-heading font-bold transition-all ${userTeam.play_style === style
                     ? "bg-primary-500/20 text-primary-400 ring-2 ring-primary-500/50"
-                    : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-navy-600"
+                    : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-surface-600"
                     }`}
                 >
                   {PLAY_STYLE_ICONS[style]}
@@ -339,11 +339,11 @@ export default function PreMatchSetup({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-200 dark:bg-navy-800 rounded-lg p-1 self-start transition-colors duration-300">
+        <div className="flex gap-1 bg-gray-200 dark:bg-surface-800 rounded-lg p-1 self-start transition-colors duration-300">
           <button
             onClick={() => setActiveTab("lineup")}
             className={`px-4 py-2 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-colors ${activeTab === "lineup"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-navy-600 dark:text-white"
+                ? "bg-white text-gray-900 shadow-sm dark:bg-surface-600 dark:text-white"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
           >
@@ -352,7 +352,7 @@ export default function PreMatchSetup({
           <button
             onClick={() => setActiveTab("setpieces")}
             className={`px-4 py-2 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-colors ${activeTab === "setpieces"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-navy-600 dark:text-white"
+                ? "bg-white text-gray-900 shadow-sm dark:bg-surface-600 dark:text-white"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               }`}
           >
@@ -381,7 +381,7 @@ export default function PreMatchSetup({
 
         {/* Set Pieces Tab */}
         {activeTab === "setpieces" && (
-          <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+          <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
             <button
               onClick={async () => {
                 try {

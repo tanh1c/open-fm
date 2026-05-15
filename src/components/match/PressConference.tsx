@@ -291,7 +291,9 @@ export default function PressConference({
             response_tone: resp?.tone || "",
             response_text: resp?.text || "",
             response_text_key: resp?.textKey || "",
-            response_text_params: resp?.textParams,
+            // serde-wasm-bindgen rejects `undefined` here even when the Rust
+            // side has #[serde(default)] — explicitly emit an empty map.
+            response_text_params: resp?.textParams ?? {},
             question_text: q.question,
             player_id: (q as PlayerFocusQuestion).playerId || "",
           };
@@ -370,12 +372,12 @@ export default function PressConference({
     userSide === "Home" ? snapshot.home_team.name : snapshot.away_team.name;
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-navy-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-surface-900 dark:text-white flex flex-col transition-colors duration-300">
       {/* Header */}
-      <header className="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-navy-800 dark:via-navy-900 dark:to-navy-800 border-b border-gray-200 dark:border-navy-700 px-4 py-6 transition-colors duration-300">
+      <header className="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800 border-b border-gray-200 dark:border-surface-700 px-4 py-6 transition-colors duration-300">
         <div className="max-w-3xl mx-auto text-center relative">
           <ThemeToggle className="absolute right-0 top-0" />
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gray-200 dark:bg-navy-700 rounded-full mb-3 transition-colors duration-300">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gray-200 dark:bg-surface-700 rounded-full mb-3 transition-colors duration-300">
             <Mic className="w-4 h-4 text-accent-400" />
             <span className="font-heading font-bold text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">
               {t("match.pressConference")}
@@ -393,7 +395,7 @@ export default function PressConference({
                     ? "bg-primary-500"
                     : i === currentIdx
                       ? "bg-primary-400"
-                      : "bg-gray-300 dark:bg-navy-700"
+                      : "bg-gray-300 dark:bg-surface-700"
                 }`}
               />
             ))}
@@ -407,7 +409,7 @@ export default function PressConference({
           <div className="max-w-2xl w-full">
             {/* Journalist */}
             <div className="flex items-start gap-4 mb-8">
-               <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-navy-700 flex items-center justify-center flex-shrink-0 transition-colors duration-300">
+               <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-surface-700 flex items-center justify-center flex-shrink-0 transition-colors duration-300">
                  <MessageSquare className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                </div>
                <div>
@@ -438,8 +440,8 @@ export default function PressConference({
                        isSelected
                          ? "bg-primary-500/20 ring-2 ring-primary-500/50"
                        : hasAnswered
-                          ? "bg-gray-200/70 dark:bg-navy-800/50 opacity-40"
-                          : "bg-white hover:bg-gray-100 border border-gray-200 dark:bg-navy-800 dark:hover:bg-navy-700 dark:border-navy-700"
+                          ? "bg-gray-200/70 dark:bg-surface-800/50 opacity-40"
+                          : "bg-white hover:bg-gray-100 border border-gray-200 dark:bg-surface-800 dark:hover:bg-surface-700 dark:border-surface-700"
                      }`}
                    >
                     <div className="flex items-center gap-2 mb-1">
@@ -481,7 +483,7 @@ export default function PressConference({
       </div>
 
       {/* Skip button */}
-      <footer className="bg-white dark:bg-navy-800 border-t border-gray-200 dark:border-navy-700 px-6 py-3 transition-colors duration-300">
+      <footer className="bg-white dark:bg-surface-800 border-t border-gray-200 dark:border-surface-700 px-6 py-3 transition-colors duration-300">
         <div className="max-w-3xl mx-auto flex justify-end">
           <button
             onClick={onFinish}

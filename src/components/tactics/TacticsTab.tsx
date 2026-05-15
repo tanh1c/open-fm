@@ -427,15 +427,15 @@ export default function TacticsTab({
       <div
         ref={dragPreviewRef}
         aria-hidden="true"
-        className="pointer-events-none fixed -left-20 top-0 h-8 w-8 rounded-full border border-white/15 bg-navy-900/90 shadow-lg"
+        className="pointer-events-none fixed -left-20 top-0 h-8 w-8 rounded-full border border-white/15 bg-surface-900/90 shadow-lg"
       />
-      <div className="flex gap-1 self-start rounded-lg bg-gray-100 p-1 dark:bg-navy-800">
+      <div className="flex gap-1 self-start rounded-lg bg-gray-100 p-1 dark:bg-surface-800">
         <button
           type="button"
           onClick={() => setActiveTab("lineup")}
           className={`rounded-md px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
             activeTab === "lineup"
-              ? "bg-white text-gray-900 shadow-sm dark:bg-navy-700 dark:text-white"
+              ? "bg-white text-gray-900 shadow-sm dark:bg-surface-700 dark:text-white"
               : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >
@@ -446,7 +446,7 @@ export default function TacticsTab({
           onClick={() => setActiveTab("roles")}
           className={`rounded-md px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
             activeTab === "roles"
-              ? "bg-white text-gray-900 shadow-sm dark:bg-navy-700 dark:text-white"
+              ? "bg-white text-gray-900 shadow-sm dark:bg-surface-700 dark:text-white"
               : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           }`}
         >

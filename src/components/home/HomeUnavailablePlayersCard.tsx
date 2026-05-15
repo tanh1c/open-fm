@@ -43,7 +43,7 @@ export default function HomeUnavailablePlayersCard({
           {players.map((player) => (
             <div
               key={player.id}
-              className="flex flex-col gap-2 rounded-lg border border-gray-100 px-3 py-2.5 dark:border-navy-700 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-lg border border-gray-100 px-3 py-2.5 dark:border-surface-700 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

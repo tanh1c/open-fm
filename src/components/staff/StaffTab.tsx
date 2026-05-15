@@ -123,7 +123,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             onClick={() => setView("mystaff")}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${view === "mystaff"
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
               }`}
           >
             <UserCog className="w-4 h-4" />{" "}
@@ -133,7 +133,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             onClick={() => setView("available")}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${view === "available"
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
               }`}
           >
             <UserPlus className="w-4 h-4" />{" "}
@@ -148,7 +148,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             placeholder={t("staff.searchStaff")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-surface-800 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
         </div>
 
@@ -157,7 +157,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             onClick={() => setRoleFilter(null)}
             className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!roleFilter
               ? "bg-primary-500 text-white shadow-sm"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
               }`}
           >
             {t("common.all")}
@@ -168,7 +168,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
               onClick={() => setRoleFilter(roleFilter === r ? null : r)}
               className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${roleFilter === r
                 ? "bg-primary-500 text-white shadow-sm"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+                : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
                 }`}
             >
               {ROLE_ICONS[r]} {t(`staff.roles.${r}`)}
@@ -180,7 +180,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
       {/* Staff grid */}
       {filtered.length === 0 ? (
         <div className="py-12 text-center">
-          <UserCog className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+          <UserCog className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
           <p className="text-sm text-gray-400 dark:text-gray-500">
             {view === "mystaff"
               ? t("staff.noStaffMatch")
@@ -246,7 +246,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
                       <div
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${roleColor} bg-gray-100 dark:bg-navy-700`}
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${roleColor} bg-gray-100 dark:bg-surface-700`}
                       >
                         {roleIcon}
                       </div>
@@ -295,7 +295,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                             </span>
                           )}
                           {staff.wage > 0 && (
-                            <span className="text-[10px] bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
+                            <span className="text-[10px] bg-gray-100 dark:bg-surface-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
                               {formatWeeklyAmount(
                                 formatVal(staff.wage),
                                 weeklySuffix,

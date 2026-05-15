@@ -38,7 +38,7 @@ export default function HomeRecentResultsCard({
             {t("home.noMatches")}
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-navy-600">
+          <div className="divide-y divide-gray-100 dark:divide-surface-600">
             {recentResults
               .slice(-5)
               .reverse()

@@ -131,7 +131,7 @@ export default function JobOpportunitiesCard({
               return (
                 <div
                   key={job.team_id}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-navy-600 dark:bg-navy-700/50"
+                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-surface-600 dark:bg-surface-700/50"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
@@ -152,7 +152,7 @@ export default function JobOpportunitiesCard({
                         {Array.from({ length: 5 - stars }, (_, i) => (
                           <Star
                             key={`e${i}`}
-                            className="w-3 h-3 text-gray-300 dark:text-navy-600"
+                            className="w-3 h-3 text-gray-300 dark:text-surface-600"
                           />
                         ))}
                       </span>

@@ -81,7 +81,7 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
           <div
             ref={menuRef}
             role="menu"
-            className="fixed z-50 min-w-[180px] bg-white dark:bg-navy-800 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 py-1 animate-in fade-in duration-100"
+            className="fixed z-50 min-w-[180px] bg-white dark:bg-surface-800 rounded-lg shadow-xl border border-gray-200 dark:border-surface-600 py-1 animate-in fade-in duration-100"
             style={{ left: pos.x, top: pos.y }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -89,7 +89,7 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
               item.divider ? (
                 <div
                   key={i}
-                  className="border-t border-gray-100 dark:border-navy-600 my-1"
+                  className="border-t border-gray-100 dark:border-surface-600 my-1"
                 />
               ) : (
                 <button
@@ -103,7 +103,7 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
                     ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                     : item.danger
                       ? "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-700"
+                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-surface-700"
                     }`}
                 >
                   {item.icon && (

@@ -106,11 +106,18 @@ export default function Settings() {
 
   const handleExportWorld = async () => {
     try {
-      // Simple export to app data dir
-      const path = await invoke<string>("export_world_database", {
-        exportPath: "exported_world.json",
-      });
-      setExportPath(path);
+      const json = await invoke<string>("export_world_database");
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      link.href = url;
+      link.download = `ofm-world-${stamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExportPath(link.download);
       setTimeout(() => setExportPath(null), 5000);
     } catch (err) {
       console.error("Failed to export world:", err);
@@ -119,21 +126,21 @@ export default function Settings() {
 
   if (!loaded) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex items-center justify-center transition-colors">
+      <div className="min-h-screen bg-gray-100 dark:bg-surface-900 flex items-center justify-center transition-colors">
         <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-navy-900 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 dark:bg-surface-900 transition-colors duration-300">
       {/* Header */}
-      <header className="bg-white dark:bg-navy-800 border-b border-gray-200 dark:border-navy-700 shadow-sm">
+      <header className="bg-white dark:bg-surface-800 border-b border-gray-200 dark:border-surface-700 shadow-sm">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(returnTo)}
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors"
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -245,7 +252,7 @@ export default function Settings() {
           >
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-surface-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-surface-600 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
             >
               {isFullscreen ? (
                 <Minimize className="w-4 h-4" />
@@ -356,7 +363,7 @@ export default function Settings() {
             </p>
           )}
 
-          <div className="border-t border-gray-200 dark:border-navy-600 pt-4 mt-2">
+          <div className="border-t border-gray-200 dark:border-surface-600 pt-4 mt-2">
             <SettingRow
               label={t("settings.clearSaves")}
               description={t("settings.clearSavesDesc")}
@@ -372,7 +379,7 @@ export default function Settings() {
                   </button>
                   <button
                     onClick={() => setConfirmClear(false)}
-                    className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-navy-600 text-gray-700 dark:text-gray-300 text-sm font-heading font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-500 transition-colors"
+                    className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-surface-600 text-gray-700 dark:text-gray-300 text-sm font-heading font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-surface-600 transition-colors"
                   >
                     {t("common.cancel")}
                   </button>
@@ -427,8 +434,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white dark:bg-navy-800 rounded-2xl border border-gray-200 dark:border-navy-700 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100 dark:border-navy-700">
+    <div className="bg-white dark:bg-surface-800 rounded-2xl border border-gray-200 dark:border-surface-700 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100 dark:border-surface-700">
         <span className="text-primary-500">{icon}</span>
         <h2 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200">
           {title}
@@ -477,7 +484,7 @@ function Toggle({
   return (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? "bg-primary-500" : "bg-gray-300 dark:bg-navy-600"
+      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? "bg-primary-500" : "bg-gray-300 dark:bg-surface-600"
         }`}
     >
       <div
@@ -498,13 +505,13 @@ function SegmentedControl({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex rounded-lg bg-gray-100 dark:bg-navy-700 p-0.5 border border-gray-200 dark:border-navy-600">
+    <div className="flex rounded-lg bg-gray-100 dark:bg-surface-700 p-0.5 border border-gray-200 dark:border-surface-600">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-all ${value === opt.value
-              ? "bg-white dark:bg-navy-500 text-primary-600 dark:text-primary-400 shadow-sm"
+              ? "bg-white dark:bg-surface-600 text-primary-600 dark:text-primary-400 shadow-sm"
               : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
         >

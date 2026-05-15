@@ -115,7 +115,7 @@ function getBenchPlayerButtonClassName(options: {
     return `${className} border-primary-300 bg-primary-500/12 ring-2 ring-primary-300/30`;
   }
 
-  return `${className} border-white/10 bg-gray-500/70 dark:bg-navy-800`;
+  return `${className} border-white/10 bg-gray-500/70 dark:bg-surface-800`;
 }
 
 function getPitchRatingClassName(
@@ -169,7 +169,7 @@ export default function TacticsPitch({
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-xl border-b border-gray-100 bg-linear-to-r from-navy-700 to-navy-800 p-4 dark:border-navy-600">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-xl border-b border-gray-100 bg-linear-to-r from-surface-700 to-surface-800 p-4 dark:border-surface-600">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-white">
             <Star className="h-4 w-4 fill-current text-accent-400" />

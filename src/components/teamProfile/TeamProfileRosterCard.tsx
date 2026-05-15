@@ -36,7 +36,7 @@ export default function TeamProfileRosterCard({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+              <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                 <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("common.position")}
                 </th>
@@ -62,7 +62,7 @@ export default function TeamProfileRosterCard({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+            <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
               {roster.map((player) => {
                 const ovr = getPlayerOvr(player);
                 const age = calcAge(player.date_of_birth);
@@ -75,7 +75,7 @@ export default function TeamProfileRosterCard({
                     data-testid={`team-profile-roster-${player.id}`}
                     onClick={() => onSelectPlayer?.(player.id)}
                     className={`group transition-colors ${onSelectPlayer
-                      ? "hover:bg-gray-50 dark:hover:bg-navy-700/50 cursor-pointer"
+                      ? "hover:bg-gray-50 dark:hover:bg-surface-700/50 cursor-pointer"
                       : ""
                       }`}
                   >

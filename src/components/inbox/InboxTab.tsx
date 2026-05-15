@@ -330,7 +330,7 @@ export default function InboxTab({
         onToggleCategory={handleToggleCategory}
       />
 
-      <div className="flex-1 flex gap-0 rounded-xl overflow-hidden border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 min-h-0">
+      <div className="flex-1 flex gap-0 rounded-xl overflow-hidden border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-800 min-h-0">
         <InboxMessageListPane
           bulkSelectionEnabled={bulkSelectionEnabled}
           filteredMessages={filteredMessages}

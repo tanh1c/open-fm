@@ -68,7 +68,7 @@ function getSaveButtonClassName(saveFlash: boolean, isSaving: boolean): string {
   if (saveFlash) {
     className = `${className} bg-green-500 text-white`;
   } else {
-    className = `${className} bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-navy-700 dark:text-gray-300 dark:hover:bg-navy-600`;
+    className = `${className} bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-surface-700 dark:text-gray-300 dark:hover:bg-surface-600`;
   }
 
   if (isSaving) {
@@ -124,10 +124,10 @@ function getContinueDropdownButtonClassName(
 
 function getModeOptionClassName(isActive: boolean): string {
   const baseClassName =
-    "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-navy-600";
+    "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-surface-600";
 
   if (isActive) {
-    return `${baseClassName} bg-gray-50 dark:bg-navy-600`;
+    return `${baseClassName} bg-gray-50 dark:bg-surface-600`;
   }
 
   return baseClassName;
@@ -207,7 +207,7 @@ function renderSearchResults(props: {
               <ContextMenu items={contextItems} key={team.id}>
                 <button
                   onMouseDown={() => onSelectSearchTeam(team.id)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-surface-600"
                   data-testid={`dashboard-search-team-${team.id}`}
                 >
                   <div
@@ -246,7 +246,7 @@ function renderSearchResults(props: {
               <ContextMenu items={contextItems} key={player.id}>
                 <button
                   onMouseDown={() => onSelectSearchPlayer(player.id)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-surface-600"
                   data-testid={`dashboard-search-player-${player.id}`}
                 >
                   <Badge variant={getPlayerBadgeVariant(player.position)} size="sm">
@@ -336,12 +336,12 @@ export default function DashboardHeader({
   }
 
   return (
-    <header className="z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shadow-sm transition-colors duration-300 dark:border-navy-700 dark:bg-navy-800">
+    <header className="z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shadow-sm transition-colors duration-300 dark:border-surface-700 dark:bg-surface-800">
       <div className="flex items-center gap-3">
         {hasProfileHistory && (
           <button
             onClick={onBack}
-            className="-ml-2 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-navy-700 dark:hover:text-white"
+            className="-ml-2 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-surface-700 dark:hover:text-white"
             title={t("common.back")}
           >
             <ArrowLeft className="h-5 w-5" />
@@ -367,10 +367,10 @@ export default function DashboardHeader({
           onChange={(event) => onSearchQueryChange(event.target.value)}
           onFocus={onSearchFocus}
           onBlur={onSearchBlur}
-          className="w-full rounded-lg border border-gray-200 bg-gray-100 py-2 pl-9 pr-3 text-sm text-gray-800 transition-all placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 dark:border-navy-600 dark:bg-navy-700 dark:text-gray-200 dark:placeholder-gray-500"
+          className="w-full rounded-lg border border-gray-200 bg-gray-100 py-2 pl-9 pr-3 text-sm text-gray-800 transition-all placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 dark:border-surface-600 dark:bg-surface-700 dark:text-gray-200 dark:placeholder-gray-500"
         />
         {showSearchResults && (
-          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-navy-600 dark:bg-navy-700">
+          <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-xl dark:border-surface-600 dark:bg-surface-700">
             {renderSearchResults({
               matchedPlayers,
               matchedTeams,
@@ -435,7 +435,7 @@ export default function DashboardHeader({
             </div>
 
             {showContinueMenu && (
-              <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-navy-600 dark:bg-navy-700">
+              <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-surface-600 dark:bg-surface-700">
                 {(["live", "spectator", "delegate"] as const).map((mode) => {
                   const isActive = matchMode === mode;
                   const optionMeta = modeMeta[mode];
@@ -465,10 +465,10 @@ export default function DashboardHeader({
                     </button>
                   );
                 })}
-                <div className="my-1 border-t border-gray-200 dark:border-navy-600" />
+                <div className="my-1 border-t border-gray-200 dark:border-surface-600" />
                 <button
                   onClick={handleSkipToMatchDayClick}
-                  className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
+                  className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-surface-600"
                 >
                   <span className="text-xs font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">
                     {t("continueMenu.skipToMatchDay")}

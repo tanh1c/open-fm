@@ -82,7 +82,7 @@ export default function ScoutingPlayerSearchCard({
                 onClick={() => onPositionFilterChange(position)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors ${posFilter === position
                   ? "bg-primary-500 text-white"
-                  : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
+                  : "bg-gray-100 dark:bg-surface-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-surface-600"
                   }`}
               >
                 {position === "All"
@@ -101,7 +101,7 @@ export default function ScoutingPlayerSearchCard({
             placeholder={t("scouting.searchPlaceholder")}
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
+            className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
           />
         </div>
 
@@ -117,7 +117,7 @@ export default function ScoutingPlayerSearchCard({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider border-b border-gray-100 dark:border-navy-700">
+              <tr className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider border-b border-gray-100 dark:border-surface-700">
                 <th className="text-left py-2 px-2">{t("scouting.player")}</th>
                 <th className="text-left py-2 px-1">{t("scouting.pos")}</th>
                 <th className="text-center py-2 px-1">{t("scouting.age")}</th>
@@ -170,7 +170,7 @@ export default function ScoutingPlayerSearchCard({
                 const row = (
                   <tr
                     key={player.id}
-                    className="border-b border-gray-50 dark:border-navy-700/50 hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors"
+                    className="border-b border-gray-50 dark:border-surface-700/50 hover:bg-gray-50 dark:hover:bg-surface-700/30 transition-colors"
                   >
                     <td className="py-2 px-2">
                       <button
@@ -252,7 +252,7 @@ export default function ScoutingPlayerSearchCard({
         </div>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-navy-700 mt-3">
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-surface-700 mt-3">
             <span className="text-xs text-gray-400 dark:text-gray-500">
               {t("scouting.showingRange", {
                 from: safePage * pageSize + 1,
@@ -265,7 +265,7 @@ export default function ScoutingPlayerSearchCard({
                 aria-label={t("scouting.previousPage")}
                 disabled={safePage === 0}
                 onClick={onPreviousPage}
-                className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg bg-gray-100 dark:bg-surface-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-surface-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -276,7 +276,7 @@ export default function ScoutingPlayerSearchCard({
                 aria-label={t("scouting.nextPage")}
                 disabled={safePage >= totalPages - 1}
                 onClick={onNextPage}
-                className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg bg-gray-100 dark:bg-surface-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-surface-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

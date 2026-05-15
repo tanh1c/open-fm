@@ -146,7 +146,7 @@ export default function SetPieceSelector({
     <div className="mb-4 last:mb-0">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-navy-700/50 dark:hover:bg-navy-700 transition-colors"
+        className="w-full flex items-center gap-3 p-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-surface-700/50 dark:hover:bg-surface-700 transition-colors"
       >
         {icon}
         <div className="flex-1 text-left">
@@ -163,7 +163,7 @@ export default function SetPieceSelector({
               <span
                 key={s.label}
                 title={getTranslatedStatLabel(s.label)}
-                 className="inline-flex items-center gap-1 rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-navy-800 px-2 py-1 text-xs font-heading font-bold text-gray-800 dark:text-gray-100"
+                 className="inline-flex items-center gap-1 rounded-md border border-gray-200 dark:border-white/10 bg-white dark:bg-surface-800 px-2 py-1 text-xs font-heading font-bold text-gray-800 dark:text-gray-100"
               >
                  <span className="text-gray-600 dark:text-gray-300">
                   {getTranslatedStatLabel(s.label)}
@@ -179,7 +179,7 @@ export default function SetPieceSelector({
       </button>
 
       {expanded && (
-         <div className="mt-1 bg-white dark:bg-navy-700 rounded-lg border border-gray-200 dark:border-navy-600 p-2 flex flex-col gap-1 max-h-56 overflow-auto transition-colors duration-300">
+         <div className="mt-1 bg-white dark:bg-surface-700 rounded-lg border border-gray-200 dark:border-surface-600 p-2 flex flex-col gap-1 max-h-56 overflow-auto transition-colors duration-300">
           {sortedPlayers.map((p) => {
             const isCurrent = p.id === currentId;
             return (
@@ -192,7 +192,7 @@ export default function SetPieceSelector({
                 className={`flex items-center gap-2 px-3 py-1.5 rounded text-left transition-colors ${
                   isCurrent
                      ? "bg-primary-500/20 text-primary-500 dark:text-primary-400"
-                     : "hover:bg-gray-100 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300"
+                     : "hover:bg-gray-100 dark:hover:bg-surface-600 text-gray-700 dark:text-gray-300"
                 }`}
               >
                 {isCurrent && <Check className="w-3 h-3 text-primary-400" />}
@@ -206,7 +206,7 @@ export default function SetPieceSelector({
                   <span
                     key={s.label}
                     title={getTranslatedStatLabel(s.label)}
-                     className="w-10 rounded-md bg-gray-100 dark:bg-navy-800/80 px-1.5 py-1 text-center text-xs font-heading font-bold transition-colors duration-300"
+                     className="w-10 rounded-md bg-gray-100 dark:bg-surface-800/80 px-1.5 py-1 text-center text-xs font-heading font-bold transition-colors duration-300"
                   >
                     <span className={getStatColorClassName(s.value)}>
                       {s.value}
@@ -229,7 +229,7 @@ export default function SetPieceSelector({
           })}
           {/* Column headers */}
           {sortedPlayers.length > 0 && (
-             <div className="mt-1 flex items-center gap-2 border-t border-gray-200 dark:border-navy-600 px-3 py-2 text-xs font-heading font-bold text-gray-600 dark:text-gray-300">
+             <div className="mt-1 flex items-center gap-2 border-t border-gray-200 dark:border-surface-600 px-3 py-2 text-xs font-heading font-bold text-gray-600 dark:text-gray-300">
               <span className="flex-1" />
               <span className="w-8" />
               {sortedPlayers[0].spStats.stats.map((s) => (

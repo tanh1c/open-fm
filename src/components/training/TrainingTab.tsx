@@ -266,7 +266,7 @@ export default function TrainingTab({
                 <ProgressBar value={avgMorale} variant="auto" size="md" />
               </div>
               {exhaustedCount > 0 || criticalCount > 0 ? (
-                <div className="mt-1 pt-2 border-t border-gray-100 dark:border-navy-700">
+                <div className="mt-1 pt-2 border-t border-gray-100 dark:border-surface-700">
                   {criticalCount > 0 ? (
                     <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" />{" "}
@@ -288,7 +288,7 @@ export default function TrainingTab({
         <Card>
           <CardHeader>{t("training.playerFitness")}</CardHeader>
           <CardBody className="p-0 max-h-64 overflow-y-auto">
-            <div className="divide-y divide-gray-100 dark:divide-navy-600">
+            <div className="divide-y divide-gray-100 dark:divide-surface-600">
               {[...roster]
                 .sort((left, right) => left.condition - right.condition)
                 .map((player) => (

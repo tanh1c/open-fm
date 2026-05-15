@@ -28,11 +28,11 @@ export default function MatchScreenLayout({
   themeToggleClassName,
 }: MatchScreenLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-navy-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-surface-900 dark:text-white flex flex-col transition-colors duration-300">
       {header && (
         <header
           className={joinClasses(
-            "border-b border-gray-200 dark:border-navy-700",
+            "border-b border-gray-200 dark:border-surface-700",
             headerClassName,
           )}
         >

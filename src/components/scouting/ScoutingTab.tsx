@@ -250,7 +250,7 @@ export default function ScoutingTab({
         <Card>
           <CardBody>
             <div className="flex flex-col items-center gap-3 py-8">
-              <Eye className="w-10 h-10 text-gray-300 dark:text-navy-600" />
+              <Eye className="w-10 h-10 text-gray-300 dark:text-surface-600" />
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                 {t("scouting.noScouts")}
                 <br />

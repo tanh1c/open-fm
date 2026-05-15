@@ -164,9 +164,9 @@ export default function HalfTimeBreak({
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-navy-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-surface-900 dark:text-white flex flex-col transition-colors duration-300">
       {/* Header scoreboard */}
-      <header className="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-navy-800 dark:via-navy-900 dark:to-navy-800 border-b border-gray-200 dark:border-navy-700 px-4 py-4 transition-colors duration-300">
+      <header className="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800 border-b border-gray-200 dark:border-surface-700 px-4 py-4 transition-colors duration-300">
         <div className="max-w-5xl mx-auto relative">
           <ThemeToggle className="absolute right-0 top-0" />
           <div className="flex items-center justify-center gap-8">
@@ -226,7 +226,7 @@ export default function HalfTimeBreak({
               <span className="font-heading font-bold text-primary-400 w-12 text-right">
                 {snapshot.home_possession_pct.toFixed(0)}%
               </span>
-              <div className="flex-1 h-1.5 bg-gray-300 dark:bg-navy-700 rounded-full overflow-hidden flex transition-colors duration-300">
+              <div className="flex-1 h-1.5 bg-gray-300 dark:bg-surface-700 rounded-full overflow-hidden flex transition-colors duration-300">
                 <div
                   className="h-full bg-primary-500 transition-all"
                   style={{ width: `${snapshot.home_possession_pct}%` }}
@@ -249,7 +249,7 @@ export default function HalfTimeBreak({
         <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-6">
           {/* Left: First Half Summary */}
           <div className="flex flex-col gap-4">
-            <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+            <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                 {t("match.firstHalfEvents")}
               </h3>
@@ -291,7 +291,7 @@ export default function HalfTimeBreak({
           {/* Center: Team Talk (user only) */}
           <div className="flex flex-col gap-4">
             {!isSpectator ? (
-              <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
                 <div className="flex items-center gap-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-accent-400" />
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
@@ -312,7 +312,7 @@ export default function HalfTimeBreak({
                           className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
                             selectedTalk === opt.id
                               ? "bg-primary-500/20 ring-2 ring-primary-500/50"
-                              : "bg-gray-100 hover:bg-gray-200 dark:bg-navy-700/50 dark:hover:bg-navy-700"
+                              : "bg-gray-100 hover:bg-gray-200 dark:bg-surface-700/50 dark:hover:bg-surface-700"
                           }`}
                         >
                           <span className="text-xl">
@@ -374,7 +374,7 @@ export default function HalfTimeBreak({
                               {r.delta > 0 ? "+" : ""}
                               {r.delta}
                             </span>
-                            <div className="w-12 h-1.5 bg-gray-300 dark:bg-navy-600 rounded-full overflow-hidden transition-colors duration-300">
+                            <div className="w-12 h-1.5 bg-gray-300 dark:bg-surface-600 rounded-full overflow-hidden transition-colors duration-300">
                               <div
                                 className={`h-full rounded-full ${r.new_morale >= 70 ? "bg-green-500" : r.new_morale >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
                                 style={{ width: `${r.new_morale}%` }}
@@ -391,7 +391,7 @@ export default function HalfTimeBreak({
                 )}
               </div>
             ) : (
-              <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 flex flex-col items-center justify-center py-8 transition-colors duration-300">
+              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 flex flex-col items-center justify-center py-8 transition-colors duration-300">
                 <p className="text-xs font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1">
                   {t("match.spectatorMode")}
                 </p>
@@ -407,7 +407,7 @@ export default function HalfTimeBreak({
             {!isSpectator && (
               <>
                 {/* Formation */}
-                <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+                <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                     {t("match.formation")}
                   </h3>
@@ -419,7 +419,7 @@ export default function HalfTimeBreak({
                         className={`py-2 rounded-lg text-xs font-heading font-bold transition-all ${
                           userTeam.formation === f
                             ? "bg-primary-500/20 text-primary-400 ring-1 ring-primary-500/50"
-                            : "bg-gray-100 text-gray-600 hover:text-gray-900 dark:bg-navy-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            : "bg-gray-100 text-gray-600 hover:text-gray-900 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-300"
                         }`}
                       >
                         {f}
@@ -429,7 +429,7 @@ export default function HalfTimeBreak({
                 </div>
 
                 {/* Play Style */}
-                <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+                <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                     {t("match.playStyle")}
                   </h3>
@@ -441,7 +441,7 @@ export default function HalfTimeBreak({
                         className={`flex items-center gap-1.5 py-2 px-3 rounded-lg text-xs font-heading font-bold transition-all ${
                           userTeam.play_style === style
                             ? "bg-primary-500/20 text-primary-400 ring-1 ring-primary-500/50"
-                            : "bg-gray-100 text-gray-600 hover:text-gray-900 dark:bg-navy-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            : "bg-gray-100 text-gray-600 hover:text-gray-900 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-300"
                         }`}
                       >
                         {PLAY_STYLE_ICONS[style]}
@@ -452,7 +452,7 @@ export default function HalfTimeBreak({
                 </div>
 
                 {/* Substitutions */}
-                <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+                <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                       {t("match.substitutions")}
@@ -467,7 +467,7 @@ export default function HalfTimeBreak({
 
                   <button
                     onClick={() => setShowSubPanel(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-200 hover:bg-gray-300 dark:bg-navy-700 dark:hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-700 dark:text-gray-300 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-200 hover:bg-gray-300 dark:bg-surface-700 dark:hover:bg-surface-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-700 dark:text-gray-300 transition-colors"
                   >
                     <RefreshCw className="w-4 h-4" />
                     {t("match.makeSubstitution")}
@@ -480,7 +480,7 @@ export default function HalfTimeBreak({
       </div>
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-navy-800 border-t border-gray-200 dark:border-navy-700 px-6 py-4 transition-colors duration-300">
+      <footer className="bg-white dark:bg-surface-800 border-t border-gray-200 dark:border-surface-700 px-6 py-4 transition-colors duration-300">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <p className="text-xs text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider">
             {isSpectator

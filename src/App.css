@@ -70,14 +70,6 @@
   --color-rating-good:  #b8eb1c;
   --color-rating-avg:   #f59e0b;
   --color-rating-poor:  #ef4444;
-
-  /* --- BACK-COMPAT ALIASES — REMOVED IN PHASE 4 ---
-     These keep ~50 files using bg-navy-* and text-primary-* working until
-     they're migrated to surface-*. Do not introduce new uses of navy-*. */
-  --color-navy-900: var(--color-surface-900);
-  --color-navy-800: var(--color-surface-800);
-  --color-navy-700: var(--color-surface-700);
-  --color-navy-600: var(--color-surface-600);
 }
 
 @layer base {

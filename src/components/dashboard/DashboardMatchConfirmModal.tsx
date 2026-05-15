@@ -45,7 +45,7 @@ export default function DashboardMatchConfirmModal({
         </div>
       </div>
       {todayMatchFixture && (
-        <div className="mb-4 rounded-xl bg-gray-50 p-4 text-center dark:bg-navy-700">
+        <div className="mb-4 rounded-xl bg-gray-50 p-4 text-center dark:bg-surface-700">
           <p className="mb-2 text-xs font-heading uppercase tracking-widest text-gray-400">
             {getFixtureDisplayLabel(t, todayMatchFixture)}
           </p>
@@ -68,7 +68,7 @@ export default function DashboardMatchConfirmModal({
       <div className="mt-5 flex gap-3">
         <button
           onClick={onCancel}
-          className="flex-1 rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-heading font-bold uppercase tracking-wider text-gray-700 transition-colors hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-300 dark:hover:bg-navy-600"
+          className="flex-1 rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-heading font-bold uppercase tracking-wider text-gray-700 transition-colors hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-300 dark:hover:bg-surface-600"
         >
           {t("common.cancel")}
         </button>

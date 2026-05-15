@@ -37,7 +37,7 @@ export default function HomeRecentMessagesCard({
         {t("home.recentMessages")}
       </CardHeader>
       <CardBody className="p-0">
-        <div className="divide-y divide-gray-100 dark:divide-navy-600">
+        <div className="divide-y divide-gray-100 dark:divide-surface-600">
           {messages.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 p-6 text-sm">
               {t("home.noMessages")}
@@ -58,12 +58,12 @@ export default function HomeRecentMessagesCard({
                 <ContextMenu items={contextItems} key={message.id}>
                   <div
                     onClick={() => onNavigate?.("Inbox", { messageId: message.id })}
-                    className={`flex gap-4 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-navy-600/50 cursor-pointer transition-colors ${!message.read ? "border-l-4 border-l-primary-500" : "border-l-4 border-l-transparent"
+                    className={`flex gap-4 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-surface-600/50 cursor-pointer transition-colors ${!message.read ? "border-l-4 border-l-primary-500" : "border-l-4 border-l-transparent"
                       }`}
                   >
                     <div
                       className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 font-heading font-bold text-sm ${message.read
-                          ? "bg-gray-100 dark:bg-navy-600 text-gray-400 dark:text-gray-500"
+                          ? "bg-gray-100 dark:bg-surface-600 text-gray-400 dark:text-gray-500"
                           : "bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400"
                         }`}
                     >

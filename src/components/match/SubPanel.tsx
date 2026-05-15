@@ -143,10 +143,10 @@ export function SubPanel({
           {label}
         </span>
         <span className="w-6 text-right tabular-nums text-red-400">{valA}</span>
-        <div className="flex-1 h-1.5 bg-navy-600 rounded-full overflow-hidden flex">
+        <div className="flex-1 h-1.5 bg-surface-600 rounded-full overflow-hidden flex">
           <div className="h-full bg-red-500/60" style={{ width: `${valA}%` }} />
         </div>
-        <div className="flex-1 h-1.5 bg-navy-600 rounded-full overflow-hidden flex justify-end">
+        <div className="flex-1 h-1.5 bg-surface-600 rounded-full overflow-hidden flex justify-end">
           <div
             className="h-full bg-green-500/60"
             style={{ width: `${valB}%` }}
@@ -169,11 +169,11 @@ export function SubPanel({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-navy-800 rounded-2xl border border-gray-200 dark:border-navy-600 shadow-2xl w-[1100px] max-h-[90vh] flex flex-col overflow-hidden transition-colors duration-300"
+        className="bg-white dark:bg-surface-800 rounded-2xl border border-gray-200 dark:border-surface-600 shadow-2xl w-[1100px] max-h-[90vh] flex flex-col overflow-hidden transition-colors duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-navy-700 bg-linear-to-r from-gray-100 to-white dark:from-navy-700 dark:to-navy-800 transition-colors duration-300">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-surface-700 bg-linear-to-r from-gray-100 to-white dark:from-surface-700 dark:to-surface-800 transition-colors duration-300">
           <div className="flex items-center gap-3">
             <RefreshCw className="w-5 h-5 text-accent-400" />
             <h3 className="font-heading font-bold text-sm uppercase tracking-widest text-gray-900 dark:text-white">
@@ -188,7 +188,7 @@ export function SubPanel({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-navy-600 transition-colors"
+            className="text-gray-500 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-surface-600 transition-colors"
           >
             <AlertTriangle className="w-4 h-4 hidden" />
             <span className="text-sm font-heading">✕</span>
@@ -207,8 +207,8 @@ export function SubPanel({
         ) : (
           <div className="flex-1 flex overflow-hidden">
             {/* Left: Pitch + On-Field Players */}
-            <div className="flex-1 flex flex-col border-r border-gray-200 dark:border-navy-700">
-              <div className="px-4 py-3 border-b border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800/50 transition-colors duration-300">
+            <div className="flex-1 flex flex-col border-r border-gray-200 dark:border-surface-700">
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-surface-700 bg-gray-50 dark:bg-surface-800/50 transition-colors duration-300">
                 <p className="text-xs font-heading uppercase tracking-widest text-red-400">
                   {selectedOff
                     ? t("match.takingOff", { name: selectedPlayer?.name })
@@ -265,7 +265,7 @@ export function SubPanel({
               <div className="flex-1 overflow-auto px-4 py-2">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 border-b border-gray-200 dark:border-navy-700">
+                    <tr className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 border-b border-gray-200 dark:border-surface-700">
                       <th className="py-2 pr-2">{t("match.player")}</th>
                       <th className="py-2 w-12 text-center">
                         {t("common.position")}
@@ -313,7 +313,7 @@ export function SubPanel({
                             aria-pressed={isSelected}
                             className={`cursor-pointer transition-colors text-sm ${isSelected
                               ? "bg-red-500/10"
-                              : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
+                              : "hover:bg-gray-100 dark:hover:bg-surface-700/50"
                               }`}
                           >
                             <td className="py-2 pr-2">
@@ -343,7 +343,7 @@ export function SubPanel({
                             </td>
                             <td className="py-2 w-24">
                               <div className="flex items-center gap-1.5">
-                                <div className="flex-1 h-2 bg-gray-300 dark:bg-navy-600 rounded-full overflow-hidden transition-colors duration-300">
+                                <div className="flex-1 h-2 bg-gray-300 dark:bg-surface-600 rounded-full overflow-hidden transition-colors duration-300">
                                   <div
                                     className={`h-full ${condColor(p.condition)} rounded-full`}
                                     style={{ width: `${p.condition}%` }}
@@ -383,7 +383,7 @@ export function SubPanel({
 
             {/* Right: Bench Players + Comparison */}
             <div className="flex-1 flex flex-col">
-              <div className="px-4 py-3 border-b border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800/50 transition-colors duration-300">
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-surface-700 bg-gray-50 dark:bg-surface-800/50 transition-colors duration-300">
                 <p className="text-xs font-heading uppercase tracking-widest text-green-400">
                   {selectedOff
                     ? t("match.selectReplacement")
@@ -393,7 +393,7 @@ export function SubPanel({
 
               {/* Comparison panel */}
               {selectedPlayer && comparedPlayer ? (
-                <div className="mx-4 mt-3 p-3 bg-gray-100 dark:bg-navy-700/50 rounded-xl border border-gray-200 dark:border-navy-600 transition-colors duration-300">
+                <div className="mx-4 mt-3 p-3 bg-gray-100 dark:bg-surface-700/50 rounded-xl border border-gray-200 dark:border-surface-600 transition-colors duration-300">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
                       <UserMinus className="w-3 h-3 text-red-400" />
@@ -450,7 +450,7 @@ export function SubPanel({
                     <button
                       type="button"
                       onClick={handleClearSelection}
-                      className="rounded-lg border border-gray-300 dark:border-navy-500 px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-100 dark:hover:bg-navy-600"
+                      className="rounded-lg border border-gray-300 dark:border-surface-600 px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-100 dark:hover:bg-surface-600"
                     >
                       {t("common.cancel")}
                     </button>
@@ -464,7 +464,7 @@ export function SubPanel({
                   </div>
                 </div>
               ) : selectedPlayer ? (
-                <div className="mx-4 mt-3 p-3 bg-gray-100 dark:bg-navy-700/30 rounded-xl border border-gray-200 dark:border-navy-600/50 text-center transition-colors duration-300">
+                <div className="mx-4 mt-3 p-3 bg-gray-100 dark:bg-surface-700/30 rounded-xl border border-gray-200 dark:border-surface-600/50 text-center transition-colors duration-300">
                   <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">
                     {t("match.selectBenchToCompare")}
                   </p>
@@ -480,7 +480,7 @@ export function SubPanel({
                 ) : (
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 border-b border-gray-200 dark:border-navy-700">
+                      <tr className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 border-b border-gray-200 dark:border-surface-700">
                         <th className="py-2 pr-2">{t("match.player")}</th>
                         <th className="py-2 w-12 text-center">
                           {t("common.position")}
@@ -544,7 +544,7 @@ export function SubPanel({
                             </td>
                             <td className="py-2 w-24">
                               <div className="flex items-center gap-1.5">
-                                <div className="flex-1 h-2 bg-gray-300 dark:bg-navy-600 rounded-full overflow-hidden transition-colors duration-300">
+                                <div className="flex-1 h-2 bg-gray-300 dark:bg-surface-600 rounded-full overflow-hidden transition-colors duration-300">
                                   <div
                                     className={`h-full ${condColor(p.condition)} rounded-full`}
                                     style={{ width: `${p.condition}%` }}
@@ -597,7 +597,7 @@ export function SubPanel({
               {/* Sub History */}
               {snapshot.substitutions.filter((s) => s.side === side).length >
                 0 && (
-                  <div className="px-4 py-3 border-t border-gray-200 dark:border-navy-700">
+                  <div className="px-4 py-3 border-t border-gray-200 dark:border-surface-700">
                     <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1.5">
                       {t("match.history")}
                     </p>

@@ -70,7 +70,7 @@ export default function HomeSquadOverviewCard({
             </div>
           )}
 
-          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-navy-700 flex items-center gap-2">
+          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-surface-700 flex items-center gap-2">
             <Dumbbell className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {t("home.scheduleLabel")}

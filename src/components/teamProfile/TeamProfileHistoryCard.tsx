@@ -21,7 +21,7 @@ export default function TeamProfileHistoryCard({
       <CardBody className="p-0">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+            <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
               <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("schedule.season", { number: "" })}
               </th>
@@ -48,7 +48,7 @@ export default function TeamProfileHistoryCard({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+          <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
             {history.map((record, index) => (
               <tr key={index}>
                 <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">

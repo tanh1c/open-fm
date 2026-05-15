@@ -120,7 +120,7 @@ export default function ScheduleTab({
           onClick={() => setView("fixtures")}
           className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === "fixtures"
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-surface-600"
             }`}
         >
           <CalendarIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" />{" "}
@@ -130,7 +130,7 @@ export default function ScheduleTab({
           onClick={() => setView("standings")}
           className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === "standings"
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-surface-600"
             }`}
         >
           <TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" />{" "}
@@ -142,13 +142,13 @@ export default function ScheduleTab({
         <div className="flex flex-col gap-4">
           {sortedMatchdays.map(([groupKey, fixtures]) => (
             <Card key={groupKey}>
-              <div className="px-5 py-3 border-b border-gray-100 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 rounded-t-xl">
+              <div className="px-5 py-3 border-b border-gray-100 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 rounded-t-xl">
                 <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
                   {getFixtureGroupLabel(fixtures[0])}
                 </h4>
               </div>
               <CardBody className="p-0">
-                <div className="divide-y divide-gray-100 dark:divide-navy-600">
+                <div className="divide-y divide-gray-100 dark:divide-surface-600">
                   {fixtures.map((f) => {
                     const isUserMatch =
                       f.home_team_id === userTeamId ||
@@ -210,7 +210,7 @@ export default function ScheduleTab({
           <Card>
             <CardBody>
               <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Trophy className="w-8 h-8 text-gray-300 dark:text-navy-600" />
+                <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
                 <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
                   {t("season.standingsLocked")}
                 </p>
@@ -226,7 +226,7 @@ export default function ScheduleTab({
           </Card>
         ) : (
           <Card>
-            <div className="p-5 border-b border-gray-100 dark:border-navy-600 bg-gradient-to-r from-navy-700 to-navy-800 rounded-t-xl">
+            <div className="p-5 border-b border-gray-100 dark:border-surface-600 bg-gradient-to-r from-surface-700 to-surface-800 rounded-t-xl">
               <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
                 <Trophy className="text-accent-400 w-5 h-5" />
                 {league.name} —{" "}
@@ -236,7 +236,7 @@ export default function ScheduleTab({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                  <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                     <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">
                       #
                     </th>
@@ -269,7 +269,7 @@ export default function ScheduleTab({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+                <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                   {standings.map((entry, idx) => {
                     const isUser = entry.team_id === userTeamId;
                     const gd = entry.goals_for - entry.goals_against;
@@ -280,7 +280,7 @@ export default function ScheduleTab({
                     return (
                       <ContextMenu items={contextItems} key={entry.team_id}>
                         <tr
-                          className={`transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-navy-700/50"}`}
+                          className={`transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-surface-700/50"}`}
                           data-testid={`schedule-standings-row-${entry.team_id}`}
                         >
                           <td className="py-3 px-4 font-heading font-bold text-sm text-gray-400 dark:text-gray-500">

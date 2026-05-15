@@ -24,7 +24,7 @@ export default function PlayerProfileCareerHistoryCard({
                         {career.map((entry, index) => (
                             <div
                                 key={index}
-                                className="flex items-center justify-between text-sm py-2 border-b border-gray-100 dark:border-navy-600 last:border-0"
+                                className="flex items-center justify-between text-sm py-2 border-b border-gray-100 dark:border-surface-600 last:border-0"
                             >
                                 <div>
                                     <span className="font-semibold text-gray-800 dark:text-gray-200">

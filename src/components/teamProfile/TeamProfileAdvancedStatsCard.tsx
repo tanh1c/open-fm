@@ -34,7 +34,7 @@ function formatPercentage(value: number | null): string {
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-gray-50 dark:bg-navy-700 px-3 py-2.5 text-center">
+    <div className="rounded-lg bg-gray-50 dark:bg-surface-700 px-3 py-2.5 text-center">
       <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
         {label}
       </p>
@@ -57,7 +57,7 @@ function MetricRow({
   secondaryValue: string;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-3 items-center rounded-lg bg-gray-50 dark:bg-navy-700 px-3 py-2.5">
+    <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-3 items-center rounded-lg bg-gray-50 dark:bg-surface-700 px-3 py-2.5">
       <div>
         <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400">
           {label}

@@ -143,7 +143,7 @@ export default function TrainingGroupsCard({
               return (
                 <div
                   key={group.id}
-                  className="flex items-center gap-2 bg-gray-50 dark:bg-navy-700/50 border border-gray-200 dark:border-navy-600 rounded-lg px-3 py-1.5"
+                  className="flex items-center gap-2 bg-gray-50 dark:bg-surface-700/50 border border-gray-200 dark:border-surface-600 rounded-lg px-3 py-1.5"
                 >
                   <div className="text-gray-400 dark:text-gray-500">
                     {trainingFocusIcons[group.focus] ? (
@@ -200,10 +200,10 @@ export default function TrainingGroupsCard({
             {t("training.groups.noGroups")}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-navy-600">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-surface-600">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-gray-50 dark:bg-navy-700/50">
+                <tr className="bg-gray-50 dark:bg-surface-700/50">
                   <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                     {t("common.player")}
                   </th>
@@ -218,7 +218,7 @@ export default function TrainingGroupsCard({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                 {sortedRoster.map((player) => {
                   const playerGroup = playerGroupMap.get(player.id);
                   const hasIndividualFocus = !!player.training_focus;
@@ -228,7 +228,7 @@ export default function TrainingGroupsCard({
                   return (
                     <tr
                       key={player.id}
-                      className="hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-surface-700/30 transition-colors"
                     >
                       <td className="py-1.5 px-3 text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[160px]">
                         {player.match_name}

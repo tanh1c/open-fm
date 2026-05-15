@@ -139,7 +139,7 @@ export default function InboxToolbar({
         {unreadCount > 0 ? (
           <button
             onClick={onMarkAllRead}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-primary-500 hover:border-primary-300 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600 hover:text-primary-500 hover:border-primary-300 transition-all"
           >
             <CheckCheck className="w-3.5 h-3.5" />
             {t("inbox.markAllRead")}
@@ -147,7 +147,7 @@ export default function InboxToolbar({
         ) : null}
         <button
           onClick={onClearOld}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-red-500 hover:border-red-300 transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600 hover:text-red-500 hover:border-red-300 transition-all"
         >
           <Trash2 className="w-3.5 h-3.5" />
           {t("inbox.clearOld")}

@@ -319,7 +319,7 @@ export default function TransfersTab({
       {/* Budget header */}
       {myTeam && (
         <Card accent="primary" className="mb-5">
-          <div className="bg-gradient-to-r from-navy-700 to-navy-800 p-5 rounded-t-xl flex items-center gap-6">
+          <div className="bg-gradient-to-r from-surface-700 to-surface-800 p-5 rounded-t-xl flex items-center gap-6">
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
@@ -378,7 +378,7 @@ export default function TransfersTab({
             onClick={() => setView(tab.id)}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${view === tab.id
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600 hover:text-gray-700 dark:hover:text-gray-200"
               }`}
           >
             {tab.icon} {tab.label} ({tab.count})
@@ -395,13 +395,13 @@ export default function TransfersTab({
             placeholder={t("transfers.searchByName")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-surface-800 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
         </div>
         <div className="flex gap-1.5">
           <button
             onClick={() => setPosFilter(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!posFilter ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!posFilter ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
           >
             {t("common.all")}
           </button>
@@ -409,7 +409,7 @@ export default function TransfersTab({
             <button
               key={pos}
               onClick={() => setPosFilter(posFilter === pos ? null : pos)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${posFilter === pos ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${posFilter === pos ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
             >
               {t(`common.posAbbr.${pos}`)}
             </button>
@@ -435,7 +435,7 @@ export default function TransfersTab({
         <Card>
           <CardBody>
             <div className="text-center py-8">
-              <ShoppingCart className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <ShoppingCart className="w-10 h-10 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t("transfers.noPlayersListed")}
               </p>
@@ -451,7 +451,7 @@ export default function TransfersTab({
         <Card>
           <CardBody>
             <div className="text-center py-8">
-              <Handshake className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <Handshake className="w-10 h-10 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t("transfers.noOffers")}
               </p>
@@ -466,7 +466,7 @@ export default function TransfersTab({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                  <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                     <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                       {t("common.position")}
                     </th>
@@ -503,7 +503,7 @@ export default function TransfersTab({
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+                <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                   {filteredList.map((player) => {
                     const ovr = getPlayerOvr(player);
                     const age = calcAge(player.date_of_birth);
@@ -571,7 +571,7 @@ export default function TransfersTab({
                     const row = (
                       <tr
                         key={player.id}
-                        className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors cursor-pointer group"
+                        className="hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors cursor-pointer group"
                         onClick={() => onSelectPlayer(player.id)}
                       >
                         <td className="py-2.5 px-4">
@@ -754,7 +754,7 @@ export default function TransfersTab({
         <Card>
           <CardBody>
             <div className="text-center py-8">
-              <TrendingUp className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <TrendingUp className="w-10 h-10 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {view === "market"
                   ? t("transfers.noTransferMarket")

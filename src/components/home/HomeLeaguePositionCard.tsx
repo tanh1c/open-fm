@@ -158,7 +158,7 @@ export default function HomeLeaguePositionCard({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 py-4">
-            <Trophy className="w-8 h-8 text-gray-300 dark:text-navy-600" />
+            <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {t("home.noLeague")}
             </p>

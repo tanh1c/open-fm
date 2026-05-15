@@ -63,13 +63,13 @@ export default function TeamSelection() {
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-navy-900 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 dark:bg-surface-900 transition-colors duration-300">
       {/* Header */}
-      <header className="bg-white dark:bg-navy-800 border-b border-gray-200 dark:border-navy-700 px-6 py-4 flex justify-between items-center shadow-sm">
+      <header className="bg-white dark:bg-surface-800 border-b border-gray-200 dark:border-surface-700 px-6 py-4 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/")}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors"
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-surface-700 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -110,7 +110,7 @@ export default function TeamSelection() {
                 key={team.id}
                 onClick={() => setSelectedTeamId(team.id)}
                 className={`text-left transition-all duration-200 rounded-xl ${isSelected
-                  ? "ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-navy-900 scale-[1.02]"
+                  ? "ring-2 ring-primary-500 ring-offset-2 dark:ring-offset-surface-900 scale-[1.02]"
                   : "hover:scale-[1.01]"
                   }`}
               >
@@ -121,7 +121,7 @@ export default function TeamSelection() {
                   {/* Team header with gradient */}
                   <div className={`p-4 rounded-t-xl ${isSelected
                     ? "bg-gradient-to-r from-primary-600 to-primary-700"
-                    : "bg-gradient-to-r from-navy-700 to-navy-800"
+                    : "bg-gradient-to-r from-surface-700 to-surface-800"
                     }`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -181,7 +181,7 @@ export default function TeamSelection() {
                     </div>
 
                     {/* Stadium */}
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-navy-600">
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-surface-600">
                       <p className="text-xs text-gray-400 dark:text-gray-500">
                         {t('teamSelect.seats', { name: team.stadium_name, capacity: team.stadium_capacity.toLocaleString() })}
                       </p>

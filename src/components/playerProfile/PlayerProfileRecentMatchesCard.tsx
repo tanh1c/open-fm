@@ -47,7 +47,7 @@ export default function PlayerProfileRecentMatchesCard({
                     {matches.map((match) => (
                         <div
                             key={match.fixture_id}
-                            className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] gap-3 rounded-lg bg-gray-50 dark:bg-navy-700 px-3 py-2.5"
+                            className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] gap-3 rounded-lg bg-gray-50 dark:bg-surface-700 px-3 py-2.5"
                         >
                             <div>
                                 <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400">

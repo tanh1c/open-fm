@@ -37,7 +37,7 @@ export default function NegotiationFeedbackPanel({
 
   return (
     <div
-      className={`rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800/80 p-3 space-y-3 ${className}`.trim()}
+      className={`rounded-xl border border-gray-200 dark:border-surface-700 bg-gray-50 dark:bg-surface-800/80 p-3 space-y-3 ${className}`.trim()}
     >
       <div className="flex items-center justify-between gap-3">
         <div>

@@ -128,8 +128,8 @@ export default function CreateManagerNationalityField({
         ? "border-red-400 dark:border-red-500"
         : isOpen
             ? "border-primary-500 ring-2 ring-primary-500/20"
-            : "border-gray-300 dark:border-navy-600";
-    const triggerClassName = `w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-navy-900 ${triggerBorderClassName}`;
+            : "border-gray-300 dark:border-surface-600";
+    const triggerClassName = `w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-surface-900 ${triggerBorderClassName}`;
 
     const toggleDropdown = () => {
         if (!isOpen && !resources) {
@@ -192,17 +192,17 @@ export default function CreateManagerNationalityField({
                 </button>
 
                 {isOpen ? (
-                    <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-navy-600 dark:bg-navy-700">
+                    <div className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-surface-600 dark:bg-surface-700">
                         {resources ? (
                             <>
-                                <div className="border-b border-gray-100 p-2 dark:border-navy-600">
+                                <div className="border-b border-gray-100 p-2 dark:border-surface-600">
                                     <input
                                         type="text"
                                         autoFocus
                                         placeholder={t("createManager.searchNationalities")}
                                         value={searchValue}
                                         onChange={(event) => setSearchValue(event.target.value)}
-                                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-primary-500 dark:border-navy-600 dark:bg-navy-800 dark:text-white dark:placeholder:text-gray-500"
+                                        className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-primary-500 dark:border-surface-600 dark:bg-surface-800 dark:text-white dark:placeholder:text-gray-500"
                                     />
                                 </div>
 
@@ -226,7 +226,7 @@ export default function CreateManagerNationalityField({
                                                 }}
                                                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors ${nationality === entry.code
                                                     ? "bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400"
-                                                    : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-navy-600"
+                                                    : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-surface-600"
                                                     }`}
                                             >
                                                 <span className="flex items-center gap-2">

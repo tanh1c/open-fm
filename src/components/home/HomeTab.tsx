@@ -307,7 +307,7 @@ export default function HomeTab({
                       {obj.met ? (
                         <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                       ) : (
-                        <Circle className="w-4 h-4 text-gray-300 dark:text-navy-600 flex-shrink-0" />
+                        <Circle className="w-4 h-4 text-gray-300 dark:text-surface-600 flex-shrink-0" />
                       )}
                       <span
                         className={`text-sm ${obj.met ? "text-green-600 dark:text-green-400 line-through" : "text-gray-700 dark:text-gray-300"}`}
@@ -324,7 +324,7 @@ export default function HomeTab({
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 pt-2 border-t border-gray-100 dark:border-navy-700">
+                <div className="mt-3 pt-2 border-t border-gray-100 dark:border-surface-700">
                   <p className="text-[10px] text-gray-400 dark:text-gray-500">
                     {t("home.objectivesMet", {
                       done: boardObjectives.filter((o) => o.met).length,

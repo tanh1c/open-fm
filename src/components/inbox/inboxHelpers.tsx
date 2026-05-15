@@ -48,7 +48,7 @@ const FILTER_BUTTON_BASE_CLASS =
   "px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all";
 const FILTER_BUTTON_ACTIVE_CLASS = "bg-primary-500 text-white shadow-sm";
 const FILTER_BUTTON_INACTIVE_CLASS =
-  "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200";
+  "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600 hover:text-gray-700 dark:hover:text-gray-200";
 
 const ROUTE_TAB_MAP: Record<string, string> = {
   squad: "Squad",
@@ -178,7 +178,7 @@ export function sortInboxMessages(
 export function getListPaneClassName(hasSelectedMessage: boolean): string {
   const visibilityClassName = hasSelectedMessage ? "hidden md:flex" : "flex";
 
-  return `${visibilityClassName} flex-col w-full md:w-96 md:min-w-[384px] border-r border-gray-200 dark:border-navy-600`;
+  return `${visibilityClassName} flex-col w-full md:w-96 md:min-w-[384px] border-r border-gray-200 dark:border-surface-600`;
 }
 
 export function getMessageRowClassName(
@@ -186,17 +186,17 @@ export function getMessageRowClassName(
   isRead: boolean,
 ): string {
   const baseClassName =
-    "flex gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-gray-100 dark:border-navy-600/50";
+    "flex gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-gray-100 dark:border-surface-600/50";
 
   if (isSelected) {
     return `${baseClassName} bg-primary-50 dark:bg-primary-500/10 border-l-2 border-l-primary-500`;
   }
 
   if (!isRead) {
-    return `${baseClassName} bg-white dark:bg-navy-800 border-l-2 border-l-accent-500 hover:bg-gray-50 dark:hover:bg-navy-700/50`;
+    return `${baseClassName} bg-white dark:bg-surface-800 border-l-2 border-l-accent-500 hover:bg-gray-50 dark:hover:bg-surface-700/50`;
   }
 
-  return `${baseClassName} border-l-2 border-l-transparent hover:bg-gray-50 dark:hover:bg-navy-700/30`;
+  return `${baseClassName} border-l-2 border-l-transparent hover:bg-gray-50 dark:hover:bg-surface-700/30`;
 }
 
 export function getMessageIconClassName(
@@ -212,7 +212,7 @@ export function getMessageIconClassName(
   }
 
   if (isRead) {
-    return `${baseClassName} text-gray-400 bg-gray-100 dark:bg-navy-600`;
+    return `${baseClassName} text-gray-400 bg-gray-100 dark:bg-surface-600`;
   }
 
   return `${baseClassName} ${categoryColor} bg-primary-500/10 dark:bg-primary-500/20`;
@@ -231,14 +231,14 @@ export function getActionButtonClassName(action: MessageAction): string {
     "px-5 py-2.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all mr-2 mb-2";
 
   if (action.resolved) {
-    return `${baseClassName} bg-gray-100 dark:bg-navy-700 text-gray-400 dark:text-gray-500 cursor-default`;
+    return `${baseClassName} bg-gray-100 dark:bg-surface-700 text-gray-400 dark:text-gray-500 cursor-default`;
   }
 
   if (
     action.action_type === "Acknowledge" ||
     action.action_type === "Dismiss"
   ) {
-    return `${baseClassName} bg-gray-200 dark:bg-navy-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-navy-500`;
+    return `${baseClassName} bg-gray-200 dark:bg-surface-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-surface-600`;
   }
 
   return `${baseClassName} bg-primary-500 text-white hover:bg-primary-600 shadow-sm hover:shadow-md hover:shadow-primary-500/20`;

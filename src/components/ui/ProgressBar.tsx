@@ -34,7 +34,7 @@ export function ProgressBar({
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div className={`flex-1 bg-gray-200 dark:bg-navy-600 rounded-full ${heights[size]} overflow-hidden`}>
+      <div className={`flex-1 bg-gray-200 dark:bg-surface-600 rounded-full ${heights[size]} overflow-hidden`}>
         <div
           className={`${barColors[resolvedVariant]} ${heights[size]} rounded-full transition-all duration-500`}
           style={{ width: `${clamped}%` }}

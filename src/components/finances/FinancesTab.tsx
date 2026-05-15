@@ -686,7 +686,7 @@ export default function FinancesTab({
             {financeItems.map((item) => (
               <div
                 key={item.label}
-                className="bg-gray-50 dark:bg-navy-800 rounded-xl p-4 text-center"
+                className="bg-gray-50 dark:bg-surface-800 rounded-xl p-4 text-center"
               >
                 <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
                   {item.label}
@@ -696,7 +696,7 @@ export default function FinancesTab({
                 </p>
               </div>
             ))}
-            <div className="bg-gray-50 dark:bg-navy-800 rounded-xl p-4 text-center">
+            <div className="bg-gray-50 dark:bg-surface-800 rounded-xl p-4 text-center">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
                 {t("finances.squadValue")}
               </p>
@@ -748,7 +748,7 @@ export default function FinancesTab({
         <CardHeader>{t("finances.cashFlow")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 {t("finances.weeklyWageSpend")}
               </p>
@@ -759,7 +759,7 @@ export default function FinancesTab({
                 )}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 {t("finances.weeklySponsorIncome")}
               </p>
@@ -770,7 +770,7 @@ export default function FinancesTab({
                 )}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 {t("finances.projectedWeeklyNet")}
               </p>
@@ -783,7 +783,7 @@ export default function FinancesTab({
                 )}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                 {t("finances.cashRunway")}
               </p>
@@ -794,7 +794,7 @@ export default function FinancesTab({
               </p>
             </div>
           </div>
-          <div className="mt-4 rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+          <div className="mt-4 rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -837,7 +837,7 @@ export default function FinancesTab({
         <CardHeader>{t("finances.wagePressure")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("finances.wagePressure")}
               </p>
@@ -856,7 +856,7 @@ export default function FinancesTab({
               />
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
                   <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -904,7 +904,7 @@ export default function FinancesTab({
                   {contractRiskPlayers.map(({ player, riskLevel }) => (
                     <div
                       key={player.id}
-                      className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-3 flex items-start justify-between gap-3"
+                      className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-3 flex items-start justify-between gap-3"
                     >
                       <div className="flex items-start gap-3">
                         <input
@@ -980,7 +980,7 @@ export default function FinancesTab({
         <CardHeader>{t("finances.sponsors")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-2">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-2">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("finances.activeSponsor")}
               </p>
@@ -1007,11 +1007,11 @@ export default function FinancesTab({
               )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("finances.pendingSponsorOffers")}
               </p>
-              <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-4 space-y-3">
+              <div className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-4 space-y-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
                     <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
@@ -1054,7 +1054,7 @@ export default function FinancesTab({
                   </p>
                 ) : null}
               </div>
-              <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-4 space-y-3">
+              <div className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-4 space-y-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
                     <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
@@ -1115,7 +1115,7 @@ export default function FinancesTab({
                   return (
                     <div
                       key={message.id}
-                      className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-4 space-y-3"
+                      className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-4 space-y-3"
                     >
                       <div className="space-y-1">
                         <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
@@ -1132,7 +1132,7 @@ export default function FinancesTab({
                             return (
                               <div
                                 key={option.id}
-                                className="min-w-55 flex-1 rounded-lg border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-3 space-y-2"
+                                className="min-w-55 flex-1 rounded-lg border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-3 space-y-2"
                               >
                                 <p className="text-xs text-gray-600 dark:text-gray-400">
                                   {option.description}
@@ -1193,7 +1193,7 @@ export default function FinancesTab({
               return (
                 <div
                   key={facility.id}
-                  className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 flex flex-col gap-4"
+                  className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 flex flex-col gap-4"
                 >
                   <div className="space-y-1">
                     <h3 className="font-heading font-bold text-base text-gray-900 dark:text-gray-100 uppercase tracking-wide">
@@ -1243,7 +1243,7 @@ export default function FinancesTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                   <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {t("common.player")}
                   </th>
@@ -1261,7 +1261,7 @@ export default function FinancesTab({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                 {[...roster]
                   .sort((a, b) => b.wage - a.wage)
                   .slice(0, 10)
@@ -1280,7 +1280,7 @@ export default function FinancesTab({
                       <tr
                         key={p.id}
                         onClick={() => onSelectPlayer?.(p.id)}
-                        className={`hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors ${onSelectPlayer ? "cursor-pointer group" : ""}`}
+                        className={`hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors ${onSelectPlayer ? "cursor-pointer group" : ""}`}
                       >
                         <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">
                           <span className="group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">

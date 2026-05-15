@@ -37,12 +37,12 @@ export default function HomeLeagueDigestCard({
             {t("home.noLeagueDigest")}
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-navy-600">
+          <div className="divide-y divide-gray-100 dark:divide-surface-600">
             {articles.map((article) => (
               <button
                 key={article.id}
                 onClick={() => onNavigate?.("News")}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors"
+                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1.5">
                   <Badge variant="neutral" size="sm">

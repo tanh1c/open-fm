@@ -104,7 +104,7 @@ export default function TournamentsTab({
   if (!league) {
     return (
       <div className="max-w-4xl mx-auto text-center py-12">
-        <Trophy className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+        <Trophy className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
         <p className="text-gray-500 dark:text-gray-400 text-sm">
           {t("tournaments.noActive")}
         </p>
@@ -221,7 +221,7 @@ export default function TournamentsTab({
 
       {/* League header */}
       <Card accent="primary" className="mb-5">
-        <div className="bg-gradient-to-r from-navy-700 to-navy-800 p-6 rounded-t-xl">
+        <div className="bg-gradient-to-r from-surface-700 to-surface-800 p-6 rounded-t-xl">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-accent-500/20 flex items-center justify-center">
               <Trophy className="w-7 h-7 text-accent-400" />
@@ -273,7 +273,7 @@ export default function TournamentsTab({
             onClick={() => setView(v)}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === v
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
+              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-surface-600"
               }`}
           >
             {v === "overview" ? (
@@ -310,7 +310,7 @@ export default function TournamentsTab({
             <CardBody className="p-0">
               {isPreseason ? (
                 <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-                  <Trophy className="w-8 h-8 text-gray-300 dark:text-navy-600" />
+                  <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
                   <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
                     {t("season.standingsLocked")}
                   </p>
@@ -321,7 +321,7 @@ export default function TournamentsTab({
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                    <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                       <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">
                         #
                       </th>
@@ -348,7 +348,7 @@ export default function TournamentsTab({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+                  <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                     {standings.map((entry, idx) => {
                       const isUser = entry.team_id === userTeamId;
                       const gd = entry.goals_for - entry.goals_against;
@@ -359,7 +359,7 @@ export default function TournamentsTab({
                         >
                           <tr
                             onClick={() => onSelectTeam(entry.team_id)}
-                            className={`cursor-pointer transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-navy-700/50"}`}
+                            className={`cursor-pointer transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-surface-700/50"}`}
                             data-testid={`tournaments-overview-standing-${entry.team_id}`}
                           >
                             <td className="py-2 px-3 font-heading font-bold text-sm text-gray-400">
@@ -409,7 +409,7 @@ export default function TournamentsTab({
                   {t("tournaments.noGoals")}
                 </p>
               ) : (
-                <div className="divide-y divide-gray-100 dark:divide-navy-600">
+                <div className="divide-y divide-gray-100 dark:divide-surface-600">
                   {topScorers.map((entry, i) => (
                     <ContextMenu
                       items={buildPlayerMenuItems(
@@ -455,7 +455,7 @@ export default function TournamentsTab({
           <Card>
             <CardBody>
               <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Trophy className="w-8 h-8 text-gray-300 dark:text-navy-600" />
+                <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
                 <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
                   {t("season.standingsLocked")}
                 </p>
@@ -467,7 +467,7 @@ export default function TournamentsTab({
           </Card>
         ) : (
           <Card>
-            <div className="p-5 border-b border-gray-100 dark:border-navy-600 bg-gradient-to-r from-navy-700 to-navy-800 rounded-t-xl">
+            <div className="p-5 border-b border-gray-100 dark:border-surface-600 bg-gradient-to-r from-surface-700 to-surface-800 rounded-t-xl">
               <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
                 <Trophy className="text-accent-400 w-5 h-5" />
                 {league.name} —{" "}
@@ -477,7 +477,7 @@ export default function TournamentsTab({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                  <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                     <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">
                       #
                     </th>
@@ -510,7 +510,7 @@ export default function TournamentsTab({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+                <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                   {standings.map((entry, idx) => {
                     const isUser = entry.team_id === userTeamId;
                     const gd = entry.goals_for - entry.goals_against;
@@ -521,7 +521,7 @@ export default function TournamentsTab({
                       >
                         <tr
                           onClick={() => onSelectTeam(entry.team_id)}
-                          className={`cursor-pointer transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-navy-700/50"}`}
+                          className={`cursor-pointer transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-surface-700/50"}`}
                           data-testid={`tournaments-standing-${entry.team_id}`}
                         >
                           <td className="py-3 px-4 font-heading font-bold text-sm text-gray-400">
@@ -573,14 +573,14 @@ export default function TournamentsTab({
         <div className="flex flex-col gap-4">
           {sortedMatchdays.map(([md, fixtures]) => (
             <Card key={md}>
-              <div className="px-5 py-3 border-b border-gray-100 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 rounded-t-xl">
+              <div className="px-5 py-3 border-b border-gray-100 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 rounded-t-xl">
                 <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
                   {t("schedule.matchday", { number: md })} —{" "}
                   {formatMatchDate(fixtures[0].date)}
                 </h4>
               </div>
               <CardBody className="p-0">
-                <div className="divide-y divide-gray-100 dark:divide-navy-600">
+                <div className="divide-y divide-gray-100 dark:divide-surface-600">
                   {fixtures.map((f) => {
                     const isUserMatch =
                       f.home_team_id === userTeamId ||
@@ -695,7 +695,7 @@ export default function TournamentsTab({
             </>
           ) : awardsLoadState === "error" ? (
             <div className="col-span-full text-center py-12">
-              <Award className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <Award className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
               <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
                 {t("tournaments.awards.noDataYet")}
               </p>
@@ -708,7 +708,7 @@ export default function TournamentsTab({
             </div>
           ) : (
             <div className="col-span-full text-center py-12">
-              <Award className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <Award className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
               <p className="text-sm text-gray-400 dark:text-gray-500">
                 {t("tournaments.loadingAwards")}
               </p>
@@ -773,7 +773,7 @@ function AwardCard({
             {emptyText}
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-navy-600">
+          <div className="divide-y divide-gray-100 dark:divide-surface-600">
             {entries.map((entry, i) => (
               <ContextMenu
                 items={buildAwardMenuItems(entry)}

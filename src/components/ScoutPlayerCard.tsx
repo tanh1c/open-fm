@@ -45,12 +45,12 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
   return (
     <div
       onClick={() => onPlayerClick?.(report.player_id)}
-      className={`mt-4 rounded-xl border border-gray-200 dark:border-navy-600 bg-gradient-to-br from-gray-50 to-white dark:from-navy-700 dark:to-navy-800 overflow-hidden ${onPlayerClick ? "cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-md transition-all" : ""
+      className={`mt-4 rounded-xl border border-gray-200 dark:border-surface-600 bg-gradient-to-br from-gray-50 to-white dark:from-surface-700 dark:to-surface-800 overflow-hidden ${onPlayerClick ? "cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-md transition-all" : ""
         }`}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-navy-700 dark:bg-navy-900">
-        <div className="w-10 h-10 rounded-full bg-navy-600 flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 bg-surface-700 dark:bg-surface-900">
+        <div className="w-10 h-10 rounded-full bg-surface-600 flex items-center justify-center flex-shrink-0">
           <User className="w-5 h-5 text-gray-300" />
         </div>
         <div className="flex-1 min-w-0">
@@ -133,18 +133,18 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
         </div>
 
         {/* Assessment footer */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-navy-600">
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-surface-600">
           {report.avg_rating !== null && (
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-navy-600 ${ratingColor(report.rating_key)}`}>
+            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-surface-600 ${ratingColor(report.rating_key)}`}>
               <BarChart3 className="w-3 h-3" />
               {t(report.rating_key)} (~{report.avg_rating})
             </span>
           )}
-          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-navy-600 ${ratingColor(report.potential_key)}`}>
+          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-surface-600 ${ratingColor(report.potential_key)}`}>
             <TrendingUp className="w-3 h-3" />
             {t(report.potential_key)}
           </span>
-          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-navy-600 ${confidenceColor(report.confidence_key)}`}>
+          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-surface-600 ${confidenceColor(report.confidence_key)}`}>
             <Eye className="w-3 h-3" />
             {t('scouting.confidence')}: {t(report.confidence_key)}
           </span>

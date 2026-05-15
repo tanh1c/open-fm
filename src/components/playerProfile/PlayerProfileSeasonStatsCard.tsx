@@ -42,7 +42,7 @@ export default function PlayerProfileSeasonStatsCard({
 
 function StatBox({ label, value }: { label: string; value: number | string }) {
     return (
-        <div className="text-center p-2.5 bg-gray-50 dark:bg-navy-700 rounded-lg">
+        <div className="text-center p-2.5 bg-gray-50 dark:bg-surface-700 rounded-lg">
             <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100 tabular-nums">
                 {value}
             </p>

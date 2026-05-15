@@ -48,7 +48,7 @@ export default function InboxMessageListPane({
 
   return (
     <div className={getListPaneClassName(hasSelectedMessage)}>
-      <div className="bg-linear-to-r from-navy-700 to-navy-800 shrink-0 border-b border-gray-100 p-4 dark:border-navy-600">
+      <div className="bg-linear-to-r from-surface-700 to-surface-800 shrink-0 border-b border-gray-100 p-4 dark:border-surface-600">
         <h3 className="text-sm font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
           <Mail className="w-4 h-4 text-accent-400" />
           {t("inbox.title")}
@@ -61,7 +61,7 @@ export default function InboxMessageListPane({
       <div className="flex-1 overflow-y-auto">
         {filteredMessages.length === 0 ? (
           <div className="p-6 text-center">
-            <MailOpen className="w-8 h-8 text-gray-300 dark:text-navy-600 mx-auto mb-2" />
+            <MailOpen className="w-8 h-8 text-gray-300 dark:text-surface-600 mx-auto mb-2" />
             <p className="text-sm text-gray-400 dark:text-gray-500">
               {t("inbox.noMessages")}
             </p>

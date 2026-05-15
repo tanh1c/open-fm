@@ -290,7 +290,7 @@ export default function YouthAcademyTab({
                 {eligibleSeniorPlayers.slice(0, 4).map((player) => (
                   <div
                     key={player.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/60 px-4 py-3"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800/60 px-4 py-3"
                   >
                     <div className="min-w-0">
                       <button
@@ -381,7 +381,7 @@ export default function YouthAcademyTab({
         <CardBody className="p-0">
           {youthPlayers.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12">
-              <GraduationCap className="w-10 h-10 text-gray-300 dark:text-navy-600" />
+              <GraduationCap className="w-10 h-10 text-gray-300 dark:text-surface-600" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t("youthAcademy.noYouthPlayers")}
               </p>
@@ -389,7 +389,7 @@ export default function YouthAcademyTab({
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+                <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
                   <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {t("youthAcademy.player")}
                   </th>
@@ -416,7 +416,7 @@ export default function YouthAcademyTab({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                 {youthPlayers.map((player) => {
                   const potLabel = getPotentialLabel(player.potential, t);
                   const growthRoom = player.potential - player.ovr;
@@ -436,7 +436,7 @@ export default function YouthAcademyTab({
                     <ContextMenu items={contextItems} key={player.id}>
                       <tr
                         onClick={() => onSelectPlayer?.(player.id)}
-                        className="hover:bg-gray-50 dark:hover:bg-navy-700/50 cursor-pointer transition-colors"
+                        className="hover:bg-gray-50 dark:hover:bg-surface-700/50 cursor-pointer transition-colors"
                       >
                         <td className="py-2.5 px-4">
                           <div>

@@ -53,7 +53,7 @@ function valueBarTone(value: number): string {
   if (value >= 80) return "bg-success-500";
   if (value >= 65) return "bg-primary-500";
   if (value >= 50) return "bg-accent-500";
-  return "bg-gray-300 dark:bg-navy-600";
+  return "bg-gray-300 dark:bg-surface-600";
 }
 
 function getNormalizedPlayerPosition(player: PlayerData): string {
@@ -73,7 +73,7 @@ function PlayerSummary({
   const overallRating = getPlayerOvr(player);
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-4">
+    <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800/70 px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
@@ -134,7 +134,7 @@ function SinglePlayerAttributes({ player }: { player: PlayerData }) {
                     <div className="text-xs text-gray-600 dark:text-gray-300 mb-1">
                       {t(`common.attributes.${attr}`)}
                     </div>
-                    <div className="h-2 rounded-full bg-gray-100 dark:bg-navy-800 overflow-hidden">
+                    <div className="h-2 rounded-full bg-gray-100 dark:bg-surface-800 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${valueBarTone(value)}`}
                         style={{ width: `${value}%` }}
@@ -184,7 +184,7 @@ function CompareAttributes({
           player={comparePlayer}
         />
       </div>
-      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-600 dark:text-gray-300">
           {t("tactics.compareSelectionHint")}
         </p>
@@ -218,7 +218,7 @@ function CompareAttributes({
                   className="grid grid-cols-[minmax(0,1fr)_90px_minmax(0,1fr)] gap-2 items-center"
                 >
                   <div
-                    className={`rounded-lg px-2 py-2 ${leftWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-gray-50 dark:bg-navy-800/70"}`}
+                    className={`rounded-lg px-2 py-2 ${leftWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-gray-50 dark:bg-surface-800/70"}`}
                   >
                     <div className="flex items-center justify-between gap-2 text-xs mb-1">
                       <span
@@ -227,7 +227,7 @@ function CompareAttributes({
                         {left}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white dark:bg-navy-700 overflow-hidden">
+                    <div className="h-2 rounded-full bg-white dark:bg-surface-700 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${valueBarTone(left)}`}
                         style={{ width: `${left}%` }}
@@ -238,7 +238,7 @@ function CompareAttributes({
                     {t(`common.attributes.${attr}`)}
                   </div>
                   <div
-                    className={`rounded-lg px-2 py-2 ${rightWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-gray-50 dark:bg-navy-800/70"}`}
+                    className={`rounded-lg px-2 py-2 ${rightWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-gray-50 dark:bg-surface-800/70"}`}
                   >
                     <div className="flex items-center justify-between gap-2 text-xs mb-1">
                       <span
@@ -247,7 +247,7 @@ function CompareAttributes({
                         {right}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white dark:bg-navy-700 overflow-hidden">
+                    <div className="h-2 rounded-full bg-white dark:bg-surface-700 overflow-hidden">
                       <div
                         className={`h-full rounded-full ${valueBarTone(right)}`}
                         style={{ width: `${right}%` }}
@@ -274,7 +274,7 @@ export default function TacticsPlayerFocusPanel({
 
   return (
     <Card>
-      <div className="p-4 border-b border-gray-100 dark:border-navy-600 bg-linear-to-r from-navy-700 to-navy-800 rounded-t-xl">
+      <div className="p-4 border-b border-gray-100 dark:border-surface-600 bg-linear-to-r from-surface-700 to-surface-800 rounded-t-xl">
         <h3 className="text-sm font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
           <GitCompareArrows className="w-4 h-4 text-accent-400" />
           {t("squadCompare.compare")}
@@ -295,15 +295,15 @@ export default function TacticsPlayerFocusPanel({
                 label={t("tactics.selectedPlayer")}
                 player={selectedPlayer}
               />
-              <div className="rounded-xl border border-dashed border-gray-200 dark:border-navy-600 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="rounded-xl border border-dashed border-gray-200 dark:border-surface-600 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                 {t("tactics.selectSecondPlayer")}
               </div>
               <SinglePlayerAttributes player={selectedPlayer} />
             </div>
           )
         ) : (
-          <div className="rounded-xl border border-dashed border-gray-200 dark:border-navy-600 px-4 py-8 text-center">
-            <GitCompareArrows className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+          <div className="rounded-xl border border-dashed border-gray-200 dark:border-surface-600 px-4 py-8 text-center">
+            <GitCompareArrows className="w-10 h-10 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
             <p className="text-sm text-gray-600 dark:text-gray-300">
               {t("tactics.selectPitchPlayer")}
             </p>

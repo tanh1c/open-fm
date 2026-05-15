@@ -178,7 +178,7 @@ function InfoRow({
     value: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-navy-600 last:border-0">
+        <div className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-surface-600 last:border-0">
             <div className="text-gray-400 dark:text-gray-500">{icon}</div>
             <span className="text-sm text-gray-500 dark:text-gray-400 flex-1">
                 {label}

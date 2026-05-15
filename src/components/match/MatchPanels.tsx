@@ -29,7 +29,7 @@ export function EventFeed({
           return (
             <div
               key={i}
-              className={`flex items-start gap-3 px-3 py-2 rounded-lg transition-colors ${display.important ? "bg-white dark:bg-navy-800/80 border border-gray-200 dark:border-navy-700 shadow-sm" : "opacity-60"}`}
+              className={`flex items-start gap-3 px-3 py-2 rounded-lg transition-colors ${display.important ? "bg-white dark:bg-surface-800/80 border border-gray-200 dark:border-surface-700 shadow-sm" : "opacity-60"}`}
             >
               <span className="text-gray-600 dark:text-gray-500 tabular-nums font-heading text-sm w-8 text-right flex-shrink-0 pt-0.5">
                 {evt.minute}'
@@ -146,7 +146,7 @@ export function MatchStats({ snapshot }: { snapshot: MatchSnapshot }) {
                 {stat.away}
               </span>
             </div>
-            <div className="flex h-1.5 bg-gray-300 dark:bg-navy-700 rounded-full overflow-hidden transition-colors duration-300">
+            <div className="flex h-1.5 bg-gray-300 dark:bg-surface-700 rounded-full overflow-hidden transition-colors duration-300">
               <div
                 className="h-full bg-primary-500 transition-all duration-500"
                 style={{ width: `${pct}%` }}
@@ -225,7 +225,7 @@ export function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
                       {p.name}
                     </span>
                     {yc > 0 && (
-                      <span className="w-3 h-4 rounded-sm bg-yellow-400 text-navy-900 text-[8px] flex items-center justify-center font-bold">
+                      <span className="w-3 h-4 rounded-sm bg-yellow-400 text-surface-900 text-[8px] flex items-center justify-center font-bold">
                         {yc > 1 ? yc : ""}
                       </span>
                     )}
@@ -233,7 +233,7 @@ export function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
                       <span className="w-3 h-4 rounded-sm bg-red-500" />
                     )}
                     <div className="w-14 flex items-center gap-1">
-                      <div className="flex-1 h-1.5 bg-gray-300 dark:bg-navy-600 rounded-full overflow-hidden transition-colors duration-300">
+                      <div className="flex-1 h-1.5 bg-gray-300 dark:bg-surface-600 rounded-full overflow-hidden transition-colors duration-300">
                         <div
                           className={`h-full ${condColor} rounded-full transition-all`}
                           style={{ width: `${p.condition}%` }}
@@ -252,7 +252,7 @@ export function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
 
         {/* Bench */}
         {bench.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-navy-700">
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-surface-700">
             <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1">
               {t("match.bench")}
             </p>
@@ -283,7 +283,7 @@ export function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
 
         {/* Sub History */}
         {snapshot.substitutions.filter((s) => s.side === side).length > 0 && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-navy-700">
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-surface-700">
             <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1">
               {t("match.substitutions")}
             </p>
@@ -321,7 +321,7 @@ export function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
         snapshot.home_yellows,
         snapshot.sent_off,
       )}
-      <div className="w-px bg-gray-200 dark:bg-navy-700 transition-colors duration-300" />
+      <div className="w-px bg-gray-200 dark:bg-surface-700 transition-colors duration-300" />
       {renderTeam(
         snapshot.away_team,
         snapshot.away_bench,

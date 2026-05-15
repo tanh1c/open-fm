@@ -91,7 +91,7 @@ export default function PlayerProfileRenewalModal({
               value={renewalWage}
               onChange={(event) => onWageChange(event.target.value)}
               disabled={renewalIsTerminal}
-              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
             />
           </div>
 
@@ -111,7 +111,7 @@ export default function PlayerProfileRenewalModal({
               value={renewalLength}
               onChange={(event) => onLengthChange(event.target.value)}
               disabled={renewalIsTerminal}
-              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function PlayerProfileRenewalModal({
         ) : null}
 
         {renewalProjection ? (
-          <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-700/40 p-3 space-y-2">
+          <div className="rounded-lg border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-700/40 p-3 space-y-2">
             <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               {t("playerProfile.renewalProjectionTitle")}
             </p>

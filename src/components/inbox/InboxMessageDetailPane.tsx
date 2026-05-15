@@ -55,7 +55,7 @@ export default function InboxMessageDetailPane({
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <MailOpen className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+          <MailOpen className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
           <p className="text-sm text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
             {t("inbox.selectMessage")}
           </p>
@@ -66,7 +66,7 @@ export default function InboxMessageDetailPane({
 
   return (
     <>
-      <div className="shrink-0 border-b border-gray-100 p-5 dark:border-navy-600">
+      <div className="shrink-0 border-b border-gray-100 p-5 dark:border-surface-600">
         <button
           onClick={onCloseSelectedMessage}
           className="md:hidden flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-3"
@@ -143,7 +143,7 @@ export default function InboxMessageDetailPane({
           {selectedMessage.category === "ScoutReport" &&
             !selectedMessage.context?.scout_report ? (
             <div className="mt-6 flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-navy-600 dark:bg-navy-700/60">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-surface-600 dark:bg-surface-700/60">
                 <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                   {t("scouting.youthTargetLabel")}
                 </span>
@@ -250,7 +250,7 @@ export default function InboxMessageDetailPane({
                           </div>
 
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-navy-600 dark:bg-navy-700/40">
+                            <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-surface-600 dark:bg-surface-700/40">
                               <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                 {t("youthAcademy.growth")}
                               </p>
@@ -280,7 +280,7 @@ export default function InboxMessageDetailPane({
                               </p>
                             </div>
 
-                            <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-navy-600 dark:bg-navy-700/40">
+                            <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-surface-600 dark:bg-surface-700/40">
                               <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                 {t("playerProfile.contractInfo")}
                               </p>
@@ -349,7 +349,7 @@ export default function InboxMessageDetailPane({
           ) : null}
 
           {selectedMessage.context?.match_result ? (
-            <div className="mt-6 p-4 bg-gray-50 dark:bg-navy-700 rounded-xl flex items-center justify-center gap-8 border border-gray-100 dark:border-navy-600">
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-surface-700 rounded-xl flex items-center justify-center gap-8 border border-gray-100 dark:border-surface-600">
               <span className="font-heading font-bold text-sm text-gray-700 dark:text-gray-200">
                 {getTeamName(
                   gameState.teams,
@@ -412,7 +412,7 @@ export default function InboxMessageDetailPane({
                           onClick={() =>
                             onAction(selectedMessage.id, action.id, option.id)
                           }
-                          className="w-full text-left p-4 rounded-xl border border-gray-200 dark:border-navy-600 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/50 dark:hover:bg-primary-500/5 transition-all group"
+                          className="w-full text-left p-4 rounded-xl border border-gray-200 dark:border-surface-600 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/50 dark:hover:bg-primary-500/5 transition-all group"
                         >
                           <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                             {option.label}

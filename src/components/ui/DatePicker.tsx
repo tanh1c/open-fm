@@ -135,12 +135,27 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [monthOpen]);
 
-  // Update parent when any component changes, if valid
-  useEffect(() => {
-    if (day && month && year && year.length === 4) {
-      onChange(formatDateValue(day, month, year));
+  // Notify parent whenever the three parts form a valid date. We do this
+  // imperatively from the input handlers (NOT a useEffect on [day, month, year,
+  // onChange]) because parents commonly pass an inline `onChange` whose
+  // identity changes every render — that would trigger a setState loop.
+  const emitIfComplete = (
+    nextDay: string,
+    nextMonth: string,
+    nextYear: string,
+  ) => {
+    if (
+      nextDay &&
+      nextMonth &&
+      nextYear &&
+      nextYear.length === 4
+    ) {
+      const formatted = formatDateValue(nextDay, nextMonth, nextYear);
+      if (formatted !== value) {
+        onChange(formatted);
+      }
     }
-  }, [day, month, year, onChange]);
+  };
 
   // Generate month names based on current locale
   const months = useMemo(() => createMonths(i18n.language), [i18n.language]);
@@ -149,7 +164,9 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
     let newDay = e.target.value.replace(/\D/g, '');
     if (newDay.length > 2) newDay = newDay.slice(0, 2);
 
-    setDay(clampDayValue(newDay, month, year));
+    const clamped = clampDayValue(newDay, month, year);
+    setDay(clamped);
+    emitIfComplete(clamped, month, year);
   };
 
   const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,9 +175,14 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
     setYear(newYear);
 
     // Re-validate day if year changes (leap years)
+    let nextDay = day;
     if (day && month && newYear.length === 4) {
-      setDay(clampDayValue(day, month, newYear));
+      nextDay = clampDayValue(day, month, newYear);
+      if (nextDay !== day) {
+        setDay(nextDay);
+      }
     }
+    emitIfComplete(nextDay, month, newYear);
   };
 
   const selectedMonthLabel = getSelectedMonthLabel(month, months, t('date.month'));
@@ -213,12 +235,15 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
                     setMonth(nextMonth);
                     setMonthOpen(false);
                     // Re-validate day
+                    let nextDay = day;
                     if (day && year.length === 4) {
                       const clampedDay = clampDayValue(day, nextMonth, year);
                       if (clampedDay !== day) {
-                        setDay(clampedDay.padStart(2, '0'));
+                        nextDay = clampedDay.padStart(2, '0');
+                        setDay(nextDay);
                       }
                     }
+                    emitIfComplete(nextDay, nextMonth, year);
                   }}
                   className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${(month === m.value || month === m.value.padStart(2, '0'))
                       ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
@@ -247,6 +272,7 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
               const normalisedYear = normaliseYearOnBlur(year, new Date().getFullYear());
               if (normalisedYear !== year) {
                 setYear(normalisedYear);
+                emitIfComplete(day, month, normalisedYear);
               }
             }
           }}

@@ -8,3 +8,4 @@ export { ThemeToggle } from "./ThemeToggle";
 export { DatePicker } from "./DatePicker";
 export { Select } from "./Select";
 export { Tabs, type TabItem } from "./Tabs";
+export { StatRow, StatCell } from "./StatRow";

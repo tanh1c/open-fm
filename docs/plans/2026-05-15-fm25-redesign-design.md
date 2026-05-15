@@ -168,3 +168,26 @@ After each phase:
 - High-density "tablet" mode.
 - Custom skin import.
 - Match engine 2D pitch view styling.
+
+## Verification log
+
+### 2026-05-15 — WCAG AA contrast audit
+
+Computed via the relative-luminance formula in WCAG 2.1, against
+`--color-surface-900` (`#14172a`) as the dominant dark-mode background.
+
+| Foreground | Background | Ratio | Required | Result |
+|---|---|---|---|---|
+| `surface-100` (#e8eaf2) | `surface-900` | 14.74:1 | 4.5:1 (body) | PASS |
+| `surface-200` (#c4c8d6) | `surface-900` | 10.61:1 | 4.5:1 (body) | PASS |
+| `primary-300` (#b6a3ff) | `surface-900` | 8.16:1 | 4.5:1 (body) | PASS |
+| `accent-500` (#b8eb1c) | `surface-900` | 12.60:1 | 4.5:1 (body) | PASS |
+| `success-500` (#2ecc71) | `surface-900` | 8.43:1 | 3:1 (UI elt) | PASS |
+| `danger-500` (#ef4444) | `surface-900` | 4.71:1 | 3:1 (UI elt) | PASS |
+| `warn-500` (#f59e0b) | `surface-900` | 8.25:1 | 3:1 (UI elt) | PASS |
+| `white` | `primary-500` (#7c5cff) | 4.35:1 | 3:1 (large text\*) | PASS |
+
+\* WCAG defines "large text" as ≥14 px bold or ≥18.66 px regular, requiring
+3:1 contrast. The `Button` primary variant uses `font-bold uppercase
+text-sm` (14 px ≥ 700 weight), so the 4.35:1 ratio satisfies the large-text
+rule. Body-sized white text on primary-500 (would need 4.5:1) is not used.

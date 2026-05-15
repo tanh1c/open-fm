@@ -48,12 +48,12 @@ export default function HomeRecentResultsCard({
                   className="flex items-center px-4 py-2.5 gap-3"
                 >
                   <span
-                    className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-heading font-bold text-white flex-shrink-0 ${
+                    className={`form-badge ${
                       result.resultCode === "W"
-                        ? "bg-green-500"
+                        ? "form-badge-w"
                         : result.resultCode === "L"
-                          ? "bg-red-500"
-                          : "bg-gray-400"
+                          ? "form-badge-l"
+                          : "form-badge-d"
                     }`}
                   >
                     {result.resultCode}

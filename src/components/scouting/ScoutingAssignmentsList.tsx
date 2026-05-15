@@ -94,7 +94,7 @@ export default function ScoutingAssignmentsList({
                   </p>
                   <div className="flex items-center gap-1.5 justify-end mt-0.5">
                     <Clock className="w-3 h-3 text-accent-500" />
-                    <span className="text-xs font-heading font-bold text-accent-500">
+                    <span className="text-xs font-stat font-bold text-accent-500">
                       {t("scouting.daysLeft", { days: assignment.days_remaining })}
                     </span>
                   </div>

@@ -110,6 +110,12 @@
     text-transform: uppercase;
   }
 
+  /* Color-graded rating cells (0-100 player attributes). Map via lib/ratings.ts. */
+  .rating-cell-poor  { background: color-mix(in srgb, var(--color-rating-poor) 15%, transparent); color: var(--color-rating-poor); border: 1px solid color-mix(in srgb, var(--color-rating-poor) 30%, transparent); }
+  .rating-cell-avg   { background: color-mix(in srgb, var(--color-rating-avg) 15%, transparent);  color: var(--color-rating-avg);  border: 1px solid color-mix(in srgb, var(--color-rating-avg) 30%, transparent); }
+  .rating-cell-good  { background: color-mix(in srgb, var(--color-rating-good) 15%, transparent); color: var(--color-rating-good); border: 1px solid color-mix(in srgb, var(--color-rating-good) 30%, transparent); }
+  .rating-cell-elite { background: color-mix(in srgb, var(--color-rating-elite) 15%, transparent); color: var(--color-rating-elite); border: 1px solid color-mix(in srgb, var(--color-rating-elite) 30%, transparent); }
+
   .scrollbar-thin {
     scrollbar-width: thin;
   }

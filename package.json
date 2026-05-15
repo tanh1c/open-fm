@@ -5,18 +5,18 @@
   "type": "module",
   "scripts": {
     "audit:i18n": "node scripts/audit-i18n.mjs",
+    "build:engine": "node scripts/generate-engine-commands.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "tauri": "tauri"
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@fontsource/barlow-condensed": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/rajdhani": "^5.2.7",
+    "comlink": "^4.4.2",
     "country-flag-icons": "^1.6.15",
     "i18n-iso-countries": "^7.14.0",
     "i18next": "^26.0.3",
@@ -30,7 +30,6 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
-    "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",

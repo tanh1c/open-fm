@@ -9,65 +9,83 @@
 @import "@fontsource/inter/latin-ext-500.css";
 @import "@fontsource/inter/latin-ext-600.css";
 @import "@fontsource/inter/latin-ext-700.css";
-@import "@fontsource/barlow-condensed/latin-600.css";
-@import "@fontsource/barlow-condensed/latin-700.css";
-@import "@fontsource/barlow-condensed/latin-ext-600.css";
-@import "@fontsource/barlow-condensed/latin-ext-700.css";
+@import "@fontsource/rajdhani/latin-500.css";
+@import "@fontsource/rajdhani/latin-600.css";
+@import "@fontsource/rajdhani/latin-700.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Typography — CJK fallbacks (PingFang SC/Microsoft YaHei/Noto Sans CJK SC) kick in on Chinese characters via the font-family fallback chain */
-  --font-sans: "Inter", "Avenir", "Helvetica", "Arial", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
-  --font-heading: "Barlow Condensed", "Inter", "Arial Narrow", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  /* Typography
+     - heading: Rajdhani (Eurostile-ish), used by .font-heading and h1-h6
+     - sans: Inter for body
+     - mono: JetBrains Mono for stat numerals (tabular numbers in tables) */
+  --font-sans:    "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-heading: "Rajdhani", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-mono:    "JetBrains Mono", "Consolas", ui-monospace, monospace;
 
-  /* Primary: Emerald Green */
-  --color-primary-50: #ecfdf5;
-  --color-primary-100: #d1fae5;
-  --color-primary-200: #a7f3d0;
-  --color-primary-300: #6ee7b7;
-  --color-primary-400: #34d399;
-  --color-primary-500: #10b981;
-  --color-primary-600: #059669;
-  --color-primary-700: #047857;
-  --color-primary-800: #065f46;
-  --color-primary-900: #064e3b;
+  /* Surface — deep charcoal/navy with cool blue tint (FM25 vibe) */
+  --color-surface-50:  #f5f6fa;
+  --color-surface-100: #e8eaf2;
+  --color-surface-200: #c4c8d6;
+  --color-surface-300: #9aa1b8;
+  --color-surface-600: #353a55;
+  --color-surface-700: #2a2f47;
+  --color-surface-800: #1d2138;
+  --color-surface-900: #14172a;
+  --color-surface-950: #0a0c1a;
 
-  /* Accent: Gold */
-  --color-accent-50: #fffbeb;
-  --color-accent-100: #fef3c7;
-  --color-accent-200: #fde68a;
-  --color-accent-300: #fcd34d;
-  --color-accent-400: #ffd60a;
-  --color-accent-500: #eab308;
-  --color-accent-600: #b8960a;
-  --color-accent-700: #a16207;
-  --color-accent-800: #854d0e;
-  --color-accent-900: #713f12;
+  /* Primary — FM25 signature violet */
+  --color-primary-50:  #f4f1ff;
+  --color-primary-100: #e6dfff;
+  --color-primary-200: #d3c7ff;
+  --color-primary-300: #b6a3ff;
+  --color-primary-400: #9b82ff;
+  --color-primary-500: #7c5cff;
+  --color-primary-600: #6240e6;
+  --color-primary-700: #4a2eb8;
+  --color-primary-800: #38228c;
+  --color-primary-900: #2b1a6e;
 
-  /* Success: Green */
-  --color-success-400: #06d6a0;
-  --color-success-500: #05a87d;
-  --color-success-600: #059669;
+  /* Accent — bright lime for positive deltas, ratings */
+  --color-accent-50:  #f8ffe1;
+  --color-accent-100: #ecffb0;
+  --color-accent-300: #d6ff3f;
+  --color-accent-400: #c4f31e;
+  --color-accent-500: #b8eb1c;
+  --color-accent-600: #94c40d;
+  --color-accent-700: #6b8b08;
 
-  /* Navy (dark mode backgrounds) */
-  --color-navy-900: #0a1128;
-  --color-navy-800: #131b33;
-  --color-navy-700: #1a2340;
-  --color-navy-600: #243054;
+  /* Semantic */
+  --color-success-400: #4ade80;
+  --color-success-500: #2ecc71;
+  --color-success-600: #16a34a;
+  --color-warn-500:    #f59e0b;
+  --color-danger-500:  #ef4444;
+
+  /* Rating gradient (player attribute cells) */
+  --color-rating-elite: #2ecc71;
+  --color-rating-good:  #b8eb1c;
+  --color-rating-avg:   #f59e0b;
+  --color-rating-poor:  #ef4444;
+
+  /* --- BACK-COMPAT ALIASES — REMOVED IN PHASE 4 ---
+     These keep ~50 files using bg-navy-* and text-primary-* working until
+     they're migrated to surface-*. Do not introduce new uses of navy-*. */
+  --color-navy-900: var(--color-surface-900);
+  --color-navy-800: var(--color-surface-800);
+  --color-navy-700: var(--color-surface-700);
+  --color-navy-600: var(--color-surface-600);
 }
 
 @layer base {
   body {
-    @apply bg-gray-100 text-navy-900 antialiased dark:bg-navy-900 dark:text-gray-100 transition-colors duration-300;
+    @apply bg-surface-50 text-surface-900 antialiased dark:bg-surface-900 dark:text-surface-100 transition-colors duration-300;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
   }
 }
@@ -75,6 +93,21 @@
 @layer utilities {
   .font-heading {
     font-family: var(--font-heading);
+  }
+
+  .font-stat {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .heading-tight {
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .heading-loose {
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
   }
 
   .scrollbar-thin {
@@ -90,7 +123,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: var(--color-navy-600);
+    background-color: var(--color-surface-600);
     border-radius: 9999px;
   }
 }
@@ -101,11 +134,11 @@
 }
 
 .dark select option {
-  background-color: var(--color-navy-700);
+  background-color: var(--color-surface-700);
   color: #e2e8f0;
 }
 
-/* Dark mode readability: boost low-contrast gray text on navy backgrounds */
+/* Dark mode readability: boost low-contrast gray text on charcoal backgrounds */
 .dark .text-gray-500 {
   color: #8d99ae;
 }

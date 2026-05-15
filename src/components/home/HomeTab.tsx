@@ -16,6 +16,13 @@ import {
   getOnboardingCompletionState,
   getRecentResultsForTeam,
 } from "./HomeTab.helpers";
+import {
+  buildFormBreakdown,
+  buildGoalSegments,
+  buildSquadOverviewRows,
+  buildTacticsSlots,
+} from "./HomeTab.cards";
+import { useState } from "react";
 import HomeLeagueDigestCard from "./HomeLeagueDigestCard";
 import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
 import HomeLatestNewsCard from "./HomeLatestNewsCard";
@@ -26,6 +33,13 @@ import HomeRecentMessagesCard from "./HomeRecentMessagesCard";
 import HomeSquadOverviewCard from "./HomeSquadOverviewCard";
 import HomeSeasonStatusCard from "./HomeSeasonStatusCard";
 import HomeUnavailablePlayersCard from "./HomeUnavailablePlayersCard";
+import { FormChartCard } from "./FormChartCard";
+import { GoalsAnalysisCard } from "./GoalsAnalysisCard";
+import {
+  SquadOverviewTable,
+  type SquadOverviewTab,
+} from "./SquadOverviewTable";
+import { TacticsFormationCard } from "./TacticsFormationCard";
 import {
   Dumbbell,
   Mail,
@@ -166,6 +180,13 @@ export default function HomeTab({
     visitedOnboardingTabs,
   );
 
+  // FM25 cards data adapters
+  const formBreakdown = buildFormBreakdown(myTeam?.form ?? []);
+  const goalSegments = buildGoalSegments(gameState, myTeam?.id ?? null);
+  const squadOverviewRows = buildSquadOverviewRows(roster);
+  const tacticsSlots = buildTacticsSlots(myTeam ?? null, roster);
+  const [squadTab, setSquadTab] = useState<SquadOverviewTab>("overview");
+
   const onboardingSteps = [
     {
       id: "squad",
@@ -280,6 +301,26 @@ export default function HomeTab({
 
       {myTeam && (
         <>
+          {/* FM25 Row 1 — Tactics formation pitch (wide) + Goals donut */}
+          {tacticsSlots.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <TacticsFormationCard
+                className="md:col-span-2"
+                formation={myTeam.formation || "4-4-2"}
+                tacticalStyle={myTeam.play_style || "Balanced"}
+                players={tacticsSlots}
+                instructions={{
+                  teamInstructions: ["Higher Tempo", "Pass Into Space"],
+                  inPossession: "Patient Build",
+                  inTransition: "Counter-Press",
+                  outOfPossession: "Mid Block",
+                }}
+              />
+              <GoalsAnalysisCard segments={goalSegments} />
+            </div>
+          )}
+
+          {/* FM25 Row 2 — Next opponent + League digest (kept as supporting cards) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <HomeNextOpponentCard
               nextOpponent={nextOpponent}
@@ -343,8 +384,18 @@ export default function HomeTab({
             onNavigate={onNavigate}
           />
 
+          {/* FM25 Row 3 — dense squad overview table */}
+          {squadOverviewRows.length > 0 && (
+            <SquadOverviewTable
+              players={squadOverviewRows}
+              activeTab={squadTab}
+              onTabChange={setSquadTab}
+              onPlayerClick={() => onNavigate?.("Squad")}
+            />
+          )}
+
+          {/* FM25 Row 4 — squad fitness + recent results + form chart */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Squad Fitness */}
             <HomeSquadOverviewCard
               avgCondition={avgCondition}
               avgOvr={avgOvr}
@@ -362,13 +413,20 @@ export default function HomeTab({
               onNavigate={onNavigate}
             />
 
-            <HomeLatestNewsCard
-              articles={latestNews}
-              teams={gameState.teams}
-              lang={lang}
-              onNavigate={onNavigate}
+            <FormChartCard
+              results={formBreakdown.results}
+              totals={formBreakdown.totals}
+              pointsPerGame={formBreakdown.pointsPerGame}
             />
           </div>
+
+          {/* FM25 Row 5 — latest news (full width below the form row) */}
+          <HomeLatestNewsCard
+            articles={latestNews}
+            teams={gameState.teams}
+            lang={lang}
+            onNavigate={onNavigate}
+          />
 
           {roster.length > 0 && (hotPlayers.length > 0 || coldPlayers.length > 0) && (
             <HomePlayerMomentumCard

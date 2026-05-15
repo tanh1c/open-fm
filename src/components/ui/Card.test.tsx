@@ -13,36 +13,36 @@ describe("Card", () => {
     expect(container.firstChild?.nodeName).toBe("DIV");
   });
 
-  it("applies 'none' accent by default (no top border)", () => {
+  it("applies 'none' accent by default (flat border, no left accent)", () => {
     const { container } = render(<Card>Default</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-gray-200");
-    expect(el.className).not.toContain("border-t-4");
+    expect(el.className).toContain("border-surface-700");
+    expect(el.className).not.toContain("border-l-2");
   });
 
-  it("applies primary accent border", () => {
+  it("applies primary accent — 2px violet left border", () => {
     const { container } = render(<Card accent="primary">Primary</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-t-4");
-    expect(el.className).toContain("border-t-primary-500");
+    expect(el.className).toContain("border-l-2");
+    expect(el.className).toContain("border-l-primary-500");
   });
 
-  it("applies accent accent border", () => {
+  it("applies accent accent — lime left border", () => {
     const { container } = render(<Card accent="accent">Accent</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-t-accent-400");
+    expect(el.className).toContain("border-l-accent-500");
   });
 
-  it("applies success accent border", () => {
+  it("applies success accent — green left border", () => {
     const { container } = render(<Card accent="success">Success</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-t-success-400");
+    expect(el.className).toContain("border-l-success-500");
   });
 
-  it("applies danger accent border", () => {
+  it("applies danger accent — red left border", () => {
     const { container } = render(<Card accent="danger">Danger</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-t-red-500");
+    expect(el.className).toContain("border-l-danger-500");
   });
 
   it("merges custom className", () => {
@@ -86,7 +86,7 @@ describe("CardBody", () => {
   it("applies default padding", () => {
     const { container } = render(<CardBody>Padded</CardBody>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("p-6");
+    expect(el.className).toContain("p-5");
   });
 
   it("merges custom className", () => {

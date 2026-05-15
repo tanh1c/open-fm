@@ -11,8 +11,24 @@ import DashboardHeader, {
 } from "../components/dashboard/DashboardHeader";
 import DashboardOverlays from "../components/dashboard/DashboardOverlays";
 import FiredModal from "../components/dashboard/FiredModal";
-import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
+import { TopbarV2, SidebarV2, type SidebarV2Item } from "../components/layout";
+import {
+  Briefcase,
+  Mail as MailIcon,
+  Newspaper,
+  Calendar as CalendarIcon,
+  Users,
+  Crosshair,
+  Dumbbell,
+  UserCog,
+  GraduationCap,
+  DollarSign,
+  TrendingUp,
+  UsersRound,
+  Building2,
+  Trophy,
+} from "lucide-react";
 import {
   createDashboardProfileNavigationState,
   goBackDashboardProfile,
@@ -38,7 +54,7 @@ import {
   getUnreadMessagesCount,
 } from "../components/dashboard/dashboardHelpers";
 import { useAdvanceTime } from "../hooks/useAdvanceTime";
-import { Cpu, Eye, Gamepad2 } from "lucide-react";
+import { Cpu, Eye, Gamepad2, Eye as EyeIcon } from "lucide-react";
 import {
   formatDateFull,
   isSeasonComplete as isLeagueSeasonComplete,
@@ -87,7 +103,6 @@ export default function Dashboard(): JSX.Element {
   }, [settingsLoaded, loadSettings]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [profileNavigation, setProfileNavigation] = useState(() =>
     createDashboardProfileNavigationState("Home"),
   );
@@ -401,93 +416,124 @@ export default function Dashboard(): JSX.Element {
   });
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-surface-900 flex transition-colors duration-300">
-      <DashboardSidebar
-        activeTab={profileNavigation.activeTab}
-        collapsed={isSidebarCollapsed}
-        onNavClick={handleNavClick}
-        onToggleCollapse={() => {
-          setIsSidebarCollapsed((currentValue) => !currentValue);
-        }}
-        unreadMessagesCount={unreadMessagesCount}
-        managerName={managerName}
-        teamName={myTeamName}
-        onNavigateSettings={handleNavigateSettings}
-        isUnemployed={isUnemployed ?? false}
-        onExitClick={() => {
-          if (!isExitingToMenu) {
-            setShowExitConfirm(true);
-          }
-        }}
+    <div className="min-h-screen bg-gray-100 dark:bg-surface-900 flex flex-col transition-colors duration-300">
+      <TopbarV2
+        logo={
+          <span className="flex items-center gap-2">
+            <img src="/openfootball.svg" alt={t("app.name")} className="w-6 h-6" />
+            <span>{t("app.name")}</span>
+          </span>
+        }
+        seasonLabel={t("dashboard.season", { defaultValue: "Season" })}
+        seasonDate={currentDate}
+        reputationLabel={myTeamName ?? t("dashboard.unemployed", { defaultValue: "Unemployed" })}
+        reputationStars={Math.min(
+          5,
+          Math.max(1, Math.round((gameState.teams.find((tm) => tm.id === gameState.manager.team_id)?.reputation ?? 0) / 200)),
+        )}
+        managerName={managerName ?? ""}
+        managerRole={myTeamName ? t("dashboard.manager") : t("dashboard.unemployed", { defaultValue: "Unemployed" })}
+        unreadCount={unreadMessagesCount}
+        onLogoClick={() => handleNavClick("Home")}
+        onInbox={() => handleNavClick("Inbox")}
+        onHelp={handleNavigateSettings}
       />
 
-      <DashboardOverlays
-        blockerModal={blockerModal}
-        currentModeMeta={currentModeMeta}
-        handleConfirmMatch={handleConfirmMatch}
-        handleExitToMenu={handleExitToMenu}
-        handleNavigate={handleNavigate}
-        handleCloseQuit={handleCloseQuit}
-        isExitingToMenu={isExitingToMenu}
-        matchMode={matchMode}
-        setBlockerModal={setBlockerModal}
-        setShowCloseConfirm={setShowCloseConfirm}
-        setShowExitConfirm={setShowExitConfirm}
-        setShowMatchConfirm={setShowMatchConfirm}
-        showCloseConfirm={showCloseConfirm}
-        showExitConfirm={showExitConfirm}
-        showMatchConfirm={showMatchConfirm}
-        teams={gameState.teams}
-        todayMatchFixture={todayMatchFixture}
-      />
-      <FiredModal />
+      <div className="flex-1 flex min-h-0">
+        <SidebarV2
+          activeId={profileNavigation.activeTab}
+          onSelect={handleNavClick}
+          items={[
+            { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
+            { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
+            { id: "News", label: t("dashboard.news"), icon: <Newspaper /> },
+            { id: "Schedule", label: t("dashboard.schedule"), icon: <CalendarIcon /> },
+            ...(isUnemployed
+              ? []
+              : ([
+                  { id: "Squad", label: t("dashboard.squad"), icon: <Users /> },
+                  { id: "Tactics", label: t("dashboard.tactics"), icon: <Crosshair /> },
+                  { id: "Training", label: t("dashboard.training"), icon: <Dumbbell /> },
+                  { id: "Staff", label: t("dashboard.staff"), icon: <UserCog /> },
+                  { id: "Scouting", label: t("dashboard.scouting"), icon: <EyeIcon /> },
+                  { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
+                  { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
+                  { id: "Transfers", label: t("dashboard.transfers"), icon: <TrendingUp /> },
+                ] as SidebarV2Item[])),
+            { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
+            { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },
+            { id: "Tournaments", label: t("dashboard.tournaments"), icon: <Trophy /> },
+          ]}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <DashboardHeader
-          activeTabLabel={activeTabLabel}
-          currentDate={currentDate}
-          hasProfileHistory={hasProfileHistory}
-          hasMatchToday={hasMatchToday}
-          isAdvancing={isAdvancing}
-          isSaving={isSaving}
+        <DashboardOverlays
+          blockerModal={blockerModal}
+          currentModeMeta={currentModeMeta}
+          handleConfirmMatch={handleConfirmMatch}
+          handleExitToMenu={handleExitToMenu}
+          handleNavigate={handleNavigate}
+          handleCloseQuit={handleCloseQuit}
+          isExitingToMenu={isExitingToMenu}
           matchMode={matchMode}
-          matchedPlayers={searchResults.matchedPlayers}
-          matchedTeams={searchResults.matchedTeams}
-          modeMeta={MODE_META}
-          onBack={handleBack}
-          onContinue={handleContinue}
-          onSave={handleSave}
-          onSearchBlur={handleSearchBlur}
-          onSearchFocus={handleSearchFocus}
-          onSearchQueryChange={handleSearchQueryChange}
-          onSelectMatchMode={handleSelectMatchMode}
-          onSelectSearchPlayer={handleSelectSearchPlayer}
-          onSelectSearchTeam={handleSelectSearchTeam}
-          onSkipToMatchDay={handleSkipToMatchDay}
-          onToggleContinueMenu={handleToggleContinueMenu}
-          saveFlash={saveFlash}
-          searchOpen={searchOpen}
-          searchQuery={searchQuery}
-          seasonComplete={seasonComplete}
-          showContinueMenu={showContinueMenu}
-          isUnemployed={isUnemployed ?? false}
+          setBlockerModal={setBlockerModal}
+          setShowCloseConfirm={setShowCloseConfirm}
+          setShowExitConfirm={setShowExitConfirm}
+          setShowMatchConfirm={setShowMatchConfirm}
+          showCloseConfirm={showCloseConfirm}
+          showExitConfirm={showExitConfirm}
+          showMatchConfirm={showMatchConfirm}
           teams={gameState.teams}
+          todayMatchFixture={todayMatchFixture}
         />
+        <FiredModal />
 
-        <DashboardWorkspaceContent
-          dashboardAlerts={dashboardAlerts}
-          gameState={gameState}
-          profileNavigation={profileNavigation}
-          dashboardTabContentModel={dashboardTabContentModel}
-          onBack={handleBack}
-          onNavigate={handleNavigate}
-          onSelectPlayer={selectPlayer}
-          onSelectTeam={selectTeam}
-          onGameUpdate={setGameState}
-          isUnemployed={isUnemployed ?? false}
-        />
-      </main>
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <DashboardHeader
+            activeTabLabel={activeTabLabel}
+            currentDate={currentDate}
+            hasProfileHistory={hasProfileHistory}
+            hasMatchToday={hasMatchToday}
+            isAdvancing={isAdvancing}
+            isSaving={isSaving}
+            matchMode={matchMode}
+            matchedPlayers={searchResults.matchedPlayers}
+            matchedTeams={searchResults.matchedTeams}
+            modeMeta={MODE_META}
+            onBack={handleBack}
+            onContinue={handleContinue}
+            onSave={handleSave}
+            onSearchBlur={handleSearchBlur}
+            onSearchFocus={handleSearchFocus}
+            onSearchQueryChange={handleSearchQueryChange}
+            onSelectMatchMode={handleSelectMatchMode}
+            onSelectSearchPlayer={handleSelectSearchPlayer}
+            onSelectSearchTeam={handleSelectSearchTeam}
+            onSkipToMatchDay={handleSkipToMatchDay}
+            onToggleContinueMenu={handleToggleContinueMenu}
+            saveFlash={saveFlash}
+            searchOpen={searchOpen}
+            searchQuery={searchQuery}
+            seasonComplete={seasonComplete}
+            showContinueMenu={showContinueMenu}
+            isUnemployed={isUnemployed ?? false}
+            teams={gameState.teams}
+          />
+
+          <DashboardWorkspaceContent
+            dashboardAlerts={dashboardAlerts}
+            gameState={gameState}
+            profileNavigation={profileNavigation}
+            dashboardTabContentModel={dashboardTabContentModel}
+            onBack={handleBack}
+            onNavigate={handleNavigate}
+            onSelectPlayer={selectPlayer}
+            onSelectTeam={selectTeam}
+            onGameUpdate={setGameState}
+            isUnemployed={isUnemployed ?? false}
+          />
+        </main>
+      </div>
     </div>
   );
 }

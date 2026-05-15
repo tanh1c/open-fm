@@ -232,14 +232,21 @@ vi.mock("../hooks/useAdvanceTime", () => ({
   }),
 }));
 
-vi.mock("../components/dashboard/DashboardSidebar", () => ({
-  default: ({ onNavClick, activeTab }: any) => (
-    <div>
-      <span>Sidebar {activeTab}</span>
-      <button onClick={() => onNavClick("Inbox")}>nav-inbox</button>
-    </div>
-  ),
-}));
+vi.mock("../components/layout", async () => {
+  const actual = await vi.importActual<typeof import("../components/layout")>(
+    "../components/layout",
+  );
+  return {
+    ...actual,
+    TopbarV2: () => <div>TopbarV2 mock</div>,
+    SidebarV2: ({ onSelect, activeId }: any) => (
+      <div>
+        <span>Sidebar {activeId}</span>
+        <button onClick={() => onSelect("Inbox")}>nav-inbox</button>
+      </div>
+    ),
+  };
+});
 
 vi.mock("../components/dashboard/DashboardHeader", () => ({
   default: ({ activeTabLabel, onBack, onSelectSearchPlayer, onSelectSearchTeam }: any) => (

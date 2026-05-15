@@ -18,24 +18,26 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
+  // FM25 vibe: rounded-md (6px), uppercase heading font, inset highlight on
+  // hover, primary glow on focus.
   const base =
-    "inline-flex items-center justify-center gap-2 font-heading font-bold uppercase tracking-wider rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center gap-2 font-heading font-semibold uppercase tracking-wider rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-surface-900 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variants = {
     primary:
-      "bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white shadow-md hover:shadow-lg focus:ring-primary-500 dark:focus:ring-offset-navy-800",
+      "bg-primary-500 hover:bg-primary-400 active:bg-primary-600 text-white border border-primary-700/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] focus:ring-primary-500",
     accent:
-      "bg-accent-400 hover:bg-accent-500 active:bg-accent-600 text-navy-900 shadow-md hover:shadow-lg focus:ring-accent-400 dark:focus:ring-offset-navy-800",
+      "bg-accent-400 hover:bg-accent-500 active:bg-accent-600 text-surface-900 border border-accent-700/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] focus:ring-accent-500",
     ghost:
-      "bg-transparent hover:bg-gray-100 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300 focus:ring-gray-300 dark:focus:ring-offset-navy-800",
+      "bg-transparent hover:bg-surface-700/60 text-surface-200 hover:text-white focus:ring-surface-300",
     outline:
-      "bg-transparent border-2 border-gray-300 dark:border-navy-600 hover:border-primary-500 dark:hover:border-primary-400 text-gray-700 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-400 focus:ring-primary-500 dark:focus:ring-offset-navy-800",
+      "bg-transparent border-2 border-surface-600 hover:border-primary-400 text-surface-200 hover:text-white focus:ring-primary-500",
   };
 
   const sizes = {
     sm: "px-3 py-1.5 text-xs",
-    md: "px-5 py-2.5 text-sm",
-    lg: "px-7 py-3.5 text-base",
+    md: "px-4 py-2.5 text-sm",
+    lg: "px-6 py-3 text-base",
   };
 
   return (

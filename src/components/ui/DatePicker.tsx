@@ -198,9 +198,9 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
           value={day}
           onChange={handleDayChange}
           onBlur={() => setDay(normaliseDayOnBlur(day))}
-          className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${error
-              ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
-              : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
+          className={`w-full bg-gray-50 dark:bg-surface-900 border text-gray-900 dark:text-white rounded-md p-2.5 outline-none focus:ring-2 transition-colors placeholder:text-gray-400 dark:placeholder:text-surface-200/40 text-center ${error
+              ? "border-danger-500 focus:border-danger-500 focus:ring-danger-500/20"
+              : "border-gray-300 dark:border-surface-700 focus:border-primary-500 focus:ring-primary-500/40"
             }`}
         />
       </div>
@@ -210,11 +210,11 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
         <button
           type="button"
           onClick={() => setMonthOpen(!monthOpen)}
-          className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${error
-              ? "border-red-400 dark:border-red-500"
+          className={`w-full flex items-center justify-between bg-gray-50 dark:bg-surface-900 border text-left rounded-md p-2.5 outline-none transition-colors ${error
+              ? "border-danger-500"
               : monthOpen
-                ? "border-primary-500 ring-2 ring-primary-500/20"
-                : "border-gray-300 dark:border-navy-600"
+                ? "border-primary-500 ring-2 ring-primary-500/40"
+                : "border-gray-300 dark:border-surface-700"
             }`}
         >
           <span className={month ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}>
@@ -224,7 +224,7 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
         </button>
 
         {monthOpen && (
-          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden">
+          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-surface-800 rounded-md shadow-xl border border-gray-200 dark:border-surface-700 overflow-hidden">
             <div className="max-h-48 overflow-y-auto">
               {months.map(m => (
                 <button
@@ -246,8 +246,8 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
                     emitIfComplete(nextDay, nextMonth, year);
                   }}
                   className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${(month === m.value || month === m.value.padStart(2, '0'))
-                      ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
-                      : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-600"
+                      ? "bg-primary-50 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300"
+                      : "text-gray-700 dark:text-surface-100 hover:bg-gray-50 dark:hover:bg-surface-700"
                     }`}
                 >
                   <span>{m.label}</span>
@@ -276,9 +276,9 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
               }
             }
           }}
-          className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${error
-              ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
-              : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
+          className={`w-full bg-gray-50 dark:bg-surface-900 border text-gray-900 dark:text-white rounded-md p-2.5 outline-none focus:ring-2 transition-colors placeholder:text-gray-400 dark:placeholder:text-surface-200/40 text-center ${error
+              ? "border-danger-500 focus:border-danger-500 focus:ring-danger-500/20"
+              : "border-gray-300 dark:border-surface-700 focus:border-primary-500 focus:ring-primary-500/40"
             }`}
         />
       </div>

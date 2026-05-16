@@ -167,6 +167,25 @@
     background-color: var(--color-surface-600);
     border-radius: 9999px;
   }
+
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-app-border) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-app-border);
+    border-radius: 4px;
+  }
 }
 
 /* Dark mode: fix native select/option dropdown backgrounds on Linux */

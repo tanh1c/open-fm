@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Search, Bell, Mail, HelpCircle, Star, CalendarDays, Trophy } from "lucide-react";
+import { Search, Bell, Mail, HelpCircle, Star, Calendar, Globe2 } from "lucide-react";
 
 interface TopbarV2Props {
   /** Optional logo node (icon + brand name). Caller composes it so the brand
@@ -56,13 +56,15 @@ export function TopbarV2({
         )}
 
         <StatusPill
-          icon={<CalendarDays />}
+          icon={<Calendar />}
           primary={seasonLabel}
           secondary={seasonDate}
+          primaryClassName="font-semibold text-app-text text-sm"
+          secondaryClassName="text-xs text-app-text-muted"
         />
 
         <StatusPill
-          icon={<Trophy />}
+          icon={<Globe2 />}
           primary="Club Reputation"
           secondary={reputationLabel}
           trailing={<StarRow filled={reputationStars} />}
@@ -126,23 +128,30 @@ interface StatusPillProps {
   primary: string;
   secondary: string;
   trailing?: ReactNode;
+  primaryClassName?: string;
+  secondaryClassName?: string;
 }
 
-function StatusPill({ icon, primary, secondary, trailing }: StatusPillProps) {
+function StatusPill({
+  icon,
+  primary,
+  secondary,
+  trailing,
+  primaryClassName = "text-xs text-app-text-muted",
+  secondaryClassName = "font-semibold text-app-text text-sm",
+}: StatusPillProps) {
   return (
-    <div className="flex items-center gap-3 bg-app-card border border-app-border rounded-xl px-4 py-2 flex-shrink-0">
+    <div className="flex items-center gap-3 bg-app-card border border-app-border rounded-xl px-4 py-2">
       {icon && (
-        <span className="[&>svg]:w-4 [&>svg]:h-4 text-app-text-muted">{icon}</span>
+        <span className="[&>svg]:w-5 [&>svg]:h-5 text-app-text-muted">{icon}</span>
       )}
-      <div className="flex flex-col leading-tight">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-          {primary}
-        </span>
-        <span className="text-xs font-semibold text-app-text">
-          {secondary}
-        </span>
+      <div className="flex flex-col text-sm">
+        <span className={primaryClassName}>{primary}</span>
+        <div className="flex items-center gap-2">
+          <span className={secondaryClassName}>{secondary}</span>
+          {trailing}
+        </div>
       </div>
-      {trailing && <span className="ml-1">{trailing}</span>}
     </div>
   );
 }
@@ -150,7 +159,7 @@ function StatusPill({ icon, primary, secondary, trailing }: StatusPillProps) {
 function StarRow({ filled }: { filled: number }) {
   const clamped = Math.max(0, Math.min(5, Math.round(filled)));
   return (
-    <span className="flex items-center gap-0.5">
+    <span className="flex items-center">
       {Array.from({ length: 5 }, (_, i) => (
         <Star
           key={i}

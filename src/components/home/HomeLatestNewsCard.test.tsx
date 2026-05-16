@@ -76,7 +76,7 @@ describe("HomeLatestNewsCard", () => {
       />,
     );
 
-    expect(screen.getByText("Latest News")).toBeInTheDocument();
+    expect(screen.getByText("TRANSFER ACTIVITY")).toBeInTheDocument();
     expect(screen.getByText("Big win for Alpha FC")).toBeInTheDocument();
     expect(screen.getByText(/2-1/)).toBeInTheDocument();
   });

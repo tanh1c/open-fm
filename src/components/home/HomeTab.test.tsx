@@ -16,22 +16,6 @@ const backendI18nMocks = vi.hoisted(() => ({
   resolveNewsArticle: vi.fn((value: unknown) => value),
 }));
 
-vi.mock("../NextMatchDisplay", () => ({
-  default: () => <div data-testid="next-match-display" />,
-}));
-
-vi.mock("./HomeSquadOverviewCard", () => ({
-  default: ({ avgCondition, avgOvr, exhaustedCount }: { avgCondition: number; avgOvr: number; exhaustedCount: number }) => (
-    <div data-testid="home-squad-overview">{`${avgCondition}|${avgOvr}|${exhaustedCount}`}</div>
-  ),
-}));
-
-vi.mock("./HomeUnavailablePlayersCard", () => ({
-  default: ({ players }: { players: Array<{ full_name: string }> }) => (
-    <div data-testid="home-unavailable-players">{players.map((player) => player.full_name).join(",")}</div>
-  ),
-}));
-
 vi.mock("../../utils/backendI18n", () => ({
   resolveBoardObjective: backendI18nMocks.resolveBoardObjective,
   resolveMessage: backendI18nMocks.resolveMessage,
@@ -278,7 +262,8 @@ describe("HomeTab", function (): void {
       "xl:flex-row",
       "gap-4",
     );
-    expect(screen.getByTestId("home-right-sidebar")).toHaveClass(
+    expect(screen.getByTestId("template-dashboard")).toBeInTheDocument();
+    expect(screen.getByTestId("template-right-sidebar")).toHaveClass(
       "xl:w-[320px]",
       "shrink-0",
     );
@@ -320,13 +305,26 @@ describe("HomeTab", function (): void {
     expect(screen.getByText(/Resolved source/)).toBeInTheDocument();
   });
 
-  it("renders the league digest in the template right sidebar", function (): void {
+  it("renders template training overview in the right sidebar", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState()}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    expect(screen.getByTestId("template-right-sidebar")).toBeInTheDocument();
+    expect(screen.getByText("TRAINING OVERVIEW")).toBeInTheDocument();
+    expect(screen.getByText("Training Calendar")).toBeInTheDocument();
+  });
+
+  it("uses the transfer activity shell for the third bottom widget", function (): void {
     render(
       <HomeTab
         gameState={createGameState({
           news: [
             createNewsArticle({
-              id: "digest-1",
+              id: "news-activity-1",
               headline: "Standings headline",
               category: "StandingsUpdate",
               date: "2025-01-15",
@@ -337,30 +335,9 @@ describe("HomeTab", function (): void {
       />,
     );
 
-    expect(screen.getByTestId("home-right-sidebar")).toBeInTheDocument();
-    expect(screen.getByText("League Digest")).toBeInTheDocument();
-    expect(screen.getAllByText("Standings headline").length).toBeGreaterThan(0);
-  });
-
-  it("renders template digest empty state when digest data is unavailable", function (): void {
-    render(
-      <HomeTab
-        gameState={createGameState({
-          league: {
-            id: "league-1",
-            name: "League",
-            season: 1,
-            fixtures: [],
-            standings: [],
-          },
-          news: [],
-        })}
-        visitedOnboardingTabs={new Set<string>()}
-      />,
-    );
-
     expect(screen.queryByText("Next Opponent")).not.toBeInTheDocument();
-    expect(screen.getByText("No league digest yet.")).toBeInTheDocument();
+    expect(screen.getByText("TRANSFER ACTIVITY")).toBeInTheDocument();
+    expect(screen.getByText("Standings headline")).toBeInTheDocument();
   });
 
   it("keeps youth academy players out of first-team home summaries", function (): void {
@@ -393,9 +370,7 @@ describe("HomeTab", function (): void {
       />,
     );
 
-    expect(screen.getByTestId("home-squad-overview")).toHaveTextContent(
-      "80|1|0",
-    );
-    expect(screen.queryByTestId("home-unavailable-players")).not.toBeInTheDocument();
+    expect(screen.getAllByText("J. Smith").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Youth Prospect")).not.toBeInTheDocument();
   });
 });

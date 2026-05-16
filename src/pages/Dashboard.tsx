@@ -6,13 +6,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { MatchModeType } from "../hooks/useAdvanceTime";
 import { useGameStore } from "../store/gameStore";
 import type { GameStateData, PlayerSelectionOptions } from "../store/gameStore";
-import DashboardHeader, {
-  type DashboardMatchModeMeta,
-} from "../components/dashboard/DashboardHeader";
 import DashboardOverlays from "../components/dashboard/DashboardOverlays";
 import FiredModal from "../components/dashboard/FiredModal";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
-import { TopbarV2, SidebarV2, type SidebarV2Item } from "../components/layout";
+import { TemplateHeader, type TemplateHeaderMatchModeMeta } from "../components/templateDashboard/TemplateHeader";
+import { TemplateSidebar, type TemplateSidebarItem } from "../components/templateDashboard/TemplateSidebar";
+import { buildSidebarNextMatch } from "../components/templateDashboard/templateDashboardAdapters";
 import {
   Briefcase,
   Mail as MailIcon,
@@ -264,7 +263,7 @@ export default function Dashboard(): JSX.Element {
     await getCurrentWindow().destroy();
   };
 
-  const MODE_META: Record<MatchModeType, DashboardMatchModeMeta> = {
+  const MODE_META: Record<MatchModeType, TemplateHeaderMatchModeMeta> = {
     live: {
       label: t("continueMenu.goToField"),
       icon: <Gamepad2 className="w-4 h-4" />,
@@ -420,11 +419,14 @@ export default function Dashboard(): JSX.Element {
       data-testid="dashboard-shell"
       className="flex h-screen w-full overflow-hidden text-app-text selection:bg-app-green selection:text-app-bg bg-app-bg"
     >
-      <SidebarV2
+      <TemplateSidebar
         activeId={profileNavigation.activeTab}
         onSelect={handleNavClick}
         brand={t("app.name")}
         onBrandClick={() => handleNavClick("Home")}
+        nextMatch={buildSidebarNextMatch(gameState, settings.language)}
+        onQuickActions={() => handleNavClick("Transfers")}
+        onSettings={handleNavigateSettings}
         items={[
           { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
           { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
@@ -441,7 +443,7 @@ export default function Dashboard(): JSX.Element {
                 { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
                 { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
                 { id: "Transfers", label: t("dashboard.transfers"), icon: <TrendingUp /> },
-              ] as SidebarV2Item[])),
+              ] as TemplateSidebarItem[])),
           { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
           { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },
           { id: "Tournaments", label: t("dashboard.tournaments"), icon: <Trophy /> },
@@ -449,21 +451,58 @@ export default function Dashboard(): JSX.Element {
       />
 
       <div className="flex flex-col flex-1 min-w-0">
-        <TopbarV2
-        seasonLabel={t("dashboard.season", { defaultValue: "Season" })}
-        seasonDate={currentDate}
-        reputationLabel={myTeamName ?? t("dashboard.unemployed", { defaultValue: "Unemployed" })}
-        reputationStars={Math.min(
-          5,
-          Math.max(1, Math.round((gameState.teams.find((tm) => tm.id === gameState.manager.team_id)?.reputation ?? 0) / 200)),
-        )}
-        managerName={managerName ?? ""}
-        managerRole={myTeamName ? t("dashboard.manager") : t("dashboard.unemployed", { defaultValue: "Unemployed" })}
-        unreadCount={unreadMessagesCount}
-        onLogoClick={() => handleNavClick("Home")}
-        onInbox={() => handleNavClick("Inbox")}
-        onHelp={handleNavigateSettings}
-      />
+        <TemplateHeader
+          seasonLabel={t("dashboard.season", { defaultValue: "Season" })}
+          seasonDate={currentDate}
+          reputationLabel={myTeamName ?? t("dashboard.unemployed", { defaultValue: "Unemployed" })}
+          reputationStars={Math.min(
+            5,
+            Math.max(1, Math.round((gameState.teams.find((tm) => tm.id === gameState.manager.team_id)?.reputation ?? 0) / 200)),
+          )}
+          managerName={managerName ?? ""}
+          managerRole={myTeamName ? t("dashboard.manager") : t("dashboard.unemployed", { defaultValue: "Unemployed" })}
+          unreadCount={unreadMessagesCount}
+          searchValue={searchQuery}
+          onSearchChange={handleSearchQueryChange}
+          onSearchFocus={handleSearchFocus}
+          onSearchBlur={handleSearchBlur}
+          onInbox={() => handleNavClick("Inbox")}
+          onHelp={handleNavigateSettings}
+          activeTabLabel={activeTabLabel}
+          hasProfileHistory={hasProfileHistory}
+          matchedPlayers={searchResults.matchedPlayers}
+          matchedTeams={searchResults.matchedTeams}
+          onBack={handleBack}
+          onSelectSearchPlayer={handleSelectSearchPlayer}
+          onSelectSearchTeam={handleSelectSearchTeam}
+          searchOpen={searchOpen}
+          teams={gameState.teams}
+          hasMatchToday={hasMatchToday}
+          isAdvancing={isAdvancing}
+          isSaving={isSaving}
+          isUnemployed={isUnemployed ?? false}
+          matchMode={matchMode}
+          modeMeta={MODE_META}
+          onContinue={handleContinue}
+          onSave={handleSave}
+          onSelectMatchMode={handleSelectMatchMode}
+          onSkipToMatchDay={handleSkipToMatchDay}
+          onToggleContinueMenu={handleToggleContinueMenu}
+          saveFlash={saveFlash}
+          seasonComplete={seasonComplete}
+          showContinueMenu={showContinueMenu}
+          labels={{
+            continue: t("dashboard.continue"),
+            saved: t("dashboard.saved"),
+            saving: t("dashboard.saving"),
+            save: t("common.save"),
+            saveGame: t("dashboard.saveGame"),
+            simulating: t("dashboard.simulating"),
+            seasonComplete: t("endOfSeason.seasonComplete"),
+            skipToMatchDay: t("continueMenu.skipToMatchDay"),
+            skipToMatchDayDesc: t("continueMenu.skipToMatchDayDesc"),
+          }}
+        />
 
         <DashboardOverlays
           blockerModal={blockerModal}
@@ -487,41 +526,8 @@ export default function Dashboard(): JSX.Element {
         <FiredModal />
 
         {/* Main Content Area */}
-        <main data-testid="dashboard-main" className="flex-1 overflow-auto p-4 scrollbar-thin">
+        <main data-testid="dashboard-main" className="flex-1 overflow-auto p-4 custom-scrollbar">
           <div className="flex flex-col min-h-full">
-            {profileNavigation.activeTab !== "Home" && (
-              <DashboardHeader
-                activeTabLabel={activeTabLabel}
-                currentDate={currentDate}
-                hasProfileHistory={hasProfileHistory}
-                hasMatchToday={hasMatchToday}
-                isAdvancing={isAdvancing}
-                isSaving={isSaving}
-                matchMode={matchMode}
-                matchedPlayers={searchResults.matchedPlayers}
-                matchedTeams={searchResults.matchedTeams}
-                modeMeta={MODE_META}
-                onBack={handleBack}
-                onContinue={handleContinue}
-                onSave={handleSave}
-                onSearchBlur={handleSearchBlur}
-                onSearchFocus={handleSearchFocus}
-                onSearchQueryChange={handleSearchQueryChange}
-                onSelectMatchMode={handleSelectMatchMode}
-                onSelectSearchPlayer={handleSelectSearchPlayer}
-                onSelectSearchTeam={handleSelectSearchTeam}
-                onSkipToMatchDay={handleSkipToMatchDay}
-                onToggleContinueMenu={handleToggleContinueMenu}
-                saveFlash={saveFlash}
-                searchOpen={searchOpen}
-                searchQuery={searchQuery}
-                seasonComplete={seasonComplete}
-                showContinueMenu={showContinueMenu}
-                isUnemployed={isUnemployed ?? false}
-                teams={gameState.teams}
-              />
-            )}
-
             <DashboardWorkspaceContent
               dashboardAlerts={dashboardAlerts}
               gameState={gameState}

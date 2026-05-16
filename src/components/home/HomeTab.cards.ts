@@ -1,5 +1,10 @@
 import { calcAge } from "../../lib/valueFormatting";
-import { buildPitchRows, positionCode } from "../squad/SquadTab.helpers";
+import {
+  buildPitchRows,
+  buildStartingXIIds,
+  getPitchRowWidth,
+  positionCode,
+} from "../squad/SquadTab.helpers";
 import type {
   GameStateData,
   PlayerData,
@@ -151,52 +156,36 @@ export function buildTacticsSlots(
 ): PlayerSlot[] {
   if (!myTeam) return [];
 
-  const rows = buildPitchRows(myTeam.formation || "4-4-2");
+  const formation = myTeam.formation || "4-4-2";
+  const rows = buildPitchRows(formation);
   const playerById = new Map(roster.map((p) => [p.id, p]));
-  const xiIds = myTeam.starting_xi_ids ?? [];
-
-  const slotPositions: string[] = rows.flatMap((row) => row.positions);
-  const slotsCoords: Array<{ x: number; y: number; position: string }> = [];
-
-  for (const row of rows) {
-    const yPercent = parseFloat(row.y);
-    const count = row.positions.length;
-    row.positions.forEach((position, columnIdx) => {
-      const x = count === 1 ? 50 : 12 + (76 * columnIdx) / (count - 1);
-      slotsCoords.push({ x, y: yPercent, position });
-    });
-  }
+  const xiIds = buildStartingXIIds([...roster], myTeam.starting_xi_ids ?? [], formation);
 
   const slots: PlayerSlot[] = [];
-  for (let i = 0; i < slotsCoords.length && i < xiIds.length; i += 1) {
-    const id = xiIds[i];
-    const player = playerById.get(id);
-    if (!player) continue;
-    const coord = slotsCoords[i];
-    const role = ROLE_FOR_POSITION[coord.position] || positionCode(coord.position);
-    slots.push({
-      id: player.id,
-      name: player.match_name,
-      number: i + 1,
-      role,
-      x: coord.x,
-      y: coord.y,
-    });
-  }
+  let slotIndex = 0;
 
-  if (slots.length === 0 && slotPositions.length > 0) {
-    const usable = roster.slice(0, slotsCoords.length);
-    usable.forEach((player, i) => {
-      const coord = slotsCoords[i];
-      const role = ROLE_FOR_POSITION[coord.position] || positionCode(coord.position);
-      slots.push({
-        id: player.id,
-        name: player.match_name,
-        number: i + 1,
-        role,
-        x: coord.x,
-        y: coord.y,
-      });
+  for (const row of rows) {
+    const y = parseFloat(row.y);
+    const rowWidth = parseFloat(getPitchRowWidth(row.positions.length));
+    const leftEdge = 50 - rowWidth / 2;
+    const xStep = row.positions.length > 1 ? rowWidth / (row.positions.length - 1) : 0;
+
+    row.positions.forEach((position, columnIndex) => {
+      const player = playerById.get(xiIds[slotIndex]);
+      const x = row.positions.length === 1 ? 50 : leftEdge + xStep * columnIndex;
+
+      if (player) {
+        slots.push({
+          id: player.id,
+          name: player.match_name,
+          number: slotIndex + 1,
+          role: ROLE_FOR_POSITION[position] || positionCode(position),
+          x,
+          y,
+        });
+      }
+
+      slotIndex += 1;
     });
   }
 

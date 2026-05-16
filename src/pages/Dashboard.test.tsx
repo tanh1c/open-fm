@@ -232,22 +232,6 @@ vi.mock("../hooks/useAdvanceTime", () => ({
   }),
 }));
 
-vi.mock("../components/layout", async () => {
-  const actual = await vi.importActual<typeof import("../components/layout")>(
-    "../components/layout",
-  );
-  return {
-    ...actual,
-    TopbarV2: () => <div>TopbarV2 mock</div>,
-    SidebarV2: ({ onSelect, activeId }: any) => (
-      <div>
-        <span>Sidebar {activeId}</span>
-        <button onClick={() => onSelect("Inbox")}>nav-inbox</button>
-      </div>
-    ),
-  };
-});
-
 vi.mock("../components/dashboard/DashboardHeader", () => ({
   default: ({ activeTabLabel, onBack, onSelectSearchPlayer, onSelectSearchTeam }: any) => (
     <div>
@@ -342,19 +326,27 @@ describe("Dashboard", () => {
       "p-4",
     );
 
-    fireEvent.click(screen.getByText("nav-inbox"));
-    expect(screen.getByText("Header Inbox")).toBeInTheDocument();
+    expect(screen.getByTestId("template-sidebar")).toBeInTheDocument();
+    expect(screen.getByTestId("template-header")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("search-player"));
+    fireEvent.click(screen.getByRole("button", { name: /Inbox/i }));
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getAllByText("Inbox").length).toBeGreaterThan(1);
+
+    fireEvent.change(screen.getByPlaceholderText("Search players, staff, competitions..."), {
+      target: { value: "John" },
+    });
+    fireEvent.focus(screen.getByPlaceholderText("Search players, staff, competitions..."));
+    fireEvent.mouseDown(screen.getByText("John Smith"));
     expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("player-select-team"));
     expect(screen.getByText("Team Profile Mock")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("header-back"));
+    fireEvent.click(screen.getByTitle("Back"));
     expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("header-back"));
+    fireEvent.click(screen.getByTitle("Back"));
     expect(screen.getByText("Tab Content Inbox")).toBeInTheDocument();
   });
 });

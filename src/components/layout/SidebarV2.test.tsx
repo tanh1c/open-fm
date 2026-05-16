@@ -57,10 +57,10 @@ describe("SidebarV2", () => {
         items={items}
         activeId="dashboard"
         onSelect={vi.fn()}
-        footer={<button>Quick Actions</button>}
+        footer={<button>Custom Footer</button>}
       />,
     );
-    expect(screen.getByRole("button", { name: "Quick Actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Custom Footer" })).toBeInTheDocument();
   });
 
   it("renders badge when item.badge > 0", () => {

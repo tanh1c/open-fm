@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, Shield } from "lucide-react";
+import {
+  ArrowRightLeft,
+  ChevronLeft,
+  CloudRain,
+  Settings,
+  Shield,
+} from "lucide-react";
 
 export interface SidebarV2Item {
   id: string;
@@ -50,7 +56,7 @@ export function SidebarV2({
         </span>
       </button>
 
-      <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1 custom-scrollbar">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
@@ -89,17 +95,48 @@ export function SidebarV2({
         })}
       </nav>
 
-      {pinned && (
-        <div className="p-4 shrink-0 px-5">
-          {pinned}
-        </div>
-      )}
+      <div className="p-4 shrink-0 px-5">
+        {pinned ?? (
+          <>
+            <div className="flex justify-between items-end mb-3">
+              <h3 className="text-xs font-semibold text-app-text-muted uppercase tracking-wider">Next Match</h3>
+              <span className="text-[10px] text-app-text-muted">--</span>
+            </div>
+            <div className="bg-app-bg rounded-lg p-3 border border-app-border">
+              <div className="flex items-center justify-between mb-3 border-b border-app-border/50 pb-2">
+                <Shield className="w-7 h-7 text-emerald-500" />
+                <span className="text-xs font-bold text-app-text-muted">VS</span>
+                <Shield className="w-7 h-7 text-amber-500" />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-app-text-muted">
+                <span className="truncate max-w-[80px]">No fixture</span>
+                <div className="flex items-center gap-1">
+                  <CloudRain className="w-3 h-3" />
+                  <span>--°C</span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        <button className="w-full mt-3 flex items-center justify-between px-3 py-2 text-xs font-medium border border-app-border rounded-lg hover:bg-white/5 transition-colors">
+          <div className="flex items-center gap-2 text-app-text-muted">
+             <ArrowRightLeft className="w-3.5 h-3.5" />
+             <span>Quick Actions</span>
+          </div>
+          <ChevronLeft className="w-3.5 h-3.5 rotate-180 text-app-text-muted" />
+        </button>
+      </div>
 
       <div className="h-14 border-t border-app-border flex items-center justify-between px-4 shrink-0 text-app-text-muted">
         {footer ?? (
-          <button type="button" className="p-2 hover:text-white transition-colors rounded-lg hover:bg-white/5 ml-auto">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+          <>
+            <button type="button" className="p-2 hover:text-white transition-colors rounded-lg hover:bg-white/5">
+              <Settings className="w-4 h-4" />
+            </button>
+            <button type="button" className="p-2 hover:text-white transition-colors rounded-lg hover:bg-white/5">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </>
         )}
       </div>
     </aside>

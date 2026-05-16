@@ -117,10 +117,10 @@ function SquadStatusWidget({ status }: { status: TemplateRightSidebarProps["squa
         </div>
         <div className="w-20 h-20 sm:w-24 sm:h-24 relative flex items-center justify-center shrink-0">
           <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
-            <circle cx="50" cy="50" r="40" fill="transparent" stroke="#232d3b" strokeWidth="8" />
-            <circle cx="50" cy="50" r="40" fill="transparent" stroke="#2dd4bf" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset="60" className="drop-shadow-[0_0_8px_rgba(45,212,191,0.5)]" />
-            <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f59e0b" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset="210" />
-            <circle cx="50" cy="50" r="40" fill="transparent" stroke="#ef4444" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset="230" />
+            <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-app-border)" strokeWidth="8" />
+            <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-primary-500)" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset="60" className="drop-shadow-[0_0_8px_rgba(124,92,255,0.45)]" />
+            <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-warn-500)" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset="210" />
+            <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-danger-500)" strokeWidth="8" strokeDasharray="251.2" strokeDashoffset="230" />
           </svg>
           <div className="absolute flex flex-col items-center text-center">
             <span className="text-[9px] sm:text-[10px] text-app-text-muted leading-tight">Overall<br />Morale</span>

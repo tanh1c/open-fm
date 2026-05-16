@@ -265,7 +265,7 @@ describe("HomeTab", function (): void {
     expect(screen.getByTestId("template-dashboard")).toBeInTheDocument();
     expect(screen.getByText("OVR")).toBeInTheDocument();
     expect(screen.getByText("POT")).toBeInTheDocument();
-    expect(document.querySelector(".text-red-300")).toHaveTextContent("1");
+    expect(document.querySelector(".rating-cell-poor")).toHaveTextContent("1");
     expect(screen.getByTestId("template-right-sidebar")).toHaveClass(
       "xl:w-[320px]",
       "shrink-0",

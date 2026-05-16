@@ -45,23 +45,23 @@ export function TemplateTactics({ formation, tacticalStyle, players, instruction
       />
       <div className="flex-1 flex flex-col sm:flex-row min-h-0">
         <div className="flex-1 p-4 flex items-center justify-center min-w-0 min-h-0">
-          <div data-testid="template-tactics-pitch" className="w-full max-w-[400px] sm:aspect-[4/3] min-h-[300px] bg-[#1a2e25] border-2 border-emerald-900/50 rounded-xl relative overflow-hidden flex shadow-inner">
+          <div data-testid="template-tactics-pitch" className="w-full max-w-[400px] sm:aspect-[4/3] min-h-[300px] bg-surface-800 border-2 border-primary-700/50 rounded-xl relative overflow-hidden flex shadow-inner">
             <div className="absolute inset-0 flex flex-col">
-              <div className="h-1/2 w-full border-b-2 border-emerald-900/50 flex justify-center">
-                <div className="h-16 w-32 border-2 border-t-0 border-emerald-900/50 flex justify-center">
-                  <div className="h-6 w-12 border-2 border-t-0 border-emerald-900/50" />
+              <div className="h-1/2 w-full border-b-2 border-primary-700/50 flex justify-center">
+                <div className="h-16 w-32 border-2 border-t-0 border-primary-700/50 flex justify-center">
+                  <div className="h-6 w-12 border-2 border-t-0 border-primary-700/50" />
                 </div>
-                <div className="w-12 h-12 rounded-full border-2 border-emerald-900/50 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                <div className="w-12 h-12 rounded-full border-2 border-primary-700/50 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
               </div>
               <div className="h-1/2 w-full flex justify-center items-end">
-                <div className="h-16 w-32 border-2 border-b-0 border-emerald-900/50 flex justify-center items-end">
-                  <div className="h-6 w-12 border-2 border-b-0 border-emerald-900/50" />
+                <div className="h-16 w-32 border-2 border-b-0 border-primary-700/50 flex justify-center items-end">
+                  <div className="h-6 w-12 border-2 border-b-0 border-primary-700/50" />
                 </div>
               </div>
             </div>
 
             {players.map((player) => (
-              <PlayerNode key={player.id} num={player.number} name={player.name} role={player.role} x={`${player.x}%`} y={`${player.y}%`} color={player.role.startsWith("GK") || player.role.startsWith("SK") ? "amber" : "emerald"} />
+              <PlayerNode key={player.id} num={player.number} name={player.name} role={player.role} x={`${player.x}%`} y={`${player.y}%`} color={player.role.startsWith("GK") || player.role.startsWith("SK") ? "accent" : "primary"} />
             ))}
           </div>
         </div>
@@ -96,14 +96,14 @@ function PlayerNode({
   role,
   x,
   y,
-  color = "emerald",
+  color = "primary",
 }: {
   num: number;
   name: string;
   role: string;
   x: string;
   y: string;
-  color?: "emerald" | "amber";
+  color?: "primary" | "accent";
 }) {
   const [roleName, duty] = role.split(" - ");
 
@@ -115,7 +115,7 @@ function PlayerNode({
       <div
         className={cn(
           "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shadow-lg ring-1 ring-white/10 mb-1",
-          color === "emerald" ? "bg-emerald-500 text-white" : "bg-amber-500 text-white",
+          color === "primary" ? "bg-primary-500 text-white" : "bg-accent-500 text-surface-950",
         )}
       >
         {num}

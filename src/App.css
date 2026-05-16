@@ -58,14 +58,14 @@
   --color-accent-600: #94c40d;
   --color-accent-700: #6b8b08;
 
-  /* Template dashboard aliases (FE_template/untitled) */
-  --color-app-bg: #11161d;
-  --color-app-card: #181f29;
-  --color-app-border: #232d3b;
-  --color-app-green: #2dd4bf;
-  --color-app-red: #f87171;
-  --color-app-text: #f1f5f9;
-  --color-app-text-muted: #94a3b8;
+  /* Dashboard aliases mapped to the app palette */
+  --color-app-bg: var(--color-surface-950);
+  --color-app-card: var(--color-surface-900);
+  --color-app-border: var(--color-surface-700);
+  --color-app-green: var(--color-primary-500);
+  --color-app-red: var(--color-danger-500);
+  --color-app-text: var(--color-surface-50);
+  --color-app-text-muted: var(--color-surface-300);
 
   /* Semantic */
   --color-success-400: #4ade80;

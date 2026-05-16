@@ -33,11 +33,11 @@ export function TemplateTeamForm({ results, totals, pointsPerGame }: TemplateTea
             <div className="absolute inset-0 border-b border-app-border/50 translate-y-1/2" />
             <div className="absolute inset-x-0 bottom-0 border-b border-app-border/50" />
             <svg className="w-full h-[60px] overflow-visible absolute top-0 left-0" preserveAspectRatio="none">
-              <path d={getPath(points)} fill="none" stroke="#2dd4bf" strokeWidth="2" />
+              <path d={getPath(points)} fill="none" stroke="var(--color-primary-500)" strokeWidth="2" />
               {points.map((p, i) => {
                 const x = `${(i / Math.max(1, points.length - 1)) * 100}%`;
                 const y = h - (p / max) * h;
-                return <circle key={i} cx={x} cy={y} r="2.5" fill="#181f29" stroke="#2dd4bf" strokeWidth="2" />;
+                return <circle key={i} cx={x} cy={y} r="2.5" fill="var(--color-app-card)" stroke="var(--color-primary-500)" strokeWidth="2" />;
               })}
             </svg>
             <div className="absolute top-[70px] inset-x-0 flex justify-between px-2 text-[9px] text-app-text-muted">

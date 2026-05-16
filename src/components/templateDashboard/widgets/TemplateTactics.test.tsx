@@ -21,8 +21,8 @@ describe("TemplateTactics", () => {
 
     expect(screen.getByText("Tactics • 4-4-2")).toHaveClass("uppercase", "tracking-widest");
     expect(screen.getByTestId("template-tactics-pitch")).toHaveClass(
-      "bg-[#1a2e25]",
-      "border-emerald-900/50",
+      "bg-surface-800",
+      "border-primary-700/50",
       "rounded-xl",
     );
     expect(screen.getByText("TACTICAL STYLE")).toBeInTheDocument();

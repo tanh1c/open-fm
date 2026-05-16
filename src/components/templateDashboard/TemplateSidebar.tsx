@@ -86,7 +86,7 @@ export function TemplateSidebar({
         </div>
         <div className="bg-app-bg rounded-lg p-3 border border-app-border">
           <div className="flex items-center justify-between mb-3 border-b border-app-border/50 pb-2">
-            <Shield className="w-7 h-7 text-emerald-500" />
+            <Shield className="w-7 h-7 text-primary-500" />
             <span className="text-xs font-bold text-app-text-muted">VS</span>
             <Shield className="w-7 h-7 text-amber-500" />
           </div>

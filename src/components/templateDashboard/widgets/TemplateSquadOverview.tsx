@@ -293,7 +293,7 @@ function defaultSortDirection(sortKey: SortKey): SortDirection {
 function FitnessValue({ value }: { value: number }) {
   return (
     <div className="flex items-center justify-center gap-1.5">
-      <CircleChart pct={value} color="#2dd4bf" />
+      <CircleChart pct={value} color="var(--color-primary-500)" />
       <span className="text-app-green">{value}%</span>
     </div>
   );
@@ -321,11 +321,11 @@ function RatingBadge({ value }: { value: number }) {
 }
 
 function ratingColor(value: number): string {
-  if (value >= 80) return "border-emerald-400/40 bg-emerald-400/15 text-emerald-300";
-  if (value >= 70) return "border-lime-400/40 bg-lime-400/15 text-lime-300";
-  if (value >= 60) return "border-amber-400/40 bg-amber-400/15 text-amber-300";
-  if (value >= 50) return "border-orange-400/40 bg-orange-400/15 text-orange-300";
-  return "border-red-400/40 bg-red-400/15 text-red-300";
+  if (value >= 80) return "rating-cell-elite";
+  if (value >= 70) return "rating-cell-good";
+  if (value >= 60) return "rating-cell-avg";
+  if (value >= 50) return "border-warn-500/40 bg-warn-500/10 text-warn-500";
+  return "rating-cell-poor";
 }
 
 function formatCurrency(value: number): string {

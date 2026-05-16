@@ -40,7 +40,7 @@ export function TemplateUpcomingMatch({
         <div className="flex items-center justify-between w-full mb-6 relative gap-2">
           <div className="flex flex-col items-center gap-2 z-10 shrink min-w-0">
             <div className="w-14 h-14 bg-app-bg border border-app-border rounded-xl flex items-center justify-center">
-              <Shield className="w-8 h-8 text-emerald-500" />
+              <Shield className="w-8 h-8 text-primary-500" />
             </div>
             <span className="text-xs font-bold uppercase tracking-wide truncate max-w-[80px] text-app-text">{homeTeamName}</span>
             <span className="text-[10px] text-app-text-muted">{homeSideLabel}</span>

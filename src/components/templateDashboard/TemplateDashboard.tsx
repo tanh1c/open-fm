@@ -68,7 +68,7 @@ export function TemplateDashboard({ upcomingMatch, tactics, squad, form, goals, 
             <TemplateUpcomingMatch {...upcomingMatch} onPreview={() => onNavigate?.("Schedule")} />
           </div>
           <div className="col-span-1 lg:col-span-2 min-h-[360px]">
-            <TemplateTactics {...tactics} />
+            <TemplateTactics {...tactics} onOpenTactics={() => onNavigate?.("Tactics")} />
           </div>
         </div>
 

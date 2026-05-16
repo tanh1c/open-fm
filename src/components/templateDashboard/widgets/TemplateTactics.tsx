@@ -22,21 +22,25 @@ interface TemplateTacticsProps {
     inTransition: string;
     outOfPossession: string;
   };
+  onOpenTactics?: () => void;
 }
 
-export function TemplateTactics({ formation, tacticalStyle, players, instructions }: TemplateTacticsProps) {
+export function TemplateTactics({ formation, tacticalStyle, players, instructions, onOpenTactics }: TemplateTacticsProps) {
   return (
     <TemplateCard className="flex flex-col h-full">
       <TemplateCardHeader
         title={`Tactics • ${formation}`}
         action={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-app-text-muted">TACTICAL STYLE</span>
-              <span className="text-xs font-semibold">{tacticalStyle}</span>
-              <ChevronRight className="w-3 h-3 text-app-text-muted rotate-90" />
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={onOpenTactics}
+            className="flex items-center gap-2 text-left hover:text-app-green transition-colors disabled:hover:text-inherit"
+            disabled={!onOpenTactics}
+          >
+            <span className="text-[10px] text-app-text-muted">TACTICAL STYLE</span>
+            <span className="text-xs font-semibold">{tacticalStyle}</span>
+            <ChevronRight className="w-3 h-3 text-app-text-muted rotate-90" />
+          </button>
         }
       />
       <div className="flex-1 flex flex-col sm:flex-row min-h-0">

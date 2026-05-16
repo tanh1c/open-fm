@@ -126,6 +126,12 @@ export function buildSquadOverviewRows(
     goals: p.stats.goals,
     assists: p.stats.assists,
     avgRating: p.stats.avg_rating,
+    ovr: p.ovr ?? 0,
+    potential: p.potential ?? null,
+    wage: p.wage,
+    marketValue: p.market_value,
+    contractEnd: p.contract_end,
+    injury: p.injury?.name ?? null,
   }));
 }
 

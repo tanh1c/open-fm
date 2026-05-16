@@ -2,7 +2,6 @@ import type { GameStateData } from "../../store/gameStore";
 import { formatDateShort } from "../../lib/helpers";
 import { isSeniorSquadPlayer } from "../../lib/playerSquad";
 import { resolveSeasonContext } from "../../lib/seasonContext";
-import { resolveNewsArticle } from "../../utils/backendI18n";
 import {
   buildFormBreakdown,
   buildGoalSegments,
@@ -74,12 +73,6 @@ export default function HomeTab({
   const schedule = myTeam?.training_schedule || "Balanced";
   const schedLabel = t(`common.trainingSchedules.${schedule}`, schedule);
 
-  // Latest news
-  const latestNews = (gameState.news || [])
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 2)
-    .map(resolveNewsArticle);
-
   // FM25 cards data adapters
   const formBreakdown = buildFormBreakdown(myTeam?.form ?? []);
   const goalSegments = buildGoalSegments(gameState, myTeam?.id ?? null);
@@ -102,10 +95,10 @@ export default function HomeTab({
                 tacticalStyle: myTeam.play_style || "Balanced",
                 players: tacticsSlots,
                 instructions: {
-                  teamInstructions: ["Play Out Of Defense", "Work Ball Into Box", "Higher Tempo"],
-                  inPossession: "Fairly Wide",
-                  inTransition: "Counter",
-                  outOfPossession: "Mid Block",
+                  teamInstructions: [myTeam.play_style || "Balanced", schedLabel],
+                  inPossession: myTeam.training_focus || "General",
+                  inTransition: myTeam.training_intensity || "Balanced",
+                  outOfPossession: myTeam.formation || "4-4-2",
                 },
               }}
               squad={{
@@ -115,7 +108,7 @@ export default function HomeTab({
               }}
               form={formBreakdown}
               goals={buildTemplateGoalSegments(goalSegments)}
-              transferActivity={buildTemplateTransferActivity(latestNews, gameState.teams, lang)}
+              transferActivity={buildTemplateTransferActivity(gameState, myTeam.id)}
               rightSidebar={{
                 leagueRows: buildTemplateLeagueRows(gameState),
                 squadStatus: buildTemplateSquadStatus(roster),

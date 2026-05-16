@@ -1,5 +1,5 @@
 import { findNextFixture, formatDateShort, formatMatchDate, getTeamName } from "../../lib/helpers";
-import type { FixtureData, GameStateData, NewsArticle, PlayerData, TeamData } from "../../store/gameStore";
+import type { FixtureData, GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import type { GoalSegment } from "../home/HomeTab.cards";
 import type { TemplateDashboardProps } from "./TemplateDashboard";
 import type { TemplateTransferActivityItem } from "./widgets/TemplateTransferActivity";
@@ -136,14 +136,36 @@ export function buildTemplateGoalSegments(segments: GoalSegment[]): TemplateDash
   }));
 }
 
-export function buildTemplateTransferActivity(news: NewsArticle[], teams: TeamData[], lang: string): TemplateTransferActivityItem[] {
-  return news.slice(0, 3).map((article) => ({
-    id: article.id,
-    name: article.headline,
-    pos: `${formatDateShort(article.date, lang)} • ${article.source}`,
-    from: teams.find((team) => article.team_ids.includes(team.id))?.short_name ?? "News",
-    fee: article.match_score ? `${article.match_score.home_goals}-${article.match_score.away_goals}` : "INFO",
-  }));
+export function buildTemplateTransferActivity(gameState: GameStateData, teamId: string | null): TemplateTransferActivityItem[] {
+  const players = teamId
+    ? gameState.players.filter((player) => player.team_id === teamId)
+    : gameState.players;
+  const pendingOffers = players.flatMap((player) =>
+    player.transfer_offers
+      .filter((offer) => offer.status === "Pending")
+      .map((offer) => ({
+        id: offer.id,
+        name: player.match_name,
+        pos: `${positionLabel(player)} • Incoming bid`,
+        from: getTeamName(gameState.teams, offer.from_team_id),
+        fee: formatCurrencyShort(offer.fee),
+        date: offer.date,
+      })),
+  );
+  const listedPlayers = players
+    .filter((player) => player.transfer_listed || player.loan_listed)
+    .map((player) => ({
+      id: `listed-${player.id}`,
+      name: player.match_name,
+      pos: player.transfer_listed ? `${positionLabel(player)} • Transfer listed` : `${positionLabel(player)} • Loan listed`,
+      from: getTeamName(gameState.teams, player.team_id ?? ""),
+      fee: formatCurrencyShort(player.market_value),
+      date: player.contract_end ?? "",
+    }));
+
+  return [...pendingOffers, ...listedPlayers]
+    .sort((left, right) => right.date.localeCompare(left.date))
+    .slice(0, 3);
 }
 
 export function buildSidebarNextMatch(gameState: GameStateData, lang: string) {
@@ -157,6 +179,16 @@ export function buildSidebarNextMatch(gameState: GameStateData, lang: string) {
     awayName: getTeamName(gameState.teams, fixture.away_team_id),
     weatherLabel: "22°C",
   };
+}
+
+function positionLabel(player: PlayerData): string {
+  return player.natural_position || player.position;
+}
+
+function formatCurrencyShort(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+  return `$${value}`;
 }
 
 function shieldColor(index: number): string {

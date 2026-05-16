@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
 import { CountryFlag } from "../../ui";
 import { TemplateCard } from "../Card";
 import { cn } from "../templateUtils";
@@ -16,6 +17,12 @@ export interface TemplateSquadRow {
   goals: number;
   assists: number;
   avgRating: number;
+  ovr?: number;
+  potential?: number | null;
+  wage?: number;
+  marketValue?: number;
+  contractEnd?: string | null;
+  injury?: string | null;
 }
 
 interface TemplateSquadOverviewProps {
@@ -28,7 +35,118 @@ interface TemplateSquadOverviewProps {
 
 const tabs = ["Overview", "Stats", "Contract", "Fitness"];
 
+type SquadTab = (typeof tabs)[number];
+
+type SortKey = keyof Pick<
+  TemplateSquadRow,
+  | "position"
+  | "number"
+  | "matchName"
+  | "age"
+  | "nationality"
+  | "condition"
+  | "morale"
+  | "appearances"
+  | "goals"
+  | "assists"
+  | "avgRating"
+  | "ovr"
+  | "potential"
+  | "wage"
+  | "marketValue"
+  | "contractEnd"
+  | "injury"
+>;
+
+type SortDirection = "asc" | "desc";
+
+type ColumnKey =
+  | "position"
+  | "number"
+  | "matchName"
+  | "age"
+  | "nationality"
+  | "condition"
+  | "sharpness"
+  | "morale"
+  | "appearances"
+  | "goals"
+  | "assists"
+  | "avgRating"
+  | "ovr"
+  | "potential"
+  | "wage"
+  | "marketValue"
+  | "contractEnd"
+  | "injury";
+
+interface SquadColumn {
+  key: ColumnKey;
+  sortKey: SortKey;
+  label: string;
+  className: string;
+}
+
+const COLUMNS_BY_TAB: Record<SquadTab, SquadColumn[]> = {
+  Overview: [
+    { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-14" },
+    { key: "number", sortKey: "number", label: "#", className: "w-12 pl-3" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[190px]" },
+    { key: "age", sortKey: "age", label: "AGE", className: "w-12 text-center" },
+    { key: "nationality", sortKey: "nationality", label: "NAT", className: "w-12 text-center" },
+    { key: "ovr", sortKey: "ovr", label: "OVR", className: "w-14 text-center" },
+    { key: "potential", sortKey: "potential", label: "POT", className: "w-14 text-center" },
+    { key: "condition", sortKey: "condition", label: "CON", className: "w-16 text-center" },
+    { key: "morale", sortKey: "morale", label: "MORALE", className: "w-24 text-center" },
+    { key: "avgRating", sortKey: "avgRating", label: "AV RAT", className: "w-16 pr-4 text-center" },
+  ],
+  Stats: [
+    { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-16" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[180px]" },
+    { key: "appearances", sortKey: "appearances", label: "APPS", className: "w-16 text-center" },
+    { key: "goals", sortKey: "goals", label: "GLS", className: "w-16 text-center" },
+    { key: "assists", sortKey: "assists", label: "AST", className: "w-16 text-center" },
+    { key: "avgRating", sortKey: "avgRating", label: "AV RAT", className: "w-20 pr-4 text-right" },
+  ],
+  Contract: [
+    { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-16" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[180px]" },
+    { key: "age", sortKey: "age", label: "AGE", className: "w-12" },
+    { key: "wage", sortKey: "wage", label: "WAGE", className: "w-24 text-right" },
+    { key: "marketValue", sortKey: "marketValue", label: "VALUE", className: "w-24 text-right" },
+    { key: "contractEnd", sortKey: "contractEnd", label: "EXPIRES", className: "w-28 pr-4 text-right" },
+  ],
+  Fitness: [
+    { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-16" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[180px]" },
+    { key: "condition", sortKey: "condition", label: "CON", className: "w-20" },
+    { key: "sharpness", sortKey: "condition", label: "SHP", className: "w-20" },
+    { key: "morale", sortKey: "morale", label: "MORALE", className: "w-28" },
+    { key: "injury", sortKey: "injury", label: "STATUS", className: "w-32 pr-4 text-right" },
+  ],
+};
+
 export function TemplateSquadOverview({ players, activeTab, onTabChange, onPlayerClick, onViewFullSquad }: TemplateSquadOverviewProps) {
+  const normalizedTab = tabs.find((tab) => tab.toLowerCase() === activeTab.toLowerCase()) ?? "Overview";
+  const columns = COLUMNS_BY_TAB[normalizedTab];
+  const [sortKey, setSortKey] = useState<SortKey>("position");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const activeSortKey = columns.some((column) => column.sortKey === sortKey) ? sortKey : columns[0].sortKey;
+  const sortedPlayers = useMemo(
+    () => sortPlayers(players, activeSortKey, sortDirection),
+    [players, sortDirection, activeSortKey],
+  );
+
+  function handleSort(nextKey: SortKey): void {
+    if (nextKey === sortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextKey);
+    setSortDirection(defaultSortDirection(nextKey));
+  }
+
   return (
     <TemplateCard className="flex flex-col h-full">
       <div className="px-5 pt-4 flex items-center gap-6 border-b border-app-border/50">
@@ -41,7 +159,11 @@ export function TemplateSquadOverview({ players, activeTab, onTabChange, onPlaye
                 key={tab}
                 type="button"
                 onClick={() => onTabChange(tab)}
-                className={isActive ? "text-app-green font-semibold border-b-2 border-app-green pb-3 -mb-[2px]" : "text-app-text-muted hover:text-white pb-3 -mb-[2px]"}
+                className={
+                  isActive
+                    ? "text-app-green font-semibold border-b-2 border-app-green pb-3 -mb-[2px]"
+                    : "text-app-text-muted hover:text-white pb-3 -mb-[2px]"
+                }
               >
                 {tab}
               </button>
@@ -53,65 +175,34 @@ export function TemplateSquadOverview({ players, activeTab, onTabChange, onPlaye
         <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[600px]">
           <thead>
             <tr className="text-app-text-muted border-b border-app-border/30">
-              <th className="font-semibold py-3 pl-4 w-12">POS</th>
-              <th className="font-semibold py-3 w-8">#</th>
-              <th className="font-semibold py-3 min-w-[140px]">PLAYER</th>
-              <th className="font-semibold py-3 w-12">AGE</th>
-              <th className="font-semibold py-3 w-12">NAT</th>
-              <th className="font-semibold py-3 w-16">CON</th>
-              <th className="font-semibold py-3 w-16">SHP</th>
-              <th className="font-semibold py-3 w-28">MORALE</th>
-              <th className="font-semibold py-3 w-12">APPS</th>
-              <th className="font-semibold py-3 w-12 text-center">GLS</th>
-              <th className="font-semibold py-3 w-12 text-center">AST</th>
-              <th className="font-semibold py-3 w-16 pr-4 text-right">AV RAT</th>
+              {columns.map((column) => (
+                <th key={`${column.label}-${column.key}`} className={cn("font-semibold py-3", column.className)}>
+                  <button
+                    type="button"
+                    onClick={() => handleSort(column.sortKey)}
+                    className={cn(
+                      "inline-flex items-center gap-1 hover:text-app-text transition-colors",
+                      column.className.includes("text-center") && "justify-center w-full",
+                      column.className.includes("text-right") && "justify-end w-full",
+                    )}
+                  >
+                    <span>{column.label}</span>
+                    <span className={activeSortKey === column.sortKey ? "text-app-green" : "text-app-text-muted/40"}>
+                      {activeSortKey === column.sortKey ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                    </span>
+                  </button>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {players.map((player) => (
+            {sortedPlayers.map((player) => (
               <tr key={player.id} onClick={() => onPlayerClick?.(player.id)} className="border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors cursor-pointer">
-                <td className="py-2.5 pl-4">
-                  <span
-                    className={cn(
-                      "px-1.5 py-0.5 rounded text-[9px] font-bold inline-block min-w-[28px] text-center",
-                      player.position === "GK"
-                        ? "bg-[#40b07b]/20 text-[#40b07b]"
-                        : player.position.includes("D") || (player.position.includes("R") || player.position.includes("L")) && !player.position.includes("M")
-                          ? "bg-[#5b75a1]/20 text-[#5b75a1]"
-                          : "text-app-text-muted bg-white/5",
-                    )}
-                  >
-                    {player.position}
-                  </span>
-                </td>
-                <td className="py-2.5 text-app-text-muted">{player.number}</td>
-                <td className="py-2.5 font-medium text-app-text">{player.matchName}</td>
-                <td className="py-2.5 text-app-text-muted">{player.age}</td>
-                <td className="py-2.5 text-app-text-muted">
-                  <CountryFlag code={player.nationality} className="text-sm leading-none" />
-                </td>
-                <td className="py-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <CircleChart pct={player.condition} color="#2dd4bf" />
-                    <span className="text-app-green">{player.condition}%</span>
-                  </div>
-                </td>
-                <td className="py-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <CircleChart pct={player.condition} color="#2dd4bf" />
-                    <span className="text-app-green">{player.condition}%</span>
-                  </div>
-                </td>
-                <td className="py-2.5 flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] text-app-green">☺</span>
-                  <span className="text-app-green font-medium">{moraleLabel(player.morale)}</span>
-                </td>
-                <td className="py-2.5 text-app-text-muted">{player.appearances}</td>
-                <td className="py-2.5 text-app-text-muted text-center">{player.goals}</td>
-                <td className="py-2.5 text-app-text-muted text-center">{player.assists}</td>
-                <td className="py-2.5 pr-4 text-right">
-                  <span className="bg-app-bg px-2 py-1 rounded text-app-text font-medium border border-app-border/50">{player.avgRating.toFixed(2)}</span>
-                </td>
+                {columns.map((column) => (
+                  <td key={`${player.id}-${column.key}`} className={cn("py-2.5", cellClassName(column))}>
+                    {renderCell(player, column.key)}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -123,6 +214,136 @@ export function TemplateSquadOverview({ players, activeTab, onTabChange, onPlaye
       </button>
     </TemplateCard>
   );
+}
+
+function renderCell(player: TemplateSquadRow, key: ColumnKey) {
+  if (key === "position") {
+    return (
+      <span
+        className={cn(
+          "px-1.5 py-0.5 rounded text-[9px] font-bold inline-block min-w-[28px] text-center",
+          player.position === "GK"
+            ? "bg-[#40b07b]/20 text-[#40b07b]"
+            : player.position.includes("D") || (player.position.includes("R") || player.position.includes("L")) && !player.position.includes("M")
+              ? "bg-[#5b75a1]/20 text-[#5b75a1]"
+              : "text-app-text-muted bg-white/5",
+        )}
+      >
+        {player.position}
+      </span>
+    );
+  }
+
+  if (key === "number") return player.number;
+  if (key === "matchName") return <span className="font-medium text-app-text">{player.matchName}</span>;
+  if (key === "age") return player.age;
+  if (key === "nationality") return <CountryFlag code={player.nationality} className="text-sm leading-none" />;
+  if (key === "condition" || key === "sharpness") return <FitnessValue value={player.condition} />;
+  if (key === "morale") return <MoraleValue value={player.morale} />;
+  if (key === "appearances") return player.appearances;
+  if (key === "goals") return player.goals;
+  if (key === "assists") return player.assists;
+  if (key === "avgRating") return <RatingValue value={player.avgRating} />;
+  if (key === "ovr") return <RatingBadge value={player.ovr ?? 0} />;
+  if (key === "potential") return player.potential ? <RatingBadge value={player.potential} /> : <span className="text-app-text-muted/60">--</span>;
+  if (key === "wage") return formatCurrency(player.wage ?? 0);
+  if (key === "marketValue") return formatCurrency(player.marketValue ?? 0);
+  if (key === "contractEnd") return formatContractEnd(player.contractEnd);
+  if (key === "injury") return player.injury ? injuryLabel(player.injury) : "Fit";
+  return null;
+}
+
+function cellClassName(column: SquadColumn): string {
+  return cn(
+    column.className.includes("pl-4") && "pl-4",
+    column.className.includes("pl-3") && "pl-3",
+    column.className.includes("pl-2") && "pl-2",
+    column.className.includes("pr-4") && "pr-4",
+    column.className.includes("text-center") && "text-center",
+    column.className.includes("text-right") && "text-right",
+    !column.className.includes("text-right") && !column.className.includes("text-center") && "text-app-text-muted",
+  );
+}
+
+function sortPlayers(
+  players: TemplateSquadRow[],
+  sortKey: SortKey,
+  sortDirection: SortDirection,
+): TemplateSquadRow[] {
+  const direction = sortDirection === "asc" ? 1 : -1;
+
+  return [...players].sort((left, right) => {
+    const leftValue = left[sortKey];
+    const rightValue = right[sortKey];
+
+    if (typeof leftValue === "number" && typeof rightValue === "number") {
+      return (leftValue - rightValue) * direction;
+    }
+
+    return String(leftValue).localeCompare(String(rightValue)) * direction;
+  });
+}
+
+function defaultSortDirection(sortKey: SortKey): SortDirection {
+  return ["condition", "morale", "appearances", "goals", "assists", "avgRating"].includes(sortKey)
+    ? "desc"
+    : "asc";
+}
+
+function FitnessValue({ value }: { value: number }) {
+  return (
+    <div className="flex items-center justify-center gap-1.5">
+      <CircleChart pct={value} color="#2dd4bf" />
+      <span className="text-app-green">{value}%</span>
+    </div>
+  );
+}
+
+function MoraleValue({ value }: { value: number }) {
+  return (
+    <div className="flex items-center justify-center gap-1.5">
+      <span className="text-[10px] text-app-green">☺</span>
+      <span className="text-app-green font-medium">{moraleLabel(value)}</span>
+    </div>
+  );
+}
+
+function RatingValue({ value }: { value: number }) {
+  return <span className="bg-app-bg px-2 py-1 rounded text-app-text font-medium border border-app-border/50">{value.toFixed(2)}</span>;
+}
+
+function RatingBadge({ value }: { value: number }) {
+  return (
+    <span className={cn("inline-flex min-w-9 justify-center rounded-md border px-2 py-1 text-[11px] font-bold", ratingColor(value))}>
+      {value}
+    </span>
+  );
+}
+
+function ratingColor(value: number): string {
+  if (value >= 80) return "border-emerald-400/40 bg-emerald-400/15 text-emerald-300";
+  if (value >= 70) return "border-lime-400/40 bg-lime-400/15 text-lime-300";
+  if (value >= 60) return "border-amber-400/40 bg-amber-400/15 text-amber-300";
+  if (value >= 50) return "border-orange-400/40 bg-orange-400/15 text-orange-300";
+  return "border-red-400/40 bg-red-400/15 text-red-300";
+}
+
+function formatCurrency(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+  return `$${value}`;
+}
+
+function formatContractEnd(value: string | null | undefined): string {
+  if (!value) return "--";
+  return value.slice(0, 10);
+}
+
+function injuryLabel(value: string): string {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function CircleChart({ pct, color }: { pct: number; color: string }) {

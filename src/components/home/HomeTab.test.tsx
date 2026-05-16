@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import HomeTab from "./HomeTab";
@@ -263,46 +263,13 @@ describe("HomeTab", function (): void {
       "gap-4",
     );
     expect(screen.getByTestId("template-dashboard")).toBeInTheDocument();
+    expect(screen.getByText("OVR")).toBeInTheDocument();
+    expect(screen.getByText("POT")).toBeInTheDocument();
+    expect(document.querySelector(".text-red-300")).toHaveTextContent("1");
     expect(screen.getByTestId("template-right-sidebar")).toHaveClass(
       "xl:w-[320px]",
       "shrink-0",
     );
-  });
-
-  it("resolves latest news articles before rendering the home widget", function (): void {
-    backendI18nMocks.resolveNewsArticle.mockImplementationOnce(
-      (value: unknown) => ({
-        ...(value as NewsArticle),
-        headline: "Resolved headline",
-        source: "Resolved source",
-      }),
-    );
-
-    render(
-      <HomeTab
-        gameState={createGameState({
-          news: [
-            createNewsArticle({
-              id: "news-resolve-1",
-              headline: "Fallback headline",
-              source: "Fallback source",
-              category: "SeasonPreview",
-              date: "2025-01-16",
-            }),
-          ],
-        })}
-        visitedOnboardingTabs={new Set<string>()}
-      />,
-    );
-
-    expect(backendI18nMocks.resolveNewsArticle).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ id: "news-resolve-1" }),
-      0,
-      expect.any(Array),
-    );
-    expect(screen.getByText("Resolved headline")).toBeInTheDocument();
-    expect(screen.getByText(/Resolved source/)).toBeInTheDocument();
   });
 
   it("renders template training overview in the right sidebar", function (): void {
@@ -318,7 +285,39 @@ describe("HomeTab", function (): void {
     expect(screen.getByText("Training Calendar")).toBeInTheDocument();
   });
 
-  it("uses the transfer activity shell for the third bottom widget", function (): void {
+  it("renders real transfer activity from player offers", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState({
+          players: [
+            createPlayer({
+              transfer_offers: [
+                {
+                  id: "offer-1",
+                  from_team_id: "team-2",
+                  fee: 1250000,
+                  wage_offered: 10000,
+                  last_manager_fee: null,
+                  negotiation_round: 1,
+                  suggested_counter_fee: null,
+                  status: "Pending",
+                  date: "2025-01-15",
+                },
+              ],
+            }),
+          ],
+        })}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    expect(screen.getByText("TRANSFER ACTIVITY")).toBeInTheDocument();
+    expect(screen.getAllByText("J. Smith").length).toBeGreaterThan(0);
+    expect(screen.getByText("$1.3M")).toBeInTheDocument();
+    expect(screen.getByText("Beta FC")).toBeInTheDocument();
+  });
+
+  it("keeps match news out of the transfer activity widget", function (): void {
     render(
       <HomeTab
         gameState={createGameState({
@@ -337,7 +336,8 @@ describe("HomeTab", function (): void {
 
     expect(screen.queryByText("Next Opponent")).not.toBeInTheDocument();
     expect(screen.getByText("TRANSFER ACTIVITY")).toBeInTheDocument();
-    expect(screen.getByText("Standings headline")).toBeInTheDocument();
+    expect(screen.queryByText("Standings headline")).not.toBeInTheDocument();
+    expect(screen.getByText("No activity available.")).toBeInTheDocument();
   });
 
   it("keeps youth academy players out of first-team home summaries", function (): void {
@@ -372,5 +372,51 @@ describe("HomeTab", function (): void {
 
     expect(screen.getAllByText("J. Smith").length).toBeGreaterThan(0);
     expect(screen.queryByText("Youth Prospect")).not.toBeInTheDocument();
+  });
+
+  it("switches squad overview tabs to real column views", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState({
+          players: [
+            createPlayer({
+              wage: 12000,
+              market_value: 2500000,
+              contract_end: "2026-06-30",
+              injury: {
+                name: "hamstring_strain",
+                days_remaining: 5,
+              },
+              stats: {
+                appearances: 4,
+                goals: 2,
+                assists: 1,
+                clean_sheets: 0,
+                yellow_cards: 0,
+                red_cards: 0,
+                avg_rating: 7.25,
+                minutes_played: 360,
+              },
+            }),
+          ],
+        })}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Stats" }));
+    expect(screen.getByText("APPS")).toBeInTheDocument();
+    expect(screen.getByText("GLS")).toBeInTheDocument();
+    expect(screen.getByText("7.25")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Contract" }));
+    expect(screen.getByText("WAGE")).toBeInTheDocument();
+    expect(screen.getByText("VALUE")).toBeInTheDocument();
+    expect(screen.getByText("$12K")).toBeInTheDocument();
+    expect(screen.getByText("$2.5M")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fitness" }));
+    expect(screen.getByText("STATUS")).toBeInTheDocument();
+    expect(screen.getByText("Hamstring Strain")).toBeInTheDocument();
   });
 });

@@ -20,9 +20,9 @@ const Y_FOR: Record<"W" | "D" | "L", number> = {
 };
 
 const COLOR_FOR: Record<"W" | "D" | "L", string> = {
-  W: "var(--color-success-500)",
+  W: "var(--color-app-green)",
   D: "var(--color-warn-500)",
-  L: "var(--color-danger-500)",
+  L: "var(--color-app-red)",
 };
 
 /**
@@ -47,62 +47,73 @@ export function FormChartCard({
     <Card className={className}>
       <CardHeader>Team Form</CardHeader>
       <CardBody>
-        <div className="flex items-center gap-4">
-          {results.length === 0 ? (
-            <p className="text-sm text-surface-200 italic">No recent matches</p>
-          ) : (
-            <svg
-              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-              className="flex-1 h-24"
-              role="img"
-              aria-label="Recent form line chart"
-            >
-              {/* Y-axis guide labels */}
-              <g className="text-[10px]" fill="var(--color-surface-200)">
-                <text x={2} y={Y_FOR.W + 3}>W</text>
-                <text x={2} y={Y_FOR.D + 3}>D</text>
-                <text x={2} y={Y_FOR.L + 3}>L</text>
-              </g>
+        <div className="flex flex-col gap-4">
+          <div
+            data-testid="form-chart-panel"
+            className="bg-app-bg/50 border border-app-border/50 rounded-xl p-3"
+          >
+            {results.length === 0 ? (
+              <p className="text-sm text-app-text-muted italic py-8 text-center">
+                No recent matches
+              </p>
+            ) : (
+              <svg
+                viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                className="w-full h-24"
+                role="img"
+                aria-label="Recent form line chart"
+              >
+                <g className="text-[10px]" fill="var(--color-app-text-muted)">
+                  <text x={2} y={Y_FOR.W + 3}>W</text>
+                  <text x={2} y={Y_FOR.D + 3}>D</text>
+                  <text x={2} y={Y_FOR.L + 3}>L</text>
+                </g>
 
-              {/* Connecting line */}
-              <polyline
-                fill="none"
-                stroke="var(--color-primary-400)"
-                strokeWidth={2}
-                strokeLinejoin="round"
-                points={points.map((p) => `${p.x},${p.y}`).join(" ")}
-              />
+                <g stroke="var(--color-app-border)" strokeWidth={0.6} opacity={0.7}>
+                  <line x1={PADDING_X} y1={Y_FOR.W} x2={CHART_WIDTH - PADDING_X} y2={Y_FOR.W} />
+                  <line x1={PADDING_X} y1={Y_FOR.D} x2={CHART_WIDTH - PADDING_X} y2={Y_FOR.D} />
+                  <line x1={PADDING_X} y1={Y_FOR.L} x2={CHART_WIDTH - PADDING_X} y2={Y_FOR.L} />
+                </g>
 
-              {/* Per-match dots, color-graded by result */}
-              {points.map((p, i) => (
-                <circle
-                  key={i}
-                  cx={p.x}
-                  cy={p.y}
-                  r={3.5}
-                  fill={COLOR_FOR[p.result]}
-                  stroke="var(--color-surface-900)"
-                  strokeWidth={1}
+                <polyline
+                  fill="none"
+                  stroke="var(--color-app-green)"
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={points.map((p) => `${p.x},${p.y}`).join(" ")}
                 />
-              ))}
-            </svg>
-          )}
 
-          <div className="flex flex-col gap-1 min-w-20 text-xs">
-            <SummaryRow label="Won" value={totals.won} colorClass="text-success-500" />
-            <SummaryRow label="Drawn" value={totals.drawn} colorClass="text-warn-500" />
-            <SummaryRow label="Lost" value={totals.lost} colorClass="text-danger-500" />
+                {points.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r={3.5}
+                    fill={COLOR_FOR[p.result]}
+                    stroke="var(--color-app-bg)"
+                    strokeWidth={1.5}
+                  />
+                ))}
+              </svg>
+            )}
           </div>
-        </div>
 
-        <div className="mt-3 pt-3 border-t border-surface-700/60 text-center">
-          <p className="text-[10px] font-heading uppercase tracking-wider text-surface-200">
-            Form (last {results.length || 0})
-          </p>
-          <p className="font-stat font-semibold text-base text-white mt-0.5">
-            {pointsPerGame.toFixed(2)}{" "}
-            <span className="text-xs text-surface-200">PPG</span>
-          </p>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <SummaryRow label="Won" value={totals.won} colorClass="text-app-green" />
+            <SummaryRow label="Drawn" value={totals.drawn} colorClass="text-warn-500" />
+            <SummaryRow label="Lost" value={totals.lost} colorClass="text-app-red" />
+          </div>
+
+          <div className="pt-3 border-t border-app-border/50 text-center">
+            <p className="text-[10px] font-heading uppercase tracking-wider text-app-text-muted">
+              Form (last {results.length || 0})
+            </p>
+            <p className="font-stat font-semibold text-base text-app-text mt-0.5">
+              {pointsPerGame.toFixed(2)}{" "}
+              <span className="text-xs text-app-text-muted">PPG</span>
+            </p>
+          </div>
         </div>
       </CardBody>
     </Card>
@@ -119,9 +130,13 @@ function SummaryRow({
   colorClass: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-surface-200">{label}</span>
-      <span className={`font-stat font-semibold ${colorClass}`}>{value}</span>
+    <div className="rounded-lg border border-app-border/50 bg-app-bg/60 px-3 py-2 text-center">
+      <span className="block text-[10px] uppercase tracking-wider text-app-text-muted">
+        {label}
+      </span>
+      <span className={`block font-stat font-semibold text-sm ${colorClass}`}>
+        {value}
+      </span>
     </div>
   );
 }

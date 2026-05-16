@@ -14,22 +14,23 @@ interface CardProps {
 export function Card({ children, className = "", accent = "none" }: CardProps) {
   const accentBorder =
     accent === "none"
-      ? "border border-surface-700/60"
+      ? ""
       : {
-          primary: "border-l-2 border-l-primary-500 border-y border-r border-surface-700/60",
-          accent: "border-l-2 border-l-accent-500 border-y border-r border-surface-700/60",
-          success: "border-l-2 border-l-success-500 border-y border-r border-surface-700/60",
-          danger: "border-l-2 border-l-danger-500 border-y border-r border-surface-700/60",
+          primary: "border-l-2 border-l-app-green",
+          accent: "border-l-2 border-l-app-green",
+          success: "border-l-2 border-l-success-500",
+          danger: "border-l-2 border-l-app-red",
         }[accent];
 
   return (
     <div
       className={`
-        bg-white dark:bg-surface-800
-        ${accentBorder}
-        rounded-md
-        shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]
+        bg-app-card
+        border border-app-border
+        rounded-xl
+        overflow-hidden
         transition-colors duration-200
+        ${accentBorder}
         ${className}
       `}
     >
@@ -47,9 +48,9 @@ interface CardHeaderProps {
 export function CardHeader({ children, action, className = "" }: CardHeaderProps) {
   return (
     <div
-      className={`px-5 py-3 border-b border-surface-700/60 flex items-center justify-between ${className}`}
+      className={`px-5 py-4 border-b border-app-border/50 flex items-center justify-between ${className}`}
     >
-      <h3 className="text-sm font-bold font-heading uppercase tracking-wider text-surface-100">
+      <h3 className="text-[11px] font-bold text-app-text-muted tracking-widest uppercase">
         {children}
       </h3>
       {action}

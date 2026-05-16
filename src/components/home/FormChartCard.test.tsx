@@ -9,6 +9,15 @@ describe("FormChartCard", () => {
     pointsPerGame: 2.05,
   };
 
+  it("uses template widget chart styling", () => {
+    const { container } = render(<FormChartCard {...sample} />);
+    expect(container.querySelector("[data-testid='form-chart-panel']")).toHaveClass(
+      "bg-app-bg/50",
+      "rounded-xl",
+    );
+    expect(container.querySelector("svg")).toHaveClass("h-24", "w-full");
+  });
+
   it("renders summary totals", () => {
     render(<FormChartCard {...sample} />);
     expect(screen.getByText("14")).toBeInTheDocument(); // won

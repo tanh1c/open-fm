@@ -33,6 +33,10 @@ describe("HomeSquadOverviewCard", () => {
       />,
     );
 
+    expect(screen.getByTestId("squad-overview-metrics")).toHaveClass(
+      "bg-app-bg/50",
+      "rounded-xl",
+    );
     expect(screen.getByText("Squad Overview")).toBeInTheDocument();
     expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("64")).toBeInTheDocument();

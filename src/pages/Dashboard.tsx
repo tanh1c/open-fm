@@ -416,8 +416,38 @@ export default function Dashboard(): JSX.Element {
   });
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-surface-900 flex flex-col transition-colors duration-300">
-      <TopbarV2
+    <div
+      data-testid="dashboard-shell"
+      className="flex h-screen w-full overflow-hidden text-app-text selection:bg-app-green selection:text-app-bg bg-app-bg"
+    >
+      <SidebarV2
+        activeId={profileNavigation.activeTab}
+        onSelect={handleNavClick}
+        items={[
+          { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
+          { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
+          { id: "News", label: t("dashboard.news"), icon: <Newspaper /> },
+          { id: "Schedule", label: t("dashboard.schedule"), icon: <CalendarIcon /> },
+          ...(isUnemployed
+            ? []
+            : ([
+                { id: "Squad", label: t("dashboard.squad"), icon: <Users /> },
+                { id: "Tactics", label: t("dashboard.tactics"), icon: <Crosshair /> },
+                { id: "Training", label: t("dashboard.training"), icon: <Dumbbell /> },
+                { id: "Staff", label: t("dashboard.staff"), icon: <UserCog /> },
+                { id: "Scouting", label: t("dashboard.scouting"), icon: <EyeIcon /> },
+                { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
+                { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
+                { id: "Transfers", label: t("dashboard.transfers"), icon: <TrendingUp /> },
+              ] as SidebarV2Item[])),
+          { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
+          { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },
+          { id: "Tournaments", label: t("dashboard.tournaments"), icon: <Trophy /> },
+        ]}
+      />
+
+      <div className="flex flex-col flex-1 min-w-0">
+        <TopbarV2
         logo={
           <span className="flex items-center gap-2">
             <img src="/openfootball.svg" alt={t("app.name")} className="w-6 h-6" />
@@ -438,33 +468,6 @@ export default function Dashboard(): JSX.Element {
         onInbox={() => handleNavClick("Inbox")}
         onHelp={handleNavigateSettings}
       />
-
-      <div className="flex-1 flex min-h-0">
-        <SidebarV2
-          activeId={profileNavigation.activeTab}
-          onSelect={handleNavClick}
-          items={[
-            { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
-            { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
-            { id: "News", label: t("dashboard.news"), icon: <Newspaper /> },
-            { id: "Schedule", label: t("dashboard.schedule"), icon: <CalendarIcon /> },
-            ...(isUnemployed
-              ? []
-              : ([
-                  { id: "Squad", label: t("dashboard.squad"), icon: <Users /> },
-                  { id: "Tactics", label: t("dashboard.tactics"), icon: <Crosshair /> },
-                  { id: "Training", label: t("dashboard.training"), icon: <Dumbbell /> },
-                  { id: "Staff", label: t("dashboard.staff"), icon: <UserCog /> },
-                  { id: "Scouting", label: t("dashboard.scouting"), icon: <EyeIcon /> },
-                  { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
-                  { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
-                  { id: "Transfers", label: t("dashboard.transfers"), icon: <TrendingUp /> },
-                ] as SidebarV2Item[])),
-            { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
-            { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },
-            { id: "Tournaments", label: t("dashboard.tournaments"), icon: <Trophy /> },
-          ]}
-        />
 
         <DashboardOverlays
           blockerModal={blockerModal}

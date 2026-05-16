@@ -58,6 +58,15 @@
   --color-accent-600: #94c40d;
   --color-accent-700: #6b8b08;
 
+  /* Template dashboard aliases (FE_template/untitled) */
+  --color-app-bg: #11161d;
+  --color-app-card: #181f29;
+  --color-app-border: #232d3b;
+  --color-app-green: #2dd4bf;
+  --color-app-red: #f87171;
+  --color-app-text: #f1f5f9;
+  --color-app-text-muted: #94a3b8;
+
   /* Semantic */
   --color-success-400: #4ade80;
   --color-success-500: #2ecc71;
@@ -74,7 +83,12 @@
 
 @layer base {
   body {
-    @apply bg-surface-50 text-surface-900 antialiased dark:bg-surface-900 dark:text-surface-100 transition-colors duration-300;
+    @apply bg-surface-50 text-surface-900 antialiased dark:text-app-text transition-colors duration-300;
+    background-color: var(--color-surface-50);
+  }
+
+  .dark body {
+    background-color: var(--color-app-bg);
   }
 
   h1, h2, h3, h4, h5, h6 {

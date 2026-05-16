@@ -266,6 +266,24 @@ function createGameState(
 }
 
 describe("HomeTab", function (): void {
+  it("uses the template dashboard layout with right sidebar", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState()}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    expect(screen.getByTestId("home-template-layout")).toHaveClass(
+      "xl:flex-row",
+      "gap-4",
+    );
+    expect(screen.getByTestId("home-right-sidebar")).toHaveClass(
+      "xl:w-[320px]",
+      "shrink-0",
+    );
+  });
+
   it("resolves latest news articles before rendering the home widget", function (): void {
     backendI18nMocks.resolveNewsArticle.mockImplementationOnce(
       (value: unknown) => ({

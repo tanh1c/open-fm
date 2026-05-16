@@ -13,24 +13,26 @@ describe("Card", () => {
     expect(container.firstChild?.nodeName).toBe("DIV");
   });
 
-  it("applies 'none' accent by default (flat border, no left accent)", () => {
+  it("uses template card surface classes", () => {
     const { container } = render(<Card>Default</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-surface-700");
+    expect(el.className).toContain("bg-app-card");
+    expect(el.className).toContain("border-app-border");
+    expect(el.className).toContain("rounded-xl");
     expect(el.className).not.toContain("border-l-2");
   });
 
-  it("applies primary accent — 2px violet left border", () => {
+  it("applies primary accent — 2px teal left border", () => {
     const { container } = render(<Card accent="primary">Primary</Card>);
     const el = container.firstChild as HTMLElement;
     expect(el.className).toContain("border-l-2");
-    expect(el.className).toContain("border-l-primary-500");
+    expect(el.className).toContain("border-l-app-green");
   });
 
-  it("applies accent accent — lime left border", () => {
+  it("applies accent accent — teal left border", () => {
     const { container } = render(<Card accent="accent">Accent</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-l-accent-500");
+    expect(el.className).toContain("border-l-app-green");
   });
 
   it("applies success accent — green left border", () => {
@@ -42,7 +44,7 @@ describe("Card", () => {
   it("applies danger accent — red left border", () => {
     const { container } = render(<Card accent="danger">Danger</Card>);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("border-l-danger-500");
+    expect(el.className).toContain("border-l-app-red");
   });
 
   it("merges custom className", () => {
@@ -53,9 +55,13 @@ describe("Card", () => {
 });
 
 describe("CardHeader", () => {
-  it("renders children as heading text", () => {
+  it("renders compact uppercase heading text", () => {
     render(<CardHeader>My Title</CardHeader>);
-    expect(screen.getByText("My Title")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "My Title" })).toHaveClass(
+      "text-[11px]",
+      "tracking-widest",
+      "uppercase",
+    );
   });
 
   it("renders action slot when provided", () => {

@@ -44,6 +44,9 @@ describe("HomeLeagueDigestCard", () => {
       />,
     );
 
+    expect(screen.getByTestId("league-digest-list")).toHaveClass(
+      "divide-app-border/50",
+    );
     expect(screen.getByText("League Digest")).toBeInTheDocument();
     expect(screen.getByText("Standings headline")).toBeInTheDocument();
 

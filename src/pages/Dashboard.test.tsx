@@ -331,6 +331,13 @@ describe("Dashboard", () => {
       expect(screen.getByText("Tab Content Home")).toBeInTheDocument();
     });
 
+    expect(screen.getByTestId("dashboard-shell")).toHaveClass(
+      "h-screen",
+      "w-full",
+      "overflow-hidden",
+      "bg-app-bg",
+    );
+
     fireEvent.click(screen.getByText("search-player"));
     expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();
 

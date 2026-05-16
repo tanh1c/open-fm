@@ -24,7 +24,7 @@ export default function HomeRecentResultsCard({
         action={
           <button
             onClick={() => onNavigate?.("Schedule")}
-            className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+            className="text-app-green text-xs font-heading font-bold uppercase tracking-wider hover:text-app-text transition-colors"
           >
             {t("dashboard.schedule")}
           </button>
@@ -34,18 +34,18 @@ export default function HomeRecentResultsCard({
       </CardHeader>
       <CardBody className="p-0">
         {recentResults.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-xs p-5">
+          <p className="text-app-text-muted text-xs p-5">
             {t("home.noMatches")}
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-surface-600">
+          <div data-testid="recent-results-list" className="divide-y divide-app-border/50">
             {recentResults
               .slice(-5)
               .reverse()
               .map((result) => (
                 <div
                   key={result.fixture.id}
-                  className="flex items-center px-4 py-2.5 gap-3"
+                  className="flex items-center px-4 py-2.5 gap-3 hover:bg-white/5 transition-colors"
                 >
                   <span
                     className={`form-badge ${
@@ -58,13 +58,13 @@ export default function HomeRecentResultsCard({
                   >
                     {result.resultCode}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 w-6">
+                  <span className="text-xs text-app-text-muted flex-shrink-0 w-6">
                     {result.isHome ? t("home.home").charAt(0) : t("home.away").charAt(0)}
                   </span>
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">
+                  <span className="text-sm font-medium text-app-text flex-1 truncate">
                     {getTeamName(teams, result.opponentId)}
                   </span>
-                  <span className="text-sm font-heading font-bold text-gray-700 dark:text-gray-300 tabular-nums">
+                  <span className="text-sm font-heading font-bold text-app-text tabular-nums">
                     {result.myGoals} - {result.opponentGoals}
                   </span>
                 </div>

@@ -34,6 +34,24 @@ const PLAYERS: SquadOverviewPlayer[] = [
 ];
 
 describe("SquadOverviewTable", () => {
+  it("uses template table and active tab styling", () => {
+    const { container } = render(
+      <SquadOverviewTable
+        players={PLAYERS}
+        activeTab="overview"
+        onTabChange={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector("table")).toHaveClass(
+      "text-[11px]",
+      "whitespace-nowrap",
+    );
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveClass(
+      "text-app-green",
+    );
+  });
+
   it("renders one row per player", () => {
     render(
       <SquadOverviewTable

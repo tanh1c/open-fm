@@ -18,8 +18,8 @@ const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 const SEGMENT_META: Record<GoalKind, { label: string; color: string }> = {
-  open_play: { label: "Open Play", color: "var(--color-primary-500)" },
-  set_piece: { label: "Set Pieces", color: "var(--color-accent-500)" },
+  open_play: { label: "Open Play", color: "var(--color-app-green)" },
+  set_piece: { label: "Set Pieces", color: "var(--color-blue-400)" },
   counter: { label: "Counter Attacks", color: "var(--color-success-500)" },
   penalty: { label: "Penalties", color: "var(--color-warn-500)" },
 };
@@ -48,29 +48,32 @@ export function GoalsAnalysisCard({ segments, className = "" }: GoalsAnalysisCar
       <CardHeader>Goals Analysis</CardHeader>
       <CardBody>
         {isEmpty ? (
-          <p className="text-sm text-surface-200 italic text-center py-4">
+          <p className="text-sm text-app-text-muted italic text-center py-8">
             No goals yet this season.
           </p>
         ) : (
-          <div className="flex items-center gap-5">
-            <div className="relative flex-shrink-0" style={{ width: SIZE, height: SIZE }}>
+          <div className="flex flex-col sm:flex-row items-center gap-5">
+            <div
+              data-testid="goals-donut-shell"
+              className="relative flex-shrink-0 bg-app-bg/50 border border-app-border/50 rounded-xl p-3"
+              style={{ width: SIZE + 24, height: SIZE + 24 }}
+            >
               <svg
                 viewBox={`0 0 ${SIZE} ${SIZE}`}
                 width={SIZE}
                 height={SIZE}
                 role="img"
                 aria-label="Goal source breakdown"
+                className="drop-shadow-sm"
               >
-                {/* Background ring */}
                 <circle
                   cx={SIZE / 2}
                   cy={SIZE / 2}
                   r={RADIUS}
                   fill="none"
-                  stroke="var(--color-surface-700)"
+                  stroke="var(--color-app-border)"
                   strokeWidth={STROKE}
                 />
-                {/* Each segment uses dashoffset to slot into the ring */}
                 <g transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}>
                   {arcs.map((arc, i) => (
                     <path
@@ -80,32 +83,36 @@ export function GoalsAnalysisCard({ segments, className = "" }: GoalsAnalysisCar
                       fill="none"
                       stroke={SEGMENT_META[arc.kind].color}
                       strokeWidth={STROKE}
+                      strokeLinecap="round"
                     />
                   ))}
                 </g>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="font-stat font-bold text-2xl text-white">{total}</span>
-                <span className="text-[10px] font-heading uppercase tracking-wider text-surface-200">
+                <span className="font-stat font-bold text-2xl text-app-text">{total}</span>
+                <span className="text-[10px] font-heading uppercase tracking-wider text-app-text-muted">
                   Total Goals
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 flex-1 min-w-0">
+            <div className="flex flex-col gap-2 flex-1 min-w-0 w-full">
               {arcs.map((arc) => {
                 const pct = Math.round((arc.count / total) * 100);
                 return (
-                  <div key={arc.kind} className="flex items-center gap-2 text-xs">
+                  <div
+                    key={arc.kind}
+                    className="flex items-center gap-2 text-xs rounded-lg border border-app-border/50 bg-app-bg/60 px-3 py-2"
+                  >
                     <span
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ background: SEGMENT_META[arc.kind].color }}
                     />
-                    <span className="flex-1 text-surface-200 truncate">
+                    <span className="flex-1 text-app-text-muted truncate">
                       {SEGMENT_META[arc.kind].label}
                     </span>
-                    <span className="font-stat text-white">
-                      {arc.count} <span className="text-surface-200">({pct}%)</span>
+                    <span className="font-stat text-app-text">
+                      {arc.count} <span className="text-app-text-muted">({pct}%)</span>
                     </span>
                   </div>
                 );

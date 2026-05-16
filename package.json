@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "audit:i18n": "node scripts/audit-i18n.mjs",
-    "build:engine": "node scripts/generate-engine-commands.mjs",
+    "build:engine": "node scripts/build-engine-wasm.mjs && node scripts/generate-engine-commands.mjs",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run build:engine && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"

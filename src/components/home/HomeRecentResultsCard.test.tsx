@@ -82,6 +82,9 @@ describe("HomeRecentResultsCard", () => {
       />,
     );
 
+    expect(screen.getByTestId("recent-results-list")).toHaveClass(
+      "divide-app-border/50",
+    );
     expect(screen.getByText("Recent Results")).toBeInTheDocument();
     expect(screen.getByText("Beta FC")).toBeInTheDocument();
     expect(screen.getByText("2 - 1")).toBeInTheDocument();

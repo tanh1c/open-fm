@@ -10,6 +10,17 @@ describe("GoalsAnalysisCard", () => {
     { kind: "penalty" as const, count: 4 },
   ];
 
+  it("uses template widget donut styling", () => {
+    const { container } = render(<GoalsAnalysisCard segments={segments} />);
+    expect(container.querySelector("[data-testid='goals-donut-shell']")).toHaveClass(
+      "bg-app-bg/50",
+      "rounded-xl",
+    );
+    expect(screen.getByLabelText("Goal source breakdown")).toHaveClass(
+      "drop-shadow-sm",
+    );
+  });
+
   it("renders the total goal count", () => {
     render(<GoalsAnalysisCard segments={segments} />);
     expect(screen.getByText("56")).toBeInTheDocument();

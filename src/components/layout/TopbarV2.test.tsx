@@ -18,6 +18,11 @@ const baseProps = {
 };
 
 describe("TopbarV2", () => {
+  it("renders template header surface", () => {
+    const { container } = render(<TopbarV2 {...baseProps} />);
+    expect(container.firstElementChild).toHaveClass("h-20", "border-app-border", "bg-app-bg");
+  });
+
   it("renders season + date + reputation labels", () => {
     render(<TopbarV2 {...baseProps} />);
     expect(screen.getByText("Season 2030/31")).toBeInTheDocument();

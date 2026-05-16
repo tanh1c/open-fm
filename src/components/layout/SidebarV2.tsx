@@ -30,8 +30,8 @@ export function SidebarV2({
   footer,
 }: SidebarV2Props) {
   return (
-    <aside className="w-52 bg-surface-900 border-r border-surface-700/60 flex flex-col h-full flex-shrink-0">
-      <nav className="flex-1 overflow-y-auto py-2 flex flex-col gap-0.5 px-2">
+    <aside className="w-64 bg-[#151b23] border-r border-app-border flex flex-col h-full flex-shrink-0">
+      <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 scrollbar-thin">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
@@ -42,14 +42,14 @@ export function SidebarV2({
               disabled={item.disabled}
               onClick={() => onSelect(item.id)}
               className={`
-                flex items-center gap-3 px-3 py-2 rounded-md
-                font-heading uppercase tracking-wider text-xs font-semibold
+                flex items-center gap-3 px-3 py-2.5 rounded-xl
+                uppercase tracking-wider text-xs font-bold
                 transition-colors text-left
                 [&>svg]:w-4 [&>svg]:h-4 [&>svg]:flex-shrink-0
                 ${
                   isActive
-                    ? "bg-primary-500/15 text-primary-300 border-l-2 border-primary-500 -ml-px"
-                    : "text-surface-200 hover:text-white hover:bg-surface-800"
+                    ? "bg-app-green/10 text-app-green"
+                    : "text-app-text-muted hover:text-app-text hover:bg-app-card/70"
                 }
                 ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}
               `}
@@ -57,7 +57,7 @@ export function SidebarV2({
               {item.icon}
               <span className="flex-1 truncate">{item.label}</span>
               {item.badge && item.badge > 0 ? (
-                <span className="text-[10px] font-stat bg-danger-500 text-white rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                <span className="text-[10px] font-stat bg-app-red text-white rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
                   {item.badge}
                 </span>
               ) : null}
@@ -67,13 +67,13 @@ export function SidebarV2({
       </nav>
 
       {pinned && (
-        <div className="border-t border-surface-700/60 p-3 flex-shrink-0">
+        <div className="border-t border-app-border p-4 flex-shrink-0">
           {pinned}
         </div>
       )}
 
       {footer && (
-        <div className="border-t border-surface-700/60 p-2 flex-shrink-0">
+        <div className="border-t border-app-border p-3 flex-shrink-0">
           {footer}
         </div>
       )}

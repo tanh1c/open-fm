@@ -1,25 +1,44 @@
 // OPFS sahpool VFS bootstrap — only compiled for wasm32 targets.
 //
-// Call `install_opfs_sahpool().await` once during app startup before opening any
-// SQLite Connection. Idempotent: a second call is a no-op.
+// `install_opfs_sahpool().await` mounts the VFS once at startup. Subsequent
+// calls are no-ops. Must be invoked from a Web Worker because the sahpool VFS
+// uses FileSystemSyncAccessHandle which would block the main thread.
 //
-// Must be invoked from a Web Worker (sahpool relies on
-// FileSystemSyncAccessHandle, which is main-thread-blocking).
+// We keep the returned `OpfsSAHPoolUtil` in a thread-local so admin actions
+// (delete a save, clear all saves) can call back into it. wasm32 is
+// single-threaded so `thread_local!` here is just a static cell; the underlying
+// JS object is not Send anyway, which is why we can't use a plain OnceLock.
 
-use std::sync::OnceLock;
+use std::cell::RefCell;
 
 use sqlite_wasm_rs::WasmOsCallback;
-use sqlite_wasm_vfs::sahpool::{OpfsSAHPoolCfg, install};
+use sqlite_wasm_vfs::sahpool::{OpfsSAHPoolCfg, OpfsSAHPoolUtil, install};
 
-static INSTALLED: OnceLock<()> = OnceLock::new();
+thread_local! {
+    static POOL_UTIL: RefCell<Option<OpfsSAHPoolUtil>> = const { RefCell::new(None) };
+}
 
 pub async fn install_opfs_sahpool() -> Result<(), String> {
-    if INSTALLED.get().is_some() {
+    let already_installed = POOL_UTIL.with(|cell| cell.borrow().is_some());
+    if already_installed {
         return Ok(());
     }
-    install::<WasmOsCallback>(&OpfsSAHPoolCfg::default(), true)
+    let util = install::<WasmOsCallback>(&OpfsSAHPoolCfg::default(), true)
         .await
         .map_err(|e| format!("be.error.opfs.installFailed:{e}"))?;
-    let _ = INSTALLED.set(());
+    POOL_UTIL.with(|cell| *cell.borrow_mut() = Some(util));
     Ok(())
+}
+
+/// Delete a single database file from the pool. Returns Ok(false) if the file
+/// did not exist. Used by SaveManager::delete_save.
+pub fn delete_db(filename: &str) -> Result<bool, String> {
+    POOL_UTIL.with(|cell| {
+        let cell = cell.borrow();
+        let util = cell
+            .as_ref()
+            .ok_or_else(|| "be.error.opfs.notInstalled".to_string())?;
+        util.delete_db(filename)
+            .map_err(|e| format!("be.error.opfs.deleteFailed:{e}"))
+    })
 }

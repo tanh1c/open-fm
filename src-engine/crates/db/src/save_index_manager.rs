@@ -54,6 +54,14 @@ impl SaveIndexManager {
     pub fn clear_all(&mut self) -> Result<(), String> {
         self.app_db.clear()
     }
+
+    pub fn kv_get(&self, key: &str) -> Result<Option<String>, String> {
+        self.app_db.kv_get(key)
+    }
+
+    pub fn kv_put(&self, key: &str, value: &str) -> Result<(), String> {
+        self.app_db.kv_put(key, value)
+    }
 }
 
 #[cfg(test)]

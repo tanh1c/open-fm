@@ -14,14 +14,18 @@ const APP_DATABASE_OPEN_FAILED: &str = "be.error.appDatabase.openFailed";
 const APP_DATABASE_MIGRATION_FAILED: &str = "be.error.appDatabase.migrationFailed";
 const APP_DATABASE_QUERY_FAILED: &str = "be.error.appDatabase.queryFailed";
 
-/// Schema migrations for the app database (just the save_index table for now).
+/// Schema migrations for the app database. Tracks both the save index
+/// and a small key-value store used for app-wide settings.
 fn app_migrations() -> Migrations<'static> {
-    Migrations::new(vec![M::up(include_str!("sql/app/v001_save_index.sql"))])
+    Migrations::new(vec![
+        M::up(include_str!("sql/app/v001_save_index.sql")),
+        M::up(include_str!("sql/app/v002_app_kv.sql")),
+    ])
 }
 
 /// SaveEntry as stored in the save_index table. No checksum — OPFS + SQLite
 /// already guarantee write integrity, so we don't need to hash blobs ourselves.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SaveEntry {
     pub id: String,
     pub name: String,
@@ -148,6 +152,33 @@ impl AppDatabase {
     pub fn clear(&self) -> Result<(), String> {
         self.conn
             .execute("DELETE FROM save_index", [])
+            .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
+        Ok(())
+    }
+
+    /// Read a single key from the app-wide key/value store.
+    pub fn kv_get(&self, key: &str) -> Result<Option<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM app_kv WHERE key = ?1")
+            .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
+        let mut rows = stmt
+            .query_map(params![key], |row| row.get::<_, String>(0))
+            .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
+        match rows.next() {
+            Some(row) => Ok(Some(row.map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Upsert a key in the app-wide key/value store.
+    pub fn kv_put(&self, key: &str, value: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO app_kv (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )
             .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
         Ok(())
     }

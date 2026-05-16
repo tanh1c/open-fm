@@ -41,30 +41,33 @@ export function TacticsFormationCard({
     <Card className={className}>
       <CardHeader
         action={
-          <span className="text-[10px] font-heading uppercase tracking-wider text-surface-200">
+          <span className="text-[10px] uppercase tracking-widest text-app-text-muted">
             Tactical Style{" "}
-            <span className="text-white font-semibold ml-1">{tacticalStyle}</span>
+            <span className="text-app-text font-semibold ml-1">{tacticalStyle}</span>
           </span>
         }
       >
         Tactics · {formation}
       </CardHeader>
 
-      <div className="grid grid-cols-3 gap-4 p-4">
-        <div className="col-span-2 relative">
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
+        <div
+          data-testid="tactics-pitch-shell"
+          className="w-full max-w-[400px] sm:aspect-[4/3] min-h-[300px] bg-[#1a2e25] border-2 border-emerald-900/50 rounded-xl relative overflow-hidden flex shadow-inner m-4"
+        >
           <PitchSvg />
           {players.map((player) => (
             <Jersey key={player.id} player={player} />
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 text-xs">
+        <div className="w-full sm:w-48 shrink-0 sm:border-l border-app-border/50 p-4 flex flex-col gap-4 text-xs">
           <InstructionBlock label="Team Instructions">
             <div className="flex flex-col gap-1.5">
               {instructions.teamInstructions.map((phrase) => (
                 <span
                   key={phrase}
-                  className="px-2 py-1 rounded bg-surface-700 text-surface-100 text-[11px]"
+                  className="px-2 py-1 rounded bg-app-bg/80 border border-app-border text-app-text text-[11px]"
                 >
                   {phrase}
                 </span>
@@ -102,7 +105,7 @@ function InstructionBlock({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-heading uppercase tracking-wider text-surface-200">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
         {label}
       </span>
       {children}
@@ -112,7 +115,7 @@ function InstructionBlock({
 
 function Phrase({ children }: { children: React.ReactNode }) {
   return (
-    <span className="px-2 py-1 rounded bg-surface-700 text-surface-100 text-[11px] inline-block w-fit">
+    <span className="px-2 py-1 rounded bg-app-bg/80 border border-app-border text-app-text text-[11px] inline-block w-fit">
       {children}
     </span>
   );
@@ -177,19 +180,19 @@ function Jersey({ player }: { player: PlayerSlot }) {
       style={{ left: `${player.x}%`, top: `${player.y}%` }}
     >
       <div
-        className={`w-9 h-9 rounded-md flex items-center justify-center font-stat font-bold text-sm border ${
+        className={`w-8 h-8 rounded-full flex items-center justify-center font-stat font-bold text-xs border shadow-md ${
           player.role.startsWith("SK")
-            ? "bg-warn-500 text-surface-900 border-warn-700/60"
-            : "bg-success-500 text-surface-900 border-success-600/60"
-        } shadow-md`}
+            ? "bg-warn-500 text-app-bg border-warn-500/70"
+            : "bg-app-green text-app-bg border-app-green/70"
+        }`}
       >
         {player.number}
       </div>
-      <div className="mt-1 text-center min-w-16">
-        <div className="text-[10px] font-heading font-semibold text-white leading-tight whitespace-nowrap">
+      <div className="mt-1 text-center min-w-16 bg-app-bg/80 border border-app-border backdrop-blur-sm rounded px-1.5 py-1">
+        <div className="text-[10px] font-semibold text-app-text leading-tight whitespace-nowrap">
           {player.name}
         </div>
-        <div className="text-[9px] font-stat text-surface-200 leading-tight">
+        <div className="text-[9px] font-stat text-app-text-muted leading-tight">
           {player.role}
         </div>
       </div>

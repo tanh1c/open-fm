@@ -13,6 +13,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    "paths": {
+      "@tauri-apps/api/core": ["./src/core/wasmCore.ts"],
+      "@tauri-apps/api/window": ["./src/core/appWindow.ts"]
+    },
 
     /* Linting */
     "strict": true,

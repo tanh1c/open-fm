@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Card, CardHeader, Tabs, type TabItem } from "../ui";
+import { Card } from "../ui";
 import { ratingClass } from "../../lib/ratings";
 
 export type SquadOverviewTab = "overview" | "stats" | "contract" | "fitness";
@@ -33,7 +33,7 @@ interface SquadOverviewTableProps {
   footer?: ReactNode;
 }
 
-const TABS: TabItem[] = [
+const TABS: Array<{ id: SquadOverviewTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "stats", label: "Stats" },
   { id: "contract", label: "Contract" },
@@ -55,23 +55,37 @@ export function SquadOverviewTable({
 }: SquadOverviewTableProps) {
   return (
     <Card className={className}>
-      <CardHeader
-        action={
-          <Tabs
-            items={TABS}
-            activeId={activeTab}
-            onChange={(id) => onTabChange(id as SquadOverviewTab)}
-            className="border-none gap-1"
-          />
-        }
-      >
-        Squad Overview
-      </CardHeader>
+      <div className="px-5 pt-4 flex items-center gap-6 border-b border-app-border/50">
+        <h3 className="text-[11px] font-bold text-app-text-muted tracking-widest uppercase pb-3 -mb-[2px]">
+          Squad Overview
+        </h3>
+        <div role="tablist" className="flex items-center gap-5">
+          {TABS.map((tab) => {
+            const isActive = tab.id === activeTab;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onTabChange(tab.id)}
+                className={`text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                  isActive
+                    ? "text-app-green border-b-2 border-app-green pb-3 -mb-[2px]"
+                    : "text-app-text-muted hover:text-app-text pb-3 -mb-[2px]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="text-surface-200 font-heading uppercase tracking-wider text-[10px]">
-            <tr className="border-b border-surface-700/60">
+      <div className="flex-1 p-0 overflow-x-auto min-h-0 min-w-0">
+        <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[600px]">
+          <thead className="text-app-text-muted uppercase tracking-widest text-[10px]">
+            <tr className="border-b border-app-border/50">
               <th className="text-left px-3 py-2 font-semibold w-14">POS</th>
               <th className="text-left px-2 py-2 font-semibold w-8">#</th>
               <th className="text-left px-2 py-2 font-semibold">Player</th>
@@ -90,25 +104,25 @@ export function SquadOverviewTable({
               <tr
                 key={p.id}
                 onClick={() => onPlayerClick?.(p.id)}
-                className={`border-b border-surface-800 hover:bg-surface-800/50 transition-colors ${
+                className={`border-b border-app-border/20 hover:bg-white/5 transition-colors ${
                   onPlayerClick ? "cursor-pointer" : ""
                 }`}
               >
                 <td className="px-3 py-1.5">
-                  <span className="inline-flex items-center justify-center min-w-9 h-5 px-2 rounded bg-surface-700 font-stat text-[10px] font-semibold text-white">
+                  <span className={`inline-flex items-center justify-center min-w-9 h-5 px-2 rounded font-stat text-[10px] font-semibold ${positionPillClass(p.position)}`}>
                     {p.position}
                   </span>
                 </td>
-                <td className="px-2 py-1.5 font-stat text-surface-100">
+                <td className="px-2 py-1.5 font-stat text-app-text">
                   {p.number ?? ""}
                 </td>
-                <td className="px-2 py-1.5 font-heading font-semibold text-white">
+                <td className="px-2 py-1.5 font-semibold text-app-text">
                   {p.matchName}
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-surface-100">
+                <td className="px-2 py-1.5 text-right font-stat text-app-text">
                   {p.age}
                 </td>
-                <td className="px-2 py-1.5 text-surface-100">
+                <td className="px-2 py-1.5 text-app-text">
                   <span className="font-stat text-[10px] uppercase tracking-wider">
                     {p.nationality}
                   </span>
@@ -119,19 +133,19 @@ export function SquadOverviewTable({
                 <td className="px-2 py-1.5 text-right">
                   <ConditionRing value={p.morale} />
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-surface-100">
+                <td className="px-2 py-1.5 text-right font-stat text-app-text">
                   {p.appearances}
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-surface-100">
+                <td className="px-2 py-1.5 text-right font-stat text-app-text">
                   {p.goals}
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-surface-100">
+                <td className="px-2 py-1.5 text-right font-stat text-app-text">
                   {p.assists}
                 </td>
                 <td className="px-3 py-1.5 text-right">
                   <span
                     data-cell="avgRating"
-                    className={`inline-block min-w-12 px-1.5 py-0.5 rounded font-stat text-xs font-semibold text-center ${ratingClass(p.avgRating * 10)}`}
+                    className={`inline-block min-w-12 px-2 py-1 rounded font-stat text-[11px] font-semibold text-center bg-app-bg border border-app-border/50 text-app-text ${ratingClass(p.avgRating * 10)}`}
                   >
                     {p.avgRating.toFixed(2)}
                   </span>
@@ -146,6 +160,18 @@ export function SquadOverviewTable({
   );
 }
 
+function positionPillClass(position: string): string {
+  if (position === "GK") {
+    return "bg-app-green/15 text-app-green border border-app-green/30";
+  }
+
+  if (["D", "B", "W"].some((prefix) => position.startsWith(prefix))) {
+    return "bg-blue-500/15 text-blue-300 border border-blue-500/30";
+  }
+
+  return "bg-app-bg text-app-text-muted border border-app-border/50";
+}
+
 /** Inline 0-100 ring + numeric label, FM-style "92%" with arc. */
 function ConditionRing({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value));
@@ -154,17 +180,17 @@ function ConditionRing({ value }: { value: number }) {
   const offset = c * (1 - clamped / 100);
   const ringColor =
     clamped >= 85
-      ? "var(--color-success-500)"
+      ? "var(--color-app-green)"
       : clamped >= 70
-        ? "var(--color-accent-500)"
+        ? "var(--color-success-500)"
         : clamped >= 50
           ? "var(--color-warn-500)"
-          : "var(--color-danger-500)";
+          : "var(--color-app-red)";
 
   return (
     <span className="inline-flex items-center gap-1.5 justify-end">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-        <circle cx={9} cy={9} r={r} fill="none" stroke="var(--color-surface-700)" strokeWidth={2} />
+        <circle cx={9} cy={9} r={r} fill="none" stroke="var(--color-app-border)" strokeWidth={2} />
         <circle
           cx={9}
           cy={9}
@@ -178,7 +204,7 @@ function ConditionRing({ value }: { value: number }) {
           strokeLinecap="round"
         />
       </svg>
-      <span className="font-stat text-[10px] text-surface-100">{clamped}%</span>
+      <span className="font-stat text-[10px] text-app-text">{clamped}%</span>
     </span>
   );
 }

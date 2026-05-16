@@ -1,7 +1,7 @@
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
+use crate::application::round_summary::{build_round_summary_dto, RoundSummaryDto};
 use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
 use ofm_core::state::StateManager;

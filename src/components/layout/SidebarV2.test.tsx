@@ -9,6 +9,11 @@ const items: SidebarV2Item[] = [
 ];
 
 describe("SidebarV2", () => {
+  it("renders template sidebar surface", () => {
+    const { container } = render(<SidebarV2 items={items} activeId="dashboard" onSelect={vi.fn()} />);
+    expect(container.firstElementChild).toHaveClass("w-64", "border-app-border", "bg-[#151b23]");
+  });
+
   it("renders items with their labels", () => {
     render(<SidebarV2 items={items} activeId="dashboard" onSelect={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Dashboard" })).toBeInTheDocument();

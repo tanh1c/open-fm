@@ -1,6 +1,7 @@
 use chrono::Utc;
 use domain::stats::StatsState;
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -24,7 +25,9 @@ pub struct SaveManager {
     save_index: SaveIndexManager,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 const SAVE_MANAGER_UNAVAILABLE_ERROR: &str = "be.error.saveManagerUnavailable";
+#[cfg(not(target_arch = "wasm32"))]
 const SAVE_DELETE_ERROR: &str = "be.error.saveDeleteFailed";
 
 fn backend_error_with_param(key: &str, param_name: &str, param_value: &str) -> String {
@@ -44,7 +47,12 @@ fn save_not_found_error(save_id: &str) -> String {
 impl SaveManager {
     /// Initialize the SaveManager without blocking startup on a missing save index.
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
+        // On native we need to ensure the saves directory exists. On wasm32 the
+        // OPFS sahpool VFS manages its own pool of files inside Origin Private
+        // File System and there is no real filesystem path to mkdir.
+        #[cfg(not(target_arch = "wasm32"))]
         fs::create_dir_all(saves_dir).map_err(|_| SAVE_MANAGER_UNAVAILABLE_ERROR.to_string())?;
+
         let save_index = SaveIndexManager::init(saves_dir)?;
 
         Ok(Self {
@@ -282,13 +290,52 @@ impl SaveManager {
             None => return Ok(false),
         };
 
-        let db_path = self.saves_dir.join(&entry.db_filename);
-        if db_path.exists() {
-            fs::remove_file(&db_path).map_err(|_| SAVE_DELETE_ERROR.to_string())?;
+        // Native: real filesystem path. Wasm32: ask the OPFS sahpool VFS to
+        // unlink the file from its pool.
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let db_path = self.saves_dir.join(&entry.db_filename);
+            if db_path.exists() {
+                fs::remove_file(&db_path).map_err(|_| SAVE_DELETE_ERROR.to_string())?;
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = crate::opfs::delete_db(&entry.db_filename);
         }
 
         self.save_index.remove_save(save_id)?;
         Ok(true)
+    }
+
+    /// Delete every save and clear the index. Used by the "clear all saves" admin action.
+    pub fn clear_all_saves(&mut self) -> Result<(), String> {
+        self.ensure_save_index_ready()?;
+        let entries = self.save_index.list_saves();
+        for entry in entries {
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let db_path = self.saves_dir.join(&entry.db_filename);
+                if db_path.exists() {
+                    let _ = fs::remove_file(&db_path);
+                }
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                let _ = crate::opfs::delete_db(&entry.db_filename);
+            }
+        }
+        self.save_index.clear_all()
+    }
+
+    /// Read a value from the app-wide key-value store (used for settings).
+    pub fn kv_get(&self, key: &str) -> Result<Option<String>, String> {
+        self.save_index.kv_get(key)
+    }
+
+    /// Upsert a value in the app-wide key-value store.
+    pub fn kv_put(&mut self, key: &str, value: &str) -> Result<(), String> {
+        self.save_index.kv_put(key, value)
     }
 
     /// Create a new game by loading an existing save, stripping session data,

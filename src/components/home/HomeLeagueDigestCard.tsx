@@ -23,7 +23,7 @@ export default function HomeLeagueDigestCard({
         action={
           <button
             onClick={() => onNavigate?.("News")}
-            className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+            className="text-app-green text-xs font-heading font-bold uppercase tracking-wider hover:text-app-text transition-colors"
           >
             {t("dashboard.news")}
           </button>
@@ -33,26 +33,26 @@ export default function HomeLeagueDigestCard({
       </CardHeader>
       <CardBody className="p-0">
         {articles.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 p-6 text-center">
+          <p className="text-sm text-app-text-muted p-6 text-center">
             {t("home.noLeagueDigest")}
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-surface-600">
+          <div data-testid="league-digest-list" className="divide-y divide-app-border/50">
             {articles.map((article) => (
               <button
                 key={article.id}
                 onClick={() => onNavigate?.("News")}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors"
+                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1.5">
                   <Badge variant="neutral" size="sm">
                     {t(`news.categories.${article.category}`)}
                   </Badge>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  <span className="text-[10px] text-app-text-muted">
                     {formatDateShort(article.date, lang)} - {article.source}
                   </span>
                 </div>
-                <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 leading-snug">
+                <p className="text-sm font-heading font-bold text-app-text leading-snug">
                   {article.headline}
                 </p>
               </button>

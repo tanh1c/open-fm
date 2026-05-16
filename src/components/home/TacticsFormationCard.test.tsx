@@ -37,10 +37,16 @@ describe("TacticsFormationCard", () => {
     expect(screen.getByText("Balanced")).toBeInTheDocument();
   });
 
-  it("renders one jersey per player", () => {
+  it("renders template pitch shell and one positioned jersey per player", () => {
     const { container } = render(<TacticsFormationCard {...sampleProps} />);
+    expect(screen.getByTestId("tactics-pitch-shell")).toHaveClass(
+      "sm:aspect-[4/3]",
+      "rounded-xl",
+    );
+    expect(screen.getByLabelText("Football pitch")).toHaveClass("w-full", "h-full");
     const jerseys = container.querySelectorAll("[data-jersey]");
     expect(jerseys).toHaveLength(sampleProps.players.length);
+    expect(jerseys[0]).toHaveClass("absolute");
   });
 
   it("renders all team instruction phrases", () => {

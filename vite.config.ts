@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -75,6 +76,12 @@ function manualChunks(id: string): string | undefined {
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+  resolve: {
+    alias: {
+      "@tauri-apps/api/core": fileURLToPath(new URL("./src/core/wasmCore.ts", import.meta.url)),
+      "@tauri-apps/api/window": fileURLToPath(new URL("./src/core/appWindow.ts", import.meta.url)),
+    },
+  },
   plugins: [react(), tailwindcss()],
   test: {
     environment: "jsdom",

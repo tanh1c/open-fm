@@ -43,12 +43,12 @@ export function TopbarV2({
   onNotifications,
 }: TopbarV2Props) {
   return (
-    <header className="h-16 bg-surface-900 border-b border-surface-700/60 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)] flex items-center px-4 gap-4">
+    <header className="h-20 border-b border-app-border bg-app-bg flex items-center justify-between px-6 gap-4 shrink-0">
       {logo !== undefined && (
         <button
           type="button"
           onClick={onLogoClick}
-          className="flex items-center gap-2 font-heading uppercase tracking-wider text-base font-bold text-white hover:text-primary-300 transition-colors flex-shrink-0"
+          className="flex items-center gap-2 font-heading uppercase tracking-wider text-base font-bold text-app-text hover:text-app-green transition-colors flex-shrink-0"
         >
           {logo}
         </button>
@@ -87,10 +87,10 @@ export function TopbarV2({
         </IconButton>
       </div>
 
-      <div className="flex items-center gap-3 pl-3 border-l border-surface-700/60 flex-shrink-0">
-        <div className="w-9 h-9 rounded-full bg-surface-700 flex items-center justify-center overflow-hidden">
+      <div className="flex items-center gap-3 pl-3 border-l border-app-border flex-shrink-0">
+        <div className="w-10 h-10 rounded-full bg-app-card border border-app-border flex items-center justify-center overflow-hidden">
           {managerAvatar ?? (
-            <span className="text-xs font-stat font-semibold text-surface-200">
+            <span className="text-xs font-stat font-semibold text-app-text-muted">
               {managerName
                 .split(" ")
                 .map((part) => part[0])
@@ -101,10 +101,10 @@ export function TopbarV2({
           )}
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-heading uppercase tracking-wider text-white truncate max-w-40">
+          <span className="text-sm font-bold uppercase tracking-wider text-app-text truncate max-w-40">
             {managerName}
           </span>
-          <span className="text-xs text-surface-200">{managerRole}</span>
+          <span className="text-xs text-app-text-muted">{managerRole}</span>
         </div>
       </div>
     </header>
@@ -124,15 +124,15 @@ interface StatusPillProps {
 
 function StatusPill({ icon, primary, secondary, trailing }: StatusPillProps) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-800 border border-surface-700/60 rounded-md flex-shrink-0">
+    <div className="flex items-center gap-3 bg-app-card border border-app-border rounded-xl px-4 py-2 flex-shrink-0">
       {icon && (
-        <span className="[&>svg]:w-4 [&>svg]:h-4 text-surface-200">{icon}</span>
+        <span className="[&>svg]:w-4 [&>svg]:h-4 text-app-text-muted">{icon}</span>
       )}
       <div className="flex flex-col leading-tight">
-        <span className="text-[10px] font-heading uppercase tracking-wider text-surface-200">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
           {primary}
         </span>
-        <span className="text-xs font-heading font-semibold text-white">
+        <span className="text-xs font-semibold text-app-text">
           {secondary}
         </span>
       </div>
@@ -149,7 +149,7 @@ function StarRow({ filled }: { filled: number }) {
         <Star
           key={i}
           className={`w-3 h-3 ${
-            i < clamped ? "fill-accent-500 text-accent-500" : "text-surface-600"
+            i < clamped ? "fill-app-green text-app-green" : "text-app-border"
           }`}
         />
       ))}
@@ -163,15 +163,15 @@ interface SearchBoxProps {
 
 function SearchBox({ onChange }: SearchBoxProps) {
   return (
-    <label className="flex items-center gap-2 px-3 py-1.5 bg-surface-800 border border-surface-700/60 rounded-md focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/40 transition-colors">
-      <Search className="w-4 h-4 text-surface-200 flex-shrink-0" />
+    <label className="flex items-center gap-2 px-3 py-2 bg-app-card border border-app-border rounded-xl focus-within:border-app-green focus-within:ring-2 focus-within:ring-app-green/20 transition-colors">
+      <Search className="w-4 h-4 text-app-text-muted flex-shrink-0" />
       <input
         type="search"
         placeholder="Search players, staff, competitions..."
         onChange={(e) => onChange?.(e.target.value)}
-        className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-surface-200/50 min-w-0"
+        className="flex-1 bg-transparent outline-none text-sm text-app-text placeholder:text-app-text-muted/60 min-w-0"
       />
-      <kbd className="text-[10px] font-stat text-surface-200 border border-surface-700 rounded px-1.5 py-0.5 flex-shrink-0">
+      <kbd className="text-[10px] font-stat text-app-text-muted border border-app-border rounded px-1.5 py-0.5 flex-shrink-0">
         ⌘K
       </kbd>
     </label>
@@ -191,11 +191,11 @@ function IconButton({ ariaLabel, onClick, badge, children }: IconButtonProps) {
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="relative w-9 h-9 rounded-md flex items-center justify-center text-surface-200 hover:text-white hover:bg-surface-800 transition-colors [&>svg]:w-4 [&>svg]:h-4"
+      className="relative w-10 h-10 rounded-xl flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-card transition-colors [&>svg]:w-4 [&>svg]:h-4"
     >
       {children}
       {badge && badge > 0 ? (
-        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-danger-500 text-white text-[9px] font-stat font-semibold flex items-center justify-center">
+        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-app-red text-white text-[9px] font-stat font-semibold flex items-center justify-center">
           {badge}
         </span>
       ) : null}

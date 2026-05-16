@@ -214,8 +214,15 @@ describe("SquadTab", () => {
       />,
     );
 
-    expect(screen.getByText("squad.title")).toBeInTheDocument();
-    expect(screen.getByText("Player d5")).toBeInTheDocument();
+    expect(screen.getByTestId("squad-template-layout")).toBeInTheDocument();
+    expect(screen.getByTestId("squad-template-sidebar")).toBeInTheDocument();
+    expect(screen.getByText("SQUAD")).toBeInTheDocument();
+    expect(screen.getByText("Register Squad")).toBeInTheDocument();
+    expect(screen.getByText("TACTICS & FORMATION")).toBeInTheDocument();
+    expect(screen.getByText("PLAYER PROFILE")).toBeInTheDocument();
+    expect(screen.getByText("SQUAD HIERARCHY")).toBeInTheDocument();
+    expect(screen.getByText("SUBSTITUTES")).toBeInTheDocument();
+    expect(screen.getAllByText("Player d5").length).toBeGreaterThan(0);
     expect(screen.queryByText("What this changes")).not.toBeInTheDocument();
     expect(screen.queryByTestId("bench-player-d5")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pitch-slot-1")).not.toBeInTheDocument();
@@ -237,8 +244,8 @@ describe("SquadTab", () => {
     );
 
     expect(screen.getByText("Years Remaining")).toBeInTheDocument();
-    expect(screen.getByText("Contract Risk")).toBeInTheDocument();
-    expect(screen.getByText("Critical")).toBeInTheDocument();
+    expect(screen.getByText("STATUS")).toBeInTheDocument();
+    expect(screen.getAllByText("Critical").length).toBeGreaterThan(0);
 
     fireEvent.click(
       screen.getAllByRole("button", { name: "Renew Contract" })[0],
@@ -264,7 +271,7 @@ describe("SquadTab", () => {
       />,
     );
 
-    const playerRow = screen.getByText("Player gk1").closest("tr");
+    const playerRow = screen.getAllByText("Player gk1")[0].closest("tr");
     expect(playerRow).not.toBeNull();
     fireEvent.contextMenu(playerRow as HTMLTableRowElement);
 
@@ -315,7 +322,7 @@ describe("SquadTab", () => {
       />,
     );
 
-    const playerRow = screen.getByText("Player gk1").closest("tr");
+    const playerRow = screen.getAllByText("Player gk1")[0].closest("tr");
     expect(playerRow).not.toBeNull();
     fireEvent.contextMenu(playerRow as HTMLTableRowElement);
     fireEvent.click(screen.getByRole("button", { name: "Reopen Talks" }));
@@ -352,7 +359,7 @@ describe("SquadTab", () => {
       />,
     );
 
-    const playerRow = screen.getByText("Player gk1").closest("tr");
+    const playerRow = screen.getAllByText("Player gk1")[0].closest("tr");
     expect(playerRow).not.toBeNull();
     fireEvent.contextMenu(playerRow as HTMLTableRowElement);
     fireEvent.click(

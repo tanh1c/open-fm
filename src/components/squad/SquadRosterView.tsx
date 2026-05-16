@@ -1,8 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type {
   GameStateData,
   PlayerData,
   PlayerSelectionOptions,
+  TeamMatchRolesData,
 } from "../../store/gameStore";
 import { Button, CountryFlag } from "../ui";
 import {
@@ -90,6 +92,7 @@ export default function SquadRosterView({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [headerAction, setHeaderAction] = useState<"registration" | "roles" | "autoPick" | null>(null);
   const [contractActionPlayerId, setContractActionPlayerId] = useState<string | null>(null);
   const [contractActionError, setContractActionError] = useState<string | null>(null);
 
@@ -242,6 +245,38 @@ export default function SquadRosterView({
     }
   };
 
+  const focusRegistration = () => {
+    setHeaderAction("registration");
+    setStatusFilter("all");
+    setPositionFilter("All");
+    setPlayerSearch("");
+    setShowFilterPopover(false);
+  };
+
+  const focusRoles = async () => {
+    setHeaderAction("roles");
+    try {
+      const updated = await invoke<GameStateData>("set_team_match_roles", {
+        matchRoles: buildAutoMatchRoles(startingXiIds, playersById),
+      });
+      onGameUpdate?.(updated);
+    } finally {
+      setHeaderAction(null);
+    }
+  };
+
+  const autoPickStartingXi = async () => {
+    setHeaderAction("autoPick");
+    try {
+      const updated = await invoke<GameStateData>("set_starting_xi", {
+        playerIds: buildStartingXIIds(available, [], formation),
+      });
+      onGameUpdate?.(updated);
+    } finally {
+      setHeaderAction(null);
+    }
+  };
+
   const selectPlayer = (player: PlayerData) => {
     setSelectedPlayerId(player.id);
   };
@@ -267,11 +302,11 @@ export default function SquadRosterView({
           <p className="text-sm text-app-text-muted">{myTeam.name} &bull; {roster.length} Players</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <TemplateButton disabled icon={<FileText className="w-4 h-4 text-app-text-muted" />}>Registration unavailable</TemplateButton>
-          <TemplateButton disabled icon={<UserCog className="w-4 h-4 text-app-text-muted" />}>Roles unavailable</TemplateButton>
-          <button type="button" disabled className="flex items-center gap-2 px-4 py-2 bg-app-green/30 text-app-bg/70 rounded-lg text-sm font-bold cursor-not-allowed">
+          <TemplateButton onClick={focusRegistration} icon={<FileText className="w-4 h-4 text-app-text-muted" />}>Register Squad</TemplateButton>
+          <TemplateButton onClick={() => void focusRoles()} disabled={headerAction === "roles"} icon={<UserCog className="w-4 h-4 text-app-text-muted" />}>{headerAction === "roles" ? "Setting Roles" : "Set Roles"}</TemplateButton>
+          <button type="button" onClick={() => void autoPickStartingXi()} disabled={headerAction === "autoPick"} className="flex items-center gap-2 px-4 py-2 bg-app-green text-app-bg rounded-lg text-sm font-bold hover:bg-app-green/90 disabled:opacity-60 disabled:cursor-wait transition-colors">
             <Wand2 className="w-4 h-4" />
-            Auto Pick unavailable
+            {headerAction === "autoPick" ? "Auto Picking" : "Auto Pick"}
           </button>
           <button type="button" className="w-9 h-9 bg-app-card border border-app-border rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors">
             <MoreHorizontal className="w-4 h-4 text-app-text-muted" />
@@ -279,7 +314,7 @@ export default function SquadRosterView({
         </div>
       </div>
 
-      <div className="flex items-center gap-8 border-b border-app-border/50 px-2 mt-2 overflow-x-auto">
+      <div className="flex h-11 shrink-0 items-center gap-8 overflow-hidden border-b border-app-border/50 px-2 mt-2">
         {[
           ["all", "Overview"],
           ["xi", "Selection"],
@@ -290,7 +325,7 @@ export default function SquadRosterView({
             key={scope}
             type="button"
             onClick={() => setStatusFilter(scope as FilterScope)}
-            className={statusFilter === scope ? "text-app-green font-semibold border-b-2 border-app-green pb-3 -mb-[2px]" : "text-app-text-muted hover:text-white pb-3 -mb-[2px] font-medium transition-colors"}
+            className={statusFilter === scope ? "flex h-full items-center whitespace-nowrap text-app-green font-semibold border-b-2 border-app-green" : "flex h-full items-center whitespace-nowrap text-app-text-muted hover:text-white font-medium transition-colors"}
           >
             {label}
           </button>
@@ -719,9 +754,9 @@ function TemplateCardHeader({ title, action }: { title: string; action?: ReactNo
   );
 }
 
-function TemplateButton({ icon, children, disabled = false }: { icon: ReactNode; children: ReactNode; disabled?: boolean }) {
+function TemplateButton({ icon, children, disabled = false, onClick }: { icon: ReactNode; children: ReactNode; disabled?: boolean; onClick?: () => void }) {
   return (
-    <button type="button" disabled={disabled} className={`flex items-center gap-2 px-4 py-2 bg-app-card border border-app-border rounded-lg text-sm font-medium transition-colors text-app-text ${disabled ? "opacity-55 cursor-not-allowed" : "hover:bg-white/5"}`}>
+    <button type="button" onClick={onClick} disabled={disabled} className={`flex items-center gap-2 px-4 py-2 bg-app-card border border-app-border rounded-lg text-sm font-medium transition-colors text-app-text ${disabled ? "opacity-55 cursor-not-allowed" : "hover:bg-white/5"}`}>
       {icon}
       {children}
     </button>
@@ -1053,4 +1088,29 @@ function ratingClass(value: number): string {
   if (value >= 65) return "text-sm font-black text-primary-400";
   if (value >= 50) return "text-sm font-black text-warn-500";
   return "text-sm font-black text-app-text-muted";
+}
+
+function buildAutoMatchRoles(playerIds: string[], playersById: Map<string, PlayerData>): TeamMatchRolesData {
+  const players = playerIds
+    .map((id) => playersById.get(id))
+    .filter((player): player is PlayerData => Boolean(player));
+  const captain = pickRolePlayer(players, (player) => player.attributes.leadership + player.attributes.teamwork + player.attributes.composure);
+  const viceCaptain = pickRolePlayer(players, (player) => player.attributes.leadership + player.attributes.teamwork + player.attributes.decisions, captain);
+  const penaltyTaker = pickRolePlayer(players, (player) => player.attributes.shooting + player.attributes.composure + player.attributes.decisions);
+  const freeKickTaker = pickRolePlayer(players, (player) => player.attributes.shooting + player.attributes.passing + player.attributes.vision);
+  const cornerTaker = pickRolePlayer(players, (player) => player.attributes.passing + player.attributes.vision + player.attributes.teamwork);
+
+  return {
+    captain,
+    vice_captain: viceCaptain,
+    penalty_taker: penaltyTaker,
+    free_kick_taker: freeKickTaker,
+    corner_taker: cornerTaker,
+  };
+}
+
+function pickRolePlayer(players: PlayerData[], scorePlayer: (player: PlayerData) => number, excludedId: string | null = null): string | null {
+  return players
+    .filter((player) => player.id !== excludedId)
+    .sort((left, right) => scorePlayer(right) - scorePlayer(left) || left.full_name.localeCompare(right.full_name))[0]?.id ?? null;
 }

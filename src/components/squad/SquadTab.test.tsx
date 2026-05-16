@@ -217,7 +217,7 @@ describe("SquadTab", () => {
     expect(screen.getByTestId("squad-template-layout")).toBeInTheDocument();
     expect(screen.getByTestId("squad-template-sidebar")).toBeInTheDocument();
     expect(screen.getByText("SQUAD")).toBeInTheDocument();
-    expect(screen.getByText("Registration unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Register Squad")).toBeInTheDocument();
     expect(screen.getByText("TACTICS & FORMATION")).toBeInTheDocument();
     expect(screen.getByText("PLAYER PROFILE")).toBeInTheDocument();
     expect(screen.getByText("SQUAD HIERARCHY")).toBeInTheDocument();
@@ -226,6 +226,47 @@ describe("SquadTab", () => {
     expect(screen.queryByText("What this changes")).not.toBeInTheDocument();
     expect(screen.queryByTestId("bench-player-d5")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pitch-slot-1")).not.toBeInTheDocument();
+  });
+
+  it("wires template header actions to real squad commands", async () => {
+    const gameState = makeGameState();
+    const onGameUpdate = vi.fn();
+    mockedInvoke.mockResolvedValue(gameState);
+
+    render(
+      <SquadTab
+        gameState={gameState}
+        managerId="mgr1"
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Auto Pick" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
+        playerIds: expect.arrayContaining(["gk1", "d1", "m1", "f1"]),
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(gameState);
+    });
+
+    mockedInvoke.mockClear();
+    onGameUpdate.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Set Roles" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_team_match_roles", {
+        matchRoles: expect.objectContaining({
+          captain: expect.any(String),
+          vice_captain: expect.any(String),
+          penalty_taker: expect.any(String),
+          free_kick_taker: expect.any(String),
+          corner_taker: expect.any(String),
+        }),
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(gameState);
+    });
   });
 
   it("shows contract inspection columns and renew entry points for expiring players", () => {

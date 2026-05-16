@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { formatDateShort } from "../../lib/helpers";
@@ -42,19 +43,22 @@ export default function HomeLeagueDigestCard({
               <button
                 key={article.id}
                 onClick={() => onNavigate?.("News")}
-                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors"
+                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors grid grid-cols-[minmax(0,1fr)_0.875rem] gap-3 items-center"
               >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Badge variant="neutral" size="sm">
-                    {t(`news.categories.${article.category}`)}
-                  </Badge>
-                  <span className="text-[10px] text-app-text-muted">
-                    {formatDateShort(article.date, lang)} - {article.source}
-                  </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5 min-w-0">
+                    <Badge variant="neutral" size="sm">
+                      {t(`news.categories.${article.category}`)}
+                    </Badge>
+                    <span className="text-[10px] text-app-text-muted truncate">
+                      {formatDateShort(article.date, lang)} - {article.source}
+                    </span>
+                  </div>
+                  <p className="text-xs font-heading font-bold text-app-text leading-snug line-clamp-2">
+                    {article.headline}
+                  </p>
                 </div>
-                <p className="text-sm font-heading font-bold text-app-text leading-snug">
-                  {article.headline}
-                </p>
+                <ChevronRight className="w-3.5 h-3.5 text-app-text-muted" />
               </button>
             ))}
           </div>

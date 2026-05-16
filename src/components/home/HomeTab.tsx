@@ -51,6 +51,7 @@ import {
   Users,
   Crosshair,
   UserCog,
+  ChevronRight,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import HomeOnboardingChecklistCard from "./HomeOnboardingChecklistCard";
@@ -261,9 +262,9 @@ export default function HomeTab({
         {myTeam ? (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Card accent="primary" className="col-span-1 min-h-[360px]">
+              <Card accent="primary" className="col-span-1 min-h-[360px] flex flex-col h-full">
                 <CardHeader>{t("home.nextMatch")}</CardHeader>
-                <CardBody>
+                <CardBody className="p-0 flex flex-1">
                   <NextMatchDisplay gameState={gameState} />
                 </CardBody>
               </Card>
@@ -291,6 +292,16 @@ export default function HomeTab({
                   activeTab={squadTab}
                   onTabChange={setSquadTab}
                   onPlayerClick={() => onNavigate?.("Squad")}
+                  footer={
+                    <button
+                      type="button"
+                      onClick={() => onNavigate?.("Squad")}
+                      className="h-10 border-t border-app-border/50 flex items-center justify-end pr-4 gap-2 text-[11px] font-semibold text-app-green hover:bg-app-green/5 transition-colors w-full"
+                    >
+                      <span>View Full Squad</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  }
                 />
               </div>
             )}

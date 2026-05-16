@@ -18,9 +18,11 @@ const baseProps = {
 };
 
 describe("TopbarV2", () => {
-  it("renders template header surface", () => {
+  it("renders template header surface and search shape", () => {
     const { container } = render(<TopbarV2 {...baseProps} />);
     expect(container.firstElementChild).toHaveClass("h-20", "border-app-border", "bg-app-bg");
+    expect(screen.getByTestId("topbar-search")).toHaveClass("relative", "block");
+    expect(screen.getByPlaceholderText(/search/i)).toHaveClass("w-80", "rounded-lg");
   });
 
   it("renders season + date + reputation labels", () => {
@@ -44,14 +46,17 @@ describe("TopbarV2", () => {
     expect(onSearch).toHaveBeenLastCalledWith("messi");
   });
 
-  it("shows unread badge when unreadCount > 0", () => {
+  it("shows notification dot when unreadCount > 0", () => {
     render(<TopbarV2 {...baseProps} unreadCount={5} />);
-    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /notifications/i }).querySelector("span")).toHaveClass(
+      "bg-app-red",
+      "ring-app-bg",
+    );
   });
 
-  it("hides badge when unreadCount is 0", () => {
+  it("hides notification dot when unreadCount is 0", () => {
     render(<TopbarV2 {...baseProps} unreadCount={0} />);
-    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /notifications/i }).querySelector("span")).toBeNull();
   });
 
   it("invokes notifications/inbox/help handlers", () => {

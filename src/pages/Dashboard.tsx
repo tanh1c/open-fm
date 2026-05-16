@@ -423,6 +423,8 @@ export default function Dashboard(): JSX.Element {
       <SidebarV2
         activeId={profileNavigation.activeTab}
         onSelect={handleNavClick}
+        brand={t("app.name")}
+        onBrandClick={() => handleNavClick("Home")}
         items={[
           { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
           { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
@@ -448,12 +450,6 @@ export default function Dashboard(): JSX.Element {
 
       <div className="flex flex-col flex-1 min-w-0">
         <TopbarV2
-        logo={
-          <span className="flex items-center gap-2">
-            <img src="/openfootball.svg" alt={t("app.name")} className="w-6 h-6" />
-            <span>{t("app.name")}</span>
-          </span>
-        }
         seasonLabel={t("dashboard.season", { defaultValue: "Season" })}
         seasonDate={currentDate}
         reputationLabel={myTeamName ?? t("dashboard.unemployed", { defaultValue: "Unemployed" })}
@@ -491,7 +487,8 @@ export default function Dashboard(): JSX.Element {
         <FiredModal />
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <main data-testid="dashboard-main" className="flex-1 overflow-auto p-4 scrollbar-thin">
+          <div className="flex flex-col min-h-full">
           <DashboardHeader
             activeTabLabel={activeTabLabel}
             currentDate={currentDate}
@@ -535,6 +532,7 @@ export default function Dashboard(): JSX.Element {
             onGameUpdate={setGameState}
             isUnemployed={isUnemployed ?? false}
           />
+          </div>
         </main>
       </div>
     </div>

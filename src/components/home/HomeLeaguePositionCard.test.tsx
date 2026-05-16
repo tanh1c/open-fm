@@ -61,7 +61,8 @@ describe("HomeLeaguePositionCard", () => {
 
     expect(screen.getByTestId("league-position-rank")).toHaveClass(
       "bg-app-bg/60",
-      "border-app-green/30",
+      "border-b",
+      "border-app-border/50",
     );
     expect(screen.getByText("League Position")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();

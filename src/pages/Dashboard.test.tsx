@@ -337,6 +337,10 @@ describe("Dashboard", () => {
       "overflow-hidden",
       "bg-app-bg",
     );
+    expect(screen.getByTestId("dashboard-main")).toHaveClass(
+      "overflow-auto",
+      "p-4",
+    );
 
     fireEvent.click(screen.getByText("search-player"));
     expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();

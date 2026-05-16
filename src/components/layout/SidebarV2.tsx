@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChevronLeft, Shield } from "lucide-react";
 
 export interface SidebarV2Item {
   id: string;
@@ -12,6 +13,8 @@ interface SidebarV2Props {
   items: SidebarV2Item[];
   activeId: string;
   onSelect: (id: string) => void;
+  brand?: ReactNode;
+  onBrandClick?: () => void;
   /** Optional pinned content rendered below the nav list (e.g. Next Match card). */
   pinned?: ReactNode;
   /** Optional footer (Quick Actions button). */
@@ -26,12 +29,28 @@ export function SidebarV2({
   items,
   activeId,
   onSelect,
+  brand,
+  onBrandClick,
   pinned,
   footer,
 }: SidebarV2Props) {
   return (
-    <aside className="w-64 bg-[#151b23] border-r border-app-border flex flex-col h-full flex-shrink-0">
-      <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3 scrollbar-thin">
+    <aside className="w-64 bg-[#151b23] flex flex-col h-full border-r border-app-border shrink-0">
+      <button
+        type="button"
+        data-testid="sidebar-brand"
+        onClick={onBrandClick}
+        className="h-16 flex items-center px-6 gap-3 shrink-0 text-left hover:text-app-green transition-colors"
+      >
+        <div className="w-8 h-8 bg-app-green/20 rounded-lg flex items-center justify-center text-app-green">
+          <Shield className="w-5 h-5" />
+        </div>
+        <span className="font-bold text-xl tracking-tight text-app-text">
+          {brand ?? "OpenManager"}
+        </span>
+      </button>
+
+      <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1 scrollbar-thin">
         {items.map((item) => {
           const isActive = item.id === activeId;
           return (
@@ -42,41 +61,47 @@ export function SidebarV2({
               disabled={item.disabled}
               onClick={() => onSelect(item.id)}
               className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-xl
-                uppercase tracking-wider text-xs font-bold
-                transition-colors text-left
-                [&>svg]:w-4 [&>svg]:h-4 [&>svg]:flex-shrink-0
+                flex items-center justify-between w-full px-3 py-2.5 rounded-lg
+                text-sm font-medium transition-colors text-left group
+                [&>svg]:w-5 [&>svg]:h-5 [&>svg]:flex-shrink-0
                 ${
                   isActive
                     ? "bg-app-green/10 text-app-green"
-                    : "text-app-text-muted hover:text-app-text hover:bg-app-card/70"
+                    : "text-app-text-muted hover:text-app-text hover:bg-white/5"
                 }
                 ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}
               `}
             >
-              {item.icon}
-              <span className="flex-1 truncate">{item.label}</span>
-              {item.badge && item.badge > 0 ? (
-                <span className="text-[10px] font-stat bg-app-red text-white rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
-                  {item.badge}
-                </span>
-              ) : null}
+              <span className="flex items-center gap-3 min-w-0">
+                {item.icon}
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="flex items-center gap-2 shrink-0">
+                {isActive && <span data-testid="sidebar-active-dot" className="w-1.5 h-1.5 rounded-full bg-app-green" />}
+                {item.badge && item.badge > 0 ? (
+                  <span className="text-[10px] font-bold bg-app-red text-white rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}
       </nav>
 
       {pinned && (
-        <div className="border-t border-app-border p-4 flex-shrink-0">
+        <div className="p-4 shrink-0 px-5">
           {pinned}
         </div>
       )}
 
-      {footer && (
-        <div className="border-t border-app-border p-3 flex-shrink-0">
-          {footer}
-        </div>
-      )}
+      <div className="h-14 border-t border-app-border flex items-center justify-between px-4 shrink-0 text-app-text-muted">
+        {footer ?? (
+          <button type="button" className="p-2 hover:text-white transition-colors rounded-lg hover:bg-white/5 ml-auto">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     </aside>
   );
 }

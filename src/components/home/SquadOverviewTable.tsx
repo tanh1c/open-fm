@@ -56,10 +56,10 @@ export function SquadOverviewTable({
   return (
     <Card className={className}>
       <div className="px-5 pt-4 flex items-center gap-6 border-b border-app-border/50">
-        <h3 className="text-[11px] font-bold text-app-text-muted tracking-widest uppercase pb-3 -mb-[2px]">
+        <h2 className="text-[11px] font-bold text-app-text-muted tracking-widest uppercase mb-3">
           Squad Overview
-        </h3>
-        <div role="tablist" className="flex items-center gap-5">
+        </h2>
+        <div role="tablist" className="flex items-center gap-4 text-xs">
           {TABS.map((tab) => {
             const isActive = tab.id === activeTab;
             return (
@@ -69,10 +69,10 @@ export function SquadOverviewTable({
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => onTabChange(tab.id)}
-                className={`text-[11px] font-bold uppercase tracking-widest transition-colors ${
+                className={`font-semibold transition-colors ${
                   isActive
                     ? "text-app-green border-b-2 border-app-green pb-3 -mb-[2px]"
-                    : "text-app-text-muted hover:text-app-text pb-3 -mb-[2px]"
+                    : "text-app-text-muted hover:text-white pb-3 -mb-[2px]"
                 }`}
               >
                 {tab.label}
@@ -85,18 +85,18 @@ export function SquadOverviewTable({
       <div className="flex-1 p-0 overflow-x-auto min-h-0 min-w-0">
         <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[600px]">
           <thead className="text-app-text-muted uppercase tracking-widest text-[10px]">
-            <tr className="border-b border-app-border/50">
-              <th className="text-left px-3 py-2 font-semibold w-14">POS</th>
-              <th className="text-left px-2 py-2 font-semibold w-8">#</th>
-              <th className="text-left px-2 py-2 font-semibold">Player</th>
-              <th className="text-right px-2 py-2 font-semibold">Age</th>
-              <th className="text-left px-2 py-2 font-semibold">Nat</th>
-              <th className="text-right px-2 py-2 font-semibold">Con</th>
-              <th className="text-right px-2 py-2 font-semibold">Mor</th>
-              <th className="text-right px-2 py-2 font-semibold">Apps</th>
-              <th className="text-right px-2 py-2 font-semibold">Gls</th>
-              <th className="text-right px-2 py-2 font-semibold">Ast</th>
-              <th className="text-right px-3 py-2 font-semibold">Av Rat</th>
+            <tr className="border-b border-app-border/30">
+              <th className="font-semibold py-3 pl-4 w-12 text-left">POS</th>
+              <th className="font-semibold py-3 w-8 text-left">#</th>
+              <th className="font-semibold py-3 min-w-[140px] text-left">Player</th>
+              <th className="font-semibold py-3 w-12 text-right">Age</th>
+              <th className="font-semibold py-3 w-12 text-left">Nat</th>
+              <th className="font-semibold py-3 w-16 text-right">Con</th>
+              <th className="font-semibold py-3 w-16 text-right">Mor</th>
+              <th className="font-semibold py-3 w-12 text-right">Apps</th>
+              <th className="font-semibold py-3 w-12 text-center">Gls</th>
+              <th className="font-semibold py-3 w-12 text-center">Ast</th>
+              <th className="font-semibold py-3 w-16 pr-4 text-right">Av Rat</th>
             </tr>
           </thead>
           <tbody>
@@ -104,45 +104,45 @@ export function SquadOverviewTable({
               <tr
                 key={p.id}
                 onClick={() => onPlayerClick?.(p.id)}
-                className={`border-b border-app-border/20 hover:bg-white/5 transition-colors ${
+                className={`border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors ${
                   onPlayerClick ? "cursor-pointer" : ""
                 }`}
               >
-                <td className="px-3 py-1.5">
+                <td className="py-2.5 pl-4">
                   <span className={`inline-flex items-center justify-center min-w-9 h-5 px-2 rounded font-stat text-[10px] font-semibold ${positionPillClass(p.position)}`}>
                     {p.position}
                   </span>
                 </td>
-                <td className="px-2 py-1.5 font-stat text-app-text">
+                <td className="py-2.5 font-stat text-app-text">
                   {p.number ?? ""}
                 </td>
-                <td className="px-2 py-1.5 font-semibold text-app-text">
+                <td className="py-2.5 font-semibold text-app-text">
                   {p.matchName}
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-app-text">
+                <td className="py-2.5 text-right font-stat text-app-text">
                   {p.age}
                 </td>
-                <td className="px-2 py-1.5 text-app-text">
+                <td className="py-2.5 text-app-text">
                   <span className="font-stat text-[10px] uppercase tracking-wider">
                     {p.nationality}
                   </span>
                 </td>
-                <td className="px-2 py-1.5 text-right">
+                <td className="py-2.5 text-right">
                   <ConditionRing value={p.condition} />
                 </td>
-                <td className="px-2 py-1.5 text-right">
+                <td className="py-2.5 text-right">
                   <ConditionRing value={p.morale} />
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-app-text">
+                <td className="py-2.5 text-right font-stat text-app-text">
                   {p.appearances}
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-app-text">
+                <td className="py-2.5 text-right font-stat text-app-text">
                   {p.goals}
                 </td>
-                <td className="px-2 py-1.5 text-right font-stat text-app-text">
+                <td className="py-2.5 text-right font-stat text-app-text">
                   {p.assists}
                 </td>
-                <td className="px-3 py-1.5 text-right">
+                <td className="py-2.5 pr-4 text-right">
                   <span
                     data-cell="avgRating"
                     className={`inline-block min-w-12 px-2 py-1 rounded font-stat text-[11px] font-semibold text-center bg-app-bg border border-app-border/50 text-app-text ${ratingClass(p.avgRating * 10)}`}

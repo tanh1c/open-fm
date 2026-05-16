@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { getTeamName } from "../../lib/helpers";
@@ -45,7 +46,7 @@ export default function HomeRecentResultsCard({
               .map((result) => (
                 <div
                   key={result.fixture.id}
-                  className="flex items-center px-4 py-2.5 gap-3 hover:bg-white/5 transition-colors"
+                  className="grid grid-cols-[1.75rem_2rem_minmax(0,1fr)_3.5rem_0.875rem] items-center px-4 py-2.5 gap-2 hover:bg-white/5 transition-colors"
                 >
                   <span
                     className={`form-badge ${
@@ -58,15 +59,16 @@ export default function HomeRecentResultsCard({
                   >
                     {result.resultCode}
                   </span>
-                  <span className="text-xs text-app-text-muted flex-shrink-0 w-6">
+                  <span className="text-[10px] text-app-text-muted uppercase tracking-wider">
                     {result.isHome ? t("home.home").charAt(0) : t("home.away").charAt(0)}
                   </span>
-                  <span className="text-sm font-medium text-app-text flex-1 truncate">
+                  <span className="text-xs font-medium text-app-text truncate">
                     {getTeamName(teams, result.opponentId)}
                   </span>
-                  <span className="text-sm font-heading font-bold text-app-text tabular-nums">
+                  <span className="text-xs font-heading font-bold text-app-text tabular-nums text-right">
                     {result.myGoals} - {result.opponentGoals}
                   </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-app-text-muted" />
                 </div>
               ))}
           </div>

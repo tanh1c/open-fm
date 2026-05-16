@@ -9,9 +9,21 @@ const items: SidebarV2Item[] = [
 ];
 
 describe("SidebarV2", () => {
-  it("renders template sidebar surface", () => {
+  it("renders template sidebar surface and brand header", () => {
     const { container } = render(<SidebarV2 items={items} activeId="dashboard" onSelect={vi.fn()} />);
     expect(container.firstElementChild).toHaveClass("w-64", "border-app-border", "bg-[#151b23]");
+    expect(screen.getByTestId("sidebar-brand")).toHaveClass("h-16", "px-6");
+    expect(screen.getByText("OpenManager")).toBeInTheDocument();
+  });
+
+  it("renders active nav dot and template nav classes", () => {
+    render(<SidebarV2 items={items} activeId="dashboard" onSelect={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Dashboard" })).toHaveClass(
+      "rounded-lg",
+      "text-sm",
+      "font-medium",
+    );
+    expect(screen.getByTestId("sidebar-active-dot")).toBeInTheDocument();
   });
 
   it("renders items with their labels", () => {

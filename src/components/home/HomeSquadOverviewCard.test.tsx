@@ -38,7 +38,7 @@ describe("HomeSquadOverviewCard", () => {
       "rounded-xl",
     );
     expect(screen.getByText("Squad Overview")).toBeInTheDocument();
-    expect(screen.getByText("78%")).toBeInTheDocument();
+    expect(screen.getAllByText("78%")).toHaveLength(2);
     expect(screen.getByText("64")).toBeInTheDocument();
     expect(screen.getByText("2 exhausted players")).toBeInTheDocument();
     expect(screen.getByText("Balanced")).toBeInTheDocument();

@@ -43,68 +43,74 @@ export function TopbarV2({
   onNotifications,
 }: TopbarV2Props) {
   return (
-    <header className="h-20 border-b border-app-border bg-app-bg flex items-center justify-between px-6 gap-4 shrink-0">
-      {logo !== undefined && (
-        <button
-          type="button"
-          onClick={onLogoClick}
-          className="flex items-center gap-2 font-heading uppercase tracking-wider text-base font-bold text-app-text hover:text-app-green transition-colors flex-shrink-0"
-        >
-          {logo}
-        </button>
-      )}
+    <header className="h-20 border-b border-app-border bg-app-bg flex items-center justify-between px-6 shrink-0">
+      <div className="flex items-center gap-4 min-w-0">
+        {logo !== undefined && (
+          <button
+            type="button"
+            onClick={onLogoClick}
+            className="sr-only"
+          >
+            {logo}
+          </button>
+        )}
 
-      <StatusPill
-        icon={<CalendarDays />}
-        primary={seasonLabel}
-        secondary={seasonDate}
-      />
+        <StatusPill
+          icon={<CalendarDays />}
+          primary={seasonLabel}
+          secondary={seasonDate}
+        />
 
-      <StatusPill
-        icon={<Trophy />}
-        primary="Club Reputation"
-        secondary={reputationLabel}
-        trailing={<StarRow filled={reputationStars} />}
-      />
+        <StatusPill
+          icon={<Trophy />}
+          primary="Club Reputation"
+          secondary={reputationLabel}
+          trailing={<StarRow filled={reputationStars} />}
+        />
+      </div>
 
-      <div className="flex-1 min-w-0 max-w-xl mx-auto">
+      <div className="flex items-center gap-6">
         <SearchBox onChange={onSearch} />
-      </div>
 
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <IconButton
-          ariaLabel="Notifications"
-          onClick={onNotifications}
-          badge={unreadCount}
-        >
-          <Bell />
-        </IconButton>
-        <IconButton ariaLabel="Inbox" onClick={onInbox}>
-          <Mail />
-        </IconButton>
-        <IconButton ariaLabel="Help" onClick={onHelp}>
-          <HelpCircle />
-        </IconButton>
-      </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <IconButton
+              ariaLabel="Notifications"
+              onClick={onNotifications}
+              badge={unreadCount}
+            >
+              <Bell />
+            </IconButton>
+            <IconButton ariaLabel="Inbox" onClick={onInbox}>
+              <Mail />
+            </IconButton>
+            <IconButton ariaLabel="Help" onClick={onHelp}>
+              <HelpCircle />
+            </IconButton>
+          </div>
 
-      <div className="flex items-center gap-3 pl-3 border-l border-app-border flex-shrink-0">
-        <div className="w-10 h-10 rounded-full bg-app-card border border-app-border flex items-center justify-center overflow-hidden">
-          {managerAvatar ?? (
-            <span className="text-xs font-stat font-semibold text-app-text-muted">
-              {managerName
-                .split(" ")
-                .map((part) => part[0])
-                .filter(Boolean)
-                .slice(0, 2)
-                .join("")}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-bold uppercase tracking-wider text-app-text truncate max-w-40">
-            {managerName}
-          </span>
-          <span className="text-xs text-app-text-muted">{managerRole}</span>
+          <div className="w-px h-8 bg-app-border mx-2" />
+
+          <button type="button" className="flex items-center gap-3 hover:bg-app-card px-2 py-1.5 rounded-lg transition-colors text-left">
+            <div className="w-9 h-9 rounded-full bg-app-card border border-app-border flex items-center justify-center overflow-hidden">
+              {managerAvatar ?? (
+                <span className="text-xs font-stat font-semibold text-app-text-muted">
+                  {managerName
+                    .split(" ")
+                    .map((part) => part[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-app-text leading-tight truncate max-w-40">
+                {managerName}
+              </span>
+              <span className="text-xs text-app-text-muted">{managerRole}</span>
+            </div>
+          </button>
         </div>
       </div>
     </header>
@@ -163,15 +169,15 @@ interface SearchBoxProps {
 
 function SearchBox({ onChange }: SearchBoxProps) {
   return (
-    <label className="flex items-center gap-2 px-3 py-2 bg-app-card border border-app-border rounded-xl focus-within:border-app-green focus-within:ring-2 focus-within:ring-app-green/20 transition-colors">
-      <Search className="w-4 h-4 text-app-text-muted flex-shrink-0" />
+    <label data-testid="topbar-search" className="relative block">
+      <Search className="w-4 h-4 text-app-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
       <input
         type="search"
         placeholder="Search players, staff, competitions..."
         onChange={(e) => onChange?.(e.target.value)}
-        className="flex-1 bg-transparent outline-none text-sm text-app-text placeholder:text-app-text-muted/60 min-w-0"
+        className="w-80 bg-app-card border border-app-border rounded-lg pl-9 pr-12 py-2 text-sm text-app-text placeholder:text-app-text-muted focus:outline-none focus:border-app-green/50 transition-colors"
       />
-      <kbd className="text-[10px] font-stat text-app-text-muted border border-app-border rounded px-1.5 py-0.5 flex-shrink-0">
+      <kbd className="absolute right-3 top-1/2 -translate-y-1/2 bg-[#151b23] border border-app-border rounded px-1.5 py-0.5 text-[10px] text-app-text-muted font-sans font-medium">
         ⌘K
       </kbd>
     </label>
@@ -191,11 +197,11 @@ function IconButton({ ariaLabel, onClick, badge, children }: IconButtonProps) {
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      className="relative w-10 h-10 rounded-xl flex items-center justify-center text-app-text-muted hover:text-app-text hover:bg-app-card transition-colors [&>svg]:w-4 [&>svg]:h-4"
+      className="relative p-2 text-app-text-muted hover:text-white hover:bg-app-card rounded-lg transition-colors [&>svg]:w-5 [&>svg]:h-5"
     >
       {children}
       {badge && badge > 0 ? (
-        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-app-red text-white text-[9px] font-stat font-semibold flex items-center justify-center">
+        <span className="absolute top-1.5 right-1.5 min-w-2 h-2 px-0 rounded-full bg-app-red text-transparent text-[0px] ring-2 ring-app-bg flex items-center justify-center">
           {badge}
         </span>
       ) : null}

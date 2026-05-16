@@ -77,6 +77,7 @@ function manualChunks(id: string): string | undefined {
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       "@tauri-apps/api/core": fileURLToPath(new URL("./src/core/wasmCore.ts", import.meta.url)),
       "@tauri-apps/api/window": fileURLToPath(new URL("./src/core/appWindow.ts", import.meta.url)),

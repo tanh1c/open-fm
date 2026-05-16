@@ -1121,6 +1121,12 @@
     "display": "Display",
     "theme": "Theme",
     "themeDesc": "Choose how the app looks",
+    "colorPreset": "Color Palette",
+    "colorPresetDesc": "Choose the app accent and surface colors",
+    "colorPresets": {
+      "default": "Default",
+      "template": "Template Classic"
+    },
     "language": "Language",
     "languageDesc": "Choose the display language",
     "currency": "Currency",

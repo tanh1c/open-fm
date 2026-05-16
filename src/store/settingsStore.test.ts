@@ -8,6 +8,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 const DEFAULT_SETTINGS = {
   theme: "dark",
+  color_preset: "default",
   language: "en",
   currency: "EUR",
   default_match_mode: "live",

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export interface AppSettings {
   theme: "dark" | "light" | "system";
+  color_preset: "default" | "template";
   language: string;
   currency: "EUR" | "GBP" | "USD";
   default_match_mode: "live" | "spectator" | "delegate";
@@ -16,6 +17,7 @@ export interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
+  color_preset: "default",
   language: "en",
   currency: "EUR",
   default_match_mode: "live",

@@ -1121,6 +1121,12 @@
     "display": "显示",
     "theme": "主题",
     "themeDesc": "选择应用外观",
+    "colorPreset": "配色方案",
+    "colorPresetDesc": "选择应用强调色和界面颜色",
+    "colorPresets": {
+      "default": "默认",
+      "template": "Template Classic"
+    },
     "language": "语言",
     "languageDesc": "选择显示语言",
     "currency": "货币",

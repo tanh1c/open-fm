@@ -1121,6 +1121,12 @@
     "display": "Affichage",
     "theme": "Thème",
     "themeDesc": "Choisissez l'apparence de l'application",
+    "colorPreset": "Palette de couleurs",
+    "colorPresetDesc": "Choisissez les couleurs d'accent et de surface",
+    "colorPresets": {
+      "default": "Par défaut",
+      "template": "Template Classic"
+    },
     "language": "Langue",
     "languageDesc": "Choisissez la langue d'affichage",
     "currency": "Devise",

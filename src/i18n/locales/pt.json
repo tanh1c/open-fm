@@ -1121,6 +1121,12 @@
     "display": "Ecrã",
     "theme": "Tema",
     "themeDesc": "Escolhe o aspeto da aplicação",
+    "colorPreset": "Paleta de cores",
+    "colorPresetDesc": "Escolhe as cores de destaque e superfícies",
+    "colorPresets": {
+      "default": "Predefinido",
+      "template": "Template Classic"
+    },
     "language": "Idioma",
     "languageDesc": "Escolhe o idioma de exibição",
     "currency": "Moeda",

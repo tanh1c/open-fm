@@ -1140,6 +1140,12 @@
     "display": "Visualizzazione",
     "theme": "Tema",
     "themeDesc": "Scegli l'aspetto dell'app",
+    "colorPreset": "Palette colori",
+    "colorPresetDesc": "Scegli i colori di accento e superficie",
+    "colorPresets": {
+      "default": "Predefinito",
+      "template": "Template Classic"
+    },
     "language": "Lingua",
     "languageDesc": "Scegli la lingua dell'interfaccia",
     "currency": "Valuta",

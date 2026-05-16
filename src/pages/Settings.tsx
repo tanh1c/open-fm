@@ -30,6 +30,7 @@ const CURRENCY_OPTIONS = [
 
 const MATCH_MODE_KEYS = ["live", "spectator", "delegate"] as const;
 const MATCH_SPEED_KEYS = ["slow", "normal", "fast"] as const;
+const COLOR_PRESET_KEYS = ["default", "template"] as const;
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -174,6 +175,27 @@ export default function Settings() {
                 handleUpdate({ theme: v as AppSettings["theme"] })
               }
             />
+          </SettingRow>
+
+          <SettingRow
+            label={t("settings.colorPreset")}
+            description={t("settings.colorPresetDesc")}
+          >
+            <Select
+              value={settings.color_preset}
+              onChange={(e) =>
+                handleUpdate({
+                  color_preset: e.target.value as AppSettings["color_preset"],
+                })
+              }
+              className="min-w-48"
+            >
+              {COLOR_PRESET_KEYS.map((preset) => (
+                <option key={preset} value={preset}>
+                  {t(`settings.colorPresets.${preset}`)}
+                </option>
+              ))}
+            </Select>
           </SettingRow>
 
           <SettingRow

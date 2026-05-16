@@ -1121,6 +1121,12 @@
     "display": "Anzeige",
     "theme": "Design",
     "themeDesc": "Wähle das Erscheinungsbild der App",
+    "colorPreset": "Farbpalette",
+    "colorPresetDesc": "Wähle Akzent- und Oberflächenfarben der App",
+    "colorPresets": {
+      "default": "Standard",
+      "template": "Template Classic"
+    },
     "language": "Sprache",
     "languageDesc": "Wähle die Anzeigesprache",
     "currency": "Währung",

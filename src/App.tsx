@@ -44,6 +44,10 @@ function App() {
     );
   }, [settings.high_contrast]);
 
+  useEffect(() => {
+    document.documentElement.dataset.colorPreset = settings.color_preset;
+  }, [settings.color_preset]);
+
   // Apply saved language from settings once loaded (overrides OS detection)
   useEffect(() => {
     if (loaded && settings.language && settings.language !== i18n.language) {

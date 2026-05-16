@@ -81,6 +81,37 @@
   --color-rating-poor:  #ef4444;
 }
 
+:root[data-color-preset="template"] {
+  --color-surface-50:  #f4f7fb;
+  --color-surface-100: #e5edf7;
+  --color-surface-200: #bfd0e4;
+  --color-surface-300: #8ea4bd;
+  --color-surface-600: #2b3d52;
+  --color-surface-700: #1f2d3d;
+  --color-surface-800: #141c27;
+  --color-surface-900: #0f1720;
+  --color-surface-950: #080d13;
+  --color-primary-400: #34d399;
+  --color-primary-500: #10b981;
+  --color-primary-600: #059669;
+  --color-primary-700: #047857;
+  --color-accent-400: #facc15;
+  --color-accent-500: #eab308;
+  --color-app-bg: #080d13;
+  --color-app-card: #101923;
+  --color-app-border: #243244;
+  --color-app-green: #10b981;
+  --color-app-text: #f8fafc;
+  --color-app-text-muted: #94a3b8;
+  --color-success-500: #22c55e;
+  --color-warn-500: #f59e0b;
+  --color-danger-500: #ef4444;
+  --color-rating-elite: #22c55e;
+  --color-rating-good: #84cc16;
+  --color-rating-avg: #f59e0b;
+  --color-rating-poor: #ef4444;
+}
+
 @layer base {
   body {
     @apply bg-surface-50 text-surface-900 antialiased dark:text-app-text transition-colors duration-300;

@@ -1,3 +1,5 @@
+import { TemplateBriefingStrip, type TemplateBriefingItem } from "./widgets/TemplateBriefingStrip";
+import type { TemplateClubBriefingSection } from "./widgets/TemplateClubBriefing";
 import { TemplateGoalsAnalysis, type TemplateGoalSegment } from "./widgets/TemplateGoalsAnalysis";
 import { TemplateRightSidebar, type TemplateFixtureRow, type TemplateLeagueTableRow, type TemplateTrainingRow } from "./widgets/TemplateRightSidebar";
 import { TemplateSquadOverview, type TemplateSquadRow } from "./widgets/TemplateSquadOverview";
@@ -7,6 +9,8 @@ import { TemplateTransferActivity, type TemplateTransferActivityItem } from "./w
 import { TemplateUpcomingMatch } from "./widgets/TemplateUpcomingMatch";
 
 export interface TemplateDashboardProps {
+  briefingItems: TemplateBriefingItem[];
+  clubBriefingSections: TemplateClubBriefingSection[];
   upcomingMatch: {
     competitionLabel: string;
     fixtureLabel: string;
@@ -59,10 +63,12 @@ export interface TemplateDashboardProps {
   onNavigate?: (tab: string) => void;
 }
 
-export function TemplateDashboard({ upcomingMatch, tactics, squad, form, goals, transferActivity, rightSidebar, onNavigate }: TemplateDashboardProps) {
+export function TemplateDashboard({ briefingItems, clubBriefingSections, upcomingMatch, tactics, squad, form, goals, transferActivity, rightSidebar, onNavigate }: TemplateDashboardProps) {
   return (
     <div data-testid="template-dashboard" className="flex flex-col xl:flex-row gap-4 min-h-full">
       <div className="flex-1 flex flex-col gap-4 min-w-0">
+        <TemplateBriefingStrip items={briefingItems} />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="col-span-1 min-h-[360px]">
             <TemplateUpcomingMatch {...upcomingMatch} onPreview={() => onNavigate?.("Schedule")} />
@@ -92,6 +98,7 @@ export function TemplateDashboard({ upcomingMatch, tactics, squad, form, goals, 
       <div data-testid="template-right-sidebar" className="w-full xl:w-[320px] shrink-0 flex flex-col gap-4">
         <TemplateRightSidebar
           {...rightSidebar}
+          clubBriefingSections={clubBriefingSections}
           onViewTable={() => onNavigate?.("Tournaments")}
           onViewSchedule={() => onNavigate?.("Schedule")}
           onViewTraining={() => onNavigate?.("Training")}

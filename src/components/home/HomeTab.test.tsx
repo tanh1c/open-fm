@@ -40,6 +40,17 @@ vi.mock("react-i18next", () => ({
       if (key === "home.pointsShort") return `${params?.points} pts`;
       if (key === "news.categories.LeagueRoundup") return "League Roundup";
       if (key === "news.categories.StandingsUpdate") return "Standings";
+      if (key === "season.phases.Preseason") return "Preseason";
+      if (key === "season.phases.InSeason") return "In Season";
+      if (key === "season.windowClosesToday") return "Window closes today";
+      if (key === "season.windowClosesInDays") return `Window closes in ${params?.count} days`;
+      if (key === "season.windowOpensInDays") return `Window opens in ${params?.count} days`;
+      if (key === "season.windowClosed") return "Window closed";
+      if (key === "onboarding.reviewSquad") return "Review squad";
+      if (key === "onboarding.hireStaff") return "Hire staff";
+      if (key === "onboarding.setTactics") return "Set tactics";
+      if (key === "onboarding.configTraining") return "Configure training";
+      if (key === "onboarding.readMessages") return "Read messages";
       return key;
     },
   }),
@@ -336,8 +347,157 @@ describe("HomeTab", function (): void {
 
     expect(screen.queryByText("Next Opponent")).not.toBeInTheDocument();
     expect(screen.getByText("TRANSFER ACTIVITY")).toBeInTheDocument();
-    expect(screen.queryByText("Standings headline")).not.toBeInTheDocument();
     expect(screen.getByText("No activity available.")).toBeInTheDocument();
+  });
+
+  it("renders compact briefing cards for season, objectives, messages, and squad alerts", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState({
+          board_objectives: [
+            {
+              id: "objective-1",
+              description: "Finish in the top half",
+              objective_type: "league_position",
+              target: 10,
+              met: false,
+            },
+          ],
+          messages: [
+            {
+              id: "message-1",
+              subject: "Board expects progress",
+              body: "Keep improving results.",
+              sender: "Chairperson",
+              sender_role: "Board",
+              date: "2025-01-18",
+              read: false,
+              category: "Board",
+              priority: "Normal",
+              actions: [],
+              context: {
+                team_id: null,
+                player_id: null,
+                fixture_id: null,
+                match_result: null,
+              },
+            },
+          ],
+          players: [
+            createPlayer({
+              condition: 42,
+              injury: {
+                name: "hamstring_strain",
+                days_remaining: 5,
+              },
+            }),
+          ],
+        })}
+        visitedOnboardingTabs={new Set<string>(["Squad", "Staff", "Tactics", "Training", "Inbox"])}
+      />,
+    );
+
+    expect(screen.getByTestId("template-briefing-strip")).toBeInTheDocument();
+    expect(screen.getByText("Season / Window")).toBeInTheDocument();
+    expect(screen.getByText("In Season")).toBeInTheDocument();
+    expect(screen.getByText("Board Objective")).toBeInTheDocument();
+    expect(screen.getByText("Finish in the top half")).toBeInTheDocument();
+    expect(screen.getByText("Inbox")).toBeInTheDocument();
+    expect(screen.getByText("Board expects progress")).toBeInTheDocument();
+    expect(screen.getByText("Squad Alerts")).toBeInTheDocument();
+    expect(screen.getByText("1 out")).toBeInTheDocument();
+  });
+
+  it("renders onboarding in the briefing strip when first steps are incomplete", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState({
+          clock: {
+            current_date: "2025-01-03T00:00:00Z",
+            start_date: "2025-01-01T00:00:00Z",
+          },
+        })}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    expect(screen.getByText("Getting Started")).toBeInTheDocument();
+    expect(screen.getByText("Review squad")).toBeInTheDocument();
+  });
+
+  it("renders club briefing with unavailable players, recent results, and player momentum", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState({
+          players: [
+            createPlayer({
+              id: "injured-1",
+              match_name: "Senior Starter",
+              condition: 80,
+              injury: {
+                name: "hamstring_strain",
+                days_remaining: 5,
+              },
+            }),
+            createPlayer({
+              id: "hot-1",
+              match_name: "Hot Prospect",
+              morale: 92,
+            }),
+          ],
+          league: {
+            ...createGameState().league!,
+            fixtures: [
+              createFixture({
+                id: "played-1",
+                date: "2025-01-08",
+                status: "Completed",
+                result: {
+                  home_goals: 2,
+                  away_goals: 1,
+                  home_scorers: [],
+                  away_scorers: [],
+                },
+              }),
+              createFixture(),
+            ],
+          },
+        })}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    expect(screen.getByTestId("template-club-briefing")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable Players")).toBeInTheDocument();
+    expect(screen.getAllByText("Senior Starter").length).toBeGreaterThan(0);
+    expect(screen.getByText("Hamstring Strain • 5 days")).toBeInTheDocument();
+    expect(screen.getByText("Recent Results")).toBeInTheDocument();
+    expect(screen.getAllByText("Beta FC (H)").length).toBeGreaterThan(0);
+    expect(screen.getByText("2-1 • League")).toBeInTheDocument();
+    expect(screen.getByText("Player Momentum")).toBeInTheDocument();
+    expect(screen.getAllByText("Hot Prospect").length).toBeGreaterThan(0);
+  });
+
+  it("falls back to league digest in club briefing when no momentum rows exist", function (): void {
+    render(
+      <HomeTab
+        gameState={createGameState({
+          players: [createPlayer({ morale: 70 })],
+          news: [
+            createNewsArticle({
+              id: "digest-1",
+              headline: "League leaders hold firm",
+              category: "LeagueRoundup",
+              date: "2025-01-16",
+            }),
+          ],
+        })}
+        visitedOnboardingTabs={new Set<string>()}
+      />,
+    );
+
+    expect(screen.getByText("League Digest")).toBeInTheDocument();
+    expect(screen.getAllByText("League leaders hold firm").length).toBeGreaterThan(0);
   });
 
   it("keeps youth academy players out of first-team home summaries", function (): void {
@@ -357,6 +517,7 @@ describe("HomeTab", function (): void {
             createPlayer({
               id: "youth-1",
               full_name: "Youth Prospect",
+              match_name: "Youth Prospect",
               condition: 10,
               injury: {
                 name: "ankle_sprain",

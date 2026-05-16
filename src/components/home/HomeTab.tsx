@@ -3,6 +3,12 @@ import { formatDateShort } from "../../lib/helpers";
 import { isSeniorSquadPlayer } from "../../lib/playerSquad";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import {
+  getHomeRosterOverview,
+  getLeagueDigestArticles,
+  getOnboardingCompletionState,
+  getRecentResultsForTeam,
+} from "./HomeTab.helpers";
+import {
   buildFormBreakdown,
   buildGoalSegments,
   buildSquadOverviewRows,
@@ -12,6 +18,8 @@ import { useState } from "react";
 import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
 import { TemplateDashboard } from "../templateDashboard/TemplateDashboard";
 import {
+  buildTemplateBriefingItems,
+  buildTemplateClubBriefingSections,
   buildTemplateGoalSegments,
   buildTemplateLeagueRows,
   buildTemplateSquadStatus,
@@ -21,6 +29,7 @@ import {
   buildTemplateUpcomingMatch,
 } from "../templateDashboard/templateDashboardAdapters";
 import { useTranslation } from "react-i18next";
+import { resolveBoardObjective, resolveMessage, resolveNewsArticle } from "../../utils/backendI18n";
 import JobOpportunitiesCard from "./JobOpportunitiesCard";
 
 interface HomeTabProps {
@@ -34,7 +43,7 @@ export default function HomeTab({
   gameState,
   onNavigate,
   onGameUpdate,
-  visitedOnboardingTabs: _visitedOnboardingTabs,
+  visitedOnboardingTabs,
 }: HomeTabProps) {
   const { t, i18n } = useTranslation();
   const myTeam = gameState.teams.find(
@@ -69,9 +78,40 @@ export default function HomeTab({
       ? (league.standings.find((s) => s.team_id === myTeam.id) ?? null)
       : null;
 
+  const transferWindow = seasonContext.transfer_window;
+  const transferWindowSummary =
+    transferWindow.status === "DeadlineDay"
+      ? t("season.windowClosesToday")
+      : transferWindow.status === "Open" && transferWindow.days_remaining !== null
+        ? t("season.windowClosesInDays", { count: transferWindow.days_remaining })
+        : transferWindow.status === "Closed" && transferWindow.days_until_opens !== null
+          ? t("season.windowOpensInDays", { count: transferWindow.days_until_opens })
+          : t("season.windowClosed");
+
   // Training schedule
   const schedule = myTeam?.training_schedule || "Balanced";
   const schedLabel = t(`common.trainingSchedules.${schedule}`, schedule);
+
+  const rosterOverview = getHomeRosterOverview(roster);
+  const recentResults = getRecentResultsForTeam(gameState, myTeam?.id ?? null);
+  const latestNews = [...(gameState.news || [])]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 2)
+    .map(resolveNewsArticle);
+  const latestMessages = [...(gameState.messages || [])]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 4)
+    .map(resolveMessage);
+  const leagueDigestArticles = getLeagueDigestArticles(gameState).map(resolveNewsArticle);
+  const boardObjectives = (gameState.board_objectives || []).map(resolveBoardObjective);
+  const onboardingState = getOnboardingCompletionState(gameState, visitedOnboardingTabs);
+  const onboardingSteps = [
+    { done: onboardingState.hasVisitedSquadPage, label: t("onboarding.reviewSquad"), tab: "Squad" },
+    { done: onboardingState.hasVisitedStaffPage, label: t("onboarding.hireStaff"), tab: "Staff" },
+    { done: onboardingState.hasVisitedTacticsPage, label: t("onboarding.setTactics"), tab: "Tactics" },
+    { done: onboardingState.hasVisitedTrainingPage, label: t("onboarding.configTraining"), tab: "Training" },
+    { done: onboardingState.hasReadInbox, label: t("onboarding.readMessages"), tab: "Inbox" },
+  ];
 
   // FM25 cards data adapters
   const formBreakdown = buildFormBreakdown(myTeam?.form ?? []);
@@ -89,6 +129,28 @@ export default function HomeTab({
         <div className="flex-1 flex flex-col gap-4 min-w-0">
           {myTeam ? (
             <TemplateDashboard
+              briefingItems={buildTemplateBriefingItems({
+                boardObjectives,
+                latestMessages,
+                latestNews,
+                onboardingState,
+                onboardingSteps,
+                rosterOverview,
+                season: {
+                  phase: t(`season.phases.${seasonContext.phase}`, seasonContext.phase),
+                  seasonStartLabel,
+                  transferWindowSummary,
+                  transferWindowStatus: transferWindow.status,
+                },
+                onNavigate,
+              })}
+              clubBriefingSections={buildTemplateClubBriefingSections({
+                leagueDigestArticles,
+                recentResults,
+                rosterOverview,
+                teams: gameState.teams,
+                onNavigate: (tab) => onNavigate?.(tab),
+              })}
               upcomingMatch={buildTemplateUpcomingMatch(gameState, lang)}
               tactics={{
                 formation: myTeam.formation || "4-4-2",

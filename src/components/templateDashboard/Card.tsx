@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "./templateUtils";
 
-export function TemplateCard({ className, children }: { className?: string; children: ReactNode }) {
+export function TemplateCard({ className, children, ...props }: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
   return (
-    <div className={cn("bg-app-card rounded-xl border border-app-border overflow-hidden", className)}>
+    <div {...props} className={cn("bg-app-card rounded-xl border border-app-border overflow-hidden", className)}>
       {children}
     </div>
   );

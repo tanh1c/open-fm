@@ -1,5 +1,6 @@
 import { findNextFixture, formatDateShort, formatMatchDate, getTeamName } from "../../lib/helpers";
-import type { FixtureData, GameStateData, PlayerData, TeamData } from "../../store/gameStore";
+import type { BoardObjective, FixtureData, GameStateData, MessageData, NewsArticle, PlayerData, TeamData } from "../../store/gameStore";
+import type { HomeRecentResult, HomeRosterOverview, OnboardingCompletionState } from "../home/HomeTab.helpers";
 import type { GoalSegment } from "../home/HomeTab.cards";
 import type { TemplateDashboardProps } from "./TemplateDashboard";
 import type { TemplateTransferActivityItem } from "./widgets/TemplateTransferActivity";
@@ -18,6 +19,185 @@ const GOAL_LABELS: Record<GoalSegment["kind"], { name: string; color: string }> 
   counter: { name: "Counter Attacks", color: "#f59e0b" },
   penalty: { name: "Penalties", color: "#ec4899" },
 };
+
+interface BuildTemplateBriefingParams {
+  boardObjectives: BoardObjective[];
+  latestMessages: MessageData[];
+  latestNews: NewsArticle[];
+  onboardingState: OnboardingCompletionState;
+  onboardingSteps: Array<{ done: boolean; label: string; tab: string }>;
+  rosterOverview: HomeRosterOverview;
+  season: {
+    phase: string;
+    seasonStartLabel: string | null;
+    transferWindowSummary: string;
+    transferWindowStatus: string;
+  };
+  onNavigate?: (tab: string, context?: { messageId?: string }) => void;
+}
+
+interface BuildTemplateClubBriefingParams {
+  leagueDigestArticles: NewsArticle[];
+  recentResults: HomeRecentResult[];
+  rosterOverview: HomeRosterOverview;
+  teams: TeamData[];
+  onNavigate?: (tab: string) => void;
+}
+
+export function buildTemplateBriefingItems({
+  boardObjectives,
+  latestMessages,
+  latestNews,
+  onboardingState,
+  onboardingSteps,
+  rosterOverview,
+  season,
+  onNavigate,
+}: BuildTemplateBriefingParams): TemplateDashboardProps["briefingItems"] {
+  const completedObjectives = boardObjectives.filter((objective) => objective.met).length;
+  const unreadMessages = latestMessages.filter((message) => !message.read).length;
+  const nextOnboardingStep = onboardingSteps.find((step) => !step.done);
+  const inboxMessage = latestMessages[0];
+  const newsArticle = latestNews[0];
+
+  const items: TemplateDashboardProps["briefingItems"] = [
+    {
+      id: "season-window",
+      title: "Season / Window",
+      value: season.phase,
+      detail: season.seasonStartLabel ? `Opener ${season.seasonStartLabel}` : season.transferWindowSummary,
+      meta: season.transferWindowSummary,
+      tone: season.transferWindowStatus === "DeadlineDay" ? "danger" : season.transferWindowStatus === "Open" ? "success" : "primary",
+      icon: "season",
+    },
+    {
+      id: "board-objectives",
+      title: "Board Objective",
+      value: `${completedObjectives}/${boardObjectives.length}`,
+      detail: boardObjectives[0]?.description ?? "No active board objectives",
+      meta: boardObjectives.length > 0 ? "Board confidence" : undefined,
+      tone: completedObjectives === boardObjectives.length && boardObjectives.length > 0 ? "success" : "primary",
+      icon: "objective",
+      onClick: () => onNavigate?.("Manager"),
+    },
+    {
+      id: "inbox-news",
+      title: unreadMessages > 0 ? "Inbox" : "News",
+      value: unreadMessages > 0 ? `${unreadMessages} unread` : newsArticle ? "Latest" : "Quiet",
+      detail: inboxMessage?.subject ?? newsArticle?.headline ?? "No recent updates",
+      meta: inboxMessage?.sender ?? newsArticle?.source,
+      tone: unreadMessages > 0 ? "warning" : "neutral",
+      icon: unreadMessages > 0 ? "inbox" : "news",
+      onClick: () => inboxMessage ? onNavigate?.("Inbox", { messageId: inboxMessage.id }) : onNavigate?.("News"),
+    },
+    {
+      id: "squad-alerts",
+      title: "Squad Alerts",
+      value: `${rosterOverview.unavailablePlayers.length} out`,
+      detail: "Squad availability",
+      meta: `Avg CON ${rosterOverview.avgCondition}`,
+      tone: rosterOverview.unavailablePlayers.length > 0 || rosterOverview.exhaustedCount > 0 ? "danger" : "success",
+      icon: "squad",
+      stats: [
+        { id: "unavailable", label: "Unavailable", value: rosterOverview.unavailablePlayers.length, icon: "user-x", tone: rosterOverview.unavailablePlayers.length > 0 ? "danger" : "success" },
+        { id: "exhausted", label: "Exhausted", value: rosterOverview.exhaustedCount, icon: "battery", tone: rosterOverview.exhaustedCount > 0 ? "warning" : "success" },
+        { id: "in-form", label: "In form", value: rosterOverview.hotPlayers.length, icon: "trend", tone: "success" },
+        { id: "low-morale", label: "Low morale", value: rosterOverview.coldPlayers.length, icon: "morale", tone: rosterOverview.coldPlayers.length > 0 ? "danger" : "neutral" },
+      ],
+      onClick: () => onNavigate?.("Squad"),
+    },
+  ];
+
+  if (onboardingState.showOnboarding && nextOnboardingStep) {
+    items.splice(1, 0, {
+      id: "onboarding",
+      title: "Getting Started",
+      value: `${onboardingState.completedSteps}/${onboardingSteps.length}`,
+      detail: nextOnboardingStep.label,
+      meta: "Next step",
+      tone: "warning",
+      icon: "onboarding",
+      onClick: () => onNavigate?.(nextOnboardingStep.tab),
+    });
+  }
+
+  return items.slice(0, 4);
+}
+
+export function buildTemplateClubBriefingSections({
+  leagueDigestArticles,
+  recentResults,
+  rosterOverview,
+  teams,
+  onNavigate,
+}: BuildTemplateClubBriefingParams): TemplateDashboardProps["clubBriefingSections"] {
+  const unavailableRows = rosterOverview.unavailablePlayers.slice(0, 3).map((player) => ({
+    id: player.id,
+    title: player.match_name,
+    detail: player.injury ? `${injuryLabel(player.injury.name)} • ${player.injury.days_remaining} days` : "Unavailable",
+    meta: player.position,
+    tone: "danger" as const,
+  }));
+
+  const resultRows = recentResults.slice(-3).map((result) => ({
+    id: result.fixture.id,
+    title: `${getTeamName(teams, result.opponentId)} ${result.isHome ? "(H)" : "(A)"}`,
+    detail: `${result.myGoals}-${result.opponentGoals} • ${result.fixture.competition}`,
+    meta: result.resultCode,
+    tone: result.resultCode === "W" ? "success" as const : result.resultCode === "L" ? "danger" as const : "warning" as const,
+  }));
+
+  const momentumRows = [
+    ...rosterOverview.hotPlayers.map((player) => ({
+      id: `hot-${player.id}`,
+      title: player.match_name,
+      detail: "In form",
+      meta: `${Math.round(player.morale)}`,
+      tone: "success" as const,
+    })),
+    ...rosterOverview.coldPlayers.map((player) => ({
+      id: `cold-${player.id}`,
+      title: player.match_name,
+      detail: "Low morale",
+      meta: `${Math.round(player.morale)}`,
+      tone: "danger" as const,
+    })),
+  ];
+  const newsRows = leagueDigestArticles.slice(0, 3).map((article) => ({
+    id: article.id,
+    title: article.headline,
+    detail: article.source,
+    meta: formatDateShort(article.date, "en"),
+    tone: "neutral" as const,
+  }));
+
+  return [
+    {
+      id: "unavailable",
+      title: "Unavailable Players",
+      emptyLabel: "No first-team injuries",
+      rows: unavailableRows,
+      actionLabel: "Squad",
+      onAction: () => onNavigate?.("Squad"),
+    },
+    {
+      id: "recent-results",
+      title: "Recent Results",
+      emptyLabel: "No completed matches yet",
+      rows: resultRows,
+      actionLabel: "Schedule",
+      onAction: () => onNavigate?.("Schedule"),
+    },
+    {
+      id: "momentum-news",
+      title: momentumRows.length > 0 ? "Player Momentum" : "League Digest",
+      emptyLabel: "No squad momentum or league digest yet",
+      rows: momentumRows.length > 0 ? momentumRows.slice(0, 3) : newsRows,
+      actionLabel: momentumRows.length > 0 ? "Squad" : "News",
+      onAction: () => onNavigate?.(momentumRows.length > 0 ? "Squad" : "News"),
+    },
+  ];
+}
 
 export function buildTemplateUpcomingMatch(gameState: GameStateData, lang: string): TemplateDashboardProps["upcomingMatch"] {
   const teamId = gameState.manager.team_id;
@@ -179,6 +359,13 @@ export function buildSidebarNextMatch(gameState: GameStateData, lang: string) {
     awayName: getTeamName(gameState.teams, fixture.away_team_id),
     weatherLabel: "22°C",
   };
+}
+
+function injuryLabel(value: string): string {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function positionLabel(player: PlayerData): string {

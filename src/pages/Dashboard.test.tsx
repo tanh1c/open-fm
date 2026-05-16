@@ -342,6 +342,9 @@ describe("Dashboard", () => {
       "p-4",
     );
 
+    fireEvent.click(screen.getByText("nav-inbox"));
+    expect(screen.getByText("Header Inbox")).toBeInTheDocument();
+
     fireEvent.click(screen.getByText("search-player"));
     expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();
 
@@ -352,9 +355,6 @@ describe("Dashboard", () => {
     expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("header-back"));
-    expect(screen.getByText("Tab Content Home")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText("nav-inbox"));
     expect(screen.getByText("Tab Content Inbox")).toBeInTheDocument();
   });
 });

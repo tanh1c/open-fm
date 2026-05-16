@@ -1,19 +1,15 @@
 import type { GameStateData } from "../../store/gameStore";
-import { Card, CardHeader, CardBody, Badge } from "../ui";
+import { Card, CardHeader, CardBody } from "../ui";
 import { formatDateShort } from "../../lib/helpers";
 import { isSeniorSquadPlayer } from "../../lib/playerSquad";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import NextMatchDisplay from "../NextMatchDisplay";
 import {
-  resolveBoardObjective,
-  resolveMessage,
   resolveNewsArticle,
 } from "../../utils/backendI18n";
 import {
   getHomeRosterOverview,
   getLeagueDigestArticles,
-  getNextOpponentWidgetData,
-  getOnboardingCompletionState,
   getRecentResultsForTeam,
 } from "./HomeTab.helpers";
 import {
@@ -26,13 +22,8 @@ import { useState } from "react";
 import HomeLeagueDigestCard from "./HomeLeagueDigestCard";
 import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
 import HomeLatestNewsCard from "./HomeLatestNewsCard";
-import HomeNextOpponentCard from "./HomeNextOpponentCard";
-import HomePlayerMomentumCard from "./HomePlayerMomentumCard";
 import HomeRecentResultsCard from "./HomeRecentResultsCard";
-import HomeRecentMessagesCard from "./HomeRecentMessagesCard";
 import HomeSquadOverviewCard from "./HomeSquadOverviewCard";
-import HomeSeasonStatusCard from "./HomeSeasonStatusCard";
-import HomeUnavailablePlayersCard from "./HomeUnavailablePlayersCard";
 import { FormChartCard } from "./FormChartCard";
 import { GoalsAnalysisCard } from "./GoalsAnalysisCard";
 import {
@@ -41,20 +32,12 @@ import {
 } from "./SquadOverviewTable";
 import { TacticsFormationCard } from "./TacticsFormationCard";
 import {
-  Dumbbell,
-  Mail,
   Flame,
   Scale,
   Feather,
-  CheckCircle2,
-  Circle,
-  Users,
-  Crosshair,
-  UserCog,
   ChevronRight,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import HomeOnboardingChecklistCard from "./HomeOnboardingChecklistCard";
 import JobOpportunitiesCard from "./JobOpportunitiesCard";
 
 interface HomeTabProps {
@@ -81,7 +64,7 @@ export default function HomeTab({
   gameState,
   onNavigate,
   onGameUpdate,
-  visitedOnboardingTabs,
+  visitedOnboardingTabs: _visitedOnboardingTabs,
 }: HomeTabProps) {
   const { t, i18n } = useTranslation();
   const myTeam = gameState.teams.find(
@@ -96,19 +79,8 @@ export default function HomeTab({
   const {
     avgCondition,
     avgOvr,
-    coldPlayers,
     exhaustedCount,
-    hotPlayers,
-    unavailablePlayers,
   } = getHomeRosterOverview(roster);
-  const resolveInjuryName = (injuryName: string): string => {
-    if (injuryName.includes(".")) {
-      return t(injuryName, { defaultValue: injuryName });
-    }
-
-    return t(`common.injuries.${injuryName}`, { defaultValue: injuryName });
-  };
-
   // Current date / season context
   const lang = i18n.language;
   const seasonContext = resolveSeasonContext(gameState);
@@ -116,28 +88,6 @@ export default function HomeTab({
   const seasonStartLabel = seasonContext.season_start
     ? formatDateShort(seasonContext.season_start, lang)
     : null;
-  const transferWindow = seasonContext.transfer_window;
-  const transferWindowVariant =
-    transferWindow.status === "DeadlineDay"
-      ? "danger"
-      : transferWindow.status === "Open"
-        ? "success"
-        : "neutral";
-  const transferWindowSummary =
-    transferWindow.status === "DeadlineDay"
-      ? t("season.windowClosesToday")
-      : transferWindow.status === "Open" &&
-        transferWindow.days_remaining !== null
-        ? t("season.windowClosesInDays", {
-          count: transferWindow.days_remaining,
-        })
-        : transferWindow.status === "Closed" &&
-          transferWindow.days_until_opens !== null
-          ? t("season.windowOpensInDays", {
-            count: transferWindow.days_until_opens,
-          })
-          : t("season.windowClosed");
-
   // League position
   const myStanding =
     !isPreseason && league && myTeam
@@ -167,19 +117,8 @@ export default function HomeTab({
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 2)
     .map(resolveNewsArticle);
-  const recentMessages = (gameState.messages || [])
-    .slice(0, 4)
-    .map(resolveMessage);
-  const nextOpponent = getNextOpponentWidgetData(gameState);
   const leagueDigestArticles =
     getLeagueDigestArticles(gameState).map(resolveNewsArticle);
-  const boardObjectives = (gameState.board_objectives || []).map(
-    resolveBoardObjective,
-  );
-  const onboardingState = getOnboardingCompletionState(
-    gameState,
-    visitedOnboardingTabs,
-  );
 
   // FM25 cards data adapters
   const formBreakdown = buildFormBreakdown(myTeam?.form ?? []);
@@ -188,79 +127,12 @@ export default function HomeTab({
   const tacticsSlots = buildTacticsSlots(myTeam ?? null, roster);
   const [squadTab, setSquadTab] = useState<SquadOverviewTab>("overview");
 
-  const onboardingSteps = [
-    {
-      id: "squad",
-      done: onboardingState.hasVisitedSquadPage,
-      label: t("onboarding.reviewSquad"),
-      description: t("onboarding.reviewSquadDesc"),
-      tab: "Squad",
-      icon: <Users className="w-4 h-4" />,
-    },
-    {
-      id: "staff",
-      done: onboardingState.hasVisitedStaffPage,
-      label: t("onboarding.hireStaff"),
-      description: t("onboarding.hireStaffDesc"),
-      tab: "Staff",
-      icon: <UserCog className="w-4 h-4" />,
-    },
-    {
-      id: "tactics",
-      done: onboardingState.hasVisitedTacticsPage,
-      label: t("onboarding.setTactics"),
-      description: t("onboarding.setTacticsDesc"),
-      tab: "Tactics",
-      icon: <Crosshair className="w-4 h-4" />,
-    },
-    {
-      id: "training",
-      done: onboardingState.hasVisitedTrainingPage,
-      label: t("onboarding.configTraining"),
-      description: t("onboarding.configTrainingDesc"),
-      tab: "Training",
-      icon: <Dumbbell className="w-4 h-4" />,
-    },
-    {
-      id: "inbox",
-      done: onboardingState.hasReadInbox,
-      label: t("onboarding.readMessages"),
-      description: t("onboarding.readMessagesDesc"),
-      tab: "Inbox",
-      icon: <Mail className="w-4 h-4" />,
-    },
-  ];
-  const completedSteps = onboardingState.completedSteps;
-
   return (
-    <div data-testid="home-template-layout" className="flex flex-col xl:flex-row gap-4 min-h-full">
-      <div className="flex-1 flex flex-col gap-4 min-w-0">
-        {myTeam && isPreseason && (
-          <HomeSeasonStatusCard
-            phase={seasonContext.phase}
-            seasonStartLabel={seasonStartLabel}
-            daysUntilSeasonStart={seasonContext.days_until_season_start}
-            transferWindowStatus={transferWindow.status}
-            transferWindowVariant={transferWindowVariant}
-            transferWindowSummary={transferWindowSummary}
-            transferWindowOpensOn={transferWindow.opens_on}
-            transferWindowClosesOn={transferWindow.closes_on}
-            lang={lang}
-          />
-        )}
-
-        {myTeam && onboardingState.showOnboarding &&
-          completedSteps < onboardingSteps.length && (
-            <HomeOnboardingChecklistCard
-              completedSteps={completedSteps}
-              totalSteps={onboardingSteps.length}
-              steps={onboardingSteps}
-              onNavigate={onNavigate}
-            />
-          )}
-
-        {myTeam ? (
-          <>
+    <div className="flex flex-col gap-4 min-h-full">
+      <div data-testid="home-template-layout" className="flex flex-col xl:flex-row gap-4 min-h-full">
+        <div className="flex-1 flex flex-col gap-4 min-w-0">
+          {myTeam ? (
+            <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <Card accent="primary" className="col-span-1 min-h-[360px] flex flex-col h-full">
                 <CardHeader>{t("home.nextMatch")}</CardHeader>
@@ -321,65 +193,6 @@ export default function HomeTab({
               />
             </div>
 
-            <HomeNextOpponentCard
-              nextOpponent={nextOpponent}
-              lang={lang}
-              onNavigate={onNavigate}
-            />
-
-            {boardObjectives.length > 0 && (
-              <Card>
-                <CardHeader>{t("home.boardObjectives")}</CardHeader>
-                <CardBody>
-                  <div className="flex flex-col gap-2.5">
-                    {boardObjectives.map((obj) => (
-                      <div key={obj.id} className="flex items-center gap-3">
-                        {obj.met ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <Circle className="w-4 h-4 text-gray-300 dark:text-surface-600 flex-shrink-0" />
-                        )}
-                        <span
-                          className={`text-sm ${obj.met ? "text-green-600 dark:text-green-400 line-through" : "text-gray-700 dark:text-gray-300"}`}
-                        >
-                          {obj.description}
-                        </span>
-                        <Badge
-                          variant={obj.met ? "success" : "neutral"}
-                          size="sm"
-                          className="ml-auto"
-                        >
-                          {obj.met ? t("home.met") : t("home.inProgress")}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 pt-2 border-t border-gray-100 dark:border-surface-700">
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                      {t("home.objectivesMet", {
-                        done: boardObjectives.filter((o) => o.met).length,
-                        total: boardObjectives.length,
-                        pct: gameState.manager.satisfaction,
-                      })}
-                    </p>
-                  </div>
-                </CardBody>
-              </Card>
-            )}
-
-            <HomeUnavailablePlayersCard
-              players={unavailablePlayers}
-              resolveInjuryName={resolveInjuryName}
-              onNavigate={onNavigate}
-            />
-
-            {roster.length > 0 && (hotPlayers.length > 0 || coldPlayers.length > 0) && (
-              <HomePlayerMomentumCard
-                hotPlayers={hotPlayers}
-                coldPlayers={coldPlayers}
-                onNavigate={onNavigate}
-              />
-            )}
           </>
         ) : (
           <>
@@ -401,15 +214,10 @@ export default function HomeTab({
           </>
         )}
 
-        <HomeRecentMessagesCard
-          messages={recentMessages}
-          lang={lang}
-          onNavigate={onNavigate}
-        />
-      </div>
+        </div>
 
-      {myTeam && (
-        <aside data-testid="home-right-sidebar" className="w-full xl:w-[320px] shrink-0 flex flex-col gap-4">
+        {myTeam && (
+          <aside data-testid="home-right-sidebar" className="w-full xl:w-[320px] shrink-0 flex flex-col gap-4">
           <HomeLeaguePositionCard
             isPreseason={isPreseason}
             phase={seasonContext.phase}
@@ -442,8 +250,9 @@ export default function HomeTab({
             lang={lang}
             onNavigate={onNavigate}
           />
-        </aside>
-      )}
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

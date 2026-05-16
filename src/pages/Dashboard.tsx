@@ -489,49 +489,51 @@ export default function Dashboard(): JSX.Element {
         {/* Main Content Area */}
         <main data-testid="dashboard-main" className="flex-1 overflow-auto p-4 scrollbar-thin">
           <div className="flex flex-col min-h-full">
-          <DashboardHeader
-            activeTabLabel={activeTabLabel}
-            currentDate={currentDate}
-            hasProfileHistory={hasProfileHistory}
-            hasMatchToday={hasMatchToday}
-            isAdvancing={isAdvancing}
-            isSaving={isSaving}
-            matchMode={matchMode}
-            matchedPlayers={searchResults.matchedPlayers}
-            matchedTeams={searchResults.matchedTeams}
-            modeMeta={MODE_META}
-            onBack={handleBack}
-            onContinue={handleContinue}
-            onSave={handleSave}
-            onSearchBlur={handleSearchBlur}
-            onSearchFocus={handleSearchFocus}
-            onSearchQueryChange={handleSearchQueryChange}
-            onSelectMatchMode={handleSelectMatchMode}
-            onSelectSearchPlayer={handleSelectSearchPlayer}
-            onSelectSearchTeam={handleSelectSearchTeam}
-            onSkipToMatchDay={handleSkipToMatchDay}
-            onToggleContinueMenu={handleToggleContinueMenu}
-            saveFlash={saveFlash}
-            searchOpen={searchOpen}
-            searchQuery={searchQuery}
-            seasonComplete={seasonComplete}
-            showContinueMenu={showContinueMenu}
-            isUnemployed={isUnemployed ?? false}
-            teams={gameState.teams}
-          />
+            {profileNavigation.activeTab !== "Home" && (
+              <DashboardHeader
+                activeTabLabel={activeTabLabel}
+                currentDate={currentDate}
+                hasProfileHistory={hasProfileHistory}
+                hasMatchToday={hasMatchToday}
+                isAdvancing={isAdvancing}
+                isSaving={isSaving}
+                matchMode={matchMode}
+                matchedPlayers={searchResults.matchedPlayers}
+                matchedTeams={searchResults.matchedTeams}
+                modeMeta={MODE_META}
+                onBack={handleBack}
+                onContinue={handleContinue}
+                onSave={handleSave}
+                onSearchBlur={handleSearchBlur}
+                onSearchFocus={handleSearchFocus}
+                onSearchQueryChange={handleSearchQueryChange}
+                onSelectMatchMode={handleSelectMatchMode}
+                onSelectSearchPlayer={handleSelectSearchPlayer}
+                onSelectSearchTeam={handleSelectSearchTeam}
+                onSkipToMatchDay={handleSkipToMatchDay}
+                onToggleContinueMenu={handleToggleContinueMenu}
+                saveFlash={saveFlash}
+                searchOpen={searchOpen}
+                searchQuery={searchQuery}
+                seasonComplete={seasonComplete}
+                showContinueMenu={showContinueMenu}
+                isUnemployed={isUnemployed ?? false}
+                teams={gameState.teams}
+              />
+            )}
 
-          <DashboardWorkspaceContent
-            dashboardAlerts={dashboardAlerts}
-            gameState={gameState}
-            profileNavigation={profileNavigation}
-            dashboardTabContentModel={dashboardTabContentModel}
-            onBack={handleBack}
-            onNavigate={handleNavigate}
-            onSelectPlayer={selectPlayer}
-            onSelectTeam={selectTeam}
-            onGameUpdate={setGameState}
-            isUnemployed={isUnemployed ?? false}
-          />
+            <DashboardWorkspaceContent
+              dashboardAlerts={dashboardAlerts}
+              gameState={gameState}
+              profileNavigation={profileNavigation}
+              dashboardTabContentModel={dashboardTabContentModel}
+              onBack={handleBack}
+              onNavigate={handleNavigate}
+              onSelectPlayer={selectPlayer}
+              onSelectTeam={selectTeam}
+              onGameUpdate={setGameState}
+              isUnemployed={isUnemployed ?? false}
+            />
           </div>
         </main>
       </div>

@@ -320,7 +320,7 @@ describe("HomeTab", function (): void {
     expect(screen.getByText(/Resolved source/)).toBeInTheDocument();
   });
 
-  it("renders the next opponent and league digest widgets when data is available", function (): void {
+  it("renders the league digest in the template right sidebar", function (): void {
     render(
       <HomeTab
         gameState={createGameState({
@@ -337,13 +337,12 @@ describe("HomeTab", function (): void {
       />,
     );
 
-    expect(screen.getByText("Next Opponent")).toBeInTheDocument();
-    expect(screen.getByText("Beta FC")).toBeInTheDocument();
+    expect(screen.getByTestId("home-right-sidebar")).toBeInTheDocument();
     expect(screen.getByText("League Digest")).toBeInTheDocument();
     expect(screen.getAllByText("Standings headline").length).toBeGreaterThan(0);
   });
 
-  it("renders widget empty states when opponent and digest data are unavailable", function (): void {
+  it("renders template digest empty state when digest data is unavailable", function (): void {
     render(
       <HomeTab
         gameState={createGameState({
@@ -360,7 +359,7 @@ describe("HomeTab", function (): void {
       />,
     );
 
-    expect(screen.getByText("No upcoming league fixture.")).toBeInTheDocument();
+    expect(screen.queryByText("Next Opponent")).not.toBeInTheDocument();
     expect(screen.getByText("No league digest yet.")).toBeInTheDocument();
   });
 
@@ -397,11 +396,6 @@ describe("HomeTab", function (): void {
     expect(screen.getByTestId("home-squad-overview")).toHaveTextContent(
       "80|1|0",
     );
-    expect(screen.getByTestId("home-unavailable-players")).toHaveTextContent(
-      "Senior Starter",
-    );
-    expect(screen.getByTestId("home-unavailable-players")).not.toHaveTextContent(
-      "Youth Prospect",
-    );
+    expect(screen.queryByTestId("home-unavailable-players")).not.toBeInTheDocument();
   });
 });

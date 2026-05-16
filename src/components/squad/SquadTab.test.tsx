@@ -217,7 +217,7 @@ describe("SquadTab", () => {
     expect(screen.getByTestId("squad-template-layout")).toBeInTheDocument();
     expect(screen.getByTestId("squad-template-sidebar")).toBeInTheDocument();
     expect(screen.getByText("SQUAD")).toBeInTheDocument();
-    expect(screen.getByText("Register Squad")).toBeInTheDocument();
+    expect(screen.getByText("Registration unavailable")).toBeInTheDocument();
     expect(screen.getByText("TACTICS & FORMATION")).toBeInTheDocument();
     expect(screen.getByText("PLAYER PROFILE")).toBeInTheDocument();
     expect(screen.getByText("SQUAD HIERARCHY")).toBeInTheDocument();

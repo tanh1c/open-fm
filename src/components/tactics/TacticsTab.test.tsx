@@ -511,7 +511,7 @@ describe("TacticsTab", () => {
     expect(onSelectPlayer).toHaveBeenCalledWith("d1");
   });
 
-  it("persists default set piece and team role assignments from the roles tab", async () => {
+  it("persists default set piece and team role assignments from the sidebar", async () => {
     render(
       <TacticsTab
         gameState={makeGameState()}
@@ -520,9 +520,9 @@ describe("TacticsTab", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "tactics.rolesTab" }),
-    );
+    expect(screen.getByTestId("tactics-template-layout")).toBeInTheDocument();
+    expect(screen.getByTestId("tactics-template-sidebar")).toBeInTheDocument();
+
     fireEvent.click(
       screen.getByRole("button", { name: "tactics.autoSelectAssignments" }),
     );

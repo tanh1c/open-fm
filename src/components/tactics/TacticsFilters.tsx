@@ -5,7 +5,7 @@ import {
   CORE_POSITIONS,
   translatePositionAbbreviation,
 } from "../squad/SquadTab.helpers";
-import { Card, Select } from "../ui";
+import { Select } from "../ui";
 
 interface TacticsFiltersProps {
   onClear: () => void;
@@ -17,10 +17,10 @@ interface TacticsFiltersProps {
 
 function getClearButtonClassName(isEnabled: boolean): string {
   if (isEnabled) {
-    return "rounded-lg bg-gray-100 px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-gray-600 transition-all hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-300 dark:hover:bg-surface-600";
+    return "rounded-lg border border-app-border bg-[#151d28] px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-app-text transition-all hover:border-primary-500/40 hover:text-app-green";
   }
 
-  return "cursor-not-allowed rounded-lg bg-gray-100 px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-gray-400 transition-all dark:bg-surface-700";
+  return "cursor-not-allowed rounded-lg border border-app-border bg-[#151d28] px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted opacity-50 transition-all";
 }
 
 export default function TacticsFilters({
@@ -34,10 +34,10 @@ export default function TacticsFilters({
   const canClear = playerSearch.trim().length > 0 || positionFilter !== "All";
 
   return (
-    <Card>
-      <div className="grid grid-cols-1 items-end gap-3 p-4 lg:grid-cols-[minmax(0,1.3fr)_220px_auto]">
+    <div className="rounded-xl border border-app-border bg-app-card p-4">
+      <div className="grid grid-cols-1 items-end gap-3 lg:grid-cols-[minmax(0,1.3fr)_220px_auto]">
         <div>
-          <label className="mb-2 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <label className="mb-2 block text-[10px] font-heading font-bold uppercase tracking-widest text-app-text-muted">
             {t("common.search")}
           </label>
           <input
@@ -45,11 +45,11 @@ export default function TacticsFilters({
             value={playerSearch}
             onChange={(event) => onPlayerSearchChange(event.target.value)}
             placeholder={t("squad.filterPlayers")}
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:border-surface-600 dark:bg-surface-800 dark:text-gray-200"
+            className="w-full rounded-lg border border-app-border bg-[#151d28] px-3 py-2 text-sm text-app-text placeholder:text-app-text-muted focus:border-primary-500/50 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
         </div>
         <div>
-          <label className="mb-2 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <label className="mb-2 block text-[10px] font-heading font-bold uppercase tracking-widest text-app-text-muted">
             {t("squad.pos")}
           </label>
           <Select
@@ -74,6 +74,6 @@ export default function TacticsFilters({
           {t("common.clear")}
         </button>
       </div>
-    </Card>
+    </div>
   );
 }

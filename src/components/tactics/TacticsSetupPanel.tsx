@@ -2,7 +2,6 @@ import { Crosshair, Flag, RefreshCw, Shield, Target, Zap } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Card } from "../ui";
 import {
   FORMATIONS,
   PLAY_STYLE_DESCRIPTION_FALLBACKS,
@@ -31,10 +30,10 @@ const PLAY_STYLES: PlayStyleOption[] = [
 
 function getOptionButtonClassName(isActive: boolean): string {
   if (isActive) {
-    return "rounded-lg bg-primary-500 px-3 py-2 text-sm font-heading font-bold text-white shadow-sm transition-all";
+    return "rounded-lg border border-app-green/40 bg-app-green px-3 py-2 text-sm font-heading font-black text-app-bg shadow-sm transition-all";
   }
 
-  return "rounded-lg bg-gray-100 px-3 py-2 text-sm font-heading font-bold text-gray-500 transition-all hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-400 dark:hover:bg-surface-600";
+  return "rounded-lg border border-app-border bg-[#151d28] px-3 py-2 text-sm font-heading font-bold text-app-text-muted transition-all hover:border-primary-500/40 hover:text-app-text";
 }
 
 function getPlayStyleDescription(activePlayStyle: string): string {
@@ -51,51 +50,59 @@ export default function TacticsSetupPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <div className="p-4">
-          <h3 className="mb-3 text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+      <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
+        <div className="border-b border-app-border/50 px-4 py-3">
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-app-text-muted">
             {t("tactics.formation")}
           </h3>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2">
-            {FORMATIONS.map((nextFormation) => (
-              <button
-                key={nextFormation}
-                onClick={() => onFormationChange(nextFormation)}
-                className={getOptionButtonClassName(
-                  formation === nextFormation,
-                )}
-              >
-                {nextFormation}
-              </button>
-            ))}
-          </div>
+          <p className="mt-1 text-sm font-black text-app-text">{formation}</p>
         </div>
-      </Card>
+        <div className="grid grid-cols-2 gap-2 p-4">
+          {FORMATIONS.map((nextFormation) => (
+            <button
+              key={nextFormation}
+              type="button"
+              onClick={() => onFormationChange(nextFormation)}
+              className={getOptionButtonClassName(formation === nextFormation)}
+            >
+              {nextFormation}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <Card>
-        <div className="p-4">
-          <h3 className="mb-3 text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+      <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
+        <div className="border-b border-app-border/50 px-4 py-3">
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-app-text-muted">
             {t("tactics.playStyle")}
           </h3>
-          <div className="grid grid-cols-3 justify-center gap-2">
+          <p className="mt-1 text-sm font-black text-app-text">
+            {t(`tactics.playStyles.${activePlayStyle}`, activePlayStyle)}
+          </p>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-2">
             {PLAY_STYLES.map((style) => (
               <button
                 key={style.id}
+                type="button"
                 onClick={() => onPlayStyleChange(style.id)}
-                className={`flex items-center gap-1.5 ${getOptionButtonClassName(
+                className={`flex items-center justify-center gap-1.5 ${getOptionButtonClassName(
                   activePlayStyle === style.id,
                 )}`}
               >
                 {style.icon}
-                {t(`tactics.playStyles.${style.id}`, style.id)}
+                <span className="truncate">
+                  {t(`tactics.playStyles.${style.id}`, style.id)}
+                </span>
               </button>
             ))}
           </div>
-          <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 dark:border-surface-600 dark:bg-surface-800/70">
-            <div className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <div className="mt-3 rounded-xl border border-app-border bg-[#151d28] px-3 py-3">
+            <div className="mb-1 text-[10px] font-heading font-bold uppercase tracking-wider text-app-text-muted">
               {t("squad.playStyleImpactTitle")}
             </div>
-            <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <p className="text-sm leading-relaxed text-app-text-muted">
               {t(
                 `squad.playStyleDescriptions.${activePlayStyle}`,
                 getPlayStyleDescription(activePlayStyle),
@@ -103,7 +110,7 @@ export default function TacticsSetupPanel({
             </p>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

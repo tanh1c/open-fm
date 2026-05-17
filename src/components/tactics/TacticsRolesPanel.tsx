@@ -16,7 +16,6 @@ import type {
   TeamMatchRolesData,
 } from "../../store/types";
 import SetPieceSelector, { getSetPieceStats } from "../match/SetPieceSelector";
-import { Card, CardBody, CardHeader } from "../ui";
 
 interface TacticsRolesPanelProps {
   allSquad: PlayerData[];
@@ -190,38 +189,43 @@ export default function TacticsRolesPanel({
 
   if (startingPlayers.length === 0) {
     return (
-      <Card>
-        <CardBody>
-          <div className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-            {t("tactics.noStartersForRoles")}
-          </div>
-        </CardBody>
-      </Card>
+      <div className="rounded-xl border border-app-border bg-app-card px-4 py-10 text-center text-sm text-app-text-muted">
+        {t("tactics.noStartersForRoles")}
+      </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <Card>
-        <CardHeader>{t("tactics.teamRoles")}</CardHeader>
-        <CardBody>
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-surface-600 dark:bg-surface-800/70">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t("tactics.rolesHint")}
+    <div className="overflow-hidden rounded-xl border border-app-border bg-app-card">
+      <div className="border-b border-app-border/50 bg-[#111923] px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-app-text-muted">
+              {t("tactics.teamRoles")}
+            </h3>
+            <p className="mt-1 text-sm font-black text-app-text">
+              {t("tactics.setPiecesSection")}
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                void handleAutoSelectAssignments();
-              }}
-              className="shrink-0 rounded-lg bg-primary-500 px-3 py-2 text-xs font-heading font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-400"
-            >
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5" />
-                {t("tactics.autoSelectAssignments")}
-              </span>
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              void handleAutoSelectAssignments();
+            }}
+            className="shrink-0 rounded-lg bg-app-green px-3 py-2 text-[10px] font-heading font-black uppercase tracking-wider text-app-bg transition-colors hover:bg-primary-400"
+          >
+            <span className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("tactics.autoSelectAssignments")}
+            </span>
+          </button>
+        </div>
+      </div>
+      <div className="space-y-4 p-4">
+        <p className="rounded-xl border border-app-border bg-[#151d28] px-3 py-3 text-sm text-app-text-muted">
+          {t("tactics.rolesHint")}
+        </p>
+        <div className="space-y-3">
           <SetPieceSelector
             label={t("match.captain")}
             icon={<Crown className="w-4 h-4 text-accent-400" />}
@@ -244,11 +248,6 @@ export default function TacticsRolesPanel({
               void handleRoleChange("vice_captain", id);
             }}
           />
-        </CardBody>
-      </Card>
-      <Card>
-        <CardHeader>{t("tactics.setPiecesSection")}</CardHeader>
-        <CardBody>
           <SetPieceSelector
             label={t("match.penaltyTaker")}
             icon={<CircleDot className="w-4 h-4 text-accent-400" />}
@@ -282,8 +281,8 @@ export default function TacticsRolesPanel({
               void handleRoleChange("corner_taker", id);
             }}
           />
-        </CardBody>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

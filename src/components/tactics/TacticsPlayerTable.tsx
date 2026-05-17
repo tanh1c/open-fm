@@ -6,7 +6,7 @@ import { calcAge, getPlayerOvr, positionBadgeVariant } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import { TraitList } from "../TraitBadge";
 import { getOverallRatingClassName, type SortKey } from "./TacticsTab.helpers";
-import { Badge, Card, ProgressBar } from "../ui";
+import { Badge, ProgressBar } from "../ui";
 import {
   getPreferredPositions,
   isPlayerOutOfPosition,
@@ -68,8 +68,8 @@ function SortHeader({
   return (
     <th
       className={`cursor-pointer select-none px-4 py-2.5 font-heading font-bold uppercase tracking-wider transition-colors hover:text-primary-400 ${isActive
-          ? "text-primary-500 dark:text-primary-400"
-          : "text-gray-500 dark:text-gray-400"
+          ? "text-primary-400"
+          : "text-app-text-muted"
         }`}
       onClick={() => toggleSort(column)}
     >
@@ -118,8 +118,8 @@ function renderTableRow(props: {
       data-testid={`${section}-player-${player.id}`}
       onClick={() => onSelectPlayer(player.id)}
       className={`group cursor-pointer transition-colors ${isHighlighted
-          ? "bg-primary-500/10 dark:bg-primary-500/10"
-          : "hover:bg-gray-50 dark:hover:bg-surface-700/50"
+          ? "bg-primary-500/10"
+          : "hover:bg-white/[0.03]"
         }`}
     >
       <td className="px-4 py-2.5">
@@ -141,12 +141,12 @@ function renderTableRow(props: {
         </div>
       </td>
       <td className="px-4 py-2.5">
-        <div className="text-sm font-semibold text-gray-900 transition-colors group-hover:text-primary-600 dark:text-gray-100 dark:group-hover:text-primary-400">
+        <div className="text-sm font-semibold text-app-text transition-colors group-hover:text-primary-400">
           {player.full_name}
         </div>
         {renderPreferredPositionMeta(player, t)}
       </td>
-      <td className="px-4 py-2.5 text-sm tabular-nums text-gray-600 dark:text-gray-400">
+      <td className="px-4 py-2.5 text-sm tabular-nums text-app-text-muted">
         {calcAge(player.date_of_birth)}
       </td>
       <td className="w-28 px-4 py-2.5">
@@ -157,7 +157,7 @@ function renderTableRow(props: {
           showLabel
         />
       </td>
-      <td className="px-4 py-2.5 text-sm tabular-nums text-gray-500 dark:text-gray-400">
+      <td className="px-4 py-2.5 text-sm tabular-nums text-app-text-muted">
         {player.morale}
       </td>
       <td className="px-4 py-2.5">
@@ -205,36 +205,23 @@ export default function TacticsPlayerTable({
   xiActivePosition,
 }: TacticsPlayerTableProps): JSX.Element {
   const { t } = useTranslation();
-  const headingClassName =
-    section === "xi"
-      ? "rounded-t-xl border-b border-gray-100 bg-linear-to-r from-surface-700 to-surface-800 p-4 dark:border-surface-600"
-      : "border-b border-gray-100 p-4 dark:border-surface-600";
-  const titleClassName =
-    section === "xi"
-      ? "flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-white"
-      : "flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-200";
-  const countClassName =
-    section === "xi"
-      ? "mt-0.5 text-xs text-gray-400"
-      : "mt-0.5 text-xs text-gray-400";
-
   return (
-    <Card>
-      <div className={headingClassName}>
-        <h3 className={titleClassName}>
+    <div className="overflow-hidden rounded-xl border border-app-border bg-app-card">
+      <div className="border-b border-app-border/50 bg-[#111923] p-4">
+        <h3 className="flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-app-text">
           {section === "xi" ? (
             <Star className="h-4 w-4 fill-current text-accent-400" />
           ) : null}
           {title}
         </h3>
-        <p className={countClassName}>
+        <p className="mt-0.5 text-xs text-app-text-muted">
           {players.length} / {totalCount} {t("squad.playersLabel")}
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-xs dark:border-surface-600 dark:bg-surface-800">
+            <tr className="border-b border-app-border bg-[#151d28] text-xs">
               <SortHeader
                 column="pos"
                 label={t("squad.pos")}
@@ -270,7 +257,7 @@ export default function TacticsPlayerTable({
                 sortKey={sortKey}
                 toggleSort={toggleSort}
               />
-              <th className="px-4 py-2.5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-2.5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("squad.traits")}
               </th>
               <SortHeader
@@ -280,12 +267,12 @@ export default function TacticsPlayerTable({
                 sortKey={sortKey}
                 toggleSort={toggleSort}
               />
-              <th className="px-4 py-2.5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-2.5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("common.actions")}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
+          <tbody className="divide-y divide-app-border/60">
             {players.map((player) =>
               renderTableRow({
                 highlightedPlayerId,
@@ -298,11 +285,11 @@ export default function TacticsPlayerTable({
           </tbody>
         </table>
         {players.length === 0 ? (
-          <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          <div className="p-6 text-center text-sm text-app-text-muted">
             {emptyMessage}
           </div>
         ) : null}
       </div>
-    </Card>
+    </div>
   );
 }

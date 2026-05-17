@@ -41,15 +41,13 @@ export function TemplateSidebar({
         onClick={onBrandClick}
         className="h-16 flex items-center px-6 gap-3 shrink-0 text-left"
       >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-green/25 bg-app-green/10 shadow-[0_0_14px_rgba(45,212,191,0.18)]">
-          <img
-            src="/football-svgrepo-com.svg"
-            alt=""
-            aria-hidden="true"
-            className="h-9 w-9 object-contain"
-          />
-        </span>
-        <span className="font-heading text-[28px] font-black tracking-[-0.055em] leading-none">
+        <img
+          src="/football-svgrepo-com.svg"
+          alt=""
+          aria-hidden="true"
+          className="h-12 w-12 shrink-0 object-contain"
+        />
+        <span className="font-heading text-[32px] font-black tracking-[-0.055em] leading-none">
           <span className="text-app-text">Open</span><span className="text-app-green">FM</span>
         </span>
       </button>

@@ -17,6 +17,7 @@ interface TacticsSetupPanelProps {
   formation: string;
   onFormationChange: (formation: string) => void;
   onPlayStyleChange: (playStyle: string) => void;
+  showFormation?: boolean;
 }
 
 const PLAY_STYLES: PlayStyleOption[] = [
@@ -45,31 +46,34 @@ export default function TacticsSetupPanel({
   formation,
   onFormationChange,
   onPlayStyleChange,
+  showFormation = true,
 }: TacticsSetupPanelProps): JSX.Element {
   const { t } = useTranslation();
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
-        <div className="border-b border-app-border/50 px-4 py-3">
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-app-text-muted">
-            {t("tactics.formation")}
-          </h3>
-          <p className="mt-1 text-sm font-black text-app-text">{formation}</p>
+      {showFormation ? (
+        <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
+          <div className="border-b border-app-border/50 px-4 py-3">
+            <h3 className="text-[11px] font-bold uppercase tracking-widest text-app-text-muted">
+              {t("tactics.formation")}
+            </h3>
+            <p className="mt-1 text-sm font-black text-app-text">{formation}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 p-4">
+            {FORMATIONS.map((nextFormation) => (
+              <button
+                key={nextFormation}
+                type="button"
+                onClick={() => onFormationChange(nextFormation)}
+                className={getOptionButtonClassName(formation === nextFormation)}
+              >
+                {nextFormation}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 p-4">
-          {FORMATIONS.map((nextFormation) => (
-            <button
-              key={nextFormation}
-              type="button"
-              onClick={() => onFormationChange(nextFormation)}
-              className={getOptionButtonClassName(formation === nextFormation)}
-            >
-              {nextFormation}
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
 
       <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
         <div className="border-b border-app-border/50 px-4 py-3">

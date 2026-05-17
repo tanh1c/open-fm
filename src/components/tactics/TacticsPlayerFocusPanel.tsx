@@ -64,42 +64,43 @@ function PlayerSummary({
   label,
   player,
 }: {
-  label: string;
+  label: "selected" | "compare";
   player: PlayerData;
 }) {
   const { t } = useTranslation();
   const normalizedPosition = getNormalizedPlayerPosition(player);
   const displayPosition = player.natural_position || player.position;
   const overallRating = getPlayerOvr(player);
+  const displayLabel = label === "selected" ? "Selected" : "Compare";
 
   return (
     <div className="rounded-xl border border-app-border bg-[#151d28] px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-heading font-bold uppercase tracking-widest text-app-text-muted">
-            {label}
+      <div className="grid grid-cols-[minmax(0,1fr)_44px] items-start gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
+            {displayLabel}
           </p>
-          <p className="text-base font-heading font-bold text-app-text mt-1">
+          <p className="mt-1 line-clamp-2 break-words text-base font-heading font-bold leading-tight text-app-text" title={player.full_name}>
             {player.full_name}
           </p>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
             <Badge variant={positionBadgeVariant(normalizedPosition)} size="sm">
               {translatePositionLabel(t, displayPosition)}
             </Badge>
-            <span className="text-xs text-app-text-muted">
+            <span className="shrink-0 whitespace-nowrap text-xs text-app-text-muted">
               <CountryFlag
                 code={player.nationality}
-                className="text-xs leading-none mr-1"
+                className="mr-1 text-xs leading-none"
               />
               {t("common.age")} {calcAge(player.date_of_birth)}
             </span>
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <div className="text-sm font-heading font-bold uppercase tracking-widest text-app-text-muted">
+        <div className="w-11 shrink-0 rounded-md border border-app-border/70 bg-black/15 px-1.5 py-1.5 text-center">
+          <div className="text-[8px] font-heading font-bold uppercase tracking-wider text-app-text-muted">
             {t("common.ovr")}
           </div>
-          <div className="text-3xl font-heading font-bold text-primary-400">
+          <div className="text-xl font-heading font-bold leading-none text-primary-400">
             {overallRating}
           </div>
         </div>
@@ -176,11 +177,11 @@ function CompareAttributes({
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <PlayerSummary
-          label={t("tactics.selectedPlayer")}
+          label="selected"
           player={selectedPlayer}
         />
         <PlayerSummary
-          label={t("tactics.comparePlayer")}
+          label="compare"
           player={comparePlayer}
         />
       </div>
@@ -292,7 +293,7 @@ export default function TacticsPlayerFocusPanel({
           ) : (
             <div className="space-y-4">
               <PlayerSummary
-                label={t("tactics.selectedPlayer")}
+                label="selected"
                 player={selectedPlayer}
               />
               <div className="rounded-xl border border-dashed border-app-border px-4 py-3 text-sm text-app-text-muted">

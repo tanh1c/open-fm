@@ -1,4 +1,5 @@
 import type { DragEvent, JSX } from "react";
+import { useState } from "react";
 import { ChevronDown, Grid, LayoutGrid, ShieldAlert, Target, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -12,6 +13,7 @@ import {
   type PitchSlotRow,
   type SquadSection,
 } from "../squad/SquadTab.helpers";
+import { FORMATIONS } from "./TacticsTab.helpers";
 
 interface TacticsPitchProps {
   benchPlayers: PlayerData[];
@@ -20,6 +22,7 @@ interface TacticsPitchProps {
   comparePlayerId: string | null;
   hoveredSlot: number | null;
   onClearSelection: () => void;
+  onFormationChange: (formation: string) => void;
   onDragStart: (
     event: DragEvent<HTMLElement>,
     playerId: string,
@@ -101,6 +104,7 @@ export default function TacticsPitch({
   comparePlayerId,
   hoveredSlot,
   onClearSelection,
+  onFormationChange,
   onDragEnd,
   onDragStart,
   onLineupPlayerClick,
@@ -113,14 +117,38 @@ export default function TacticsPitch({
   selectedPlayerId,
 }: TacticsPitchProps): JSX.Element {
   const { t } = useTranslation();
+  const [showFormationPopover, setShowFormationPopover] = useState(false);
   const allSlots = pitchSlotRows.flatMap((row) => row.slots);
 
   return (
     <div className="flex h-[720px] flex-col overflow-hidden rounded-xl border border-app-border bg-app-card">
       <div className="flex items-center justify-between border-b border-app-border/50 bg-white/[0.01] p-3">
-        <div className="flex items-center gap-2 font-bold rounded-lg border border-app-green/20 bg-[#1a2e25]/50 px-3 py-1.5 text-app-text">
-          <span>{formation.toUpperCase()}</span>
-          <ChevronDown className="h-4 w-4 text-app-text-muted" />
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFormationPopover((current) => !current)}
+            className="flex items-center gap-2 rounded border border-app-border bg-app-bg px-3 py-1.5 text-[11px] font-bold uppercase text-app-text transition-colors hover:border-app-border/80 hover:bg-white/5"
+          >
+            <span>{formation.toUpperCase()}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-app-text-muted" />
+          </button>
+          {showFormationPopover ? (
+            <div className="absolute left-0 top-full z-30 mt-2 w-44 rounded-lg border border-app-border bg-app-card p-2 shadow-xl">
+              {FORMATIONS.map((nextFormation) => (
+                <button
+                  key={nextFormation}
+                  type="button"
+                  onClick={() => {
+                    setShowFormationPopover(false);
+                    onFormationChange(nextFormation);
+                  }}
+                  className={`w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors ${formation === nextFormation ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white"}`}
+                >
+                  {nextFormation.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">

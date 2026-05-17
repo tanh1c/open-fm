@@ -260,7 +260,7 @@ describe("TacticsTab", () => {
     expect(screen.getAllByText("preMatch.substitutes").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByTestId("bench-player-d5")).toBeInTheDocument();
+    expect(screen.queryByTestId("bench-player-d5")).not.toBeInTheDocument();
     expect(screen.getByTestId("pitch-bench-player-d5")).toBeInTheDocument();
   });
 
@@ -396,13 +396,13 @@ describe("TacticsTab", () => {
 
     fireEvent.click(screen.getByTestId("pitch-bench-player-d5"));
 
-    expect(screen.getByText("tactics.selectedPlayer")).toBeInTheDocument();
+    expect(screen.getByText("Selected")).toBeInTheDocument();
     expect(screen.getAllByText("Player d5").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByTestId("pitch-player-d2"));
 
     expect(mockedInvoke).not.toHaveBeenCalled();
-    expect(screen.getByText("tactics.comparePlayer")).toBeInTheDocument();
+    expect(screen.getByText("Compare")).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "tactics.confirmSwap" }),
@@ -441,14 +441,14 @@ describe("TacticsTab", () => {
     fireEvent.click(screen.getByTestId("pitch-player-d1"));
 
     expect(onSelectPlayer).not.toHaveBeenCalled();
-    expect(screen.getByText("tactics.selectedPlayer")).toBeInTheDocument();
+    expect(screen.getByText("Selected")).toBeInTheDocument();
     expect(screen.getAllByText("Player d1").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByTestId("pitch-player-d2"));
 
     expect(onSelectPlayer).not.toHaveBeenCalled();
     expect(mockedInvoke).not.toHaveBeenCalled();
-    expect(screen.getByText("tactics.comparePlayer")).toBeInTheDocument();
+    expect(screen.getByText("Compare")).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "tactics.confirmSwap" }),
@@ -485,7 +485,7 @@ describe("TacticsTab", () => {
     fireEvent.click(screen.getByTestId("pitch-player-d1"));
     fireEvent.click(screen.getByTestId("pitch-player-m1"));
 
-    expect(screen.getByText("tactics.comparePlayer")).toBeInTheDocument();
+    expect(screen.getByText("Compare")).toBeInTheDocument();
     expect(screen.getAllByText("Player m1").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("common.attributes.vision").length,
@@ -495,7 +495,7 @@ describe("TacticsTab", () => {
     ).toBeInTheDocument();
   });
 
-  it("only opens profiles from the lineup tables", () => {
+  it("uses role suitability rows for selection and comparison", () => {
     const onSelectPlayer = vi.fn();
 
     render(
@@ -506,9 +506,13 @@ describe("TacticsTab", () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId("xi-player-d1"));
+    fireEvent.click(screen.getByRole("button", { name: "Player Roles" }));
+    fireEvent.click(screen.getByText("D1"));
+    fireEvent.click(screen.getByText("M1"));
 
-    expect(onSelectPlayer).toHaveBeenCalledWith("d1");
+    expect(onSelectPlayer).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Compare").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Player m1").length).toBeGreaterThan(0);
   });
 
   it("persists default set piece and team role assignments from the sidebar", async () => {
@@ -522,6 +526,8 @@ describe("TacticsTab", () => {
 
     expect(screen.getByTestId("tactics-template-layout")).toBeInTheDocument();
     expect(screen.getByTestId("tactics-template-sidebar")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Set Pieces" }));
 
     fireEvent.click(
       screen.getByRole("button", { name: "tactics.autoSelectAssignments" }),

@@ -4,6 +4,7 @@ import type { GameStateData } from "../store/gameStore";
 import Dashboard from "./Dashboard";
 
 const navigateMock = vi.fn();
+let pathnameMock = "/dashboard";
 const invokeMock = vi.fn();
 const setGameStateMock = vi.fn();
 const clearGameMock = vi.fn();
@@ -158,6 +159,7 @@ function createGameState(): GameStateData {
 const gameState = createGameState();
 
 vi.mock("react-router-dom", () => ({
+  useLocation: () => ({ pathname: pathnameMock }),
   useNavigate: () => navigateMock,
 }));
 
@@ -178,6 +180,9 @@ vi.mock("react-i18next", () => ({
       const labels: Record<string, string> = {
         "dashboard.home": "Home",
         "dashboard.inbox": "Inbox",
+        "dashboard.squad": "Squad",
+        "dashboard.tactics": "Tactics",
+        "dashboard.transfers": "Transfers",
         "dashboard.loading": "Loading",
         "continueMenu.goToField": "Go To Field",
         "continueMenu.goToFieldDesc": "desc",
@@ -299,6 +304,7 @@ describe("Dashboard", () => {
     markCleanMock.mockReset();
     loadSettingsMock.mockReset();
     navigateMock.mockReset();
+    pathnameMock = "/dashboard";
     invokeMock.mockImplementation(async (command: string) => {
       if (command === "get_active_game") {
         return gameState;
@@ -330,6 +336,7 @@ describe("Dashboard", () => {
     expect(screen.getByTestId("template-header")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Inbox/i }));
+    expect(navigateMock).toHaveBeenCalledWith("/inbox");
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getAllByText("Inbox").length).toBeGreaterThan(1);
 
@@ -348,5 +355,32 @@ describe("Dashboard", () => {
 
     fireEvent.click(screen.getByTitle("Back"));
     expect(screen.getByText("Tab Content Inbox")).toBeInTheDocument();
+  });
+
+  it("uses the current route as the active dashboard tab", async () => {
+    pathnameMock = "/tactics";
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Tab Content Tactics")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("Tactics").length).toBeGreaterThan(1);
+  });
+
+  it("navigates sidebar and brand actions to top-level dashboard routes", async () => {
+    pathnameMock = "/squad";
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Tab Content Squad")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Transfers/i }));
+    expect(navigateMock).toHaveBeenCalledWith("/transfers");
+
+    fireEvent.click(screen.getByRole("button", { name: /OpenFM/i }));
+    expect(navigateMock).toHaveBeenCalledWith("/dashboard");
   });
 });

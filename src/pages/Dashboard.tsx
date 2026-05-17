@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { MatchModeType } from "../hooks/useAdvanceTime";
@@ -63,6 +63,36 @@ import { useSettingsStore } from "../store/settingsStore";
 
 const CLUB_TABS = new Set(["Squad", "Tactics", "Training", "Staff", "Scouting", "Youth", "Finances", "Transfers"]);
 
+const DASHBOARD_TAB_PATHS: Record<string, string> = {
+  Home: "/dashboard",
+  Inbox: "/inbox",
+  News: "/news",
+  Schedule: "/schedule",
+  Squad: "/squad",
+  Tactics: "/tactics",
+  Training: "/training",
+  Staff: "/staff",
+  Scouting: "/scouting",
+  Youth: "/youth",
+  Finances: "/finances",
+  Transfers: "/transfers",
+  Players: "/players",
+  Teams: "/teams",
+  Tournaments: "/tournaments",
+};
+
+const DASHBOARD_PATH_TABS = Object.fromEntries(
+  Object.entries(DASHBOARD_TAB_PATHS).map(([tab, path]) => [path, tab]),
+) as Record<string, string>;
+
+export function getDashboardPathForTab(tab: string): string | null {
+  return DASHBOARD_TAB_PATHS[tab] ?? null;
+}
+
+export function getDashboardTabFromPath(pathname: string): string {
+  return DASHBOARD_PATH_TABS[pathname] ?? "Home";
+}
+
 const TAB_TRANSLATION_KEYS: Record<string, string> = {
   Home: "dashboard.home",
   Inbox: "dashboard.inbox",
@@ -84,6 +114,8 @@ const TAB_TRANSLATION_KEYS: Record<string, string> = {
 
 export default function Dashboard(): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
+  const routeTab = getDashboardTabFromPath(location.pathname);
   const {
     hasActiveGame,
     managerName,
@@ -103,7 +135,7 @@ export default function Dashboard(): JSX.Element {
   const [isSaving, setIsSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [profileNavigation, setProfileNavigation] = useState(() =>
-    createDashboardProfileNavigationState("Home"),
+    createDashboardProfileNavigationState(routeTab),
   );
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExitingToMenu, setIsExitingToMenu] = useState(false);
@@ -134,6 +166,16 @@ export default function Dashboard(): JSX.Element {
 
   const isUnemployed = gameState?.manager.team_id === null;
   const todayMatchFixture = gameState ? getTodayMatchFixture(gameState) : null;
+
+  useEffect(() => {
+    setProfileNavigation((currentState) => {
+      if (currentState.activeTab === routeTab) {
+        return currentState;
+      }
+
+      return navigateDashboardProfiles(currentState, routeTab);
+    });
+  }, [routeTab]);
   const hasMatchToday = todayMatchFixture !== null;
 
   useEffect(() => {
@@ -190,9 +232,10 @@ export default function Dashboard(): JSX.Element {
   // Reset to Home tab if current tab is a club tab and manager is unemployed
   useEffect(() => {
     if (isUnemployed && profileNavigation.activeTab && CLUB_TABS.has(profileNavigation.activeTab)) {
+      navigate("/dashboard");
       setProfileNavigation((s) => navigateDashboardProfiles(s, "Home"));
     }
-  }, [isUnemployed, profileNavigation.activeTab]);
+  }, [isUnemployed, navigate, profileNavigation.activeTab]);
 
   const seasonComplete = isLeagueSeasonComplete(gameState?.league);
 
@@ -290,12 +333,24 @@ export default function Dashboard(): JSX.Element {
   const currentModeMeta = MODE_META[matchMode];
 
   function handleNavClick(tab: string): void {
+    const path = getDashboardPathForTab(tab);
+    if (path) {
+      navigate(path);
+    }
+
     setProfileNavigation((currentState) =>
       navigateDashboardProfiles(currentState, tab),
     );
   }
 
   function handleNavigate(tab: string, context?: DashboardNavigateContext): void {
+    if (tab !== "__selectPlayer" && tab !== "__selectTeam") {
+      const path = getDashboardPathForTab(tab);
+      if (path) {
+        navigate(path);
+      }
+    }
+
     setProfileNavigation((currentState) =>
       navigateDashboardProfiles(currentState, tab, context),
     );

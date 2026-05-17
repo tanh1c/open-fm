@@ -10,6 +10,24 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const MatchSimulation = lazy(() => import("./pages/MatchSimulation"));
 const Settings = lazy(() => import("./pages/Settings"));
 
+const DASHBOARD_ROUTES = [
+  "/dashboard",
+  "/inbox",
+  "/news",
+  "/schedule",
+  "/squad",
+  "/tactics",
+  "/training",
+  "/staff",
+  "/scouting",
+  "/youth",
+  "/finances",
+  "/transfers",
+  "/players",
+  "/teams",
+  "/tournaments",
+];
+
 function LazyFallback() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-surface-900 flex items-center justify-center">
@@ -61,7 +79,9 @@ function App() {
         <Routes>
           <Route path="/" element={<MainMenu />} />
           <Route path="/select-team" element={<TeamSelection />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          {DASHBOARD_ROUTES.map((path) => (
+            <Route key={path} path={path} element={<Dashboard />} />
+          ))}
           <Route path="/match" element={<MatchSimulation />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

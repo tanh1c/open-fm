@@ -13,6 +13,7 @@ import {
   ArrowRightLeft,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Download,
   Goal,
@@ -154,6 +155,72 @@ function TacticsHelpCard(): JSX.Element {
         </div>
       ) : null}
     </TemplateCard>
+  );
+}
+
+function StyledDropdown({
+  ariaLabel,
+  emptyLabel,
+  options,
+  value,
+  onChange,
+}: {
+  ariaLabel: string;
+  emptyLabel?: string;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+  onChange: (value: string) => void;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? emptyLabel ?? "Select";
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-2 rounded border border-app-border bg-app-bg px-3 py-1.5 text-left text-[11px] font-bold uppercase text-app-text transition-colors hover:border-app-border/80 hover:bg-white/5"
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-app-text-muted" />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-30 mt-2 max-h-64 w-full min-w-44 overflow-y-auto rounded-lg border border-app-border bg-app-card p-2 shadow-xl custom-scrollbar">
+          {emptyLabel ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onChange("");
+              }}
+              className={cx(
+                "w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                value === "" ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white",
+              )}
+            >
+              {emptyLabel}
+            </button>
+          ) : null}
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onChange(option.value);
+              }}
+              className={cx(
+                "w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                value === option.value ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1207,17 +1274,15 @@ export default function TacticsTab({
               Save
             </button>
           </div>
-          <select
-            value={selectedSavedPresetId}
-            onChange={(event) => void handleLoadPreset(event.target.value)}
-            className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text"
-            aria-label="Load tactic preset"
-          >
-            <option value="">Load preset</option>
-            {(myTeam.saved_tactic_presets ?? []).map((preset) => (
-              <option key={preset.id} value={preset.id}>{preset.name}</option>
-            ))}
-          </select>
+          <div className="w-44">
+            <StyledDropdown
+              ariaLabel="Load tactic preset"
+              emptyLabel="Load preset"
+              value={selectedSavedPresetId}
+              options={(myTeam.saved_tactic_presets ?? []).map((preset) => ({ label: preset.name, value: preset.id }))}
+              onChange={(presetId) => void handleLoadPreset(presetId)}
+            />
+          </div>
           <HeaderButton onClick={() => void handleAutoFillShape()} icon={<Download className="h-4 w-4" />}>Auto-fill</HeaderButton>
           <HeaderButton onClick={() => void handleResetShape()} icon={<Settings2 className="h-4 w-4" />}>Reset shape</HeaderButton>
           <HeaderButton primary icon={<Check className="h-4 w-4" />}>Changes auto-save</HeaderButton>
@@ -1335,24 +1400,18 @@ export default function TacticsTab({
                   <span>{selectedSlotDefinition.label} Role</span>
                   <span>{selectedSlotAssignment?.playerId ? playersById.get(selectedSlotAssignment.playerId)?.match_name ?? "Assigned" : "Empty"}</span>
                 </div>
-                <select
+                <StyledDropdown
+                  ariaLabel="Select tactical role"
                   value={selectedSlotAssignment?.tacticalRole ?? selectedSlotRoleOptions[0] ?? ""}
-                  onChange={(event) => void handleSlotRoleChange("tacticalRole", event.target.value)}
-                  className="rounded border border-app-border bg-app-bg px-2 py-1.5 text-xs text-app-text"
-                >
-                  {selectedSlotRoleOptions.map((role) => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-                <select
+                  options={selectedSlotRoleOptions.map((role) => ({ label: role, value: role }))}
+                  onChange={(value) => void handleSlotRoleChange("tacticalRole", value)}
+                />
+                <StyledDropdown
+                  ariaLabel="Select tactical duty"
                   value={selectedSlotAssignment?.duty ?? "Support"}
-                  onChange={(event) => void handleSlotRoleChange("duty", event.target.value)}
-                  className="rounded border border-app-border bg-app-bg px-2 py-1.5 text-xs text-app-text"
-                >
-                  {TACTICAL_DUTIES.map((duty) => (
-                    <option key={duty} value={duty}>{duty}</option>
-                  ))}
-                </select>
+                  options={TACTICAL_DUTIES.map((duty) => ({ label: duty, value: duty }))}
+                  onChange={(value) => void handleSlotRoleChange("duty", value)}
+                />
               </div>
             ) : null}
           </TemplateCard>

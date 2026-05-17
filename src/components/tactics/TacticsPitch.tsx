@@ -180,7 +180,7 @@ export default function TacticsPitch({
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">MENTALITY</span>
-            <div className="group flex items-center gap-1.5 transition-colors hover:text-white">
+            <div className="group flex items-center gap-1.5 transition-colors hover:text-white" title="Mentality is derived from the current play style and affects match-engine risk, tempo, and pressure.">
               <Target className="h-3.5 w-3.5 text-app-text-muted group-hover:text-white" />
               <span className="text-xs font-semibold">{mentalityLabel}</span>
               <ChevronDown className="h-3 w-3 text-app-text-muted" />
@@ -188,7 +188,7 @@ export default function TacticsPitch({
           </div>
           <div className="hidden items-center gap-2 md:flex">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">TEAM SHAPE</span>
-            <div className="group flex items-center gap-1.5 transition-colors hover:text-white">
+            <div className="group flex items-center gap-1.5 transition-colors hover:text-white" title="Team Shape shows the active formation or custom shape currently represented by the pitch slots.">
               <LayoutGrid className="h-3.5 w-3.5 text-app-text-muted group-hover:text-white" />
               <span className="text-xs font-semibold">{teamShapeLabel}</span>
             </div>

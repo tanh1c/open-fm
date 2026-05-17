@@ -92,12 +92,14 @@ function getTabClassName(activeTab: TacticsViewTab, tab: TacticsViewTab): string
   );
 }
 
-function HeaderButton({ children, disabled = false, icon, onClick, primary = false }: { children: ReactNode; disabled?: boolean; icon: ReactNode; onClick?: () => void; primary?: boolean }): JSX.Element {
+function HeaderButton({ children, disabled = false, helper, icon, onClick, primary = false }: { children: ReactNode; disabled?: boolean; helper?: string; icon: ReactNode; onClick?: () => void; primary?: boolean }): JSX.Element {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={helper}
+      aria-label={helper ? `${children}: ${helper}` : undefined}
       className={cx(
         "flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors",
         primary
@@ -112,11 +114,55 @@ function HeaderButton({ children, disabled = false, icon, onClick, primary = fal
   );
 }
 
-function PresetRow({ name, desc, active = false, onClick }: { name: string; desc: string; active?: boolean; onClick?: () => void }): JSX.Element {
+function TacticsHelpCard(): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const items = [
+    ["Tactical presets", "Apply both a pitch shape and a play style. The green tick means your current slots and play style match that preset."],
+    ["Save", "Stores the current player slots, formation shape, tactical roles, and duties as a reusable preset."],
+    ["Load preset", "Applies a saved preset back onto the pitch, including player slots, shape, roles, and duties."],
+    ["Auto-fill", "Fills empty tactic slots with available senior players. It does not replace players already assigned."],
+    ["Reset shape", "Returns the pitch to the current formation preset layout and removes manual custom slot changes."],
+    ["Clear slot", "Removes the player from the selected pitch slot without deleting the player from the squad."],
+    ["Mentality", "Derived from the current play style and used as a quick summary of risk, tempo, and pressure."],
+    ["Team shape", "Shows the active formation or custom shape. Custom slot coordinates feed width, overload, and compactness into the engine."],
+  ];
+
+  return (
+    <TemplateCard className="p-3">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Info className="h-3.5 w-3.5 text-app-green" />
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">Tactics Help</div>
+            <div className="text-xs font-semibold text-app-text">{open ? "Hide control guide" : "Show control guide"}</div>
+          </div>
+        </div>
+        <ChevronRight className={cx("h-4 w-4 text-app-text-muted transition-transform", open && "rotate-90")} />
+      </button>
+      {open ? (
+        <div className="mt-3 flex flex-col gap-2 border-t border-app-border/50 pt-3">
+          {items.map(([label, description]) => (
+            <div key={label} className="rounded-lg border border-app-border/60 bg-black/10 p-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-app-green">{label}</div>
+              <div className="mt-1 text-[10px] leading-relaxed text-app-text-muted">{description}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </TemplateCard>
+  );
+}
+
+function PresetRow({ name, desc, active = false, helper, onClick }: { name: string; desc: string; active?: boolean; helper?: string; onClick?: () => void }): JSX.Element {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={helper}
       className={cx(
         "flex items-center justify-between rounded-lg border p-3 text-left transition-colors",
         active
@@ -434,6 +480,7 @@ export default function TacticsTab({
     useState<SquadSection | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [presetName, setPresetName] = useState("Custom tactic");
+  const [selectedSavedPresetId, setSelectedSavedPresetId] = useState("");
   const [overviewSidebarMode, setOverviewSidebarMode] =
     useState<"playStyle" | "focus">("playStyle");
   const [activeViewTab, setActiveViewTab] =
@@ -689,11 +736,33 @@ export default function TacticsTab({
   async function handleLoadPreset(presetId: string): Promise<void> {
     if (!presetId) return;
 
+    const preset = myTeam?.saved_tactic_presets?.find((candidate) => candidate.id === presetId);
+    if (preset) {
+      const optimisticGameState: GameStateData = {
+        ...gameState,
+        teams: gameState.teams.map((team) =>
+          team.id === myTeam?.id
+            ? {
+                ...team,
+                custom_tactic_slots: preset.slots,
+                starting_xi_ids: preset.slots
+                  .map((slot) => slot.player_id)
+                  .filter((playerId): playerId is string => Boolean(playerId)),
+                formation: preset.formation,
+              }
+            : team,
+        ),
+      };
+      onGameUpdate(optimisticGameState);
+    }
+
+    setSelectedSavedPresetId(presetId);
     try {
       const updated = await invoke<GameStateData>("load_tactic_preset", { presetId });
       onGameUpdate(updated);
       clearLineupSelection();
     } catch (error) {
+      setSelectedSavedPresetId("");
       console.error("Failed to load tactic preset:", error);
     }
   }
@@ -890,10 +959,10 @@ export default function TacticsTab({
   const defensiveWidth = activePlayStyle === "Defensive" ? "Narrow" : activePlayStyle === "Attacking" ? "Wide" : "Standard";
   const tempo = activePlayStyle === "Possession" || activePlayStyle === "Defensive" ? "Lower" : activePlayStyle === "Balanced" ? "Standard" : "Higher";
   const tacticalPresetRows = [
-    { name: "Gegenpress", desc: "4-3-3 High Press", formation: "4-3-3", playStyle: "HighPress" },
-    { name: "Control Possession", desc: "4-3-3 Possession", formation: "4-3-3", playStyle: "Possession" },
-    { name: "Wing Play", desc: "4-2-3-1 Wide", formation: "4-2-3-1", playStyle: "Attacking" },
-    { name: "Direct Counter Attack", desc: "4-4-2 Counter", formation: "4-4-2", playStyle: "Counter" },
+    { name: "Gegenpress", desc: "4-3-3 High Press", formation: "4-3-3", playStyle: "HighPress", helper: "Applies a high-pressing 4-3-3 shape and increases pressing/direct vertical play." },
+    { name: "Control Possession", desc: "4-3-3 Possession", formation: "4-3-3", playStyle: "Possession", helper: "Applies a possession 4-3-3 shape focused on patient build-up and central control." },
+    { name: "Wing Play", desc: "4-2-3-1 Wide", formation: "4-2-3-1", playStyle: "Attacking", helper: "Applies a wide attacking 4-2-3-1 shape to create wing threat and forward runs." },
+    { name: "Direct Counter Attack", desc: "4-4-2 Counter", formation: "4-4-2", playStyle: "Counter", helper: "Applies a compact 4-4-2 counter shape for direct transitions into space." },
   ];
 
   const setPieceQuickAccess = (
@@ -1129,13 +1198,17 @@ export default function TacticsTab({
               className="w-28 bg-transparent text-xs text-app-text outline-none placeholder:text-app-text-muted"
               aria-label="Preset name"
             />
-            <button type="button" onClick={() => void handleSavePreset()} className="flex items-center gap-1 rounded bg-app-green px-2 py-1 text-xs font-bold text-app-bg">
+            <button
+              type="button"
+              onClick={() => void handleSavePreset()}
+              className="flex items-center gap-1 rounded bg-app-green px-2 py-1 text-xs font-bold text-app-bg"
+            >
               <Save className="h-3.5 w-3.5" />
               Save
             </button>
           </div>
           <select
-            value=""
+            value={selectedSavedPresetId}
             onChange={(event) => void handleLoadPreset(event.target.value)}
             className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text"
             aria-label="Load tactic preset"
@@ -1169,16 +1242,14 @@ export default function TacticsTab({
                 key={preset.name}
                 name={preset.name}
                 desc={preset.desc}
+                helper={preset.helper}
                 active={matchesPresetShape(gridAssignments, preset.formation) && activePlayStyle === preset.playStyle}
                 onClick={() => {
                   void handleTacticalPresetSelect(preset);
                 }}
               />
             ))}
-            <button type="button" disabled className="mt-1 flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-app-border px-3 py-2 text-[11px] text-app-text-muted opacity-50">
-              Preset manager later
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+            <TacticsHelpCard />
           </div>
 
           {opponentFocusCard}

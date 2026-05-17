@@ -332,7 +332,6 @@ export default function TacticsPitch({
               onDragEnd={onDragEnd}
               className={getBenchPlayerButtonClassName({ dragState, comparePlayerId, player, selectedPlayerId })}
             >
-              <div className="absolute right-0.5 top-0.5 z-20 h-1.5 w-1.5 rounded-full bg-app-green shadow-[0_0_4px_rgba(45,212,191,0.5)]" />
               <div className="relative flex w-full justify-center pb-1 pt-2">
                 <div className="absolute bottom-0 h-8 w-full bg-gradient-to-t from-red-500/20 to-transparent" />
                 <div className="z-10 flex h-8 w-8 items-center justify-center rounded border border-red-500/50 bg-red-900/30 text-sm font-bold shadow-sm">

@@ -169,7 +169,12 @@ export default function Dashboard(): JSX.Element {
 
   useEffect(() => {
     setProfileNavigation((currentState) => {
-      if (currentState.activeTab === routeTab) {
+      if (
+        currentState.activeTab === routeTab &&
+        !currentState.selectedPlayerId &&
+        !currentState.selectedTeamId &&
+        currentState.navHistory.length === 0
+      ) {
         return currentState;
       }
 

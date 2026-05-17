@@ -383,4 +383,29 @@ describe("Dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /OpenFM/i }));
     expect(navigateMock).toHaveBeenCalledWith("/dashboard");
   });
+
+  it("clears stale profile selection when syncing to a different route tab", async () => {
+    pathnameMock = "/players";
+
+    const { rerender } = render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Tab Content Players")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Search players, staff, competitions..."), {
+      target: { value: "John" },
+    });
+    fireEvent.focus(screen.getByPlaceholderText("Search players, staff, competitions..."));
+    fireEvent.mouseDown(screen.getByText("John Smith"));
+    expect(screen.getByText("Player Profile Mock")).toBeInTheDocument();
+
+    pathnameMock = "/tactics";
+    rerender(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Tab Content Tactics")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Player Profile Mock")).not.toBeInTheDocument();
+  });
 });

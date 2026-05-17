@@ -127,9 +127,9 @@ function normaliseKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
 
-export function canonicalPosition(position: string): string {
-  const trimmed = position.trim();
-  if (!trimmed) return trimmed;
+export function canonicalPosition(position: string | null | undefined): string {
+  const trimmed = position?.trim() ?? "";
+  if (!trimmed) return "";
 
   return CANONICAL_POSITION_MAP[normaliseKey(trimmed)] || trimmed;
 }
@@ -366,7 +366,7 @@ export function buildStartingXIIds(
   if (validSavedIds.length >= 8) {
     const xi = [...validSavedIds];
     while (xi.length < 11) {
-      const slotPosition = slotPositions[xi.length];
+      const slotPosition = slotPositions[xi.length] ?? "Midfielder";
       const candidates = available.filter((player) => !used.has(player.id));
       const bestPlayer = candidates.sort((a, b) => comparePlayersForSlot(a, b, slotPosition))[0];
 

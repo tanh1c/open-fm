@@ -32,6 +32,10 @@ pub struct Team {
     // Tactical
     pub formation: String,
     pub play_style: PlayStyle,
+    #[serde(default)]
+    pub custom_tactic_slots: Vec<CustomTacticSlot>,
+    #[serde(default)]
+    pub saved_tactic_presets: Vec<TacticPreset>,
 
     // Training
     #[serde(default)]
@@ -62,6 +66,27 @@ pub struct Team {
 
     // History
     pub history: Vec<TeamSeasonRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CustomTacticSlot {
+    pub slot_id: String,
+    pub player_id: Option<String>,
+    pub role: String,
+    pub x: u8,
+    pub y: u8,
+    #[serde(default)]
+    pub tactical_role: Option<String>,
+    #[serde(default)]
+    pub duty: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TacticPreset {
+    pub id: String,
+    pub name: String,
+    pub formation: String,
+    pub slots: Vec<CustomTacticSlot>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -282,6 +307,8 @@ impl Team {
                 secondary: "#ffffff".to_string(),
             },
             starting_xi_ids: Vec::new(),
+            custom_tactic_slots: Vec::new(),
+            saved_tactic_presets: Vec::new(),
             match_roles: MatchRoles::default(),
             form: Vec::new(),
             history: Vec::new(),

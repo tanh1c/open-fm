@@ -294,27 +294,66 @@ describe("TacticsTab", () => {
     );
 
     const benchPlayer = screen.getByTestId("pitch-bench-player-d5");
-    const pitchSlot = screen.getByTestId("pitch-slot-1");
+    const pitchSlot = screen.getByTestId("grid-slot-lb");
     const dataTransfer = createDataTransfer();
 
     fireEvent.dragStart(benchPlayer, { dataTransfer });
     fireEvent.drop(pitchSlot, { dataTransfer });
 
     await waitFor(() => {
-      expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
-        playerIds: [
-          "gk1",
-          "d5",
-          "d2",
-          "d3",
-          "d4",
-          "m1",
-          "m2",
-          "m3",
-          "m4",
-          "f1",
-          "f2",
-        ],
+      expect(mockedInvoke).toHaveBeenCalledWith("set_tactic_slots", {
+        slots: expect.arrayContaining([
+          expect.objectContaining({ slot_id: "lb", player_id: "d5" }),
+        ]),
+      });
+    });
+  });
+
+  it("persists moving a starter to a same-line empty grid slot", async () => {
+    render(
+      <TacticsTab
+        gameState={makeGameState()}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    const rightStriker = screen.getByTestId("pitch-player-f2");
+    const strikerSlot = screen.getByTestId("grid-slot-st");
+    const dataTransfer = createDataTransfer();
+
+    fireEvent.dragStart(rightStriker, { dataTransfer });
+    fireEvent.drop(strikerSlot, { dataTransfer });
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_tactic_slots", {
+        slots: expect.arrayContaining([
+          expect.objectContaining({ slot_id: "st", player_id: "f2" }),
+          expect.objectContaining({ slot_id: "rs", player_id: null }),
+        ]),
+      });
+    });
+  });
+
+  it("quick-fills grid slots when a formation preset is selected", async () => {
+    render(
+      <TacticsTab
+        gameState={makeGameState()}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("tactics-formation-dropdown"));
+    fireEvent.click(screen.getByTestId("tactics-formation-option-4-3-3"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_tactic_slots", {
+        slots: expect.arrayContaining([
+          expect.objectContaining({ slot_id: "lw", player_id: "m4" }),
+          expect.objectContaining({ slot_id: "st", player_id: "f1" }),
+          expect.objectContaining({ slot_id: "rw", player_id: "f2" }),
+        ]),
       });
     });
   });
@@ -370,6 +409,25 @@ describe("TacticsTab", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows validation when the grid shape is incomplete", () => {
+    const gameState = makeGameState();
+    gameState.teams[0].custom_tactic_slots = [
+      { slot_id: "lb", player_id: "d1", role: "DEF", x: 18, y: 72 },
+    ];
+
+    render(
+      <TacticsTab
+        gameState={gameState}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("tactics-grid-validation")).toBeInTheDocument();
+    expect(screen.getByText("tactics.validation.requiresEleven")).toBeInTheDocument();
+    expect(screen.getByText("tactics.validation.requiresGoalkeeper")).toBeInTheDocument();
+  });
+
   it("localizes the selected player position in the comparison panel", () => {
     render(
       <TacticsTab
@@ -409,20 +467,11 @@ describe("TacticsTab", () => {
     );
 
     await waitFor(() => {
-      expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
-        playerIds: [
-          "gk1",
-          "d1",
-          "d5",
-          "d3",
-          "d4",
-          "m1",
-          "m2",
-          "m3",
-          "m4",
-          "f1",
-          "f2",
-        ],
+      expect(mockedInvoke).toHaveBeenCalledWith("set_tactic_slots", {
+        slots: expect.arrayContaining([
+          expect.objectContaining({ slot_id: "lcb", player_id: "d5" }),
+          expect.objectContaining({ slot_id: "rcb", player_id: "d3" }),
+        ]),
       });
     });
   });
@@ -455,20 +504,11 @@ describe("TacticsTab", () => {
     );
 
     await waitFor(() => {
-      expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
-        playerIds: [
-          "gk1",
-          "d2",
-          "d1",
-          "d3",
-          "d4",
-          "m1",
-          "m2",
-          "m3",
-          "m4",
-          "f1",
-          "f2",
-        ],
+      expect(mockedInvoke).toHaveBeenCalledWith("set_tactic_slots", {
+        slots: expect.arrayContaining([
+          expect.objectContaining({ slot_id: "lb", player_id: "d2" }),
+          expect.objectContaining({ slot_id: "lcb", player_id: "d1" }),
+        ]),
       });
     });
   });

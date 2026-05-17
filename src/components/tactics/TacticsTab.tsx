@@ -13,7 +13,6 @@ import {
   ArrowRightLeft,
   Check,
   CheckCircle2,
-  ChevronDown,
   ChevronRight,
   Download,
   Goal,
@@ -26,8 +25,6 @@ import {
   Target,
 } from "lucide-react";
 import {
-  applyLineupDrop,
-  applyLineupSwap,
   buildActivePositionMap,
   buildPitchRows,
   buildPitchSlotRows,
@@ -36,10 +33,24 @@ import {
   type SquadSection,
 } from "../squad/SquadTab.helpers";
 import {
+  buildGridAssignmentsFromFormation,
+  buildGridAssignmentsFromSavedSlots,
   buildTacticsRoster,
   countOutOfPositionPlayers,
+  deriveFormationFromGridAssignments,
+  getGridAssignmentIssues,
+  getGridAssignmentSignature,
   getSelectedAndComparePlayers,
+  getStartingXiIdsFromGridAssignments,
+  GRID_TACTIC_SLOTS,
+  PRESET_GRID_SLOT_IDS,
+  movePlayerInGridAssignments,
   resolveStartingXiIds,
+  swapPlayersInGridAssignments,
+  TACTICAL_DUTIES,
+  TACTICAL_ROLE_OPTIONS,
+  toBackendGridSlots,
+  type GridTacticAssignment,
 } from "./TacticsTab.helpers";
 import TacticsPitch from "./TacticsPitch";
 import TacticsPlayerFocusPanel from "./TacticsPlayerFocusPanel";
@@ -61,11 +72,12 @@ type TacticsViewTab = "overview" | "roles" | "instructions" | "setPieces" | "ana
 interface TemplateCardProps {
   children: ReactNode;
   className?: string;
+  testId?: string;
 }
 
-function TemplateCard({ children, className }: TemplateCardProps): JSX.Element {
+function TemplateCard({ children, className, testId }: TemplateCardProps): JSX.Element {
   return (
-    <div className={cx("rounded-xl border border-app-border bg-app-card overflow-hidden", className)}>
+    <div data-testid={testId} className={cx("rounded-xl border border-app-border bg-app-card overflow-hidden", className)}>
       {children}
     </div>
   );
@@ -371,6 +383,36 @@ function getFamiliarity(startingXI: PlayerData[], outOfPositionCount: number): {
   return { label: "Low", pct };
 }
 
+function getMentalityLabel(playStyle: string): string {
+  const labels: Record<string, string> = {
+    Attacking: "Attacking",
+    Defensive: "Cautious",
+    Possession: "Patient",
+    Counter: "Direct",
+    HighPress: "Aggressive",
+    Balanced: "Balanced",
+  };
+
+  return labels[playStyle] ?? "Balanced";
+}
+
+function getTeamShapeLabel(isCustomShape: boolean, derivedFormationLabel: string, formation: string): string {
+  if (isCustomShape) return `Custom ${derivedFormationLabel}`;
+  return formation;
+}
+
+function matchesPresetShape(assignments: GridTacticAssignment[], presetFormation: string): boolean {
+  const presetSlotIds = PRESET_GRID_SLOT_IDS[presetFormation];
+  if (!presetSlotIds) return false;
+
+  const occupiedSlotIds = assignments
+    .filter((assignment) => assignment.playerId)
+    .map((assignment) => assignment.slotId)
+    .sort();
+
+  return occupiedSlotIds.join("|") === [...presetSlotIds].sort().join("|");
+}
+
 export default function TacticsTab({
   gameState,
   onGameUpdate,
@@ -380,7 +422,7 @@ export default function TacticsTab({
     (team) => team.id === gameState.manager.team_id,
   );
   const [dragState, setDragState] = useState<DragState | null>(null);
-  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null);
+  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [pendingStartingXiIds, setPendingStartingXiIds] = useState<
     string[] | null
   >(null);
@@ -390,12 +432,14 @@ export default function TacticsTab({
   const [comparePlayerId, setComparePlayerId] = useState<string | null>(null);
   const [comparePlayerSection, setComparePlayerSection] =
     useState<SquadSection | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [presetName, setPresetName] = useState("Custom tactic");
   const [overviewSidebarMode, setOverviewSidebarMode] =
     useState<"playStyle" | "focus">("playStyle");
   const [activeViewTab, setActiveViewTab] =
     useState<TacticsViewTab>("overview");
   const dragStateRef = useRef<DragState | null>(null);
-  const hoveredSlotRef = useRef<number | null>(null);
+  const hoveredSlotRef = useRef<string | null>(null);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
 
   if (!myTeam) {
@@ -453,6 +497,38 @@ export default function TacticsTab({
     () => buildPitchSlotRows(pitchRows, startingXiIds, playersById),
     [pitchRows, playersById, startingXiIds],
   );
+  const gridAssignments = useMemo(() => {
+    const fallbackAssignments = buildGridAssignmentsFromFormation(
+      formation,
+      startingXiIds,
+    );
+
+    return buildGridAssignmentsFromSavedSlots(
+      myTeam?.custom_tactic_slots,
+      fallbackAssignments,
+      new Set(roster.map((player) => player.id)),
+    );
+  }, [formation, myTeam?.custom_tactic_slots, roster, startingXiIds]);
+  const derivedFormationLabel = deriveFormationFromGridAssignments(gridAssignments);
+  const presetSignature = getGridAssignmentSignature(
+    buildGridAssignmentsFromFormation(formation, startingXiIds),
+  );
+  const isCustomShape = getGridAssignmentSignature(gridAssignments) !== presetSignature;
+  const customShapeLabel = isCustomShape ? `Custom ${derivedFormationLabel}` : derivedFormationLabel;
+  const mentalityLabel = getMentalityLabel(activePlayStyle);
+  const teamShapeLabel = getTeamShapeLabel(isCustomShape, derivedFormationLabel, formation);
+  const selectedSlotAssignment = selectedSlotId
+    ? gridAssignments.find((assignment) => assignment.slotId === selectedSlotId) ?? null
+    : selectedPlayerId
+      ? gridAssignments.find((assignment) => assignment.playerId === selectedPlayerId) ?? null
+      : null;
+  const selectedSlotDefinition = selectedSlotAssignment
+    ? GRID_TACTIC_SLOTS.find((slot) => slot.id === selectedSlotAssignment.slotId) ?? null
+    : null;
+  const selectedSlotRoleOptions = selectedSlotDefinition
+    ? TACTICAL_ROLE_OPTIONS[selectedSlotDefinition.role]
+    : [];
+  const gridAssignmentIssues = getGridAssignmentIssues(gridAssignments);
 
   const xiIds = new Set(startingXiIds);
   const bench = roster.filter((player) => !xiIds.has(player.id));
@@ -477,14 +553,14 @@ export default function TacticsTab({
       return false;
     }
 
-    const nextXiIds = applyLineupSwap(
-      startingXiIds,
-      { id: selectedPlayerId, from: selectedPlayerSection },
+    const nextGridAssignments = swapPlayersInGridAssignments(
+      gridAssignments,
+      selectedPlayerId,
       comparePlayerId,
-      comparePlayerSection,
     );
+    const nextXiIds = getStartingXiIdsFromGridAssignments(nextGridAssignments);
 
-    return !!nextXiIds && nextXiIds.join(",") !== startingXiIds.join(",");
+    return nextXiIds.join(",") !== startingXiIds.join(",");
   }, [
     comparePlayerId,
     comparePlayerSection,
@@ -498,38 +574,127 @@ export default function TacticsTab({
     xiActivePosition,
   );
 
-  async function persistStartingXI(playerIds: string[]): Promise<void> {
+  async function persistGridAssignments(nextGridAssignments: typeof gridAssignments): Promise<void> {
+    const playerIds = getStartingXiIdsFromGridAssignments(nextGridAssignments);
     setPendingStartingXiIds(playerIds);
     try {
-      const updated = await invoke<GameStateData>("set_starting_xi", {
-        playerIds,
+      const updated = await invoke<GameStateData>("set_tactic_slots", {
+        slots: toBackendGridSlots(nextGridAssignments),
       });
       onGameUpdate(updated);
     } catch (error) {
       setPendingStartingXiIds(null);
-      console.error("Failed to set starting XI:", error);
+      console.error("Failed to set tactic slots:", error);
     }
   }
 
   async function handleFormationChange(nextFormation: string): Promise<void> {
-    try {
-      const updated = await invoke<GameStateData>("set_formation", {
-        formation: nextFormation,
-      });
-      onGameUpdate(updated);
-    } catch (error) {
-      console.error("Failed to set formation:", error);
-    }
+    const presetAssignments = buildGridAssignmentsFromFormation(
+      nextFormation,
+      startingXiIds,
+    );
+
+    await persistGridAssignments(presetAssignments);
+    clearLineupSelection();
   }
 
-  async function handlePlayStyleChange(playStyle: string): Promise<void> {
+  async function setPlayStyle(playStyle: string): Promise<GameStateData | null> {
     try {
       const updated = await invoke<GameStateData>("set_play_style", {
         playStyle,
       });
       onGameUpdate(updated);
+      return updated;
     } catch (error) {
       console.error("Failed to set play style:", error);
+      return null;
+    }
+  }
+
+  async function handlePlayStyleChange(playStyle: string): Promise<void> {
+    await setPlayStyle(playStyle);
+  }
+
+  async function handleTacticalPresetSelect(preset: { formation: string; playStyle: string }): Promise<void> {
+    await handleFormationChange(preset.formation);
+    await setPlayStyle(preset.playStyle);
+  }
+
+  async function handleResetShape(): Promise<void> {
+    await persistGridAssignments(buildGridAssignmentsFromFormation(formation, startingXiIds));
+    setSelectedSlotId(null);
+    clearLineupSelection();
+  }
+
+  async function handleClearSelectedSlot(): Promise<void> {
+    if (!selectedSlotAssignment) return;
+
+    const nextGridAssignments = gridAssignments.map((assignment) =>
+      assignment.slotId === selectedSlotAssignment.slotId
+        ? { ...assignment, playerId: null, tacticalRole: null, duty: null }
+        : assignment,
+    );
+    await persistGridAssignments(nextGridAssignments);
+    setSelectedSlotId(selectedSlotAssignment.slotId);
+    clearLineupSelection();
+  }
+
+  async function handleAutoFillShape(): Promise<void> {
+    const usedPlayerIds = new Set(
+      gridAssignments
+        .filter((assignment) => assignment.playerId)
+        .map((assignment) => assignment.playerId as string),
+    );
+    const emptySlotsToFill = Math.max(0, 11 - usedPlayerIds.size);
+    const fillPlayers = available
+      .filter((player) => !usedPlayerIds.has(player.id))
+      .slice(0, emptySlotsToFill);
+    let fillIndex = 0;
+    const nextGridAssignments = gridAssignments.map((assignment) => {
+      if (assignment.playerId || fillIndex >= emptySlotsToFill) return assignment;
+      const nextPlayer = fillPlayers[fillIndex];
+      fillIndex += 1;
+      return nextPlayer ? { ...assignment, playerId: nextPlayer.id } : assignment;
+    });
+
+    await persistGridAssignments(nextGridAssignments);
+    clearLineupSelection();
+  }
+
+  async function handleSlotRoleChange(field: "tacticalRole" | "duty", value: string): Promise<void> {
+    if (!selectedSlotAssignment) return;
+
+    const nextGridAssignments: GridTacticAssignment[] = gridAssignments.map((assignment) =>
+      assignment.slotId === selectedSlotAssignment.slotId
+        ? { ...assignment, [field]: value }
+        : assignment,
+    );
+    await persistGridAssignments(nextGridAssignments);
+  }
+
+  async function handleSavePreset(): Promise<void> {
+    try {
+      const updated = await invoke<GameStateData>("save_tactic_preset", {
+        preset: {
+          name: presetName.trim() || customShapeLabel,
+          slots: toBackendGridSlots(gridAssignments),
+        },
+      });
+      onGameUpdate(updated);
+    } catch (error) {
+      console.error("Failed to save tactic preset:", error);
+    }
+  }
+
+  async function handleLoadPreset(presetId: string): Promise<void> {
+    if (!presetId) return;
+
+    try {
+      const updated = await invoke<GameStateData>("load_tactic_preset", { presetId });
+      onGameUpdate(updated);
+      clearLineupSelection();
+    } catch (error) {
+      console.error("Failed to load tactic preset:", error);
     }
   }
 
@@ -552,15 +717,16 @@ export default function TacticsTab({
     setSelectedPlayerSection(null);
     setComparePlayerId(null);
     setComparePlayerSection(null);
+    setSelectedSlotId(null);
   }
 
-  function setHoveredSlotValue(slotIndex: number | null): void {
-    if (hoveredSlotRef.current === slotIndex) {
+  function setHoveredSlotValue(slotId: string | null): void {
+    if (hoveredSlotRef.current === slotId) {
       return;
     }
 
-    hoveredSlotRef.current = slotIndex;
-    setHoveredSlot(slotIndex);
+    hoveredSlotRef.current = slotId;
+    setHoveredSlot(slotId);
   }
 
   function resetDragState(): void {
@@ -597,15 +763,15 @@ export default function TacticsTab({
 
   function handleSlotDragOver(
     event: DragEvent<HTMLElement>,
-    slotIndex: number,
+    slotId: string,
   ): void {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    setHoveredSlotValue(slotIndex);
+    setHoveredSlotValue(slotId);
   }
 
-  function handleSlotDragLeave(slotIndex: number): void {
-    if (hoveredSlotRef.current !== slotIndex) {
+  function handleSlotDragLeave(slotId: string): void {
+    if (hoveredSlotRef.current !== slotId) {
       return;
     }
 
@@ -614,36 +780,26 @@ export default function TacticsTab({
 
   async function handleSlotDrop(
     event: DragEvent<HTMLElement>,
-    slotIndex: number,
+    slotId: string,
   ): Promise<void> {
     event.preventDefault();
     const draggedPlayerId = event.dataTransfer.getData("text/plain");
     const currentDragState = dragStateRef.current ?? dragState;
-    const resolvedDragState =
-      currentDragState ??
-      (draggedPlayerId
-        ? {
-            playerId: draggedPlayerId,
-            from: xiIds.has(draggedPlayerId) ? "xi" : "bench",
-            slotIndex: xiIds.has(draggedPlayerId)
-              ? startingXiIds.indexOf(draggedPlayerId)
-              : null,
-          }
-        : null);
+    const resolvedPlayerId = currentDragState?.playerId ?? draggedPlayerId;
 
-    if (!resolvedDragState) return;
+    if (!resolvedPlayerId) return;
 
-    const nextXiIds = applyLineupDrop(
-      startingXiIds,
-      resolvedDragState,
-      slotIndex,
+    const nextGridAssignments = movePlayerInGridAssignments(
+      gridAssignments,
+      resolvedPlayerId,
+      slotId,
     );
-    if (nextXiIds.join(",") === startingXiIds.join(",")) {
+    if (getGridAssignmentSignature(nextGridAssignments) === getGridAssignmentSignature(gridAssignments)) {
       resetDragState();
       return;
     }
 
-    await persistStartingXI(nextXiIds);
+    await persistGridAssignments(nextGridAssignments);
     clearLineupSelection();
     resetDragState();
   }
@@ -653,6 +809,7 @@ export default function TacticsTab({
     section: SquadSection,
   ): Promise<void> {
     setOverviewSidebarMode("focus");
+    setSelectedSlotId(gridAssignments.find((assignment) => assignment.playerId === playerId)?.slotId ?? null);
 
     if (!selectedPlayerId || !selectedPlayerSection) {
       setSelectedPlayerId(playerId);
@@ -693,18 +850,18 @@ export default function TacticsTab({
       return;
     }
 
-    const nextXiIds = applyLineupSwap(
-      startingXiIds,
-      { id: selectedPlayerId, from: selectedPlayerSection },
+    const nextGridAssignments = swapPlayersInGridAssignments(
+      gridAssignments,
+      selectedPlayerId,
       comparePlayerId,
-      comparePlayerSection,
     );
+    const nextXiIds = getStartingXiIdsFromGridAssignments(nextGridAssignments);
 
-    if (!nextXiIds || nextXiIds.join(",") === startingXiIds.join(",")) {
+    if (nextXiIds.join(",") === startingXiIds.join(",")) {
       return;
     }
 
-    await persistStartingXI(nextXiIds);
+    await persistGridAssignments(nextGridAssignments);
     clearLineupSelection();
   }
 
@@ -732,6 +889,12 @@ export default function TacticsTab({
   const focusPlay = activePlayStyle === "WingPlay" ? "Down Both Flanks" : activePlayStyle === "Possession" ? "Central Overloads" : activePlayStyle === "Counter" ? "Into Space" : "Mixed";
   const defensiveWidth = activePlayStyle === "Defensive" ? "Narrow" : activePlayStyle === "Attacking" ? "Wide" : "Standard";
   const tempo = activePlayStyle === "Possession" || activePlayStyle === "Defensive" ? "Lower" : activePlayStyle === "Balanced" ? "Standard" : "Higher";
+  const tacticalPresetRows = [
+    { name: "Gegenpress", desc: "4-3-3 High Press", formation: "4-3-3", playStyle: "HighPress" },
+    { name: "Control Possession", desc: "4-3-3 Possession", formation: "4-3-3", playStyle: "Possession" },
+    { name: "Wing Play", desc: "4-2-3-1 Wide", formation: "4-2-3-1", playStyle: "Attacking" },
+    { name: "Direct Counter Attack", desc: "4-4-2 Counter", formation: "4-4-2", playStyle: "Counter" },
+  ];
 
   const setPieceQuickAccess = (
     <div className="flex flex-col gap-2">
@@ -954,22 +1117,36 @@ export default function TacticsTab({
         <div>
           <h1 className="text-xl font-bold tracking-tight text-app-text">TACTICS</h1>
           <p className="text-sm text-app-text-muted">
-            {myTeam.name} &bull; {t("tactics.playStyles." + activePlayStyle, activePlayStyle)} &bull; Match Preparation
+            {myTeam.name} &bull; {customShapeLabel} &bull; {t("tactics.playStyles." + activePlayStyle, activePlayStyle)}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <HeaderButton disabled icon={<Save className="h-4 w-4 text-app-text-muted" />}>Preset save later</HeaderButton>
-          <div className="flex overflow-hidden rounded-lg border border-app-border bg-app-card opacity-50 transition-colors">
-            <button type="button" disabled className="flex cursor-not-allowed items-center gap-2 border-r border-app-border/50 px-3 py-2 text-sm font-medium">
-              <Download className="h-4 w-4 text-app-text-muted" />
-              Preset load later
-            </button>
-            <button type="button" disabled className="cursor-not-allowed px-2 py-2">
-              <ChevronDown className="h-4 w-4 text-app-text-muted" />
+          <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-2 py-1.5">
+            <input
+              value={presetName}
+              onChange={(event) => setPresetName(event.target.value)}
+              className="w-28 bg-transparent text-xs text-app-text outline-none placeholder:text-app-text-muted"
+              aria-label="Preset name"
+            />
+            <button type="button" onClick={() => void handleSavePreset()} className="flex items-center gap-1 rounded bg-app-green px-2 py-1 text-xs font-bold text-app-bg">
+              <Save className="h-3.5 w-3.5" />
+              Save
             </button>
           </div>
-          <HeaderButton disabled icon={<Settings2 className="h-4 w-4 text-app-text-muted" />}>Match plan later</HeaderButton>
+          <select
+            value=""
+            onChange={(event) => void handleLoadPreset(event.target.value)}
+            className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text"
+            aria-label="Load tactic preset"
+          >
+            <option value="">Load preset</option>
+            {(myTeam.saved_tactic_presets ?? []).map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.name}</option>
+            ))}
+          </select>
+          <HeaderButton onClick={() => void handleAutoFillShape()} icon={<Download className="h-4 w-4" />}>Auto-fill</HeaderButton>
+          <HeaderButton onClick={() => void handleResetShape()} icon={<Settings2 className="h-4 w-4" />}>Reset shape</HeaderButton>
           <HeaderButton primary icon={<Check className="h-4 w-4" />}>Changes auto-save</HeaderButton>
         </div>
       </div>
@@ -987,11 +1164,17 @@ export default function TacticsTab({
         <div className="flex w-full shrink-0 flex-col gap-4 xl:w-[280px]">
           <div className="flex flex-col gap-2">
             <h3 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">TACTICAL PRESETS</h3>
-            <PresetRow name="Gegenpress" desc={formation} active />
-            <PresetRow name="Control Possession" desc="4-3-3 DM Wide" onClick={() => void handleFormationChange("4-3-3")} />
-            <PresetRow name="Vertical Tiki-Taka" desc="4-3-1-2 Narrow" onClick={() => void handleFormationChange("4-3-3")} />
-            <PresetRow name="Wing Play" desc="4-2-3-1 Wide" onClick={() => void handleFormationChange("4-2-3-1")} />
-            <PresetRow name="Direct Counter Attack" desc="4-4-2" onClick={() => void handleFormationChange("4-4-2")} />
+            {tacticalPresetRows.map((preset) => (
+              <PresetRow
+                key={preset.name}
+                name={preset.name}
+                desc={preset.desc}
+                active={matchesPresetShape(gridAssignments, preset.formation) && activePlayStyle === preset.playStyle}
+                onClick={() => {
+                  void handleTacticalPresetSelect(preset);
+                }}
+              />
+            ))}
             <button type="button" disabled className="mt-1 flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-app-border px-3 py-2 text-[11px] text-app-text-muted opacity-50">
               Preset manager later
               <ChevronRight className="h-3.5 w-3.5" />
@@ -1006,6 +1189,11 @@ export default function TacticsTab({
             benchPlayers={bench}
             dragState={dragState}
             formation={formation}
+            formationLabel={derivedFormationLabel}
+            mentalityLabel={mentalityLabel}
+            teamShapeLabel={teamShapeLabel}
+            gridAssignments={gridAssignments}
+            playersById={playersById}
             comparePlayerId={comparePlayerId}
             hoveredSlot={hoveredSlot}
             onClearSelection={clearLineupSelection}
@@ -1023,16 +1211,29 @@ export default function TacticsTab({
               void handleSlotDrop(event, slotIndex);
             }}
             outOfPositionCount={outOfPositionCount}
-            pitchSlotRows={pitchSlotRows}
             selectedPlayer={selectedPlayer}
             selectedPlayerId={selectedPlayerId}
           />
         </div>
 
         <div data-testid="tactics-template-sidebar" className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
+          {gridAssignmentIssues.length > 0 ? (
+            <TemplateCard className="flex flex-col gap-3 border-amber-500/30 bg-amber-500/[0.06] p-4" testId="tactics-grid-validation">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>{t("tactics.validation.title", "Shape needs attention")}</span>
+              </div>
+              <ul className="space-y-1 text-xs text-app-text-muted">
+                {gridAssignmentIssues.map((issue) => (
+                  <li key={issue}>{t(issue)}</li>
+                ))}
+              </ul>
+            </TemplateCard>
+          ) : null}
+
           <TemplateCard className="flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-              <span>TACTICAL FAMILIARITY</span>
+              <span>{customShapeLabel}</span>
               <Info className="h-3.5 w-3.5 text-app-text-muted" />
             </div>
             <div className="flex items-center justify-between gap-3 text-app-green">
@@ -1043,9 +1244,46 @@ export default function TacticsTab({
             </div>
             <div className="grid grid-cols-3 divide-x divide-app-border/50 rounded-lg border border-app-border/50 bg-white/[0.01]">
               <InstructionQuickStat icon={<Target className="h-3.5 w-3.5" />} title="Focus" val={focusPlay} />
-              <InstructionQuickStat icon={<ArrowRightLeft className="h-3.5 w-3.5" />} title="Width" val={defensiveWidth} />
+              <InstructionQuickStat icon={<ArrowRightLeft className="h-3.5 w-3.5" />} title="Width" val={isCustomShape ? "Custom" : defensiveWidth} />
               <InstructionQuickStat icon={<Activity className="h-3.5 w-3.5" />} title="Tempo" val={tempo} />
             </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" onClick={() => void handleResetShape()} className="rounded border border-app-border px-2 py-1.5 text-[10px] font-semibold text-app-text-muted transition-colors hover:bg-white/5 hover:text-white">
+                Reset
+              </button>
+              <button type="button" onClick={() => void handleClearSelectedSlot()} disabled={!selectedSlotAssignment} className={cx("rounded border border-app-border px-2 py-1.5 text-[10px] font-semibold transition-colors", selectedSlotAssignment ? "text-app-text-muted hover:bg-white/5 hover:text-white" : "cursor-not-allowed text-app-text-muted/40")}>
+                Clear slot
+              </button>
+              <button type="button" onClick={() => void handleAutoFillShape()} className="rounded border border-app-border px-2 py-1.5 text-[10px] font-semibold text-app-text-muted transition-colors hover:bg-white/5 hover:text-white">
+                Auto-fill
+              </button>
+            </div>
+            {selectedSlotDefinition ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-app-border/70 bg-black/10 p-3" data-testid="tactics-slot-role-editor">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                  <span>{selectedSlotDefinition.label} Role</span>
+                  <span>{selectedSlotAssignment?.playerId ? playersById.get(selectedSlotAssignment.playerId)?.match_name ?? "Assigned" : "Empty"}</span>
+                </div>
+                <select
+                  value={selectedSlotAssignment?.tacticalRole ?? selectedSlotRoleOptions[0] ?? ""}
+                  onChange={(event) => void handleSlotRoleChange("tacticalRole", event.target.value)}
+                  className="rounded border border-app-border bg-app-bg px-2 py-1.5 text-xs text-app-text"
+                >
+                  {selectedSlotRoleOptions.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedSlotAssignment?.duty ?? "Support"}
+                  onChange={(event) => void handleSlotRoleChange("duty", event.target.value)}
+                  className="rounded border border-app-border bg-app-bg px-2 py-1.5 text-xs text-app-text"
+                >
+                  {TACTICAL_DUTIES.map((duty) => (
+                    <option key={duty} value={duty}>{duty}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </TemplateCard>
 
           <div className="flex rounded-lg border border-app-border bg-app-card p-1">

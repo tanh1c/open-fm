@@ -5,6 +5,23 @@ use wasm_bindgen::prelude::*;
 
 use super::{AppHandle, to_js, to_js_value};
 
+#[derive(serde::Deserialize)]
+struct CustomTacticSlotInput {
+    slot_id: String,
+    player_id: Option<String>,
+    role: String,
+    x: u8,
+    y: u8,
+    tactical_role: Option<String>,
+    duty: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct SaveTacticPresetInput {
+    name: String,
+    slots: Vec<CustomTacticSlotInput>,
+}
+
 const NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 
 fn parse_squad_role(squad_role: &str) -> Option<domain::player::SquadRole> {
@@ -22,6 +39,35 @@ fn player_age_on(current_date: chrono::NaiveDate, date_of_birth: &str) -> Option
         age -= 1;
     }
     Some(age)
+}
+
+fn to_domain_tactic_slot(slot: CustomTacticSlotInput) -> domain::team::CustomTacticSlot {
+    domain::team::CustomTacticSlot {
+        slot_id: slot.slot_id,
+        player_id: slot.player_id,
+        role: slot.role,
+        x: slot.x,
+        y: slot.y,
+        tactical_role: slot.tactical_role,
+        duty: slot.duty,
+    }
+}
+
+fn formation_from_slots(slots: &[CustomTacticSlotInput]) -> String {
+    let defenders = slots
+        .iter()
+        .filter(|slot| slot.player_id.is_some() && slot.role == "DEF")
+        .count();
+    let midfielders = slots
+        .iter()
+        .filter(|slot| slot.player_id.is_some() && matches!(slot.role.as_str(), "DM" | "MID" | "AM"))
+        .count();
+    let forwards = slots
+        .iter()
+        .filter(|slot| slot.player_id.is_some() && slot.role == "FWD")
+        .count();
+
+    format!("{}-{}-{}", defenders, midfielders, forwards)
 }
 
 #[wasm_bindgen]
@@ -104,6 +150,132 @@ impl AppHandle {
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
             team.starting_xi_ids = player_ids;
         }
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = setTacticSlots)]
+    pub fn set_tactic_slots(&self, slots: JsValue) -> Result<JsValue, JsValue> {
+        let slots: Vec<CustomTacticSlotInput> = serde_wasm_bindgen::from_value(slots)
+            .map_err(|e| to_js(format!("be.error.deserialize:{e}")))?;
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        let assigned_player_ids: Vec<String> = slots
+            .iter()
+            .filter_map(|slot| slot.player_id.clone())
+            .collect();
+        if assigned_player_ids.len() > 11 {
+            return Err(to_js("be.error.tactics.tooManyPlayers".to_string()));
+        }
+        let unique_player_ids: std::collections::HashSet<&String> = assigned_player_ids.iter().collect();
+        if unique_player_ids.len() != assigned_player_ids.len() {
+            return Err(to_js("be.error.tactics.duplicatePlayer".to_string()));
+        }
+
+        let goalkeeper_count = slots
+            .iter()
+            .filter(|slot| slot.role == "GK" && slot.player_id.is_some())
+            .count();
+        if goalkeeper_count != 1 {
+            return Err(to_js("be.error.tactics.goalkeeperRequired".to_string()));
+        }
+
+        let defenders = slots
+            .iter()
+            .filter(|slot| slot.player_id.is_some() && slot.role == "DEF")
+            .count();
+        let midfielders = slots
+            .iter()
+            .filter(|slot| slot.player_id.is_some() && matches!(slot.role.as_str(), "DM" | "MID" | "AM"))
+            .count();
+        let forwards = slots
+            .iter()
+            .filter(|slot| slot.player_id.is_some() && slot.role == "FWD")
+            .count();
+
+        if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
+            team.custom_tactic_slots = slots.into_iter().map(to_domain_tactic_slot).collect();
+            team.starting_xi_ids = assigned_player_ids;
+            team.formation = format!("{}-{}-{}", defenders, midfielders, forwards);
+        }
+
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = saveTacticPreset)]
+    pub fn save_tactic_preset(&self, preset: JsValue) -> Result<JsValue, JsValue> {
+        let preset: SaveTacticPresetInput = serde_wasm_bindgen::from_value(preset)
+            .map_err(|e| to_js(format!("be.error.deserialize:{e}")))?;
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        let formation = formation_from_slots(&preset.slots);
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            let id = format!("preset-{}", team.saved_tactic_presets.len() + 1);
+            team.saved_tactic_presets.push(domain::team::TacticPreset {
+                id,
+                name: preset.name,
+                formation,
+                slots: preset.slots.into_iter().map(to_domain_tactic_slot).collect(),
+            });
+        }
+
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = loadTacticPreset)]
+    pub fn load_tactic_preset(&self, preset_id: String) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            let preset = team
+                .saved_tactic_presets
+                .iter()
+                .find(|preset| preset.id == preset_id)
+                .cloned()
+                .ok_or_else(|| to_js("be.error.tactics.presetNotFound".to_string()))?;
+            team.custom_tactic_slots = preset.slots;
+            team.starting_xi_ids = team
+                .custom_tactic_slots
+                .iter()
+                .filter_map(|slot| slot.player_id.clone())
+                .collect();
+            team.formation = preset.formation;
+        }
+
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = deleteTacticPreset)]
+    pub fn delete_tactic_preset(&self, preset_id: String) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            team.saved_tactic_presets.retain(|preset| preset.id != preset_id);
+        }
+
         self.state.set_game(game.clone());
         to_js_value(&game)
     }

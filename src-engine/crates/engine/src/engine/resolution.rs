@@ -2,7 +2,7 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{PlayStylePhase, TraitContext, home_mod, play_style_modifier, trait_bonus};
-use crate::types::{Position, Side, Zone};
+use crate::types::{Position, Side, TeamData, Zone};
 
 use super::MatchContext;
 use super::fouls::maybe_foul;
@@ -148,6 +148,8 @@ fn resolve_attacking_third<R: Rng>(
     def_side: Side,
     rng: &mut R,
 ) {
+    let att_team = ctx.team(att_side);
+    let def_team = ctx.team(def_side);
     let attacker = snap_player(ctx, att_side, Position::Forward, rng);
     let defender = snap_player(ctx, def_side, Position::Defender, rng);
 
@@ -164,14 +166,10 @@ fn resolve_attacking_third<R: Rng>(
         / 4.0
         * trait_bonus(&defender, TraitContext::Tackling);
 
-    let att_mod = play_style_modifier(ctx.team(att_side).play_style, PlayStylePhase::Attack, true);
-    let def_mod = play_style_modifier(
-        ctx.team(def_side).play_style,
-        PlayStylePhase::Defense,
-        false,
-    );
-    let att_eff = att_rating * att_mod * home_mod(att_side, ctx.config);
-    let def_eff = def_rating * def_mod * home_mod(def_side, ctx.config);
+    let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
+    let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
+    let att_eff = att_rating * att_mod * shape_attack_multiplier(att_team) * home_mod(att_side, ctx.config);
+    let def_eff = def_rating * def_mod * shape_defense_multiplier(def_team) * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
     let zone = Zone::attacking_third(att_side);
 
@@ -213,6 +211,8 @@ fn resolve_attacking_third<R: Rng>(
 
 fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng: &mut R) {
     let def_side = att_side.opposite();
+    let att_team = ctx.team(att_side);
+    let def_team = ctx.team(def_side);
     let shooter = snap_player(ctx, att_side, Position::Forward, rng);
     let assister = snap_player(ctx, att_side, Position::Midfielder, rng);
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
@@ -225,8 +225,10 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
             / 3.0
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
+    let shape_attack = shape_attack_multiplier(att_team);
+    let shape_defense = shape_defense_multiplier(def_team);
     let accuracy =
-        (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+        (ctx.config.shot_accuracy_base + (shoot_rating * shape_attack - 50.0) / 200.0).clamp(0.15, 0.85);
     let zone = Zone::attacking_box(att_side);
 
     if rng.random_range(0.0..1.0f64) > accuracy {
@@ -244,8 +246,9 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
         return;
     }
 
-    let conversion =
-        (ctx.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0).clamp(0.10, 0.70);
+    let conversion = (ctx.config.goal_conversion_base
+        + (shoot_rating * shape_attack - gk_rating * shape_defense) / 150.0)
+        .clamp(0.10, 0.70);
 
     if rng.random_range(0.0..1.0f64) < conversion {
         ctx.emit(
@@ -277,5 +280,31 @@ fn effective_press(ctx: &MatchContext, pressing_side: Side) -> f64 {
         ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
     });
     let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
-    base * modifier * home_mod(pressing_side, ctx.config)
+    base * modifier * shape_midfield_multiplier(team) * home_mod(pressing_side, ctx.config)
+}
+
+fn shape_defense_multiplier(team: &TeamData) -> f64 {
+    let profile = team.tactical_profile;
+    (1.0 + (team.shape_profile.defenders as f64 - 4.0) * 0.045
+        + profile.width.central_compactness * 0.035
+        - profile.width.width * 0.025
+        - (profile.lateral.left_weakness + profile.lateral.right_weakness) * 0.025)
+        .clamp(0.82, 1.18)
+}
+
+fn shape_midfield_multiplier(team: &TeamData) -> f64 {
+    let profile = team.tactical_profile;
+    (1.0 + (team.shape_profile.midfielders as f64 - 4.0) * 0.035
+        + profile.width.central_density * 0.04
+        - profile.width.width * 0.015)
+        .clamp(0.82, 1.18)
+}
+
+fn shape_attack_multiplier(team: &TeamData) -> f64 {
+    let profile = team.tactical_profile;
+    (1.0 + (team.shape_profile.forwards as f64 - 2.0) * 0.05
+        + profile.width.wing_threat * 0.035
+        + (profile.lateral.left_overload + profile.lateral.right_overload) * 0.02
+        - profile.width.central_density * 0.015)
+        .clamp(0.82, 1.18)
 }

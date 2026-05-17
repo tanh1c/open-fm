@@ -48,6 +48,23 @@ export interface TeamMatchRolesData {
   corner_taker: string | null;
 }
 
+export interface TacticPresetData {
+  id: string;
+  name: string;
+  formation: string;
+  slots: CustomTacticSlotData[];
+}
+
+export interface CustomTacticSlotData {
+  slot_id: string;
+  player_id: string | null;
+  role: "GK" | "DEF" | "DM" | "MID" | "AM" | "FWD";
+  x: number;
+  y: number;
+  tactical_role?: string | null;
+  duty?: string | null;
+}
+
 export interface TeamData {
   id: string;
   name: string;
@@ -66,6 +83,8 @@ export interface TeamData {
   financial_ledger?: FinancialTransactionData[];
   formation: string;
   play_style: string;
+  custom_tactic_slots?: CustomTacticSlotData[];
+  saved_tactic_presets?: TacticPresetData[];
   training_focus: string;
   training_intensity: string;
   training_schedule: string;

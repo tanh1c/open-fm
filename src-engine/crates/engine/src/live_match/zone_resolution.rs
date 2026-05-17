@@ -5,6 +5,7 @@ use crate::shared::{PlayStylePhase, PlayerSnap, TraitContext, play_style_modifie
 use crate::types::{Position, Side, Zone};
 
 use super::LiveMatchState;
+use super::helpers::{shape_attack_multiplier, shape_defense_multiplier};
 
 // ---------------------------------------------------------------------------
 // Action resolution
@@ -145,6 +146,8 @@ impl LiveMatchState {
         rng: &mut R,
     ) -> Vec<MatchEvent> {
         let mut events = Vec::new();
+        let att_team = self.team_ref(att_side).clone();
+        let def_team = self.team_ref(def_side).clone();
         let attacker = self.snap_player(att_side, Position::Forward, rng);
         let defender = self.snap_player(def_side, Position::Defender, rng);
 
@@ -163,18 +166,16 @@ impl LiveMatchState {
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_bonus(&defender, TraitContext::Tackling);
 
-        let att_mod = play_style_modifier(
-            self.team_ref(att_side).play_style,
-            PlayStylePhase::Attack,
-            true,
-        );
-        let def_mod = play_style_modifier(
-            self.team_ref(def_side).play_style,
-            PlayStylePhase::Defense,
-            false,
-        );
-        let att_eff = att_rating * att_mod * crate::shared::home_mod(att_side, &self.config);
-        let def_eff = def_rating * def_mod * crate::shared::home_mod(def_side, &self.config);
+        let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
+        let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
+        let att_eff = att_rating
+            * att_mod
+            * shape_attack_multiplier(&att_team)
+            * crate::shared::home_mod(att_side, &self.config);
+        let def_eff = def_rating
+            * def_mod
+            * shape_defense_multiplier(&def_team)
+            * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
         let zone = Zone::attacking_third(att_side);
 
@@ -223,6 +224,8 @@ impl LiveMatchState {
     fn resolve_shot<R: Rng>(&mut self, minute: u8, att_side: Side, rng: &mut R) -> Vec<MatchEvent> {
         let mut events = Vec::new();
         let def_side = att_side.opposite();
+        let att_team = self.team_ref(att_side).clone();
+        let def_team = self.team_ref(def_side).clone();
         let shooter = self.snap_player(att_side, Position::Forward, rng);
         let assister = self.snap_player(att_side, Position::Midfielder, rng);
         let goalkeeper = self.snap_player(def_side, Position::Goalkeeper, rng);
@@ -238,8 +241,10 @@ impl LiveMatchState {
         let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw)
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
-        let accuracy =
-            (self.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+        let shape_attack = shape_attack_multiplier(&att_team);
+        let shape_defense = shape_defense_multiplier(&def_team);
+        let accuracy = (self.config.shot_accuracy_base + (shoot_rating * shape_attack - 50.0) / 200.0)
+            .clamp(0.15, 0.85);
         let zone = Zone::attacking_box(att_side);
 
         if rng.random_range(0.0..1.0f64) > accuracy {
@@ -259,7 +264,8 @@ impl LiveMatchState {
             return events;
         }
 
-        let conversion = (self.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0)
+        let conversion = (self.config.goal_conversion_base
+            + (shoot_rating * shape_attack - gk_rating * shape_defense) / 150.0)
             .clamp(0.10, 0.70);
 
         if rng.random_range(0.0..1.0f64) < conversion {

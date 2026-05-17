@@ -54,6 +54,7 @@ fn make_team(id: &str, skill: u8) -> TeamData {
         formation: "4-4-2".to_string(),
         play_style: PlayStyle::Balanced,
         players,
+        shape_profile: ShapeProfile::default(),
     }
 }
 

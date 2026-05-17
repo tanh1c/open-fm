@@ -147,7 +147,7 @@ impl LiveMatchState {
             ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
         });
         let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
-        base * modifier * home_mod(pressing_side, &self.config)
+        base * modifier * shape_midfield_multiplier(team) * home_mod(pressing_side, &self.config)
     }
 
     // -----------------------------------------------------------------------
@@ -188,4 +188,30 @@ impl LiveMatchState {
             Side::Away => self.away_score += 1,
         }
     }
+}
+
+pub(super) fn shape_defense_multiplier(team: &TeamData) -> f64 {
+    let profile = team.tactical_profile;
+    (1.0 + (team.shape_profile.defenders as f64 - 4.0) * 0.045
+        + profile.width.central_compactness * 0.035
+        - profile.width.width * 0.025
+        - (profile.lateral.left_weakness + profile.lateral.right_weakness) * 0.025)
+        .clamp(0.82, 1.18)
+}
+
+pub(super) fn shape_midfield_multiplier(team: &TeamData) -> f64 {
+    let profile = team.tactical_profile;
+    (1.0 + (team.shape_profile.midfielders as f64 - 4.0) * 0.035
+        + profile.width.central_density * 0.04
+        - profile.width.width * 0.015)
+        .clamp(0.82, 1.18)
+}
+
+pub(super) fn shape_attack_multiplier(team: &TeamData) -> f64 {
+    let profile = team.tactical_profile;
+    (1.0 + (team.shape_profile.forwards as f64 - 2.0) * 0.05
+        + profile.width.wing_threat * 0.035
+        + (profile.lateral.left_overload + profile.lateral.right_overload) * 0.02
+        - profile.width.central_density * 0.015)
+        .clamp(0.82, 1.18)
 }

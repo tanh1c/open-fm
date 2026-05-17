@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CustomTacticSlotData,
   GameStateData,
   PlayerData,
   PlayerSelectionOptions,
@@ -48,7 +49,6 @@ import {
   toggleTransferList,
 } from "../../services/transfersService";
 import {
-  buildActivePositionMap,
   buildPitchRows,
   buildPitchSlotRows,
   buildStartingXIIds,
@@ -125,8 +125,9 @@ export default function SquadRosterView({
   const formation = myTeam.formation || "4-4-2";
   const startingXiIds = buildStartingXIIds(available, myTeam.starting_xi_ids || [], formation);
   const pitchSlotRows = buildPitchSlotRows(buildPitchRows(formation), startingXiIds, playersById);
-  const xiActivePosition = buildActivePositionMap(pitchSlotRows);
-  const xiIds = new Set(startingXiIds);
+  const pitchNodes = buildPitchNodes(myTeam.custom_tactic_slots, pitchSlotRows, playersById);
+  const xiActivePosition = buildPitchActivePositionMap(pitchNodes);
+  const xiIds = new Set(pitchNodes.filter((node) => node.player).map((node) => node.player!.id));
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -359,13 +360,13 @@ export default function SquadRosterView({
                   <div className="h-6 w-12 border-2 border-b-0 border-emerald-900/50" />
                 </div>
               </div>
-              {pitchSlotRows.flatMap((row) => row.slots).map((slot, index) => (
+              {pitchNodes.map((node) => (
                 <PlayerNode
-                  key={`${slot.index}-${slot.position}`}
-                  slot={slot}
-                  placement={pitchPlacement(index)}
+                  key={node.key}
+                  slot={node}
+                  placement={node.placement}
                   onSelect={selectPlayer}
-                  label={translatePositionAbbreviation(t, slot.position)}
+                  label={translatePositionAbbreviation(t, node.position)}
                 />
               ))}
             </div>
@@ -865,8 +866,17 @@ function PlayerProfileCard({ player, currentDate, onRenew }: { player: PlayerDat
   );
 }
 
-function PlayerNode({ slot, placement, onSelect, label }: { slot: { player: PlayerData | null; position: string }; placement: { x: string; y: string }; onSelect: (player: PlayerData) => void; label: string }) {
-  const role = roleCode(slot.position);
+type SquadPitchNode = {
+  key: string;
+  player: PlayerData | null;
+  position: string;
+  placement: { x: string; y: string };
+  tacticalRole?: string | null;
+  duty?: string | null;
+};
+
+function PlayerNode({ slot, placement, onSelect, label }: { slot: SquadPitchNode; placement: { x: string; y: string }; onSelect: (player: PlayerData) => void; label: string }) {
+  const role = slot.tacticalRole && slot.duty ? `${slot.tacticalRole} · ${slot.duty.slice(0, 2)}` : roleCode(slot.position);
   return (
     <button
       type="button"
@@ -885,21 +895,64 @@ function PlayerNode({ slot, placement, onSelect, label }: { slot: { player: Play
   );
 }
 
-function pitchPlacement(index: number): { x: string; y: string } {
-  const placements = [
-    { x: "50%", y: "90%" },
-    { x: "15%", y: "75%" },
-    { x: "35%", y: "75%" },
-    { x: "65%", y: "75%" },
-    { x: "85%", y: "75%" },
-    { x: "35%", y: "55%" },
-    { x: "65%", y: "55%" },
-    { x: "20%", y: "35%" },
-    { x: "50%", y: "35%" },
-    { x: "80%", y: "35%" },
-    { x: "50%", y: "15%" },
-  ];
-  return placements[index] ?? { x: "50%", y: "50%" };
+function buildPitchNodes(
+  customSlots: CustomTacticSlotData[] | undefined,
+  pitchSlotRows: ReturnType<typeof buildPitchSlotRows>,
+  playersById: Map<string, PlayerData>,
+): SquadPitchNode[] {
+  const occupiedCustomSlots = (customSlots ?? []).filter((slot) => slot.player_id && playersById.has(slot.player_id));
+
+  if (occupiedCustomSlots.length > 0) {
+    return occupiedCustomSlots.map((slot) => ({
+      key: slot.slot_id,
+      player: playersById.get(slot.player_id ?? "") ?? null,
+      position: positionFromCustomSlotRole(slot.role),
+      placement: { x: `${slot.x}%`, y: `${slot.y}%` },
+      tacticalRole: slot.tactical_role,
+      duty: slot.duty,
+    }));
+  }
+
+  return pitchSlotRows.flatMap((row) => {
+    const slots = row.slots;
+    return slots.map((slot, index) => ({
+      key: `${slot.index}-${slot.position}`,
+      player: slot.player,
+      position: slot.position,
+      placement: {
+        x: `${horizontalPitchPosition(index, slots.length)}%`,
+        y: row.y,
+      },
+    }));
+  });
+}
+
+function buildPitchActivePositionMap(nodes: SquadPitchNode[]): Map<string, string> {
+  const map = new Map<string, string>();
+  nodes.forEach((node) => {
+    if (node.player) {
+      map.set(node.player.id, canonicalPositionForSquadPitch(node.position));
+    }
+  });
+  return map;
+}
+
+function horizontalPitchPosition(index: number, count: number): number {
+  if (count <= 1) return 50;
+  const width = count >= 5 ? 82 : count === 4 ? 76 : count === 3 ? 62 : 44;
+  const start = 50 - width / 2;
+  return start + (width / (count - 1)) * index;
+}
+
+function positionFromCustomSlotRole(role: CustomTacticSlotData["role"]): string {
+  if (role === "GK") return "Goalkeeper";
+  if (role === "DEF") return "Defender";
+  if (role === "FWD") return "Forward";
+  return "Midfielder";
+}
+
+function canonicalPositionForSquadPitch(position: string): string {
+  return normalisePosition(position) === position ? position : normalisePosition(position);
 }
 
 function roleCode(position: string): string {

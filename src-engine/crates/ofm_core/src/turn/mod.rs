@@ -310,6 +310,8 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
         formation,
         play_style,
         players,
+        shape_profile: engine::ShapeProfile::default(),
+        tactical_profile: engine::TacticalProfile::default(),
     }
 }
 

@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerData } from "../../store/gameStore";
-import { resolveStartingXiIds } from "./TacticsTab.helpers";
+import {
+    GRID_TACTIC_SLOTS,
+    buildGridAssignmentsFromFormation,
+    buildGridAssignmentsFromSavedSlots,
+    deriveFormationFromGridAssignments,
+    getGridAssignmentIssues,
+    getGridAssignmentSignature,
+    getStartingXiIdsFromGridAssignments,
+    mapGridSlotToPosition,
+    movePlayerInGridAssignments,
+    resolveStartingXiIds,
+} from "./TacticsTab.helpers";
 
 const makePlayer = (
     id: string,
@@ -60,6 +71,102 @@ const makePlayer = (
     transfer_offers: [],
     traits: [],
     ...overrides,
+});
+
+describe("grid tactic slots", () => {
+    it("defines one goalkeeper and expected outfield placeholders", () => {
+        expect(GRID_TACTIC_SLOTS.filter((slot) => slot.role === "GK")).toHaveLength(1);
+        expect(GRID_TACTIC_SLOTS.some((slot) => slot.id === "st")).toBe(true);
+        expect(GRID_TACTIC_SLOTS.some((slot) => slot.id === "cb")).toBe(true);
+    });
+
+    it("derives compact formation labels from occupied slots", () => {
+        const assignments = [
+            { slotId: "gk", playerId: "gk" },
+            { slotId: "lcb", playerId: "d1" },
+            { slotId: "rcb", playerId: "d2" },
+            { slotId: "lm", playerId: "m1" },
+            { slotId: "lcm", playerId: "m2" },
+            { slotId: "rcm", playerId: "m3" },
+            { slotId: "rm", playerId: "m4" },
+            { slotId: "lw", playerId: "f1" },
+            { slotId: "ls", playerId: "f2" },
+            { slotId: "rs", playerId: "f3" },
+            { slotId: "rw", playerId: "f4" },
+        ];
+
+        expect(deriveFormationFromGridAssignments(assignments)).toBe("2-4-4");
+    });
+
+    it("maps grid slots to broad position groups", () => {
+        expect(mapGridSlotToPosition("gk")).toBe("Goalkeeper");
+        expect(mapGridSlotToPosition("lb")).toBe("Defender");
+        expect(mapGridSlotToPosition("dm")).toBe("Midfielder");
+        expect(mapGridSlotToPosition("st")).toBe("Forward");
+    });
+
+    it("builds preset assignments from a formation and starting XI ids", () => {
+        const ids = ["gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"];
+        const assignments = buildGridAssignmentsFromFormation("4-4-2", ids);
+
+        expect(assignments.find((slot) => slot.slotId === "gk")?.playerId).toBe("gk");
+        expect(assignments.filter((slot) => slot.playerId).map((slot) => slot.playerId)).toHaveLength(11);
+        expect(deriveFormationFromGridAssignments(assignments)).toBe("4-4-2");
+    });
+
+    it("moves a player to a target grid slot without duplicating them", () => {
+        const assignments = buildGridAssignmentsFromFormation("4-4-2", ["gk", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"]);
+        const moved = movePlayerInGridAssignments(assignments, "d5", "lb");
+
+        expect(moved.find((slot) => slot.slotId === "lb")?.playerId).toBe("d5");
+        expect(moved.filter((slot) => slot.playerId === "d5")).toHaveLength(1);
+    });
+
+    it("returns starting XI ids in grid assignment order", () => {
+        const assignments = buildGridAssignmentsFromFormation("4-4-2", ["gk", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"]);
+
+        expect(getStartingXiIdsFromGridAssignments(assignments)).toEqual(["gk", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"]);
+    });
+
+    it("loads saved custom slots and ignores duplicate or unavailable players", () => {
+        const fallback = buildGridAssignmentsFromFormation("4-4-2", ["gk", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"]);
+        const assignments = buildGridAssignmentsFromSavedSlots(
+            [
+                { slot_id: "gk", player_id: "gk", role: "GK", x: 50, y: 91 },
+                { slot_id: "lb", player_id: "d2", role: "DEF", x: 18, y: 72 },
+                { slot_id: "lcb", player_id: "d2", role: "DEF", x: 34, y: 72 },
+                { slot_id: "st", player_id: "missing", role: "FWD", x: 50, y: 15 },
+            ],
+            fallback,
+            new Set(["gk", "d2"]),
+        );
+
+        expect(assignments.find((slot) => slot.slotId === "gk")?.playerId).toBe("gk");
+        expect(assignments.find((slot) => slot.slotId === "lb")?.playerId).toBe("d2");
+        expect(assignments.find((slot) => slot.slotId === "lcb")?.playerId).toBeNull();
+        expect(assignments.find((slot) => slot.slotId === "st")?.playerId).toBeNull();
+    });
+
+    it("reports grid assignment validation issues", () => {
+        expect(getGridAssignmentIssues(buildGridAssignmentsFromFormation("4-4-2", ["gk", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"]))).toEqual([]);
+
+        expect(getGridAssignmentIssues([
+            { slotId: "lb", playerId: "d1" },
+            { slotId: "lcb", playerId: "d1" },
+        ])).toEqual([
+            "tactics.validation.requiresEleven",
+            "tactics.validation.noDuplicates",
+            "tactics.validation.requiresGoalkeeper",
+        ]);
+    });
+
+    it("detects same-row slot changes even when starting xi order is unchanged", () => {
+        const assignments = buildGridAssignmentsFromFormation("4-4-2", ["gk", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"]);
+        const moved = movePlayerInGridAssignments(assignments, "f2", "st");
+
+        expect(getStartingXiIdsFromGridAssignments(moved)).toEqual(getStartingXiIdsFromGridAssignments(assignments));
+        expect(getGridAssignmentSignature(moved)).not.toBe(getGridAssignmentSignature(assignments));
+    });
 });
 
 describe("resolveStartingXiIds", () => {

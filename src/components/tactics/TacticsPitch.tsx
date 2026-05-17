@@ -6,21 +6,29 @@ import { useTranslation } from "react-i18next";
 import { getPlayerOvr } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import {
-  getPitchSlotWidth,
   isPlayerOutOfPosition,
   translatePositionAbbreviation,
   type DragState,
-  type PitchSlotRow,
   type SquadSection,
 } from "../squad/SquadTab.helpers";
-import { FORMATIONS } from "./TacticsTab.helpers";
+import {
+  FORMATIONS,
+  GRID_TACTIC_SLOTS,
+  mapGridSlotToPosition,
+  type GridTacticAssignment,
+} from "./TacticsTab.helpers";
 
 interface TacticsPitchProps {
   benchPlayers: PlayerData[];
   dragState: DragState | null;
   formation: string;
+  formationLabel?: string;
+  mentalityLabel: string;
+  teamShapeLabel: string;
+  gridAssignments?: GridTacticAssignment[];
+  playersById?: Map<string, PlayerData>;
   comparePlayerId: string | null;
-  hoveredSlot: number | null;
+  hoveredSlot: string | null;
   onClearSelection: () => void;
   onFormationChange: (formation: string) => void;
   onDragStart: (
@@ -31,11 +39,10 @@ interface TacticsPitchProps {
   ) => void;
   onDragEnd: () => void;
   onLineupPlayerClick: (playerId: string, section: SquadSection) => void;
-  onSlotDragOver: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
-  onSlotDragLeave: (slotIndex: number) => void;
-  onSlotDrop: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
+  onSlotDragOver: (event: DragEvent<HTMLElement>, slotId: string) => void;
+  onSlotDragLeave: (slotId: string) => void;
+  onSlotDrop: (event: DragEvent<HTMLElement>, slotId: string) => void;
   outOfPositionCount: number;
-  pitchSlotRows: PitchSlotRow[];
   selectedPlayer: PlayerData | null;
   selectedPlayerId: string | null;
 }
@@ -43,15 +50,15 @@ interface TacticsPitchProps {
 function getPitchPlayerButtonClassName(options: {
   dragState: DragState | null;
   comparePlayerId: string | null;
-  hoveredSlot: number | null;
+  hoveredSlot: string | null;
   player: PlayerData;
   selectedPlayerId: string | null;
-  slotIndex: number;
+  slotId: string;
   wrongPos: boolean;
 }): string {
-  const { dragState, comparePlayerId, hoveredSlot, player, selectedPlayerId, slotIndex, wrongPos } = options;
+  const { dragState, comparePlayerId, hoveredSlot, player, selectedPlayerId, slotId, wrongPos } = options;
   const isComparing = player.id === comparePlayerId;
-  const isHovered = hoveredSlot === slotIndex;
+  const isHovered = hoveredSlot === slotId;
   const isSelected = player.id === selectedPlayerId;
   let className = "group absolute flex w-20 -translate-x-1/2 -translate-y-1/2 cursor-grab flex-col items-center justify-center border-0 bg-transparent p-0 text-center transition-all active:cursor-grabbing";
 
@@ -101,6 +108,11 @@ export default function TacticsPitch({
   benchPlayers,
   dragState,
   formation,
+  formationLabel = formation,
+  mentalityLabel,
+  teamShapeLabel,
+  gridAssignments,
+  playersById,
   comparePlayerId,
   hoveredSlot,
   onClearSelection,
@@ -112,13 +124,26 @@ export default function TacticsPitch({
   onSlotDragOver,
   onSlotDrop,
   outOfPositionCount,
-  pitchSlotRows,
   selectedPlayer,
   selectedPlayerId,
 }: TacticsPitchProps): JSX.Element {
   const { t } = useTranslation();
   const [showFormationPopover, setShowFormationPopover] = useState(false);
-  const allSlots = pitchSlotRows.flatMap((row) => row.slots);
+  const assignedGridSlots = gridAssignments && playersById
+    ? GRID_TACTIC_SLOTS.map((slot, index) => {
+        const assignment = gridAssignments.find((candidate) => candidate.slotId === slot.id);
+        const player = assignment?.playerId ? playersById.get(assignment.playerId) ?? null : null;
+        return {
+          index,
+          label: slot.label,
+          player,
+          position: mapGridSlotToPosition(slot.id),
+          slotId: slot.id,
+          x: slot.x,
+          y: slot.y,
+        };
+      })
+    : [];
 
   return (
     <div className="flex h-[720px] flex-col overflow-hidden rounded-xl border border-app-border bg-app-card">
@@ -126,10 +151,11 @@ export default function TacticsPitch({
         <div className="relative">
           <button
             type="button"
+            data-testid="tactics-formation-dropdown"
             onClick={() => setShowFormationPopover((current) => !current)}
             className="flex items-center gap-2 rounded border border-app-border bg-app-bg px-3 py-1.5 text-[11px] font-bold uppercase text-app-text transition-colors hover:border-app-border/80 hover:bg-white/5"
           >
-            <span>{formation.toUpperCase()}</span>
+            <span>{formationLabel.toUpperCase()}</span>
             <ChevronDown className="h-3.5 w-3.5 text-app-text-muted" />
           </button>
           {showFormationPopover ? (
@@ -138,6 +164,7 @@ export default function TacticsPitch({
                 <button
                   key={nextFormation}
                   type="button"
+                  data-testid={`tactics-formation-option-${nextFormation}`}
                   onClick={() => {
                     setShowFormationPopover(false);
                     onFormationChange(nextFormation);
@@ -155,7 +182,7 @@ export default function TacticsPitch({
             <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">MENTALITY</span>
             <div className="group flex items-center gap-1.5 transition-colors hover:text-white">
               <Target className="h-3.5 w-3.5 text-app-text-muted group-hover:text-white" />
-              <span className="text-xs font-semibold">Positive</span>
+              <span className="text-xs font-semibold">{mentalityLabel}</span>
               <ChevronDown className="h-3 w-3 text-app-text-muted" />
             </div>
           </div>
@@ -163,7 +190,7 @@ export default function TacticsPitch({
             <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">TEAM SHAPE</span>
             <div className="group flex items-center gap-1.5 transition-colors hover:text-white">
               <LayoutGrid className="h-3.5 w-3.5 text-app-text-muted group-hover:text-white" />
-              <span className="text-xs font-semibold">Flexible</span>
+              <span className="text-xs font-semibold">{teamShapeLabel}</span>
             </div>
           </div>
           {selectedPlayer ? (
@@ -221,24 +248,19 @@ export default function TacticsPitch({
           </g>
         </svg>
 
-        {allSlots.map((slot) => {
+        {assignedGridSlots.map((slot) => {
           const player = slot.player;
           const wrongPos = player ? isPlayerOutOfPosition(player, slot.position) : false;
-          const row = pitchSlotRows.find((pitchRow) => pitchRow.slots.some((rowSlot) => rowSlot.index === slot.index));
-          const slotIndexInRow = row?.slots.findIndex((rowSlot) => rowSlot.index === slot.index) ?? 0;
-          const slotCount = row?.slots.length ?? 1;
-          const x = slotCount === 1 ? 50 : 50 + (slotIndexInRow - (slotCount - 1) / 2) * (Math.min(getPitchSlotWidth(slotCount), 92) / 5.2);
-          const y = Number.parseFloat(String(row?.y ?? "50%"));
 
           return (
             <div
-              key={slot.index}
-              data-testid={`pitch-slot-${slot.index}`}
-              className="absolute h-20 w-20 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${x}%`, top: `${y}%` }}
-              onDragOver={(event) => onSlotDragOver(event, slot.index)}
-              onDragLeave={() => onSlotDragLeave(slot.index)}
-              onDrop={(event) => onSlotDrop(event, slot.index)}
+              key={slot.slotId}
+              data-testid={`grid-slot-${slot.slotId}`}
+              className="absolute h-[54px] w-[68px] -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+              onDragOver={(event) => onSlotDragOver(event, slot.slotId)}
+              onDragLeave={() => onSlotDragLeave(slot.slotId)}
+              onDrop={(event) => onSlotDrop(event, slot.slotId)}
             >
               {player ? (
                 <button
@@ -254,7 +276,7 @@ export default function TacticsPitch({
                     hoveredSlot,
                     player,
                     selectedPlayerId,
-                    slotIndex: slot.index,
+                    slotId: slot.slotId,
                     wrongPos,
                   })}
                   style={{ left: "50%", top: "50%" }}
@@ -270,8 +292,8 @@ export default function TacticsPitch({
                   </div>
                 </button>
               ) : (
-                <div className={`flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] ${hoveredSlot === slot.index ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}>
-                  {translatePositionAbbreviation(t, slot.position)}
+                <div className={`flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold ${hoveredSlot === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}>
+                  {slot.label}
                 </div>
               )}
             </div>

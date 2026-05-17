@@ -62,6 +62,7 @@ fn make_team(id: &str, name: &str, skill: u8, style: PlayStyle) -> TeamData {
         formation: "4-4-2".to_string(),
         play_style: style,
         players,
+        shape_profile: ShapeProfile::default(),
     }
 }
 
@@ -1335,6 +1336,7 @@ fn make_team_with_traits(id: &str, name: &str, skill: u8, traits: Vec<&str>) -> 
         formation: "4-4-2".to_string(),
         play_style: PlayStyle::Balanced,
         players,
+        shape_profile: ShapeProfile::default(),
     }
 }
 

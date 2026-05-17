@@ -117,6 +117,67 @@ impl PlayerData {
 // TeamData — everything the engine needs to know about one side
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ShapeProfile {
+    pub defenders: u8,
+    pub midfielders: u8,
+    pub forwards: u8,
+}
+
+impl Default for ShapeProfile {
+    fn default() -> Self {
+        Self {
+            defenders: 4,
+            midfielders: 4,
+            forwards: 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct LateralProfile {
+    pub left_overload: f64,
+    pub right_overload: f64,
+    pub left_weakness: f64,
+    pub right_weakness: f64,
+}
+
+impl Default for LateralProfile {
+    fn default() -> Self {
+        Self {
+            left_overload: 0.0,
+            right_overload: 0.0,
+            left_weakness: 0.0,
+            right_weakness: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct WidthProfile {
+    pub width: f64,
+    pub central_density: f64,
+    pub wing_threat: f64,
+    pub central_compactness: f64,
+}
+
+impl Default for WidthProfile {
+    fn default() -> Self {
+        Self {
+            width: 0.5,
+            central_density: 0.5,
+            wing_threat: 0.5,
+            central_compactness: 0.5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+pub struct TacticalProfile {
+    pub lateral: LateralProfile,
+    pub width: WidthProfile,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamData {
     pub id: String,
@@ -124,9 +185,46 @@ pub struct TeamData {
     pub formation: String,
     pub play_style: PlayStyle,
     pub players: Vec<PlayerData>,
+    #[serde(default)]
+    pub shape_profile: ShapeProfile,
+    #[serde(default)]
+    pub tactical_profile: TacticalProfile,
 }
 
 impl TeamData {
+    fn shape_multiplier(&self, phase: Position) -> f64 {
+        let profile = self.shape_profile;
+        let tactical = self.tactical_profile;
+        let extreme_penalty = if profile.defenders < 2 || profile.midfielders < 2 || profile.forwards > 4 {
+            0.94
+        } else {
+            1.0
+        };
+
+        let multiplier = match phase {
+            Position::Goalkeeper => 1.0,
+            Position::Defender => {
+                1.0 + (profile.defenders as f64 - 4.0) * 0.045
+                    + tactical.width.central_compactness * 0.035
+                    - tactical.width.width * 0.025
+                    - (tactical.lateral.left_weakness + tactical.lateral.right_weakness) * 0.025
+            }
+            Position::Midfielder => {
+                1.0 + (profile.midfielders as f64 - 4.0) * 0.035
+                    + tactical.width.central_density * 0.04
+                    - tactical.width.width * 0.015
+            }
+            Position::Forward => {
+                1.0 + (profile.forwards as f64 - 2.0) * 0.05
+                    + tactical.width.wing_threat * 0.035
+                    + (tactical.lateral.left_overload + tactical.lateral.right_overload) * 0.02
+                    - tactical.width.central_density * 0.015
+            }
+        };
+
+        (multiplier * extreme_penalty).clamp(0.82, 1.18)
+    }
+
     /// Count players by position.
     pub fn count_position(&self, pos: Position) -> usize {
         self.players.iter().filter(|p| p.position == pos).count()
@@ -151,14 +249,14 @@ impl TeamData {
             ((p.positioning as u16 + p.decisions as u16 + p.strength as u16 + p.pace as u16) / 4)
                 as u8
         });
-        def_avg * 0.7 + gk_avg * 0.3
+        (def_avg * 0.7 + gk_avg * 0.3) * self.shape_multiplier(Position::Defender)
     }
 
     /// Composite midfield rating.
     pub fn midfield_rating(&self) -> f64 {
         self.position_attr_avg(Position::Midfielder, |p| {
             ((p.passing as u16 + p.vision as u16 + p.decisions as u16 + p.stamina as u16) / 4) as u8
-        })
+        }) * self.shape_multiplier(Position::Midfielder)
     }
 
     /// Composite attack rating (from forwards + midfielders).
@@ -170,7 +268,7 @@ impl TeamData {
         let mid_contrib = self.position_attr_avg(Position::Midfielder, |p| {
             ((p.shooting as u16 + p.passing as u16 + p.vision as u16) / 3) as u8
         });
-        fwd_avg * 0.75 + mid_contrib * 0.25
+        (fwd_avg * 0.75 + mid_contrib * 0.25) * self.shape_multiplier(Position::Forward)
     }
 
     /// Goalkeeper save rating.

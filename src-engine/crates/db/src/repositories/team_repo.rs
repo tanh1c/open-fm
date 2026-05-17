@@ -1,6 +1,6 @@
 use domain::team::{
-    Facilities, FinancialTransaction, PlayStyle, Sponsorship, Team, TeamColors, TrainingFocus,
-    TrainingIntensity, TrainingSchedule,
+    CustomTacticSlot, Facilities, FinancialTransaction, PlayStyle, Sponsorship, TacticPreset, Team,
+    TeamColors, TrainingFocus, TrainingIntensity, TrainingSchedule,
 };
 use rusqlite::{Connection, params};
 
@@ -12,6 +12,10 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
     let starting_xi_json =
         serde_json::to_string(&t.starting_xi_ids)
             .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let custom_tactic_slots_json = serde_json::to_string(&t.custom_tactic_slots)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let saved_tactic_presets_json = serde_json::to_string(&t.saved_tactic_presets)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let form_json = serde_json::to_string(&t.form)
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let history_json =
@@ -43,8 +47,8 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
          season_income, season_expenses, formation, play_style,
          training_focus, training_intensity, training_schedule,
          founded_year, colors_primary, colors_secondary,
-         starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31)",
+         starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33)",
         params![
             t.id,
             t.name,
@@ -70,6 +74,8 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
             t.colors.primary,
             t.colors.secondary,
             starting_xi_json,
+            custom_tactic_slots_json,
+            saved_tactic_presets_json,
             match_roles_json,
             form_json,
             history_json,
@@ -131,13 +137,15 @@ fn parse_training_schedule(s: &str) -> TrainingSchedule {
 
 fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
     let starting_xi_json: String = row.get(23)?;
-    let match_roles_json: String = row.get(24)?;
-    let form_json: String = row.get(25)?;
-    let history_json: String = row.get(26)?;
-    let training_groups_json: String = row.get(27)?;
-    let financial_ledger_json: String = row.get(28)?;
-    let sponsorship_json: String = row.get(29)?;
-    let facilities_json: String = row.get(30)?;
+    let custom_tactic_slots_json: String = row.get(24)?;
+    let saved_tactic_presets_json: String = row.get(25)?;
+    let match_roles_json: String = row.get(26)?;
+    let form_json: String = row.get(27)?;
+    let history_json: String = row.get(28)?;
+    let training_groups_json: String = row.get(29)?;
+    let financial_ledger_json: String = row.get(30)?;
+    let sponsorship_json: String = row.get(31)?;
+    let facilities_json: String = row.get(32)?;
     let play_style_str: String = row.get(16)?;
     let training_focus_str: String = row.get(17)?;
     let training_intensity_str: String = row.get(18)?;
@@ -176,6 +184,10 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
             secondary: row.get(22)?,
         },
         starting_xi_ids: serde_json::from_str(&starting_xi_json).unwrap_or_default(),
+        custom_tactic_slots: serde_json::from_str::<Vec<CustomTacticSlot>>(&custom_tactic_slots_json)
+            .unwrap_or_default(),
+        saved_tactic_presets: serde_json::from_str::<Vec<TacticPreset>>(&saved_tactic_presets_json)
+            .unwrap_or_default(),
         match_roles: serde_json::from_str(&match_roles_json).unwrap_or_default(),
         form: serde_json::from_str(&form_json).unwrap_or_default(),
         history: serde_json::from_str(&history_json).unwrap_or_default(),
@@ -191,7 +203,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities
+                    starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities
              FROM teams",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -216,7 +228,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities
+                    starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities
              FROM teams WHERE id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;

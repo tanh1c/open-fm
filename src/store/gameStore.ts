@@ -51,6 +51,7 @@ export type {
   TeamColors,
   TeamSeasonRecord,
   TeamMatchRolesData,
+  CustomTacticSlotData,
   TeamData,
   PlayerSeasonStats,
   CareerEntry,

@@ -422,7 +422,6 @@ export default function Dashboard(): JSX.Element {
       <TemplateSidebar
         activeId={profileNavigation.activeTab}
         onSelect={handleNavClick}
-        brand={t("app.name")}
         onBrandClick={() => handleNavClick("Home")}
         nextMatch={buildSidebarNextMatch(gameState, settings.language)}
         onQuickActions={() => handleNavClick("Transfers")}

@@ -14,7 +14,6 @@ interface TemplateSidebarProps {
   items: TemplateSidebarItem[];
   activeId: string;
   onSelect: (id: string) => void;
-  brand?: string;
   onBrandClick?: () => void;
   nextMatch?: {
     dateLabel: string;
@@ -30,7 +29,6 @@ export function TemplateSidebar({
   items,
   activeId,
   onSelect,
-  brand = "OpenManager",
   onBrandClick,
   nextMatch,
   onQuickActions,
@@ -43,10 +41,17 @@ export function TemplateSidebar({
         onClick={onBrandClick}
         className="h-16 flex items-center px-6 gap-3 shrink-0 text-left"
       >
-        <div className="w-8 h-8 bg-app-green/20 rounded-lg flex items-center justify-center text-app-green">
-          <Shield className="w-5 h-5" />
-        </div>
-        <span className="font-bold text-xl tracking-tight">{brand}</span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-green/25 bg-app-green/10 shadow-[0_0_14px_rgba(45,212,191,0.18)]">
+          <img
+            src="/football-svgrepo-com.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 object-contain"
+          />
+        </span>
+        <span className="font-heading text-[28px] font-black tracking-[-0.055em] leading-none">
+          <span className="text-app-text">Open</span><span className="text-app-green">FM</span>
+        </span>
       </button>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1 custom-scrollbar">

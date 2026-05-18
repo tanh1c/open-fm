@@ -281,8 +281,9 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    expect(screen.getByText("Youth Recruitment")).toBeInTheDocument();
-    expect(screen.getByText("No youth searches running")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Youth" }));
+
+    expect(screen.getByText("No youth searches yet.")).toBeInTheDocument();
   });
 
   it("sends a scout assignment and forwards the updated state", async () => {
@@ -344,10 +345,12 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Youth target" }));
-    fireEvent.click(screen.getByRole("option", { name: "Defender" }));
+    fireEvent.click(screen.getByRole("button", { name: "Youth" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Start youth search" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Role" }));
+    fireEvent.click(screen.getByRole("option", { name: "DEF" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("start_youth_scouting", {
@@ -396,6 +399,8 @@ describe("ScoutingTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Youth" }));
+
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => {
@@ -434,10 +439,12 @@ describe("ScoutingTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Youth" }));
+
     expect(
       screen.getByRole("combobox", { name: "Reassign ysa-1" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Reassign" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Move" })).toBeDisabled();
   });
 
   it("opens and submits a transfer bid from the scouting search context menu", async () => {

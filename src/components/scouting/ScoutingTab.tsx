@@ -46,7 +46,7 @@ interface ScoutingTabProps {
 
 const SCOUTING_PAGE_SIZE = 20;
 const POSITION_FILTERS = ["All", "GK", "DR", "DCR", "DCL", "DL", "DM", "MCR", "MCL", "AMR", "AML", "STC"];
-const TEMPLATE_TABS = ["Overview", "Player Search", "Assignments", "Scout Reports", "Shortlists", "Analysts"] as const;
+const TEMPLATE_TABS = ["Player Search", "Assignments", "Reports"] as const;
 type ScoutingTabId = typeof TEMPLATE_TABS[number];
 
 type RecruitmentFocus = "Balanced" | "High Potential" | "Ready Soon" | "Transfer Listed" | "Loan Listed";
@@ -92,7 +92,7 @@ export default function ScoutingTab({
   const [youthTargetPosition, setYouthTargetPosition] = useState("");
   const [youthSearchError, setYouthSearchError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [activeScoutingTab, setActiveScoutingTab] = useState<ScoutingTabId>("Overview");
+  const [activeScoutingTab, setActiveScoutingTab] = useState<ScoutingTabId>("Player Search");
   const [recruitmentFocus, setRecruitmentFocus] = useState<RecruitmentFocus>("Balanced");
   const [shortlistMode, setShortlistMode] = useState<ShortlistMode>("Recommended");
   const [ageFilter, setAgeFilter] = useState<AgeFilter>("Any");
@@ -291,7 +291,7 @@ export default function ScoutingTab({
             options={["Recommended", "Transfer Listed", "Loan Listed", "High Potential"]}
             onChange={(value) => {
               setShortlistMode(value as ShortlistMode);
-              activateSection("Shortlists");
+              activateSection("Player Search");
             }}
           />
           <HeaderSelect
@@ -320,7 +320,7 @@ export default function ScoutingTab({
           <button
             key={tab}
             type="button"
-            aria-label={tab === "Scout Reports" ? "Reports tab" : `${tab} tab`}
+            aria-label={`${tab} tab`}
             onClick={() => activateSection(tab)}
             className={tab === activeScoutingTab
               ? "-mb-[2px] border-b-2 border-app-green pb-3 text-sm font-semibold text-app-green"
@@ -422,7 +422,7 @@ export default function ScoutingTab({
                 <button type="button" onClick={handleSaveSearchClick} className="flex items-center gap-1.5 rounded border border-app-border px-3 py-1.5 text-xs text-app-text-muted transition-colors hover:bg-white/5">
                   <Save className="h-3.5 w-3.5" /> Save Search
                 </button>
-                <button type="button" aria-label="Show shortlist targets" title="Show shortlist targets" onClick={() => handleFooterAction("Shortlists")} className="rounded border border-app-border p-1.5 transition-colors hover:bg-white/5">
+                <button type="button" aria-label="Show shortlist targets" title="Show shortlist targets" onClick={() => handleFooterAction("Player Search")} className="rounded border border-app-border p-1.5 transition-colors hover:bg-white/5">
                   <MoreHorizontal className="h-3.5 w-3.5 text-app-text-muted" />
                 </button>
               </div>
@@ -502,9 +502,9 @@ export default function ScoutingTab({
 
       <div className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 xl:grid-cols-4">
         <ActiveAssignmentsCard assignments={assignments} scouts={scouts} players={gameState.players} teams={gameState.teams} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} onFooterClick={() => handleFooterAction("Assignments")} t={t} />
-        <ScoutNetworkCard scouts={scouts} assignments={assignments} onFooterClick={() => handleFooterAction("Analysts")} t={t} />
+        <ScoutNetworkCard scouts={scouts} assignments={assignments} onFooterClick={() => handleFooterAction("Reports")} t={t} />
         <MarketInsightsCard players={baseScoutable} teams={gameState.teams} />
-        <ShortlistedPlayersCard players={listedTargets} teams={gameState.teams} mode={shortlistMode} onFooterClick={() => handleFooterAction("Shortlists")} onSelectPlayer={onSelectPlayer} />
+        <ShortlistedPlayersCard players={listedTargets} teams={gameState.teams} mode={shortlistMode} onFooterClick={() => handleFooterAction("Player Search")} onSelectPlayer={onSelectPlayer} />
       </div>
 
       {bidTarget && (
@@ -539,17 +539,24 @@ function HeaderButton({ icon, children, onClick }: { icon: ReactNode; children: 
 }
 
 function HeaderSelect({ icon, label, value, options, onChange }: { icon: ReactNode; label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  const minWidth = label === "Recruitment Focus" ? "min-w-[300px]" : "min-w-[220px]";
+
   return (
-    <label className="flex items-center overflow-hidden rounded-lg border border-app-border bg-app-card transition-colors hover:bg-white/5">
-      <span className="flex items-center gap-2 border-r border-app-border/50 px-3 py-2 text-sm font-medium">{icon}{label}</span>
-      <select
+    <div className={`flex ${minWidth} items-center rounded-lg border border-app-border bg-app-card transition-colors hover:bg-white/5`}>
+      <span className="flex shrink-0 items-center gap-2 border-r border-app-border/50 px-3 py-2 text-sm font-medium text-app-text">{icon}{label}</span>
+      <Select
+        fullWidth
+        selectSize="sm"
+        variant="subtle"
         value={value}
+        aria-label={label}
+        wrapperClassName="flex-1"
+        className="border-0 bg-transparent"
         onChange={(event) => onChange(event.target.value)}
-        className="max-w-[150px] bg-transparent px-2 py-2 text-sm text-app-text outline-none"
       >
-        {options.map((option) => <option key={option} value={option} className="bg-app-card text-app-text">{option}</option>)}
-      </select>
-    </label>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </Select>
+    </div>
   );
 }
 
@@ -648,7 +655,7 @@ function ScoutingPlayerRow({
           <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-app-border bg-app-bg">
             <UserPlus className="h-3 w-3 text-app-text-muted/50" />
           </div>
-          <button type="button" onClick={(event) => { event.stopPropagation(); onSelectReportPlayer(player.id); }} className="text-left text-sm font-semibold text-app-text transition-colors group-hover:text-app-green">
+          <button type="button" onClick={(event) => { event.stopPropagation(); onSelectPlayer?.(player.id); }} className="text-left text-sm font-semibold text-app-text transition-colors group-hover:text-app-green">
             {player.full_name}
           </button>
         </div>
@@ -1067,14 +1074,14 @@ function ReportStat({ label, value }: { label: string; value: string }) {
 
 function AttributeRadar({ player }: { player: PlayerData }) {
   const radarStats = [
-    { subject: "Defending", A: avgAttrs(player, ["defending", "tackling", "positioning"]) },
-    { subject: "Physical", A: avgAttrs(player, ["stamina", "strength", "agility"]) },
-    { subject: "Speed", A: avgAttrs(player, ["pace", "agility"]) },
-    { subject: "Vision", A: avgAttrs(player, ["vision", "decisions", "passing"]) },
-    { subject: "Attacking", A: avgAttrs(player, ["shooting", "dribbling", "composure"]) },
-    { subject: "Technical", A: avgAttrs(player, ["passing", "dribbling", "vision"]) },
-    { subject: "Aerial", A: player.attributes.aerial },
-    { subject: "Mental", A: avgAttrs(player, ["decisions", "teamwork", "leadership", "composure"]) },
+    { subject: "DEF", A: avgAttrs(player, ["defending", "tackling", "positioning"]) },
+    { subject: "PHY", A: avgAttrs(player, ["stamina", "strength", "agility"]) },
+    { subject: "SPD", A: avgAttrs(player, ["pace", "agility"]) },
+    { subject: "VIS", A: avgAttrs(player, ["vision", "decisions", "passing"]) },
+    { subject: "ATK", A: avgAttrs(player, ["shooting", "dribbling", "composure"]) },
+    { subject: "TEC", A: avgAttrs(player, ["passing", "dribbling", "vision"]) },
+    { subject: "AIR", A: player.attributes.aerial },
+    { subject: "MEN", A: avgAttrs(player, ["decisions", "teamwork", "leadership", "composure"]) },
   ];
 
   return (

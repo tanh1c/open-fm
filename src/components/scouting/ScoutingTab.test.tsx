@@ -447,6 +447,101 @@ describe("ScoutingTab", () => {
     expect(screen.getByRole("button", { name: "Move" })).toBeDisabled();
   });
 
+  it("keeps unscouted player reports locked", () => {
+    render(
+      <ScoutingTab
+        gameState={createGameState({ scouts: [createScout()] })}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Report locked")).toBeInTheDocument();
+    expect(screen.getByText(/Send a scout to unlock the backend scout report/)).toBeInTheDocument();
+    expect(screen.queryByText("ATTRIBUTE SNAPSHOT")).not.toBeInTheDocument();
+    expect(screen.queryByText("Preferred Foot")).not.toBeInTheDocument();
+  });
+
+  it("shows completed backend scout reports without raw player attributes", () => {
+    render(
+      <ScoutingTab
+        gameState={{
+          ...createGameState({ scouts: [createScout()] }),
+          messages: [
+            {
+              id: "message-1",
+              date: "2026-08-12T00:00:00Z",
+              category: "ScoutReport",
+              subject: "Scout report ready",
+              body: "Scout report ready",
+              sender: "Scout",
+              sender_role: "Scout",
+              read: false,
+              priority: "Normal",
+              actions: [],
+              context: {
+                team_id: null,
+                player_id: "player-1",
+                fixture_id: null,
+                match_result: null,
+                scout_report: {
+                  player_id: "player-1",
+                  player_name: "John Smith",
+                  position: "Forward",
+                  nationality: "GB",
+                  dob: "2000-01-01",
+                  team_name: "Beta FC",
+                  pace: 66,
+                  shooting: 67,
+                  passing: null,
+                  dribbling: 64,
+                  defending: 33,
+                  physical: 61,
+                  condition: 82,
+                  morale: 74,
+                  avg_rating: 65,
+                  rating_key: "Good",
+                  potential_key: "Excellent",
+                  confidence_key: "Medium",
+                },
+              },
+            },
+          ],
+        }}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("B Report")).toBeInTheDocument();
+    expect(screen.getByText("SCOUTED ATTRIBUTES")).toBeInTheDocument();
+    expect(screen.getAllByText("Good rating with Excellent potential.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+    expect(screen.queryByText("ATTRIBUTE SNAPSHOT")).not.toBeInTheDocument();
+    expect(screen.queryByText("Preferred Foot")).not.toBeInTheDocument();
+  });
+
+  it("shows active scouting assignments as reports in progress", () => {
+    render(
+      <ScoutingTab
+        gameState={createGameState({
+          scouts: [createScout()],
+          assignments: [
+            {
+              id: "assignment-1",
+              scout_id: "staff-1",
+              player_id: "player-1",
+              days_remaining: 3,
+            },
+          ],
+        })}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("In Progress")).toBeInTheDocument();
+    expect(screen.getAllByText("3 days left").length).toBeGreaterThan(0);
+    expect(screen.queryByText("ATTRIBUTE SNAPSHOT")).not.toBeInTheDocument();
+  });
+
   it("opens and submits a transfer bid from the scouting search context menu", async () => {
     const updatedState = createGameState();
     const onGameUpdate = vi.fn();

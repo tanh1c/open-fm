@@ -18,7 +18,7 @@ import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } fro
 
 import { countryName } from "../../lib/countries";
 import { calcAge, formatVal, getPlayerOvr, getTeamName } from "../../lib/helpers";
-import type { GameStateData, PlayerData, ScoutingAssignment, StaffData, TeamData } from "../../store/gameStore";
+import type { GameStateData, MessageData, PlayerData, ScoutReportData, ScoutingAssignment, StaffData, TeamData } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import ContextMenu from "../ContextMenu";
 import {
@@ -46,8 +46,6 @@ interface ScoutingTabProps {
 
 const SCOUTING_PAGE_SIZE = 20;
 const POSITION_FILTERS = ["All", "GK", "DR", "DCR", "DCL", "DL", "DM", "MCR", "MCL", "AMR", "AML", "STC"];
-const TEMPLATE_TABS = ["Player Search", "Assignments", "Reports"] as const;
-type ScoutingTabId = typeof TEMPLATE_TABS[number];
 
 type RecruitmentFocus = "Balanced" | "High Potential" | "Ready Soon" | "Transfer Listed" | "Loan Listed";
 type ShortlistMode = "Transfer Listed" | "Loan Listed" | "High Potential" | "Recommended";
@@ -92,7 +90,6 @@ export default function ScoutingTab({
   const [youthTargetPosition, setYouthTargetPosition] = useState("");
   const [youthSearchError, setYouthSearchError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [activeScoutingTab, setActiveScoutingTab] = useState<ScoutingTabId>("Player Search");
   const [recruitmentFocus, setRecruitmentFocus] = useState<RecruitmentFocus>("Balanced");
   const [shortlistMode, setShortlistMode] = useState<ShortlistMode>("Recommended");
   const [ageFilter, setAgeFilter] = useState<AgeFilter>("Any");
@@ -166,26 +163,26 @@ export default function ScoutingTab({
     SCOUTING_PAGE_SIZE,
   );
   const alreadyScoutingIds = buildAlreadyScoutingIds(assignments);
+  const completedScoutReports = useMemo(() => buildScoutReportMap(gameState.messages), [gameState.messages]);
   const selectedReportPlayer = selectedReportPlayerId
     ? gameState.players.find((player) => player.id === selectedReportPlayerId) ?? null
     : null;
   const featuredPlayer = selectedReportPlayer ?? scoutablePlayers[0] ?? sortedScoutable[0] ?? listedTargets[0] ?? baseScoutable[0] ?? null;
+  const featuredScoutReport = featuredPlayer ? completedScoutReports.get(featuredPlayer.id) ?? null : null;
+  const featuredActiveAssignment = featuredPlayer ? assignments.find((assignment) => assignment.player_id === featuredPlayer.id) ?? null : null;
 
-  const activateSection = (tab: ScoutingTabId) => {
-    setActiveScoutingTab(tab);
-    if (tab === "Player Search") {
-      requestAnimationFrame(() => searchInputRef.current?.focus());
-    }
+  const focusPlayerSearch = () => {
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   const handleCreateAssignmentClick = () => {
     setAssignmentHint(true);
-    activateSection("Player Search");
+    focusPlayerSearch();
   };
 
   const handleStartSearchClick = () => {
     setAssignmentHint(false);
-    activateSection("Player Search");
+    focusPlayerSearch();
   };
 
   const handleSortChange = (key: SearchSortKey) => {
@@ -202,12 +199,12 @@ export default function ScoutingTab({
 
   const handleSaveSearchClick = () => {
     setSavedSearchNotice(`${allScoutable.length} targets saved for this scouting view.`);
-    activateSection("Player Search");
+    focusPlayerSearch();
   };
 
-  const handleFooterAction = (tab: ScoutingTabId) => {
+  const handleFooterAction = () => {
     setAssignmentHint(false);
-    activateSection(tab);
+    focusPlayerSearch();
   };
 
   const handleSendScout = async (playerId: string) => {
@@ -291,7 +288,7 @@ export default function ScoutingTab({
             options={["Recommended", "Transfer Listed", "Loan Listed", "High Potential"]}
             onChange={(value) => {
               setShortlistMode(value as ShortlistMode);
-              activateSection("Player Search");
+              focusPlayerSearch();
             }}
           />
           <HeaderSelect
@@ -313,22 +310,6 @@ export default function ScoutingTab({
             Start Search
           </button>
         </div>
-      </div>
-
-      <div className="mt-2 flex items-center gap-6 border-b border-app-border/50 px-2">
-        {TEMPLATE_TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            aria-label={`${tab} tab`}
-            onClick={() => activateSection(tab)}
-            className={tab === activeScoutingTab
-              ? "-mb-[2px] border-b-2 border-app-green pb-3 text-sm font-semibold text-app-green"
-              : "-mb-[2px] pb-3 text-sm font-medium text-app-text-muted transition-colors hover:text-white"}
-          >
-            {tab}
-          </button>
-        ))}
       </div>
 
       <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
@@ -422,7 +403,7 @@ export default function ScoutingTab({
                 <button type="button" onClick={handleSaveSearchClick} className="flex items-center gap-1.5 rounded border border-app-border px-3 py-1.5 text-xs text-app-text-muted transition-colors hover:bg-white/5">
                   <Save className="h-3.5 w-3.5" /> Save Search
                 </button>
-                <button type="button" aria-label="Show shortlist targets" title="Show shortlist targets" onClick={() => handleFooterAction("Player Search")} className="rounded border border-app-border p-1.5 transition-colors hover:bg-white/5">
+                <button type="button" aria-label="Show shortlist targets" title="Show shortlist targets" onClick={() => handleFooterAction()} className="rounded border border-app-border p-1.5 transition-colors hover:bg-white/5">
                   <MoreHorizontal className="h-3.5 w-3.5 text-app-text-muted" />
                 </button>
               </div>
@@ -496,15 +477,15 @@ export default function ScoutingTab({
         </section>
 
         <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[420px]">
-          <PlayerReportCard player={featuredPlayer} players={gameState.players} teams={gameState.teams} scouts={scouts} managerTeam={myTeam} locale={i18n.language} t={t} />
+          <PlayerReportCard player={featuredPlayer} scoutReport={featuredScoutReport} activeAssignment={featuredActiveAssignment} teams={gameState.teams} locale={i18n.language} t={t} />
         </aside>
       </div>
 
       <div className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 xl:grid-cols-4">
-        <ActiveAssignmentsCard assignments={assignments} scouts={scouts} players={gameState.players} teams={gameState.teams} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} onFooterClick={() => handleFooterAction("Assignments")} t={t} />
-        <ScoutNetworkCard scouts={scouts} assignments={assignments} onFooterClick={() => handleFooterAction("Reports")} t={t} />
+        <ActiveAssignmentsCard assignments={assignments} scouts={scouts} players={gameState.players} teams={gameState.teams} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} onFooterClick={() => handleFooterAction()} t={t} />
+        <ScoutNetworkCard scouts={scouts} assignments={assignments} onFooterClick={() => handleFooterAction()} t={t} />
         <MarketInsightsCard players={baseScoutable} teams={gameState.teams} />
-        <ShortlistedPlayersCard players={listedTargets} teams={gameState.teams} mode={shortlistMode} onFooterClick={() => handleFooterAction("Player Search")} onSelectPlayer={onSelectPlayer} />
+        <ShortlistedPlayersCard players={listedTargets} teams={gameState.teams} mode={shortlistMode} onFooterClick={() => handleFooterAction()} onSelectPlayer={onSelectPlayer} />
       </div>
 
       {bidTarget && (
@@ -829,78 +810,115 @@ function ScoutRecommendationsCard({ players, targetPlayers, myTeamId, managerTea
   );
 }
 
-function PlayerReportCard({ player, players, teams, scouts, managerTeam, locale, t }: { player: PlayerData | null; players: PlayerData[]; teams: TeamData[]; scouts: StaffData[]; managerTeam: TeamData | null; locale: string; t: (key: string, params?: Record<string, string | number>) => string }) {
+function PlayerReportCard({ player, scoutReport, activeAssignment, teams, locale, t }: { player: PlayerData | null; scoutReport: ScoutReportData | null; activeAssignment: ScoutingAssignment | null; teams: TeamData[]; locale: string; t: (key: string, params?: Record<string, string | number>) => string }) {
   if (!player) {
     return <ScoutingTemplateCard className="p-4 text-sm text-app-text-muted">No player report available</ScoutingTemplateCard>;
   }
 
-  const overall = getPlayerOvr(player);
-  const team = player.team_id ? getTeamName(teams, player.team_id) : t("common.freeAgent");
-  const report = buildPlayerReport(player, players, scouts, managerTeam);
+  const reportName = scoutReport?.player_name ?? player.match_name;
+  const nationality = scoutReport?.nationality ?? player.nationality;
+  const position = scoutReport?.position ?? player.position;
+  const team = scoutReport?.team_name ?? (player.team_id ? getTeamName(teams, player.team_id) : t("common.freeAgent"));
+  const age = calcAge(scoutReport?.dob ?? player.date_of_birth);
+
+  if (activeAssignment) {
+    return (
+      <ScoutingTemplateCard className="flex flex-col p-4">
+        <div className="flex items-start justify-between">
+          <span className="mb-4 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">PLAYER REPORT</span>
+          <div className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-500">In Progress</div>
+        </div>
+        <LockedReportHeader reportName={reportName} nationality={nationality} position={position} team={team} age={age} locale={locale} t={t} />
+        <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+          <p className="font-bold text-amber-400">{t("scouting.scoutingInProgress")}</p>
+          <p className="mt-1 text-amber-100/80">{t("scouting.daysLeft", { days: activeAssignment.days_remaining })}. Full report will unlock when the scout returns.</p>
+        </div>
+      </ScoutingTemplateCard>
+    );
+  }
+
+  if (!scoutReport) {
+    return (
+      <ScoutingTemplateCard className="flex flex-col p-4">
+        <div className="flex items-start justify-between">
+          <span className="mb-4 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">PLAYER REPORT</span>
+          <div className="rounded border border-app-border bg-app-bg px-2 py-0.5 text-xs font-bold text-app-text-muted">Locked</div>
+        </div>
+        <LockedReportHeader reportName={reportName} nationality={nationality} position={position} team={team} age={age} locale={locale} t={t} />
+        <div className="mt-4 rounded-lg border border-app-border bg-app-bg/60 p-3 text-xs text-app-text-muted">
+          Send a scout to unlock the backend scout report. Detailed attributes, rating, potential, and verdict stay hidden until a report message is generated.
+        </div>
+      </ScoutingTemplateCard>
+    );
+  }
+
+  const reportGrade = getScoutReportGrade(scoutReport);
+  const reportSummary = getScoutReportSummary(scoutReport);
+  const attributeItems = buildScoutReportAttributeItems(scoutReport);
 
   return (
     <ScoutingTemplateCard className="flex flex-col p-4">
       <div className="flex items-start justify-between">
         <span className="mb-4 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">PLAYER REPORT</span>
-        <div className="rounded border border-app-green/30 bg-app-green/10 px-2 py-0.5 text-xs font-bold text-app-green">{report.grade} Target</div>
+        <div className="rounded border border-app-green/30 bg-app-green/10 px-2 py-0.5 text-xs font-bold text-app-green">{reportGrade} Report</div>
       </div>
       <div className="flex gap-4">
         <div className="flex w-24 shrink-0 flex-col gap-2">
           <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-app-border bg-app-bg">
             <div className="absolute inset-0 bg-gradient-to-t from-blue-900 to-[#1e293b]" />
             <UserPlus className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 text-white/30" />
-            <div className="absolute left-1 top-1 text-[40px] font-bold leading-none text-white/20">{translatePositionAbbreviation(t, player.position)}</div>
+            <div className="absolute left-1 top-1 text-[40px] font-bold leading-none text-white/20">{translatePositionAbbreviation(t, position)}</div>
           </div>
-          <StarRating rating={overall / 20} />
-          <span className="text-center text-[10px] leading-tight text-app-text-muted">{report.summary}</span>
+          <StarRating rating={(scoutReport.avg_rating ?? 0) / 20} />
+          <span className="text-center text-[10px] leading-tight text-app-text-muted">{reportSummary}</span>
         </div>
         <div className="flex flex-1 flex-col">
-          <span className="text-xl font-bold leading-none text-app-text">{player.match_name}</span>
+          <span className="text-xl font-bold leading-none text-app-text">{reportName}</span>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-app-text-muted">
-            <CountryFlag code={player.nationality} locale={locale} className="text-sm leading-none" />
-            <span>{countryName(player.nationality, locale)}</span>
+            <CountryFlag code={nationality} locale={locale} className="text-sm leading-none" />
+            <span>{countryName(nationality, locale)}</span>
           </div>
           <span className="mt-1 text-xs text-app-text-muted">{team}</span>
-          <span className="mt-1 text-xs text-app-text-muted opacity-80">{translatePositionLabel(t, player.natural_position || player.position)}</span>
+          <span className="mt-1 text-xs text-app-text-muted opacity-80">{translatePositionLabel(t, position)}</span>
           <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-2">
-            <ReportStat label="Age" value={String(calcAge(player.date_of_birth))} />
-            <ReportStat label="Estimated Value" value={formatVal(player.market_value)} />
-            <ReportStat label="Wage" value={`${formatVal(player.wage)} p/w`} />
-            <ReportStat label="Overall" value={String(overall)} />
-            <ReportStat label="Contract Expires" value={player.contract_end ?? "-"} />
-            <ReportStat label="Preferred Foot" value={report.preferredFoot} />
+            <ReportStat label="Age" value={String(age)} />
+            <ReportStat label="Scout Rating" value={scoutReport.rating_key} />
+            <ReportStat label="Potential" value={scoutReport.potential_key} />
+            <ReportStat label="Confidence" value={scoutReport.confidence_key} />
+            <ReportStat label="Overall" value={formatOptionalReportValue(scoutReport.avg_rating)} />
+            <ReportStat label="Condition" value={formatOptionalReportValue(scoutReport.condition)} />
           </div>
         </div>
       </div>
       <div className="mt-4 border-t border-app-border/50 pt-4">
-        <span className="mb-3 block text-[10px] font-bold uppercase tracking-widest text-app-text-muted">ATTRIBUTE SNAPSHOT</span>
+        <span className="mb-3 block text-[10px] font-bold uppercase tracking-widest text-app-text-muted">SCOUTED ATTRIBUTES</span>
         <div className="flex gap-2">
-          <div className="grid flex-1 grid-cols-3 gap-2">
-            <AttrList title="TECHNICAL" items={["passing", "shooting", "dribbling", "tackling", "vision", "positioning"].map((key) => [key, player.attributes[key as keyof typeof player.attributes]])} />
-            <AttrList title="MENTAL" items={["aggression", "composure", "decisions", "teamwork", "leadership", "aerial"].map((key) => [key, player.attributes[key as keyof typeof player.attributes]])} />
-            <AttrList title="PHYSICAL" items={["pace", "stamina", "strength", "agility", "reflexes"].map((key) => [key, player.attributes[key as keyof typeof player.attributes]])} />
+          <div className="grid flex-1 grid-cols-2 gap-2">
+            <ScoutReportAttrList title="REPORT" items={attributeItems.slice(0, 3)} />
+            <ScoutReportAttrList title="PROFILE" items={attributeItems.slice(3)} />
           </div>
-          <AttributeRadar player={player} />
+          <ScoutReportRadar report={scoutReport} />
         </div>
       </div>
       <div className="mt-4 flex gap-4 border-t border-app-border/50 pt-4">
         <div className="flex flex-1 flex-col gap-2">
           <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-app-text-muted">SCOUT REPORT SUMMARY</span>
-          {report.pros.map((text) => <ReportProCon key={text} type="pro" text={text} />)}
-          {report.cons.map((text) => <ReportProCon key={text} type="con" text={text} />)}
+          <ReportProCon type="pro" text={`Current rating: ${scoutReport.rating_key}.`} />
+          <ReportProCon type="pro" text={`Potential: ${scoutReport.potential_key}.`} />
+          <ReportProCon type="pro" text={`Report confidence: ${scoutReport.confidence_key}.`} />
           <div className="mt-2 flex items-center justify-between border-t border-app-border/30 pt-2">
             <span className="text-xs font-bold">Overall Rating</span>
-            <StarRating rating={overall / 20} />
+            <StarRating rating={(scoutReport.avg_rating ?? 0) / 20} />
           </div>
         </div>
         <div className="flex w-[160px] shrink-0 flex-col gap-2">
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-app-text-muted">TRANSFER FEASIBILITY</span>
-          <FeasibilityRow label="Likelihood of Signing" value={`${report.signingLikelihood}%`} bar={report.signingLikelihood} />
-          <MiniInfo label="Agent Demands" value={report.agentDemands} tone={report.agentTone} />
-          <MiniInfo label="Expected Fee" value={formatVal(report.expectedFee)} tone="text-white" />
-          <MiniInfo label="Competition" value={report.competition} tone={report.competitionTone} />
-          <MiniInfo label="Financial Fit" value={report.financialFit} tone={report.financialFitTone} />
-          <div className="mt-1 flex justify-between border-t border-app-border/30 pt-1 text-[10px]"><span className="font-bold text-app-text-muted">Transfer Priority</span><span className="font-bold text-app-green">{report.priority}</span></div>
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-app-text-muted">BACKEND REPORT</span>
+          <MiniInfo label="Pace" value={formatOptionalReportValue(scoutReport.pace)} tone={getReportValueTone(scoutReport.pace)} />
+          <MiniInfo label="Shooting" value={formatOptionalReportValue(scoutReport.shooting)} tone={getReportValueTone(scoutReport.shooting)} />
+          <MiniInfo label="Passing" value={formatOptionalReportValue(scoutReport.passing)} tone={getReportValueTone(scoutReport.passing)} />
+          <MiniInfo label="Dribbling" value={formatOptionalReportValue(scoutReport.dribbling)} tone={getReportValueTone(scoutReport.dribbling)} />
+          <MiniInfo label="Defending" value={formatOptionalReportValue(scoutReport.defending)} tone={getReportValueTone(scoutReport.defending)} />
+          <MiniInfo label="Physical" value={formatOptionalReportValue(scoutReport.physical)} tone={getReportValueTone(scoutReport.physical)} />
         </div>
       </div>
       <div className="mt-4 flex gap-4 border-t border-app-border/50 pt-4">
@@ -908,55 +926,55 @@ function PlayerReportCard({ player, players, teams, scouts, managerTeam, locale,
           <span className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">ANALYST VERDICT</span>
           <div className="mt-1 flex items-center gap-3">
             <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-app-green bg-app-green/10 text-lg font-bold text-app-green">
-              {overall}
+              {formatOptionalReportValue(scoutReport.avg_rating)}
               <TrendingUp className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-app-bg text-app-green" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold leading-tight text-app-green">{report.verdict}</span>
-              <span className="mt-1 text-[10px] leading-tight text-app-text-muted">{report.summary}</span>
+              <span className="text-[10px] font-bold leading-tight text-app-green">{reportSummary}</span>
+              <span className="mt-1 text-[10px] leading-tight text-app-text-muted">Only discovered backend report fields are shown.</span>
             </div>
-          </div>
-          <div className="mt-2 flex items-center gap-1.5">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-app-border bg-white/5"><Globe className="h-3 w-3 text-app-text-muted" /></div>
-            <div className="flex flex-col text-[9px]"><span className="text-app-text-muted">{report.analystName}</span><span className="text-app-text-muted/60">Scout Analyst</span></div>
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-2 border-l border-app-border/50 pl-4">
           <span className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">PLAYER COMPARISON</span>
-          <span className="text-[10px] text-app-text-muted">Compared with: <span className="text-white">{report.comparisonName}</span></span>
-          <ComparisonMetric label="Current Ability" rating={overall / 20} pct={Math.min(100, overall)} />
-          <ComparisonMetric label="Potential Ability" rating={Math.min(5, (player.potential ?? overall) / 20)} pct={Math.min(100, player.potential ?? overall)} />
-          <ComparisonMetric label="Consistency" rating={Math.min(5, player.attributes.decisions / 20)} pct={Math.min(100, player.attributes.decisions)} />
-          <ComparisonMetric label="Big Match Ability" rating={Math.min(5, player.attributes.composure / 20)} pct={Math.min(100, player.attributes.composure)} />
+          <span className="text-[10px] text-app-text-muted">Comparison locked until the backend exposes comparable scout-report data.</span>
+          <ComparisonMetric label="Current Ability" rating={(scoutReport.avg_rating ?? 0) / 20} pct={scoutReport.avg_rating ?? 0} />
+          <ComparisonMetric label="Condition" rating={(scoutReport.condition ?? 0) / 20} pct={scoutReport.condition ?? 0} />
+          <ComparisonMetric label="Morale" rating={(scoutReport.morale ?? 0) / 20} pct={scoutReport.morale ?? 0} />
         </div>
       </div>
     </ScoutingTemplateCard>
   );
 }
 
-function ActiveAssignmentsCard({ assignments, scouts, players, onSelectPlayer, onSelectTeam, onFooterClick, t }: { assignments: ScoutingAssignment[]; scouts: StaffData[]; players: PlayerData[]; teams: TeamData[]; onSelectPlayer?: (id: string) => void; onSelectTeam?: (id: string) => void; onFooterClick: () => void; t: (key: string, params?: Record<string, string | number>) => string }) {
+function AssignmentsTable({ assignments, scouts, players, teams, onSelectPlayer, onSelectTeam, t, limit }: { assignments: ScoutingAssignment[]; scouts: StaffData[]; players: PlayerData[]; teams: TeamData[]; onSelectPlayer?: (id: string) => void; onSelectTeam?: (id: string) => void; t: (key: string, params?: Record<string, string | number>) => string; limit?: number }) {
+  const visibleAssignments = limit ? assignments.slice(0, limit) : assignments;
+
   return (
-    <BottomSection title="ACTIVE ASSIGNMENTS" footer="View All Assignments" onFooterClick={onFooterClick}>
+    <>
       <table className="w-full whitespace-nowrap text-left">
         <thead>
           <tr className="border-b border-app-border/30 text-[9px] font-bold uppercase text-app-text-muted">
-            <th className="px-2 py-2.5">REGION</th>
-            <th className="py-2.5">SCOUT</th>
-            <th className="py-2.5 text-right">TIME REMAINING</th>
-            <th className="px-2 py-2.5">FOCUS</th>
+            <th className="px-3 py-3">PLAYER</th>
+            <th className="px-3 py-3">SCOUT</th>
+            <th className="px-3 py-3">TEAM</th>
+            <th className="px-3 py-3 text-right">TIME REMAINING</th>
+            <th className="px-3 py-3">FOCUS</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-app-border/20 text-app-text">
-          {assignments.slice(0, 5).map((assignment) => {
+          {visibleAssignments.map((assignment) => {
             const player = players.find((candidate) => candidate.id === assignment.player_id);
             const scout = scouts.find((candidate) => candidate.id === assignment.scout_id);
             if (!player || !scout) return null;
+            const team = player.team_id ? getTeamName(teams, player.team_id) : t("common.freeAgent");
             const row = (
               <tr key={assignment.id} className="group cursor-pointer transition-colors hover:bg-white/5" data-testid={`scouting-assignment-${assignment.id}`}>
-                <td className="px-2 py-2.5"><div className="flex items-center gap-2"><div className="h-3 w-3.5 shrink-0 overflow-hidden rounded-[2px] border border-app-border bg-blue-500" /><button type="button" onClick={() => onSelectPlayer?.(player.id)} className="text-[10px] font-semibold hover:text-app-green">{player.full_name}</button></div></td>
-                <td className="py-2.5 text-[10px] text-app-text-muted">{scout.first_name} {scout.last_name}</td>
-                <td className="py-2.5 text-right text-[10px] font-bold text-amber-500">{t("scouting.daysLeft", { days: assignment.days_remaining })}</td>
-                <td className="px-2 py-2.5"><span className="block max-w-[60px] truncate text-[10px] text-app-text-muted" title={player.position}>{translatePositionAbbreviation(t, player.position)}</span></td>
+                <td className="px-3 py-3"><div className="flex items-center gap-2"><div className="h-3 w-3.5 shrink-0 overflow-hidden rounded-[2px] border border-app-border bg-blue-500" /><button type="button" onClick={() => onSelectPlayer?.(player.id)} className="text-[10px] font-semibold hover:text-app-green">{player.full_name}</button></div></td>
+                <td className="px-3 py-3 text-[10px] text-app-text-muted">{scout.first_name} {scout.last_name}</td>
+                <td className="px-3 py-3"><button type="button" onClick={() => player.team_id && onSelectTeam?.(player.team_id)} className="max-w-[120px] truncate text-[10px] text-app-text-muted hover:text-app-green">{team}</button></td>
+                <td className="px-3 py-3 text-right text-[10px] font-bold text-amber-500">{t("scouting.daysLeft", { days: assignment.days_remaining })}</td>
+                <td className="px-3 py-3"><span className="block max-w-[80px] truncate text-[10px] text-app-text-muted" title={player.position}>{translatePositionAbbreviation(t, player.position)}</span></td>
               </tr>
             );
             const items = [
@@ -967,7 +985,15 @@ function ActiveAssignmentsCard({ assignments, scouts, players, onSelectPlayer, o
           })}
         </tbody>
       </table>
-      {assignments.length === 0 ? <p className="p-2 text-[11px] text-app-text-muted">No active scouting assignments</p> : null}
+      {assignments.length === 0 ? <p className="p-3 text-[11px] text-app-text-muted">No active scouting assignments</p> : null}
+    </>
+  );
+}
+
+function ActiveAssignmentsCard({ assignments, scouts, players, teams, onSelectPlayer, onSelectTeam, onFooterClick, t }: { assignments: ScoutingAssignment[]; scouts: StaffData[]; players: PlayerData[]; teams: TeamData[]; onSelectPlayer?: (id: string) => void; onSelectTeam?: (id: string) => void; onFooterClick: () => void; t: (key: string, params?: Record<string, string | number>) => string }) {
+  return (
+    <BottomSection title="ACTIVE ASSIGNMENTS" footer="View All Assignments" onFooterClick={onFooterClick}>
+      <AssignmentsTable assignments={assignments} scouts={scouts} players={players} teams={teams} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} t={t} limit={5} />
     </BottomSection>
   );
 }
@@ -1072,17 +1098,47 @@ function ReportStat({ label, value }: { label: string; value: string }) {
   return <div className="flex flex-col"><span className="text-[9px] text-app-text-muted">{label}</span><span className="text-xs">{value}</span></div>;
 }
 
-function AttributeRadar({ player }: { player: PlayerData }) {
-  const radarStats = [
-    { subject: "DEF", A: avgAttrs(player, ["defending", "tackling", "positioning"]) },
-    { subject: "PHY", A: avgAttrs(player, ["stamina", "strength", "agility"]) },
-    { subject: "SPD", A: avgAttrs(player, ["pace", "agility"]) },
-    { subject: "VIS", A: avgAttrs(player, ["vision", "decisions", "passing"]) },
-    { subject: "ATK", A: avgAttrs(player, ["shooting", "dribbling", "composure"]) },
-    { subject: "TEC", A: avgAttrs(player, ["passing", "dribbling", "vision"]) },
-    { subject: "AIR", A: player.attributes.aerial },
-    { subject: "MEN", A: avgAttrs(player, ["decisions", "teamwork", "leadership", "composure"]) },
-  ];
+function LockedReportHeader({ reportName, nationality, position, team, age, locale, t }: { reportName: string; nationality: string; position: string; team: string; age: number; locale: string; t: (key: string, params?: Record<string, string | number>) => string }) {
+  return (
+    <div className="flex gap-4">
+      <div className="flex w-24 shrink-0 flex-col gap-2">
+        <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-app-border bg-app-bg opacity-75">
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-[#1e293b]" />
+          <UserPlus className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 text-white/20" />
+          <div className="absolute left-1 top-1 text-[40px] font-bold leading-none text-white/10">{translatePositionAbbreviation(t, position)}</div>
+        </div>
+        <span className="rounded border border-app-border bg-app-bg px-2 py-1 text-center text-[10px] font-bold text-app-text-muted">Report locked</span>
+      </div>
+      <div className="flex flex-1 flex-col">
+        <span className="text-xl font-bold leading-none text-app-text">{reportName}</span>
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-app-text-muted">
+          <CountryFlag code={nationality} locale={locale} className="text-sm leading-none" />
+          <span>{countryName(nationality, locale)}</span>
+        </div>
+        <span className="mt-1 text-xs text-app-text-muted">{team}</span>
+        <span className="mt-1 text-xs text-app-text-muted opacity-80">{translatePositionLabel(t, position)}</span>
+        <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-2">
+          <ReportStat label="Age" value={String(age)} />
+          <ReportStat label="Scout Rating" value="Unknown" />
+          <ReportStat label="Potential" value="Unknown" />
+          <ReportStat label="Confidence" value="Unknown" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScoutReportAttrList({ title, items }: { title: string; items: Array<[string, number | null]> }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[9px] font-bold uppercase text-app-text-muted">{title}</span>
+      {items.map(([name, value]) => <div key={name} className="flex items-center justify-between text-[10px]"><span className="capitalize text-app-text-muted">{name}</span><span className={getReportValueTone(value)}>{formatOptionalReportValue(value)}</span></div>)}
+    </div>
+  );
+}
+
+function ScoutReportRadar({ report }: { report: ScoutReportData }) {
+  const radarStats = buildScoutReportAttributeItems(report).map(([subject, value]) => ({ subject: subject.slice(0, 3).toUpperCase(), A: value ?? 0 }));
 
   return (
     <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded border border-app-border/50">
@@ -1090,28 +1146,15 @@ function AttributeRadar({ player }: { player: PlayerData }) {
         <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarStats}>
           <PolarGrid stroke="#232d3b" />
           <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 7 }} />
-          <Radar name="Player" dataKey="A" stroke="#2dd4bf" strokeWidth={1} fill="#2dd4bf" fillOpacity={0.2} />
+          <Radar name="Report" dataKey="A" stroke="#2dd4bf" strokeWidth={1} fill="#2dd4bf" fillOpacity={0.2} />
         </RadarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-function avgAttrs(player: PlayerData, keys: Array<keyof PlayerData["attributes"]>): number {
-  return Math.round(keys.reduce((sum, key) => sum + player.attributes[key], 0) / keys.length);
-}
-
 function MiniInfo({ label, value, tone }: { label: string; value: string; tone: string }) {
   return <div className="flex justify-between text-[10px]"><span className="text-app-text-muted">{label}</span><span className={`font-medium ${tone}`}>{value}</span></div>;
-}
-
-function FeasibilityRow({ label, value, bar }: { label: string; value: string; bar: number }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-[9px] text-app-text-muted"><span>{label}</span><span>{value}</span></div>
-      <div className="h-1 overflow-hidden rounded-full bg-app-bg"><div className="h-full bg-emerald-500" style={{ width: `${bar}%` }} /></div>
-    </div>
-  );
 }
 
 function ComparisonMetric({ label, rating, pct }: { label: string; rating: number; pct: number }) {
@@ -1122,15 +1165,6 @@ function ComparisonMetric({ label, rating, pct }: { label: string; rating: numbe
         <StarRating rating={rating} />
         <div className="ml-1 flex h-1.5 w-16 self-center overflow-hidden rounded bg-app-bg"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
       </div>
-    </div>
-  );
-}
-
-function AttrList({ title, items }: { title: string; items: Array<[string, number]> }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[9px] font-bold uppercase text-app-text-muted">{title}</span>
-      {items.map(([name, value]) => <div key={name} className="flex items-center justify-between text-[10px]"><span className="capitalize text-app-text-muted">{name}</span><span className={value >= 70 ? "font-bold text-app-green" : value >= 50 ? "font-bold text-amber-500" : "font-bold text-app-text-muted"}>{value}</span></div>)}
     </div>
   );
 }
@@ -1160,6 +1194,52 @@ function NetworkRow({ name, role, region, pct, slots }: { name: string; role: st
 
 function LeagueBar({ name, val, pct }: { name: string; val: string; pct: number }) {
   return <div className="flex items-center gap-2"><span className="w-20 shrink-0 truncate text-app-text-muted">{name}</span><div className="h-1 flex-1 overflow-hidden rounded-full bg-app-bg"><div className="h-full bg-app-green" style={{ width: `${pct}%` }} /></div><span className="shrink-0 font-medium text-white">{val}</span></div>;
+}
+
+function buildScoutReportMap(messages: MessageData[]): Map<string, ScoutReportData> {
+  const reports = new Map<string, ScoutReportData>();
+  messages.forEach((message) => {
+    const report = message.context.scout_report;
+    if (report) {
+      reports.set(report.player_id, report);
+    }
+  });
+  return reports;
+}
+
+function buildScoutReportAttributeItems(report: ScoutReportData): Array<[string, number | null]> {
+  return [
+    ["Pace", report.pace],
+    ["Shooting", report.shooting],
+    ["Passing", report.passing],
+    ["Dribbling", report.dribbling],
+    ["Defending", report.defending],
+    ["Physical", report.physical],
+  ];
+}
+
+function formatOptionalReportValue(value: number | null): string {
+  return value === null ? "Unknown" : String(value);
+}
+
+function getReportValueTone(value: number | null): string {
+  if (value === null) return "font-bold text-app-text-muted";
+  if (value >= 70) return "font-bold text-app-green";
+  if (value >= 50) return "font-bold text-amber-500";
+  return "font-bold text-app-text-muted";
+}
+
+function getScoutReportGrade(report: ScoutReportData): string {
+  const value = report.avg_rating ?? 0;
+  if (value >= 80) return "A";
+  if (value >= 70) return "B+";
+  if (value >= 60) return "B";
+  if (value >= 50) return "C";
+  return "D";
+}
+
+function getScoutReportSummary(report: ScoutReportData): string {
+  return `${report.rating_key} rating with ${report.potential_key} potential.`;
 }
 
 function sortScoutablePlayers(players: PlayerData[], sort: { key: SearchSortKey; direction: SortDirection }, teams: TeamData[], assignments: ScoutingAssignment[]): PlayerData[] {
@@ -1257,44 +1337,6 @@ function medianMarketValue(players: PlayerData[]): number {
   return values[Math.floor(values.length / 2)] ?? 0;
 }
 
-function buildPlayerReport(player: PlayerData, players: PlayerData[], scouts: StaffData[], managerTeam: TeamData | null) {
-  const overall = getPlayerOvr(player);
-  const potential = player.potential ?? overall;
-  const grade = potential >= 85 ? "A+" : potential >= 78 ? "A" : potential >= 70 ? "B+" : overall >= 65 ? "B" : "C";
-  const expectedFee = !player.team_id ? 0 : player.transfer_listed ? Math.round(player.market_value * 0.9) : player.market_value;
-  const budget = managerTeam?.transfer_budget ?? 0;
-  const signingLikelihood = !player.team_id ? 90 : player.transfer_listed ? 75 : budget >= expectedFee ? 60 : 30;
-  const agentDemands = player.wage > 80_000 ? "High" : player.wage > 30_000 ? "Medium" : "Low";
-  const competitionCount = player.transfer_offers.filter((offer) => offer.status === "Pending").length;
-  const financialFit = expectedFee === 0 || !managerTeam || expectedFee <= managerTeam.transfer_budget ? "Good" : expectedFee <= managerTeam.transfer_budget * 1.25 ? "Tight" : "Poor";
-  const topAttrs = Object.entries(player.attributes).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([name]) => `${capitalise(name)} is a standout attribute.`);
-  const lowAttrs = Object.entries(player.attributes).sort((a, b) => a[1] - b[1]).slice(0, 2).map(([name]) => `${capitalise(name)} may need development.`);
-  const analyst = scouts.slice().sort((a, b) => b.attributes.judging_ability - a.attributes.judging_ability)[0];
-  const comparison = players
-    .filter((candidate) => candidate.id !== player.id && candidate.position === player.position)
-    .sort((a, b) => Math.abs(getPlayerOvr(a) - overall) - Math.abs(getPlayerOvr(b) - overall))[0];
-
-  return {
-    grade,
-    summary: potential > overall + 8 ? "Strong upside based on current ability and potential." : "Profile is close to current first-team level.",
-    preferredFoot: `${player.footedness ?? "Unknown"}${player.weak_foot ? ` / WF ${player.weak_foot}` : ""}`,
-    signingLikelihood,
-    agentDemands,
-    agentTone: agentDemands === "High" ? "text-app-red" : agentDemands === "Medium" ? "text-amber-500" : "text-app-green",
-    expectedFee,
-    competition: competitionCount > 1 ? "High" : competitionCount === 1 ? "Medium" : "Low",
-    competitionTone: competitionCount > 1 ? "text-app-red" : competitionCount === 1 ? "text-amber-500" : "text-app-green",
-    financialFit,
-    financialFitTone: financialFit === "Good" ? "text-app-green" : financialFit === "Tight" ? "text-amber-500" : "text-app-red",
-    priority: grade.startsWith("A") && financialFit !== "Poor" ? "High" : financialFit === "Poor" ? "Low" : "Medium",
-    verdict: `${grade} target with ${signingLikelihood}% signing likelihood.`,
-    analystName: analyst ? `${analyst.first_name} ${analyst.last_name}` : "Scouting Department",
-    comparisonName: comparison?.match_name ?? "No close match",
-    pros: topAttrs,
-    cons: lowAttrs,
-  };
-}
-
 function buildMarketRows(players: PlayerData[], teams: TeamData[]) {
   const totals = new Map<string, number>();
   players.forEach((player) => {
@@ -1316,10 +1358,6 @@ function buildAgeBands(players: PlayerData[]) {
   ];
   const max = Math.max(1, ...bands.map((band) => band.count));
   return bands.map((band) => ({ ...band, pct: Math.max(8, Math.round((band.count / max) * 100)) }));
-}
-
-function capitalise(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, " ");
 }
 
 function ShortlistCard({ player, teams, onSelectPlayer }: { player: PlayerData; teams: TeamData[]; onSelectPlayer?: (id: string) => void }) {

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import {
+  applyTransferAdvancedFilters,
   deriveTransferCollections,
   filterTransferPlayers,
   getCurrentTransferList,
+  paginateTransferPlayers,
   type TransferTabView,
 } from "./TransfersTab.model";
 
@@ -236,6 +238,60 @@ describe("TransfersTab.model", () => {
     expect(getIds("market")).toEqual(["market"]);
     expect(getIds("loans")).toEqual(["loan-market"]);
     expect(getIds("offers")).toEqual(["offers"]);
+  });
+
+  it("filters transfer players by advanced local criteria", () => {
+    const players = [
+      createPlayer({
+        id: "young",
+        date_of_birth: "2008-01-01",
+        market_value: 500000,
+        wage: 1000,
+        transfer_offers: [],
+      }),
+      createPlayer({
+        id: "prime",
+        date_of_birth: "2000-01-01",
+        market_value: 1500000,
+        wage: 3000,
+        transfer_offers: [
+          {
+            id: "offer-1",
+            from_team_id: "team-1",
+            fee: 1000000,
+            wage_offered: 0,
+            last_manager_fee: null,
+            negotiation_round: 1,
+            suggested_counter_fee: null,
+            status: "Pending",
+            date: "2026-08-01",
+          },
+        ],
+      }),
+    ];
+
+    expect(
+      applyTransferAdvancedFilters(
+        players,
+        {
+          minAge: 20,
+          maxAge: 30,
+          maxValue: 2000000,
+          maxWeeklyWage: 100,
+          offerStatus: "Pending",
+        },
+        "2026-08-01T00:00:00Z",
+      ).map((player) => player.id),
+    ).toEqual(["prime"]);
+  });
+
+  it("paginates transfer players and clamps the current page", () => {
+    const players = Array.from({ length: 23 }, (_, index) =>
+      createPlayer({ id: `player-${index}` }),
+    );
+
+    expect(paginateTransferPlayers(players, 2, 10).items).toHaveLength(10);
+    expect(paginateTransferPlayers(players, 99, 10).page).toBe(3);
   });
 
   it("filters by position and search text", () => {

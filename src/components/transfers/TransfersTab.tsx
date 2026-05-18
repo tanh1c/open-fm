@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   GameStateData,
   PlayerData,
@@ -64,9 +64,12 @@ import {
   mapTransferNegotiationError,
 } from "./TransfersTab.helpers";
 import {
+  applyTransferAdvancedFilters,
   deriveTransferCollections,
   filterTransferPlayers,
   getCurrentTransferList,
+  paginateTransferPlayers,
+  type TransferAdvancedFilters,
   type TransferTabView,
 } from "./TransfersTab.model";
 import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
@@ -157,6 +160,17 @@ export default function TransfersTab({
   const [visualTab, setVisualTab] = useState("Overview");
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState<string | null>(null);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<TransferAdvancedFilters>({
+    minAge: null,
+    maxAge: null,
+    maxValue: null,
+    maxWeeklyWage: null,
+    offerStatus: "Any",
+  });
+  const [openHeaderMenu, setOpenHeaderMenu] = useState<"shortlist" | "finalize" | "actions" | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [counterTarget, setCounterTarget] = useState<CounterTarget | null>(null);
   const [counterAmount, setCounterAmount] = useState("");
   const [counterLoading, setCounterLoading] = useState(false);
@@ -257,7 +271,14 @@ export default function TransfersTab({
   const { myTransferList, myLoanList, marketPlayers, loanPlayers, playersWithOffers } = transferCollections;
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
   const currentList = getCurrentTransferList(view, transferCollections);
-  const filteredList = filterTransferPlayers(currentList, search, posFilter);
+  const basicFilteredList = filterTransferPlayers(currentList, search, posFilter);
+  const filteredList = applyTransferAdvancedFilters(
+    basicFilteredList,
+    advancedFilters,
+    gameState.clock.current_date,
+  );
+  const paginatedTargets = paginateTransferPlayers(filteredList, page, pageSize);
+  const visibleTransferTargets = paginatedTargets.items;
   const weeklyWageBudget = myTeam ? annualAmountToWeeklyCommitment(myTeam.wage_budget) : 0;
   const panelPlayer = bidTarget ?? counterTarget?.player ?? playersWithOffers[0] ?? filteredList[0] ?? marketPlayers[0] ?? gameState.players[0] ?? null;
   const panelOffer = panelPlayer?.transfer_offers.find((offer) => offer.status === "Pending") ?? null;
@@ -289,9 +310,42 @@ export default function TransfersTab({
     { id: "Shortlists", label: "Shortlists", view: "my_list" },
   ];
 
+  useEffect(() => {
+    setPage(1);
+  }, [view, search, posFilter, advancedFilters]);
+
   const switchTab = (tab: VisualTab) => {
     setVisualTab(tab.id);
     setView(tab.view);
+  };
+
+  const openTransferView = (nextView: TransferTabView, nextTab?: string) => {
+    setView(nextView);
+    if (nextTab) setVisualTab(nextTab);
+    setOpenHeaderMenu(null);
+  };
+
+  const clearLocalFilters = () => {
+    setSearch("");
+    setPosFilter(null);
+    setAdvancedFilters({
+      minAge: null,
+      maxAge: null,
+      maxValue: null,
+      maxWeeklyWage: null,
+      offerStatus: "Any",
+    });
+    setOpenHeaderMenu(null);
+  };
+
+  const setNullableNumberFilter = (
+    key: keyof Omit<TransferAdvancedFilters, "offerStatus">,
+    value: string,
+  ) => {
+    setAdvancedFilters((current) => ({
+      ...current,
+      [key]: value ? Number(value) : null,
+    }));
   };
 
   const handleScoutPlayer = async (playerId: string): Promise<void> => {
@@ -458,21 +512,43 @@ export default function TransfersTab({
             <UserPlus className="w-4 h-4 text-app-text-muted" />
             Approach to Sign
           </button>
-          <div className="flex items-center bg-app-card border border-app-border rounded-lg overflow-hidden transition-colors">
-            <button type="button" onClick={() => { setVisualTab("Shortlists"); setView("my_list"); }} className="flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-white/5 border-r border-app-border/50">
+          <div className="relative flex items-center bg-app-card border border-app-border rounded-lg transition-colors">
+            <button type="button" onClick={() => openTransferView("my_list", "Shortlists")} className="flex items-center gap-2 px-3 py-2 text-sm font-medium hover:bg-white/5 border-r border-app-border/50">
               <Star className="w-4 h-4 text-app-text-muted" />
               Shortlist
             </button>
-            <button type="button" className="px-2 py-2 hover:bg-white/5" aria-label="Shortlist menu"><ChevronDown className="w-4 h-4 text-app-text-muted" /></button>
+            <button type="button" onClick={() => setOpenHeaderMenu((menu) => menu === "shortlist" ? null : "shortlist")} className="px-2 py-2 hover:bg-white/5" aria-label="Shortlist menu" aria-expanded={openHeaderMenu === "shortlist"}><ChevronDown className="w-4 h-4 text-app-text-muted" /></button>
+            {openHeaderMenu === "shortlist" ? (
+              <HeaderMenu>
+                <HeaderMenuButton label="Open listed players" onClick={() => openTransferView("my_list", "Shortlists")} />
+                <HeaderMenuButton label="Clear transfer filters" onClick={clearLocalFilters} />
+              </HeaderMenu>
+            ) : null}
           </div>
-          <div className="flex items-center bg-app-green hover:bg-app-green/90 text-app-bg rounded-lg overflow-hidden transition-colors">
-            <button type="button" onClick={() => { setVisualTab("Negotiations"); setView("offers"); }} className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-r border-black/10">
+          <div className="relative flex items-center bg-app-green hover:bg-app-green/90 text-app-bg rounded-lg transition-colors">
+            <button type="button" onClick={() => openTransferView("offers", "Negotiations")} className="flex items-center gap-2 px-3 py-2 text-sm font-bold border-r border-black/10">
               <CheckCircle2 className="w-4 h-4" />
               Finalize Deal
             </button>
-            <button type="button" className="px-2 py-2 hover:bg-black/10" aria-label="Finalize menu"><ChevronDown className="w-4 h-4" /></button>
+            <button type="button" onClick={() => setOpenHeaderMenu((menu) => menu === "finalize" ? null : "finalize")} className="px-2 py-2 hover:bg-black/10" aria-label="Finalize menu" aria-expanded={openHeaderMenu === "finalize"}><ChevronDown className="w-4 h-4" /></button>
+            {openHeaderMenu === "finalize" ? (
+              <HeaderMenu>
+                <HeaderMenuButton label="Open active offers" onClick={() => openTransferView("offers", "Negotiations")} />
+                <HeaderMenuButton label="Open transfer market" onClick={() => openTransferView("market", "Transfer Targets")} />
+              </HeaderMenu>
+            ) : null}
           </div>
-          <button type="button" className="p-2 bg-app-card border border-app-border rounded-lg hover:bg-white/5 transition-colors" aria-label="Transfer actions"><MoreHorizontal className="w-4 h-4 text-app-text-muted" /></button>
+          <div className="relative">
+            <button type="button" onClick={() => setOpenHeaderMenu((menu) => menu === "actions" ? null : "actions")} className="p-2 bg-app-card border border-app-border rounded-lg hover:bg-white/5 transition-colors" aria-label="Transfer actions" aria-expanded={openHeaderMenu === "actions"}><MoreHorizontal className="w-4 h-4 text-app-text-muted" /></button>
+            {openHeaderMenu === "actions" ? (
+              <HeaderMenu alignRight>
+                <HeaderMenuButton label="Open transfer market" onClick={() => openTransferView("market", "Transfer Targets")} />
+                <HeaderMenuButton label="Open loan market" onClick={() => openTransferView("loans", "Loans")} />
+                <HeaderMenuButton label="Open offers" onClick={() => openTransferView("offers", "Negotiations")} />
+                <HeaderMenuButton label="Open listed players" onClick={() => openTransferView("my_list", "Shortlists")} />
+              </HeaderMenu>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -563,16 +639,70 @@ export default function TransfersTab({
                 <Target className="w-3.5 h-3.5" /> All Targets
               </button>
               {positions.map((position) => <FilterBadge key={position} active={posFilter === position} onClick={() => setPosFilter(posFilter === position ? null : position)}>{translatePositionAbbreviation(t, position)}</FilterBadge>)}
-              <FilterDropdown value={posFilter ?? "Any Position"} />
-              <FilterDropdown value={view === "market" ? "Transfer Market" : view === "loans" ? "Loan Market" : view === "offers" ? "Offers" : "Shortlists"} />
+              <FilterDropdown
+                ariaLabel="Position filter"
+                value={posFilter ?? ""}
+                onChange={(value) => setPosFilter(value || null)}
+                options={[
+                  { value: "", label: "Any Position" },
+                  ...positions.map((position) => ({
+                    value: position,
+                    label: translatePositionAbbreviation(t, position),
+                  })),
+                ]}
+              />
+              <FilterDropdown
+                ariaLabel="Transfer list view"
+                value={view}
+                onChange={(value) => {
+                  setView(value as TransferTabView);
+                  const selectedTab = visualTabs.find((tab) => tab.view === value);
+                  if (selectedTab) setVisualTab(selectedTab.id);
+                }}
+                options={[
+                  { value: "my_list", label: "Shortlists" },
+                  { value: "market", label: "Transfer Market" },
+                  { value: "loans", label: "Loan Market" },
+                  { value: "offers", label: "Offers" },
+                ]}
+              />
               <div className="relative ml-auto flex-1 max-w-[240px]">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
                 <input type="text" placeholder="Search targets..." value={search} onChange={(event) => setSearch(event.target.value)} className="bg-app-bg border border-app-border rounded-lg pl-8 pr-3 py-1.5 text-[11px] focus:outline-none focus:border-app-green/50 placeholder:text-app-text-muted w-full text-app-text" />
               </div>
-              <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 bg-app-bg border border-app-border rounded-lg text-xs text-app-text-muted hover:text-white transition-colors">
-                <Filter className="w-3.5 h-3.5" /> Filters
+              <button
+                type="button"
+                aria-expanded={advancedFiltersOpen}
+                onClick={() => setAdvancedFiltersOpen((open) => !open)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-app-bg border border-app-border rounded-lg text-xs text-app-text-muted hover:text-white transition-colors"
+              >
+                <Filter className="w-3.5 h-3.5" /> Advanced filters
               </button>
             </div>
+            {advancedFiltersOpen ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mt-3 pt-3 border-t border-app-border/40">
+                <AdvancedFilterInput label="Minimum age" value={advancedFilters.minAge} onChange={(value) => setNullableNumberFilter("minAge", value)} />
+                <AdvancedFilterInput label="Maximum age" value={advancedFilters.maxAge} onChange={(value) => setNullableNumberFilter("maxAge", value)} />
+                <AdvancedFilterInput label="Maximum value" value={advancedFilters.maxValue} onChange={(value) => setNullableNumberFilter("maxValue", value)} />
+                <AdvancedFilterInput label="Maximum weekly wage" value={advancedFilters.maxWeeklyWage} onChange={(value) => setNullableNumberFilter("maxWeeklyWage", value)} />
+                <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+                  Offer status
+                  <select
+                    aria-label="Offer status"
+                    value={advancedFilters.offerStatus}
+                    onChange={(event) => setAdvancedFilters((current) => ({
+                      ...current,
+                      offerStatus: event.target.value as TransferAdvancedFilters["offerStatus"],
+                    }))}
+                    className="bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-[11px] normal-case tracking-normal font-medium text-app-text focus:outline-none focus:border-app-green/50"
+                  >
+                    {(["Any", "Pending", "Accepted", "Rejected", "Withdrawn"] as const).map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
           </Card>
 
           <Card className="flex flex-col flex-1 min-h-0 bg-app-bg border-app-border">
@@ -594,7 +724,7 @@ export default function TransfersTab({
                   </tr>
                 </thead>
                 <tbody className="text-app-text divide-y divide-app-border/30">
-                  {filteredList.length > 0 ? filteredList.map(renderPlayerContextRow) : (
+                  {visibleTransferTargets.length > 0 ? visibleTransferTargets.map((player, index) => renderPlayerContextRow(player, (paginatedTargets.page - 1) * pageSize + index)) : (
                     <tr><td colSpan={11} className="py-12 text-center text-app-text-muted">{view === "market" ? t("transfers.noTransferMarket") : view === "loans" ? t("transfers.noLoanMarket") : view === "offers" ? t("transfers.noOffers") : t("transfers.noPlayersListed")}</td></tr>
                   )}
                 </tbody>
@@ -603,11 +733,27 @@ export default function TransfersTab({
             <div className="p-2.5 border-t border-app-border/50 flex items-center justify-between text-[11px] text-app-text-muted">
               <span>{filteredList.length} targets</span>
               <div className="flex items-center gap-1">
-                <button type="button" className="px-2 py-1 hover:text-white transition-colors">&lt;</button>
-                <button type="button" className="w-6 h-6 rounded bg-app-green text-app-bg font-bold flex items-center justify-center">1</button>
-                <button type="button" className="w-6 h-6 rounded hover:bg-white/5 transition-colors flex items-center justify-center">2</button>
-                <button type="button" className="w-6 h-6 rounded hover:bg-white/5 transition-colors flex items-center justify-center">3</button>
-                <button type="button" className="px-2 py-1 hover:text-white transition-colors">&gt;</button>
+                <button
+                  type="button"
+                  aria-label="Previous transfer targets page"
+                  disabled={paginatedTargets.page === 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="px-2 py-1 hover:text-white transition-colors disabled:opacity-40 disabled:hover:text-app-text-muted"
+                >
+                  &lt;
+                </button>
+                <span className="px-2 py-1 text-[10px] font-bold text-app-text" aria-live="polite">
+                  Page {paginatedTargets.page} of {paginatedTargets.pageCount}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next transfer targets page"
+                  disabled={paginatedTargets.page === paginatedTargets.pageCount}
+                  onClick={() => setPage((current) => Math.min(paginatedTargets.pageCount, current + 1))}
+                  className="px-2 py-1 hover:text-white transition-colors disabled:opacity-40 disabled:hover:text-app-text-muted"
+                >
+                  &gt;
+                </button>
               </div>
             </div>
           </Card>
@@ -621,8 +767,22 @@ export default function TransfersTab({
           bidProjection={bidProjection}
           weeklySuffix={weeklySuffix}
           locale={i18n.language}
-          onMakeOffer={() => panelPlayer && panelPlayer.team_id !== userTeamId ? openBidNegotiation(panelPlayer) : setView("market")}
-          onNegotiate={() => panelPlayer && panelOffer ? openCounterNegotiation(panelPlayer, panelOffer) : setView("offers")}
+          onMakeOffer={(fee) => {
+            if (panelPlayer && panelPlayer.team_id !== userTeamId) {
+              openBidNegotiation(panelPlayer);
+              setBidAmount((fee / 1_000_000).toFixed(1));
+            } else {
+              setView("market");
+            }
+          }}
+          onNegotiate={(fee) => {
+            if (panelPlayer && panelOffer) {
+              openCounterNegotiation(panelPlayer, panelOffer);
+              setCounterAmount((fee / 1_000_000).toFixed(2));
+            } else {
+              setView("offers");
+            }
+          }}
           onWalkAway={() => setVisualTab("Overview")}
           onSelectPlayer={() => panelPlayer && onSelectPlayer(panelPlayer.id)}
           onSelectTeam={() => panelPlayer?.team_id && onSelectTeam(panelPlayer.team_id)}
@@ -630,16 +790,16 @@ export default function TransfersTab({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-5 gap-4 pb-4">
-        <BottomTransferCard title="INCOMING TRANSFERS" players={playersWithOffers} teams={gameState.teams} empty="No incoming offers" />
-        <BottomTransferCard title="OUTGOING TRANSFERS" players={myTransferList} teams={gameState.teams} empty="No outgoing transfers" />
-        <LoanWatchCard players={[...myLoanList, ...loanPlayers].slice(0, 4)} teams={gameState.teams} />
+        <BottomTransferCard title="INCOMING TRANSFERS" players={playersWithOffers} teams={gameState.teams} empty="No incoming offers" onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <BottomTransferCard title="OUTGOING TRANSFERS" players={myTransferList} teams={gameState.teams} empty="No outgoing transfers" onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <LoanWatchCard players={[...myLoanList, ...loanPlayers].slice(0, 4)} teams={gameState.teams} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
         <div className="flex flex-col gap-2">
           <h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">MARKET INSIGHTS</h3>
           <Card className="flex flex-col p-3 text-[11px] h-full flex-1 justify-between">
             <div className="flex flex-col gap-1 w-full">
               <div className="flex items-center gap-1"><span className="text-[9px] font-bold text-app-text-muted uppercase">MARKET ACTIVITY</span></div>
               <div className="h-[70px] w-full -ml-3 mt-1">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 160, height: 70 }}>
                   <AreaChart data={chartData}>
                     <defs><linearGradient id="transferMarketArea" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2dd4bf" stopOpacity={0.3} /><stop offset="95%" stopColor="#2dd4bf" stopOpacity={0} /></linearGradient></defs>
                     <XAxis dataKey="m" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 6 }} interval="preserveStartEnd" />
@@ -656,7 +816,7 @@ export default function TransfersTab({
             </div>
           </Card>
         </div>
-        <ShortlistCardGroup players={myTransferList.slice(0, 5)} />
+        <ShortlistCardGroup players={myTransferList.slice(0, 5)} onSelectPlayer={onSelectPlayer} />
       </div>
 
       {bidTarget && (
@@ -707,6 +867,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">{title}</h3>{children}</div>;
 }
 
+function HeaderMenu({ children, alignRight }: { children: ReactNode; alignRight?: boolean }) {
+  return (
+    <div className={cn("absolute top-full z-30 mt-2 min-w-40 rounded-lg border border-app-border bg-app-card p-1 shadow-xl", alignRight ? "right-0" : "left-0")}>
+      {children}
+    </div>
+  );
+}
+
+function HeaderMenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className="block w-full rounded px-3 py-2 text-left text-xs font-medium text-app-text hover:bg-white/5 hover:text-app-green transition-colors">{label}</button>;
+}
+
 function BudgetRing({ value }: { value: number }) {
   return (
     <div className="relative w-12 h-12 flex items-center justify-center">
@@ -735,8 +907,48 @@ function FilterBadge({ active, children, onClick }: { active: boolean; children:
   return <button type="button" onClick={onClick} className={cn("px-3 py-1 bg-app-bg border text-app-text-muted hover:text-white rounded text-xs font-semibold transition-colors", active ? "border-app-green text-app-green" : "border-app-border")}>{children}</button>;
 }
 
-function FilterDropdown({ value }: { value: string }) {
-  return <div className="px-3 py-1.5 bg-app-bg border border-app-border rounded-lg text-xs flex items-center gap-1.5 hover:border-app-green/50 cursor-pointer"><span>{value}</span><ChevronDown className="w-3 h-3 text-app-text-muted" /></div>;
+function FilterDropdown({
+  ariaLabel,
+  value,
+  options,
+  onChange,
+}: {
+  ariaLabel: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="appearance-none px-3 py-1.5 pr-7 bg-app-bg border border-app-border rounded-lg text-xs flex items-center gap-1.5 hover:border-app-green/50 cursor-pointer text-app-text focus:outline-none focus:border-app-green/50"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 w-3 h-3 -translate-y-1/2 text-app-text-muted" />
+    </div>
+  );
+}
+
+function AdvancedFilterInput({ label, value, onChange }: { label: string; value: number | null; onChange: (value: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+      {label}
+      <input
+        aria-label={label}
+        type="number"
+        min={0}
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        className="bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-[11px] normal-case tracking-normal font-medium text-app-text focus:outline-none focus:border-app-green/50"
+      />
+    </label>
+  );
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -764,8 +976,8 @@ function NegotiationPanel({
   bidProjection: any;
   weeklySuffix: string;
   locale: string;
-  onMakeOffer: () => void;
-  onNegotiate: () => void;
+  onMakeOffer: (fee: number) => void;
+  onNegotiate: (fee: number) => void;
   onWalkAway: () => void;
   onSelectPlayer: () => void;
   onSelectTeam: () => void;
@@ -779,7 +991,7 @@ function NegotiationPanel({
   const interest = interestForPlayer(player, userTeamId);
   const wage = formatWeeklyAmount(formatVal(annualAmountToWeeklyCommitment(player.wage)), weeklySuffix);
   const requestedWage = offer ? formatWeeklyAmount(formatVal(annualAmountToWeeklyCommitment(offer.wage_offered)), weeklySuffix) : wage;
-  const offerFee = offer?.fee ?? Math.round(player.market_value * 0.9);
+  const offerFeeBase = offer?.fee ?? Math.round(player.market_value * 0.9);
   const projectedBudget = bidProjection?.projection?.transfer_budget_after;
   const financeFit = projectedBudget !== undefined && projectedBudget < 0 ? 35 : 82;
   const competition = offer ? 90 : player.transfer_offers.length > 0 ? 70 : 38;
@@ -787,6 +999,19 @@ function NegotiationPanel({
   const footedness = player.footedness ? `${player.footedness}${player.weak_foot ? ` / WF ${player.weak_foot}` : ""}` : "Not tracked";
   const negotiationContext = offer ? `R${offer.negotiation_round} negotiation` : player.transfer_listed ? "Transfer listed" : player.loan_listed ? "Loan listed" : "Open market";
   const nextMeetingLabel = offer ? new Date(offer.date).toLocaleDateString(locale) : "Not booked";
+  const [parameterLevels, setParameterLevels] = useState({
+    fee: 60,
+    currentWage: 75,
+    offerWage: offer ? 70 : 45,
+    lastManagerFee: offer?.last_manager_fee ? 55 : 10,
+  });
+  const selectedOfferFee = Math.round(offerFeeBase * (parameterLevels.fee / 100));
+  const updateParameterLevel = (key: keyof typeof parameterLevels, nextValue: number) => {
+    setParameterLevels((current) => ({
+      ...current,
+      [key]: Math.min(100, Math.max(0, nextValue)),
+    }));
+  };
 
   return (
     <div className="w-full xl:w-[420px] flex-col gap-4 shrink-0 h-full min-h-0 pr-1 hidden lg:flex">
@@ -806,29 +1031,31 @@ function NegotiationPanel({
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-6 bg-blue-500/50 rounded-t-[2rem]" />
             </button>
 
-            <div className="flex flex-col flex-1 min-w-0">
-              <button type="button" onClick={onSelectPlayer} className="flex items-center gap-2 text-left group/player min-w-0">
-                <span className="text-xl font-bold text-white leading-none">{ovr}</span>
-                <span className="text-lg font-bold text-app-text leading-none truncate group-hover/player:text-app-green transition-colors">{player.match_name}</span>
-              </button>
-              <span className="text-xs text-app-text-muted mt-1 opacity-80">{player.natural_position || player.position}</span>
-              <div className="flex gap-3 mt-1.5">
-                <div className="flex items-center gap-1.5">
-                  <CountryFlag code={player.nationality} locale={locale} className="text-sm leading-none" />
-                  <span className="text-[11px] text-app-text-muted">{countryName(player.nationality, locale)}</span>
-                </div>
-                <button type="button" onClick={onSelectTeam} disabled={!player.team_id} className="flex items-center gap-1.5 min-w-0 disabled:cursor-default group/team">
-                  <div className="w-4 h-4 rounded-full bg-blue-800 border border-white/20 shrink-0" />
-                  <span className="text-[11px] text-app-text-muted truncate group-hover/team:text-app-green transition-colors">{getTeamName(teams, player.team_id)}</span>
+            <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(130px,0.8fr)] gap-x-4 gap-y-2">
+              <div className="min-w-0">
+                <button type="button" onClick={onSelectPlayer} className="flex max-w-full items-center gap-2 text-left group/player min-w-0">
+                  <span className="text-xl font-bold text-white leading-none shrink-0">{ovr}</span>
+                  <span className="text-lg font-bold text-app-text leading-none truncate group-hover/player:text-app-green transition-colors">{player.match_name}</span>
                 </button>
+                <span className="block text-xs text-app-text-muted mt-1 opacity-80 truncate">{player.natural_position || player.position}</span>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <CountryFlag code={player.nationality} locale={locale} className="text-sm leading-none shrink-0" />
+                    <span className="truncate text-[11px] text-app-text-muted">{countryName(player.nationality, locale)}</span>
+                  </div>
+                  <button type="button" onClick={onSelectTeam} disabled={!player.team_id} className="flex items-center gap-1.5 min-w-0 disabled:cursor-default group/team">
+                    <div className="w-4 h-4 rounded-full bg-blue-800 border border-white/20 shrink-0" />
+                    <span className="text-[11px] text-app-text-muted truncate group-hover/team:text-app-green transition-colors">{getTeamName(teams, player.team_id)}</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-col gap-1 items-end text-xs w-28 shrink-0 text-app-text-muted">
-              <PanelDetail label="Age" value={String(age)} />
-              <PanelDetail label="Overall" value={String(ovr)} />
-              <PanelDetail label="Preferred Foot" value={footedness} />
-              <PanelDetail label="Contract Expires" value={player.contract_end ?? "--"} wrap />
+              <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-app-text-muted">
+                <PanelDetail label="Age" value={String(age)} />
+                <PanelDetail label="Overall" value={String(ovr)} />
+                <PanelDetail label="Preferred Foot" value={footedness} wide />
+                <PanelDetail label="Contract" value={player.contract_end ?? "--"} wide />
+              </div>
             </div>
           </div>
 
@@ -857,20 +1084,20 @@ function NegotiationPanel({
           </div>
         </div>
 
-        <div className="p-4 flex gap-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-          <div className="flex-1 flex flex-col gap-3">
+        <div data-testid="negotiation-panel-scroll-body" className="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar xl:flex-row">
+          <div className="min-w-0 flex-1 flex flex-col gap-3">
             <span className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase mb-1">OFFER PARAMETERS</span>
-            <ParameterRow label="Transfer Fee" val={formatVal(offerFee)} pct={60} />
-            <ParameterRow label="Current Wage" val={wage} pct={75} />
-            <ParameterRow label="Offer Wage" val={requestedWage} pct={offer ? 70 : 45} />
+            <ParameterRow label="Transfer Fee" val={formatVal(selectedOfferFee)} pct={parameterLevels.fee} onChange={(value) => updateParameterLevel("fee", value)} />
+            <ParameterRow label="Current Wage" val={wage} pct={parameterLevels.currentWage} onChange={(value) => updateParameterLevel("currentWage", value)} />
+            <ParameterRow label="Offer Wage" val={requestedWage} pct={parameterLevels.offerWage} onChange={(value) => updateParameterLevel("offerWage", value)} />
             <div className="flex items-center justify-between mt-1">
               <span className="text-[11px] text-app-text-muted">Offer Round</span>
-              <button type="button" onClick={onNegotiate} className="flex items-center justify-between px-2 py-1 bg-app-bg border border-app-border rounded text-[11px] w-[110px] hover:border-app-green/50 transition-colors">
+              <button type="button" onClick={() => onNegotiate(selectedOfferFee)} className="flex items-center justify-between px-2 py-1 bg-app-bg border border-app-border rounded text-[11px] w-[110px] hover:border-app-green/50 transition-colors">
                 <span>{offer ? `R${offer.negotiation_round}` : "No offer"}</span>
                 <ChevronRight className="w-3 h-3 text-app-text-muted" />
               </button>
             </div>
-            <ParameterRow label="Last Manager Fee" val={offer?.last_manager_fee ? formatVal(offer.last_manager_fee) : "--"} pct={offer?.last_manager_fee ? 55 : 10} />
+            <ParameterRow label="Last Manager Fee" val={offer?.last_manager_fee ? formatVal(offer.last_manager_fee) : "--"} pct={parameterLevels.lastManagerFee} onChange={(value) => updateParameterLevel("lastManagerFee", value)} />
 
             <span className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase mt-4 mb-2">DEAL BREAKDOWN</span>
             <div className="flex flex-col gap-2 flex-1">
@@ -878,7 +1105,7 @@ function NegotiationPanel({
               <BreakdownStat label="Overall" val={`${ovr}/99`} valColor="text-app-green" pct={Math.min(100, ovr)} barColor="bg-app-green" />
               <BreakdownStat label="Morale" val={`${player.morale}%`} valColor={player.morale >= 50 ? "text-app-green" : "text-amber-500"} pct={player.morale} barColor={player.morale >= 50 ? "bg-app-green" : "bg-amber-500"} />
               <BreakdownStat label="Offer Activity" val={offer ? "Active offer" : "Open market"} valColor={offer ? "text-red-500" : "text-app-green"} pct={competition} barColor={offer ? "bg-red-500" : "bg-app-green"} />
-              <div className="mt-2 pt-2 border-t border-app-border/30 flex justify-between items-center text-[11px]">
+              <div className="mt-2 pt-2 pb-1 border-t border-app-border/30 flex justify-between items-center text-[11px]">
                 <span className="text-white">Visual Interest</span>
                 <div className="flex items-center gap-2">
                   <div className="w-16 h-1.5 bg-app-bg rounded overflow-hidden"><div className="h-full bg-app-green" style={{ width: `${interest}%` }} /></div>
@@ -888,15 +1115,15 @@ function NegotiationPanel({
             </div>
           </div>
 
-          <div className="w-[120px] flex flex-col shrink-0">
+          <div className="w-full min-w-0 flex flex-col shrink-0 xl:w-[120px]">
             <span className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase mb-1 text-center border-b border-app-border/50 pb-2">SUBMIT BID</span>
-            <button type="button" onClick={onMakeOffer} aria-label="Submit panel bid" className="w-full bg-app-green hover:bg-app-green/90 text-app-bg font-bold py-2 rounded text-[11px] mt-3 transition-colors shadow-[0_0_10px_rgba(45,212,191,0.2)]">Submit Bid</button>
-            <button type="button" onClick={onNegotiate} className="w-full bg-app-card hover:bg-white/5 border border-app-border text-white font-medium py-2 rounded text-[11px] mt-2 transition-colors">Negotiate Terms</button>
+            <button type="button" onClick={() => onMakeOffer(selectedOfferFee)} aria-label="Submit panel bid" className="w-full bg-app-green hover:bg-app-green/90 text-app-bg font-bold py-2 rounded text-[11px] mt-3 transition-colors shadow-[0_0_10px_rgba(45,212,191,0.2)]">Submit Bid</button>
+            <button type="button" onClick={() => onNegotiate(selectedOfferFee)} className="w-full bg-app-card hover:bg-white/5 border border-app-border text-white font-medium py-2 rounded text-[11px] mt-2 transition-colors">Negotiate Terms</button>
             <button type="button" onClick={onWalkAway} className="w-full bg-[#1e1515] border border-red-900/50 hover:bg-red-900/30 text-red-400 font-medium py-2 rounded text-[11px] mt-2 transition-colors">Walk Away</button>
 
             <div className="mt-auto pt-4 border-t border-app-border/50 flex flex-col gap-1.5">
               <span className="text-[9px] font-bold text-app-text-muted tracking-widest uppercase mb-1">FINANCIAL IMPACT <span className="text-[8px] tracking-normal opacity-70 normal-case block">(This Season)</span></span>
-              <FinancialImpactRow label="Transfer Cost" value={formatVal(offerFee)} />
+              <FinancialImpactRow label="Transfer Cost" value={formatVal(selectedOfferFee)} />
               <FinancialImpactRow label="Offer Wage (p/w)" value={requestedWage} />
               <FinancialImpactRow label="Wage Budget Usage" value={bidProjection?.projection ? `${bidProjection.projection.projected_wage_budget_usage_pct}%` : "Preview"} />
               <div className="flex justify-between text-[10px] pt-1 border-t border-app-border/30"><span className="text-app-text">Balance After Fee</span><span>{bidProjection?.projection ? formatVal(bidProjection.projection.finance_after) : "Preview"}</span></div>
@@ -909,8 +1136,8 @@ function NegotiationPanel({
   );
 }
 
-function PanelDetail({ label, value, wrap }: { label: string; value: string; wrap?: boolean }) {
-  return <div className={cn("flex justify-between w-full gap-2", wrap && "items-start")}><span>{label}</span><span className={cn("text-white text-right", wrap ? "leading-tight max-w-[70px]" : "whitespace-nowrap")}>{value}</span></div>;
+function PanelDetail({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+  return <div className={cn("min-w-0", wide && "col-span-2")}><span className="block text-[8px] uppercase tracking-wide text-app-text-muted">{label}</span><span className="block text-[11px] font-semibold leading-tight text-white break-words">{value}</span></div>;
 }
 
 function PanelStat({ label, value, bordered }: { label: string; value: string; bordered?: boolean }) {
@@ -925,34 +1152,67 @@ function FinancialImpactRow({ label, value }: { label: string; value: string }) 
   return <div className="flex justify-between text-[10px]"><span className="text-app-text-muted">{label}</span><span>{value}</span></div>;
 }
 
-function ParameterRow({ label, val, pct }: { label: string; val: string; pct: number }) {
-  return <div className="flex flex-col gap-1 text-[11px]"><div className="flex justify-between text-app-text-muted"><span>{label}</span></div><div className="flex items-center gap-2"><div className="flex-1 h-3 bg-app-bg border border-app-border rounded cursor-pointer relative"><div className="h-full bg-app-green/50 w-2 absolute" style={{ left: `${Math.min(100, Math.max(0, pct))}%` }} /></div><div className="w-[110px] flex items-center justify-between px-2 bg-app-bg border border-app-border rounded cursor-pointer h-5 text-white font-medium hover:border-app-green/50"><Minus className="w-3 h-3 text-app-text-muted" /> {val} <Plus className="w-3 h-3 text-app-text-muted" /></div></div></div>;
+function ParameterRow({ label, val, pct, onChange }: { label: string; val: string; pct: number; onChange: (value: number) => void }) {
+  const safePct = Math.min(100, Math.max(0, pct));
+
+  return (
+    <div className="flex flex-col gap-1 text-[11px] min-w-0">
+      <div className="flex justify-between gap-2 text-app-text-muted">
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 text-[10px] text-app-text-muted/70">{safePct}%</span>
+      </div>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(94px,112px)] items-center gap-2">
+        <div className="relative h-3 min-w-0 rounded border border-app-border bg-app-bg overflow-hidden">
+          <div className="absolute inset-y-0 left-0 bg-app-green/25" style={{ width: `${safePct}%` }} />
+          <div className="absolute top-1/2 h-full w-2 -translate-y-1/2 rounded-sm bg-app-green/70 shadow-[0_0_8px_rgba(45,212,191,0.35)]" style={{ left: `calc(${safePct}% - 4px)` }} />
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={safePct}
+            aria-label={`${label} parameter`}
+            onChange={(event) => onChange(Number(event.target.value))}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-1 rounded border border-app-border bg-app-bg px-1.5 h-5 text-white font-medium hover:border-app-green/50">
+          <button type="button" aria-label={`Decrease ${label}`} onClick={() => onChange(safePct - 5)} className="shrink-0 rounded p-0.5 text-app-text-muted hover:bg-white/10 hover:text-white transition-colors">
+            <Minus className="w-3 h-3" />
+          </button>
+          <span className="min-w-0 flex-1 truncate text-center text-[10px]">{val}</span>
+          <button type="button" aria-label={`Increase ${label}`} onClick={() => onChange(safePct + 5)} className="shrink-0 rounded p-0.5 text-app-text-muted hover:bg-white/10 hover:text-white transition-colors">
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function BreakdownStat({ label, val, valColor, pct, barColor }: { label: string; val: string; valColor: string; pct: number; barColor: string }) {
   return <div className="flex justify-between items-center text-[10px]"><div className="w-[110px] text-app-text-muted truncate shrink-0">{label}</div><div className="flex-1 h-1 bg-app-bg mx-2 rounded overflow-hidden"><div className={cn("h-full", barColor)} style={{ width: `${pct}%` }} /></div><div className={cn("w-[70px] text-right font-medium truncate shrink-0", valColor)}>{val}</div></div>;
 }
 
-function BottomTransferCard({ title, players, teams, empty }: { title: string; players: PlayerData[]; teams: GameStateData["teams"]; empty: string }) {
-  return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">{title}</h3><Card className="flex flex-col p-3 text-[11px] h-full flex-1 min-h-[140px]"><table className="w-full text-left whitespace-nowrap mb-2"><thead><tr className="text-app-text-muted uppercase text-[9px] font-bold border-b border-app-border/30"><th className="py-2.5 px-1">PLAYER</th><th className="py-2.5">CLUB</th><th className="py-2.5 px-2">VALUE</th><th className="py-2.5 px-1 text-right">STATUS</th></tr></thead><tbody className="divide-y divide-app-border/20 text-app-text">{players.slice(0, 4).map((player) => <TransferRow key={player.id} player={player.match_name} club={getTeamName(teams, player.team_id)} fee={formatVal(player.market_value)} status={player.transfer_offers[0]?.status ?? (player.transfer_listed ? "Listed" : "Watched")} />)}</tbody></table>{players.length === 0 ? <div className="flex flex-1 items-center justify-center text-app-text-muted text-[10px]">{empty}</div> : null}</Card></div>;
+function BottomTransferCard({ title, players, teams, empty, onSelectPlayer, onSelectTeam }: { title: string; players: PlayerData[]; teams: GameStateData["teams"]; empty: string; onSelectPlayer: (id: string) => void; onSelectTeam: (id: string) => void }) {
+  return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">{title}</h3><Card className="flex flex-col p-3 text-[11px] h-full flex-1 min-h-[140px]"><table className="w-full text-left whitespace-nowrap mb-2"><thead><tr className="text-app-text-muted uppercase text-[9px] font-bold border-b border-app-border/30"><th className="py-2.5 px-1">PLAYER</th><th className="py-2.5">CLUB</th><th className="py-2.5 px-2">VALUE</th><th className="py-2.5 px-1 text-right">STATUS</th></tr></thead><tbody className="divide-y divide-app-border/20 text-app-text">{players.slice(0, 4).map((player) => <TransferRow key={player.id} player={player} club={getTeamName(teams, player.team_id)} fee={formatVal(player.market_value)} status={player.transfer_offers[0]?.status ?? (player.transfer_listed ? "Listed" : "Watched")} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />)}</tbody></table>{players.length === 0 ? <div className="flex flex-1 items-center justify-center text-app-text-muted text-[10px]">{empty}</div> : null}</Card></div>;
 }
 
-function TransferRow({ player, club, fee, status }: { player: string; club: string; fee: string; status: string }) {
-  return <tr className="hover:bg-white/5 transition-colors group"><td className="py-2.5 px-1 truncate max-w-[80px]"><span className="font-bold group-hover:text-app-green transition-colors truncate">{player}</span></td><td className="py-2.5 max-w-[70px]"><div className="flex items-center gap-1.5 truncate"><div className="w-3 h-3 rounded-full shrink-0 border border-white/20 bg-app-card" /><span className="text-app-text-muted truncate">{club}</span></div></td><td className="py-2.5 px-2 font-medium">{fee}</td><td className="py-2.5 px-1 text-right"><span className="px-1 py-0.5 rounded text-[8px] font-bold border inline-flex text-app-green bg-app-green/10 border-app-green/20">{status}</span></td></tr>;
+function TransferRow({ player, club, fee, status, onSelectPlayer, onSelectTeam }: { player: PlayerData; club: string; fee: string; status: string; onSelectPlayer: (id: string) => void; onSelectTeam: (id: string) => void }) {
+  return <tr className="hover:bg-white/5 transition-colors group"><td className="py-2.5 px-1 truncate max-w-[80px]"><button type="button" onClick={() => onSelectPlayer(player.id)} className="font-bold group-hover:text-app-green transition-colors truncate text-left">{player.match_name}</button></td><td className="py-2.5 max-w-[70px]"><button type="button" disabled={!player.team_id} onClick={() => player.team_id && onSelectTeam(player.team_id)} className="flex items-center gap-1.5 truncate disabled:cursor-default group/team"><div className="w-3 h-3 rounded-full shrink-0 border border-white/20 bg-app-card" /><span className="text-app-text-muted truncate group-hover/team:text-app-green transition-colors">{club}</span></button></td><td className="py-2.5 px-2 font-medium">{fee}</td><td className="py-2.5 px-1 text-right"><span className="px-1 py-0.5 rounded text-[8px] font-bold border inline-flex text-app-green bg-app-green/10 border-app-green/20">{status}</span></td></tr>;
 }
 
-function LoanWatchCard({ players, teams }: { players: PlayerData[]; teams: GameStateData["teams"] }) {
-  return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">LOAN WATCH</h3><Card className="flex flex-col p-3 text-[11px] h-full flex-1"><table className="w-full text-left whitespace-nowrap mb-2"><thead><tr className="text-app-text-muted uppercase text-[9px] font-bold border-b border-app-border/30"><th className="py-1 px-1">PLAYER</th><th className="py-1">CLUB</th><th className="py-1 px-1 text-center">OVR</th><th className="py-1 px-1">STATUS</th></tr></thead><tbody className="divide-y divide-app-border/10 text-app-text">{players.slice(0, 4).map((player) => <tr key={player.id} className="hover:bg-white/5 transition-colors"><td className="py-1 px-1"><span className="text-[10px] font-bold truncate">{player.match_name}</span></td><td className="py-1 text-app-text-muted text-[10px] truncate">{getTeamName(teams, player.team_id)}</td><td className="py-1 text-center font-bold text-[10px] text-app-green">{getPlayerOvr(player)}</td><td className="py-1 text-[9px] text-app-text-muted text-right">{player.loan_listed ? "Listed" : "Available"}</td></tr>)}</tbody></table>{players.length === 0 ? <div className="flex flex-1 items-center justify-center text-app-text-muted text-[10px]">No loan players</div> : null}</Card></div>;
+function LoanWatchCard({ players, teams, onSelectPlayer, onSelectTeam }: { players: PlayerData[]; teams: GameStateData["teams"]; onSelectPlayer: (id: string) => void; onSelectTeam: (id: string) => void }) {
+  return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">LOAN WATCH</h3><Card className="flex flex-col p-3 text-[11px] h-full flex-1"><table className="w-full text-left whitespace-nowrap mb-2"><thead><tr className="text-app-text-muted uppercase text-[9px] font-bold border-b border-app-border/30"><th className="py-1 px-1">PLAYER</th><th className="py-1">CLUB</th><th className="py-1 px-1 text-center">OVR</th><th className="py-1 px-1">STATUS</th></tr></thead><tbody className="divide-y divide-app-border/10 text-app-text">{players.slice(0, 4).map((player) => <tr key={player.id} className="hover:bg-white/5 transition-colors"><td className="py-1 px-1"><button type="button" onClick={() => onSelectPlayer(player.id)} className="text-[10px] font-bold truncate hover:text-app-green transition-colors">{player.match_name}</button></td><td className="py-1 text-app-text-muted text-[10px] truncate"><button type="button" disabled={!player.team_id} onClick={() => player.team_id && onSelectTeam(player.team_id)} className="hover:text-app-green transition-colors disabled:hover:text-app-text-muted">{getTeamName(teams, player.team_id)}</button></td><td className="py-1 text-center font-bold text-[10px] text-app-green">{getPlayerOvr(player)}</td><td className="py-1 text-[9px] text-app-text-muted text-right">{player.loan_listed ? "Listed" : "Available"}</td></tr>)}</tbody></table>{players.length === 0 ? <div className="flex flex-1 items-center justify-center text-app-text-muted text-[10px]">No loan players</div> : null}</Card></div>;
 }
 
 function HottestBar({ pos, val, pct }: { pos: string; val: string; pct: number }) {
   return <div className="flex items-center gap-2 text-[9px]"><span className="text-app-text-muted w-24 truncate shrink-0">{pos}</span><div className="flex-1 h-1.5 bg-app-bg rounded-full overflow-hidden"><div className="h-full bg-app-green" style={{ width: `${pct}%` }} /></div><span className="text-white font-medium shrink-0">{val}</span></div>;
 }
 
-function ShortlistCardGroup({ players }: { players: PlayerData[] }) {
-  return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">SHORTLISTED PLAYERS</h3><Card className="flex flex-col flex-1 p-3"><div className="flex gap-2 h-full justify-between pb-2 overflow-x-auto custom-scrollbar">{players.length > 0 ? players.map((player) => <ShortlistCard key={player.id} player={player} />) : <div className="flex flex-1 items-center justify-center text-app-text-muted text-[10px]">No shortlisted players</div>}</div></Card></div>;
+function ShortlistCardGroup({ players, onSelectPlayer }: { players: PlayerData[]; onSelectPlayer: (id: string) => void }) {
+  return <div className="flex flex-col gap-2"><h3 className="text-[10px] font-bold text-app-text-muted tracking-widest uppercase">SHORTLISTED PLAYERS</h3><Card className="flex flex-col flex-1 p-3"><div className="flex gap-2 h-full justify-between pb-2 overflow-x-auto custom-scrollbar">{players.length > 0 ? players.map((player) => <ShortlistCard key={player.id} player={player} onSelectPlayer={onSelectPlayer} />) : <div className="flex flex-1 items-center justify-center text-app-text-muted text-[10px]">No shortlisted players</div>}</div></Card></div>;
 }
 
-function ShortlistCard({ player }: { player: PlayerData }) {
-  return <div className="flex flex-col items-center justify-between gap-1 p-2 rounded-lg border border-app-border bg-app-bg/50 hover:border-app-green/50 cursor-pointer transition-colors group w-[100px] shrink-0 h-full"><div className="w-8 h-8 rounded-full overflow-hidden border border-app-border bg-app-bg relative flex shrink-0 justify-center items-center mt-1"><User className="w-4 h-4 text-app-text-muted/50" /></div><div className="flex flex-col items-center w-full"><span className="text-[10px] font-bold truncate w-full text-center group-hover:text-app-green transition-colors leading-tight">{player.match_name}</span><div className="flex items-center gap-1 mt-0.5 text-center justify-center"><span className="text-[8px] text-app-text-muted">{calcAge(player.date_of_birth)}</span><span className="text-[8px] text-app-text-muted px-1 rounded bg-white/5">{player.natural_position || player.position}</span></div></div><StarRating rating={ratingForPlayer(player)} /><div className="px-1.5 py-0.5 rounded border border-app-border bg-app-bg text-[9px] font-bold text-white">{formatVal(player.market_value)}</div></div>;
+function ShortlistCard({ player, onSelectPlayer }: { player: PlayerData; onSelectPlayer: (id: string) => void }) {
+  return <button type="button" aria-label={`Open shortlisted player ${player.full_name}`} onClick={() => onSelectPlayer(player.id)} className="flex flex-col items-center justify-between gap-1 p-2 rounded-lg border border-app-border bg-app-bg/50 hover:border-app-green/50 cursor-pointer transition-colors group w-[100px] shrink-0 h-full"><div className="w-8 h-8 rounded-full overflow-hidden border border-app-border bg-app-bg relative flex shrink-0 justify-center items-center mt-1"><User className="w-4 h-4 text-app-text-muted/50" /></div><div className="flex flex-col items-center w-full"><span className="text-[10px] font-bold truncate w-full text-center group-hover:text-app-green transition-colors leading-tight">{player.match_name}</span><div className="flex items-center gap-1 mt-0.5 text-center justify-center"><span className="text-[8px] text-app-text-muted">{calcAge(player.date_of_birth)}</span><span className="text-[8px] text-app-text-muted px-1 rounded bg-white/5">{player.natural_position || player.position}</span></div></div><StarRating rating={ratingForPlayer(player)} /><div className="px-1.5 py-0.5 rounded border border-app-border bg-app-bg text-[9px] font-bold text-white">{formatVal(player.market_value)}</div></button>;
 }

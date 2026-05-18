@@ -83,3 +83,58 @@ export function filterTransferPlayers(
     return true;
   });
 }
+
+export interface TransferAdvancedFilters {
+  minAge: number | null;
+  maxAge: number | null;
+  maxValue: number | null;
+  maxWeeklyWage: number | null;
+  offerStatus: "Any" | "Pending" | "Accepted" | "Rejected" | "Withdrawn";
+}
+
+function ageOnDate(dateOfBirth: string, currentDate: string): number {
+  const birth = new Date(dateOfBirth);
+  const current = new Date(currentDate);
+  let age = current.getFullYear() - birth.getFullYear();
+  const monthDiff = current.getMonth() - birth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && current.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+
+  return age;
+}
+
+export function applyTransferAdvancedFilters(
+  players: PlayerData[],
+  filters: TransferAdvancedFilters,
+  currentDate: string,
+): PlayerData[] {
+  return players.filter((player) => {
+    const age = ageOnDate(player.date_of_birth, currentDate);
+    if (filters.minAge !== null && age < filters.minAge) return false;
+    if (filters.maxAge !== null && age > filters.maxAge) return false;
+    if (filters.maxValue !== null && player.market_value > filters.maxValue) return false;
+    if (filters.maxWeeklyWage !== null && player.wage / 52 > filters.maxWeeklyWage) return false;
+    if (
+      filters.offerStatus !== "Any" &&
+      !player.transfer_offers.some((offer) => offer.status === filters.offerStatus)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export function paginateTransferPlayers<T>(
+  items: T[],
+  page: number,
+  pageSize: number,
+): { items: T[]; page: number; pageCount: number } {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(pageCount, Math.max(1, page));
+  const start = (safePage - 1) * pageSize;
+
+  return { items: items.slice(start, start + pageSize), page: safePage, pageCount };
+}

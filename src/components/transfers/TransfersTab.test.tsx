@@ -362,7 +362,7 @@ describe("TransfersTab", function (): void {
     ).toBeInTheDocument();
   });
 
-  it("resumes an existing outgoing transfer negotiation when reopening the bid modal", function (): void {
+  it("resumes an existing outgoing transfer negotiation when reopening the bid modal", async function (): Promise<void> {
     const state = createGameState([
       createPlayer({
         id: "player-market-1",
@@ -404,9 +404,20 @@ describe("TransfersTab", function (): void {
     expect(screen.getByText("Their last signal")).toBeInTheDocument();
     expect(screen.getByText("Round 2")).toBeInTheDocument();
     expect(screen.getByDisplayValue("1.15")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "preview_transfer_bid_financial_impact",
+        {
+          playerId: "player-market-1",
+          fee: 1150000,
+        },
+      );
+    });
   });
 
   it("shows scout assignment errors inline on the transfer market", async function (): Promise<void> {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const state = createGameState([
       createPlayer({
         id: "player-market-1",
@@ -442,6 +453,7 @@ describe("TransfersTab", function (): void {
         "Scout is already assigned to another scouting task.",
       );
     });
+    consoleErrorSpy.mockRestore();
   });
 
   it("resumes an incoming transfer negotiation when reopening the counter-offer modal", function (): void {
@@ -575,6 +587,180 @@ describe("TransfersTab", function (): void {
       ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /submit bid/i })).toBeDisabled();
     });
+  });
+
+  it("uses real transfer filters and view dropdowns", function (): void {
+    render(
+      <TransfersTab
+        gameState={createGameState([
+          createPlayer({
+            id: "defender",
+            full_name: "Dan Defender",
+            natural_position: "Defender",
+            position: "Defender",
+            transfer_listed: true,
+            team_id: "team-2",
+            transfer_offers: [],
+          }),
+          createPlayer({
+            id: "forward",
+            full_name: "Finn Forward",
+            natural_position: "Forward",
+            position: "Forward",
+            transfer_listed: true,
+            team_id: "team-2",
+            transfer_offers: [],
+          }),
+        ])}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Transfer list view"), {
+      target: { value: "market" },
+    });
+    fireEvent.change(screen.getByLabelText("Position filter"), {
+      target: { value: "Defender" },
+    });
+
+    expect(screen.getByText("Dan Defender")).toBeInTheDocument();
+    expect(screen.queryByText("Finn Forward")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced filters" }));
+    expect(screen.getByLabelText("Maximum value")).toBeInTheDocument();
+  });
+
+  it("opens real header menus that route to transfer views and actions", function (): void {
+    render(
+      <TransfersTab
+        gameState={createGameState()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Shortlist menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open listed players" }));
+    expect(screen.getByLabelText("Transfer list view")).toHaveValue("my_list");
+
+    fireEvent.click(screen.getByRole("button", { name: "Finalize menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open active offers" }));
+    expect(screen.getByLabelText("Transfer list view")).toHaveValue("offers");
+
+    fireEvent.click(screen.getByRole("button", { name: "Transfer actions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open loan market" }));
+    expect(screen.getByLabelText("Transfer list view")).toHaveValue("loans");
+  });
+
+  it("paginates transfer targets with real navigation controls", function (): void {
+    const players = Array.from({ length: 12 }, (_, index) =>
+      createPlayer({
+        id: `market-${index}`,
+        full_name: `Market Player ${index}`,
+        match_name: `M. Player ${index}`,
+        team_id: "team-2",
+        transfer_listed: true,
+        transfer_offers: [],
+      }),
+    );
+
+    render(
+      <TransfersTab
+        gameState={createGameState(players)}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Transfer list view"), {
+      target: { value: "market" },
+    });
+
+    expect(screen.getByText("Market Player 0")).toBeInTheDocument();
+    expect(screen.queryByText("Market Player 10")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next transfer targets page" }));
+
+    expect(screen.queryByText("Market Player 0")).not.toBeInTheDocument();
+    expect(screen.getByText("Market Player 10")).toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+
+  it("routes bottom card rows to player profiles", function (): void {
+    const onSelectPlayer = vi.fn();
+
+    render(
+      <TransfersTab
+        gameState={createGameState([
+          createPlayer({ transfer_listed: true }),
+        ])}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open shortlisted player John Smith" }));
+
+    expect(onSelectPlayer).toHaveBeenCalledWith("player-1");
+  });
+
+  it("syncs the panel transfer fee parameter into the outgoing bid flow", async function (): Promise<void> {
+    render(
+      <TransfersTab
+        gameState={createGameState([
+          createPlayer({
+            id: "panel-market-player",
+            team_id: "team-2",
+            transfer_listed: true,
+            market_value: 2000000,
+            transfer_offers: [],
+          }),
+        ])}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("slider", { name: "Transfer Fee parameter" }), {
+      target: { value: "75" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit panel bid" }));
+
+    expect(screen.getByLabelText(/bid amount/i)).toHaveValue(1.4);
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "preview_transfer_bid_financial_impact",
+        {
+          playerId: "panel-market-player",
+          fee: 1400000,
+        },
+      );
+    });
+  });
+
+  it("renders interactive offer parameter controls in the negotiation panel", function (): void {
+    render(
+      <TransfersTab
+        gameState={createGameState()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("slider", { name: "Transfer Fee parameter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Decrease Transfer Fee" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Increase Transfer Fee" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Decrease Current Wage" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Increase Offer Wage" })).toBeInTheDocument();
+    expect(screen.getByTestId("negotiation-panel-scroll-body")).toHaveClass("overflow-x-hidden");
   });
 
   it("offers transfer-list actions from the my-list context menu", async function (): Promise<void> {

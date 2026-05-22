@@ -1,0 +1,103 @@
+name: "🐛 Bug melden (Deutsch)"
+description: "Melde einen Bug oder Absturz auf Deutsch"
+labels: ["bug", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug melden
+        Danke für das Melden eines Bugs!
+        Bitte fülle so viele Details wie möglich aus.
+        Du kannst in diesem Template auf Deutsch schreiben.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "Was ist passiert?"
+      description: "Beschreibe den Bug so klar wie möglich."
+      placeholder: "Das Spiel ist abgestürzt, als ich versucht habe..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "Was hast du erwartet?"
+      description: "Was hätte stattdessen passieren sollen?"
+      placeholder: "Ich habe erwartet, dass das Spiel normal startet..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Schritte zum Reproduzieren"
+      description: "Wie können wir diesen Bug reproduzieren?"
+      placeholder: |
+        1. Neues Spiel starten
+        2. Team auswählen
+        3. Bis zum Spieltag vorspulen
+        4. Auf "Gehe aufs Feld" klicken
+        5. Das Spiel stürzt ab
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: "Wie oft passiert das?"
+      options:
+        - Jedes Mal
+        - Manchmal
+        - Es ist nur einmal passiert
+    validations:
+      required: true
+
+  - type: textarea
+    id: game-context
+    attributes:
+      label: "Spielkontext"
+      description: "An welchem Tag/Spieltag warst du? Was hast du gemacht? Hattest du gerade einen Spielstand geladen?"
+      placeholder: "Ich war an Spieltag 5, direkt nach einem Spiel..."
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: "Betriebssystem"
+      description: "z. B. Windows 11, macOS 15, Ubuntu 24.04"
+      placeholder: "Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: resolution
+    attributes:
+      label: "Bildschirmauflösung"
+      description: "z. B. 1920x1080"
+      placeholder: "1920x1080"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logs
+    attributes:
+      label: "Log-Dateien"
+      description: |
+        Bitte hänge deine Log-Dateien an! Sie helfen uns, Bugs viel schneller zu beheben.
+        **Windows:** `C:\Users\<Du>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
+        **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
+        **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
+      options:
+        - label: "Ich habe meine Log-Dateien angehängt (ziehe den gezippten logs-Ordner unten hinein)"
+          required: false
+
+  - type: textarea
+    id: logs-and-screenshots
+    attributes:
+      label: "Log-Dateien und Screenshots"
+      description: "Ziehe hier deinen gezippten logs-Ordner und relevante Screenshots hinein."
+      placeholder: "Dateien hierher ziehen..."
+    validations:
+      required: false

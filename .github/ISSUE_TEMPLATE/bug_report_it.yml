@@ -1,0 +1,103 @@
+name: "🐛 Segnalazione Bug (Italiano)"
+description: "Segnala un bug o un crash in italiano"
+labels: ["bug", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Segnalazione Bug
+        Grazie per aver segnalato un bug!
+        Per favore compila quanti più dettagli possibile.
+        Puoi scrivere in italiano in questo template.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "Cosa è successo?"
+      description: "Descrivi il bug in modo chiaro."
+      placeholder: "Il gioco è andato in crash quando ho provato a..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "Cosa ti aspettavi?"
+      description: "Cosa sarebbe dovuto succedere invece?"
+      placeholder: "Mi aspettavo che la partita iniziasse normalmente..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Passaggi per riprodurre"
+      description: "Come possiamo riprodurre questo bug?"
+      placeholder: |
+        1. Avvia una nuova partita
+        2. Scegli una squadra
+        3. Avanza fino al giorno partita
+        4. Clicca su "Vai in campo"
+        5. Il gioco va in crash
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: "Con che frequenza succede?"
+      options:
+        - Sempre
+        - A volte
+        - È successo solo una volta
+    validations:
+      required: true
+
+  - type: textarea
+    id: game-context
+    attributes:
+      label: "Contesto di gioco"
+      description: "In che giorno/giornata eri? Cosa stavi facendo? Avevi appena caricato un salvataggio?"
+      placeholder: "Ero alla giornata 5, subito dopo una partita..."
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: "Sistema operativo"
+      description: "es. Windows 11, macOS 15, Ubuntu 24.04"
+      placeholder: "Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: resolution
+    attributes:
+      label: "Risoluzione dello schermo"
+      description: "es. 1920x1080"
+      placeholder: "1920x1080"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logs
+    attributes:
+      label: "File di log"
+      description: |
+        Per favore allega i tuoi file di log! Ci aiutano a correggere i bug molto più velocemente.
+        **Windows:** `C:\Users\<Tu>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
+        **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
+        **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
+      options:
+        - label: "Ho allegato i miei file di log (trascina qui sotto la cartella logs compressa in zip)"
+          required: false
+
+  - type: textarea
+    id: logs-and-screenshots
+    attributes:
+      label: "File di log e screenshot"
+      description: "Trascina qui la cartella logs compressa e qualsiasi screenshot utile."
+      placeholder: "Trascina qui i file..."
+    validations:
+      required: false

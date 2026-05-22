@@ -1,0 +1,87 @@
+name: "🎮 Rapport de Session (Français)"
+description: "Partager un résumé de votre session de jeu en français"
+labels: ["session-report", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Rapport de Session
+        Les rapports de session sont très précieux — ils nous aident à comprendre l'expérience complète du joueur.
+        Vous pouvez écrire en français dans ce template.
+
+  - type: input
+    id: play-time
+    attributes:
+      label: "Temps de jeu"
+      description: "Combien de temps avez-vous joué ?"
+      placeholder: "Environ 2 heures"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-did
+    attributes:
+      label: "Ce que j'ai fait"
+      description: "Bref résumé de votre session."
+      placeholder: "J'ai commencé une nouvelle partie, joué 10 matchs, atteint la journée 12..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-enjoyed
+    attributes:
+      label: "Ce que j'ai aimé"
+      description: "Qu'est-ce qui vous a plu ? Qu'est-ce qui vous a donné envie de continuer ?"
+      placeholder: "La simulation de match était passionnante, surtout quand..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-frustrated-me
+    attributes:
+      label: "Ce qui m'a frustré"
+      description: "Qu'est-ce qui vous a presque fait arrêter ? Qu'est-ce qui vous a semblé cassé ou pénible ?"
+      placeholder: "J'ai été perdu sur la page d'entraînement et..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: top-improvements
+    attributes:
+      label: "Les 3 choses principales que j'améliorerais"
+      description: "Si vous pouviez changer trois choses, lesquelles seraient-ce ?"
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: play-again
+    attributes:
+      label: "Rejoueriez-vous ?"
+      options:
+        - "Oui"
+        - "Peut-être"
+        - "Non"
+    validations:
+      required: true
+
+  - type: textarea
+    id: play-again-why
+    attributes:
+      label: "Pourquoi ?"
+      description: "Dites-nous pourquoi vous rejoueriez ou non."
+      placeholder: "Parce que..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Autre chose ?"
+      description: "Toute autre remarque, capture d'écran ou fichier de log."
+      placeholder: "Glissez les fichiers ici ou écrivez autre chose..."
+    validations:
+      required: false

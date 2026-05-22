@@ -1,0 +1,103 @@
+name: "🐛 Relatório de Bug (Português BR)"
+description: "Reporte um bug ou travamento em português do Brasil"
+labels: ["bug", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Relatório de Bug
+        Obrigado por reportar um bug!
+        Por favor preencha o máximo de detalhes possível.
+        Você pode escrever em português do Brasil neste template.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "O que aconteceu?"
+      description: "Descreva o bug de forma clara."
+      placeholder: "O jogo travou quando tentei..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "O que você esperava?"
+      description: "O que deveria ter acontecido no lugar disso?"
+      placeholder: "Eu esperava que a partida começasse normalmente..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Passos para reproduzir"
+      description: "Como podemos reproduzir esse bug?"
+      placeholder: |
+        1. Inicie um novo jogo
+        2. Escolha um time
+        3. Avance até o dia da partida
+        4. Clique em "Ir para o Campo"
+        5. O jogo trava
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: "Com que frequência acontece?"
+      options:
+        - Sempre
+        - Às vezes
+        - Só aconteceu uma vez
+    validations:
+      required: true
+
+  - type: textarea
+    id: game-context
+    attributes:
+      label: "Contexto do jogo"
+      description: "Em que dia/rodada você estava? O que estava fazendo? Tinha acabado de carregar um save?"
+      placeholder: "Eu estava na rodada 5, logo depois de uma partida..."
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: "Sistema operacional"
+      description: "ex. Windows 11, macOS 15, Ubuntu 24.04"
+      placeholder: "Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: resolution
+    attributes:
+      label: "Resolução da tela"
+      description: "ex. 1920x1080"
+      placeholder: "1920x1080"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logs
+    attributes:
+      label: "Arquivos de log"
+      description: |
+        Por favor anexe seus arquivos de log! Eles ajudam a corrigir bugs muito mais rápido.
+        **Windows:** `C:\Users\<Você>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
+        **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
+        **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
+      options:
+        - label: "Anexei meus arquivos de log (arraste abaixo a pasta logs compactada em zip)"
+          required: false
+
+  - type: textarea
+    id: logs-and-screenshots
+    attributes:
+      label: "Arquivos de log e capturas"
+      description: "Arraste aqui a pasta logs compactada e quaisquer capturas relevantes."
+      placeholder: "Arraste os arquivos aqui..."
+    validations:
+      required: false

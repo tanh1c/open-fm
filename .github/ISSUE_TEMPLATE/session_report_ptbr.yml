@@ -1,0 +1,87 @@
+name: "🎮 Relatório de Sessão (Português BR)"
+description: "Compartilhe um resumo da sua sessão de jogo em português do Brasil"
+labels: ["session-report", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Relatório de Sessão
+        Relatórios de sessão são incrivelmente valiosos — eles ajudam a gente a entender a experiência completa do jogador.
+        Você pode escrever em português do Brasil neste template.
+
+  - type: input
+    id: play-time
+    attributes:
+      label: "Tempo de jogo"
+      description: "Quanto tempo você jogou?"
+      placeholder: "Cerca de 2 horas"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-did
+    attributes:
+      label: "O que eu fiz"
+      description: "Resumo breve da sua sessão."
+      placeholder: "Comecei um novo jogo, joguei 10 partidas, cheguei à rodada 12..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-enjoyed
+    attributes:
+      label: "O que eu gostei"
+      description: "O que pareceu legal? O que fez você continuar jogando?"
+      placeholder: "A simulação de partida foi empolgante, especialmente quando..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-frustrated-me
+    attributes:
+      label: "O que me frustrou"
+      description: "O que quase fez você parar? O que pareceu quebrado ou cansativo?"
+      placeholder: "Fiquei confuso com a página de treino e..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: top-improvements
+    attributes:
+      label: "As 3 principais coisas que eu melhoraria"
+      description: "Se você pudesse mudar três coisas, quais seriam?"
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: play-again
+    attributes:
+      label: "Você jogaria de novo?"
+      options:
+        - "Sim"
+        - "Talvez"
+        - "Não"
+    validations:
+      required: true
+
+  - type: textarea
+    id: play-again-why
+    attributes:
+      label: "Por quê?"
+      description: "Conte pra gente por que você jogaria ou não de novo."
+      placeholder: "Porque..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Mais alguma coisa?"
+      description: "Qualquer outro comentário, captura ou arquivo de log."
+      placeholder: "Arraste arquivos aqui ou escreva qualquer outra coisa..."
+    validations:
+      required: false

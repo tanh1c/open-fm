@@ -1,0 +1,102 @@
+name: "\U0001F41B Bug Report (English)"
+description: "Report a bug or crash in English"
+labels: ["bug", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+        Thank you for reporting a bug! Please fill in as much detail as you can.
+        Please write in English in this template.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "What happened?"
+      description: "Describe the bug clearly."
+      placeholder: "The game crashed when I tried to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "What did you expect?"
+      description: "What should have happened instead?"
+      placeholder: "I expected the match to start normally..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Steps to reproduce"
+      description: "How can we reproduce this bug?"
+      placeholder: |
+        1. Start a new game
+        2. Pick a team
+        3. Advance to matchday
+        4. Click "Go to the Field"
+        5. Game crashes
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: "How often does it happen?"
+      options:
+        - Every time
+        - Sometimes
+        - Only happened once
+    validations:
+      required: true
+
+  - type: textarea
+    id: game-context
+    attributes:
+      label: "Game context"
+      description: "What day/matchday were you on? What were you doing? Had you just loaded a save?"
+      placeholder: "I was on matchday 5, just after a match..."
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: "Operating System"
+      description: "e.g., Windows 11, macOS 15, Ubuntu 24.04"
+      placeholder: "Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: resolution
+    attributes:
+      label: "Screen resolution"
+      description: "e.g., 1920x1080"
+      placeholder: "1920x1080"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logs
+    attributes:
+      label: "Log files"
+      description: |
+        Please attach your log files! They help us fix bugs much faster.
+        **Windows:** `C:\Users\<You>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
+        **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
+        **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
+      options:
+        - label: "I have attached my log files (drag & drop the zipped logs folder below)"
+          required: false
+
+  - type: textarea
+    id: logs-and-screenshots
+    attributes:
+      label: "Log files & screenshots"
+      description: "Drag and drop your zipped logs folder and any screenshots here."
+      placeholder: "Drag files here..."
+    validations:
+      required: false

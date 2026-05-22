@@ -1,0 +1,58 @@
+name: "💬 Feedback / Sugerencia (Español)"
+description: "Comparte feedback o sugerencias en español"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Sugerencia
+        ¡Nos encanta escuchar tu opinión!
+        Puedes escribir en español en este template.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Categoría"
+      options:
+        - "Usabilidad"
+        - "Balance"
+        - "Sugerencia"
+        - "Otro"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "¿Qué parte del juego?"
+      description: "ej. Entrenamiento, Simulación de Partido, Fichajes, Bandeja de entrada, Tácticas..."
+      placeholder: "Simulación de Partido"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descripción"
+      description: "Describe tu experiencia, problema o sugerencia con detalle."
+      placeholder: "Creo que el sistema de entrenamiento podría mejorarse si..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Por qué importa"
+      description: "¿Cómo afecta esto a tu disfrute del juego?"
+      placeholder: "Esto importa porque..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Capturas"
+      description: "Arrastra aquí cualquier captura relevante."
+      placeholder: "Arrastra aquí los archivos..."
+    validations:
+      required: false

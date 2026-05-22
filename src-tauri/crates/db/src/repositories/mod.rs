@@ -1,0 +1,11 @@
+pub mod league_repo;
+pub mod manager_repo;
+pub mod message_repo;
+pub mod meta_repo;
+pub mod news_repo;
+pub mod objective_repo;
+pub mod player_repo;
+pub mod scouting_repo;
+pub mod staff_repo;
+pub mod stats_repo;
+pub mod team_repo;

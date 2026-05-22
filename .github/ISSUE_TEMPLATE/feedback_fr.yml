@@ -1,0 +1,58 @@
+name: "💬 Feedback / Suggestion (Français)"
+description: "Partager un retour ou une suggestion en français"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Suggestion
+        On adore avoir vos retours !
+        Vous pouvez écrire en français dans ce template.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Catégorie"
+      options:
+        - "Ergonomie"
+        - "Équilibre"
+        - "Suggestion"
+        - "Autre"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "Quelle partie du jeu ?"
+      description: "ex. Entraînement, Simulation de Match, Transferts, Boîte de réception, Tactiques..."
+      placeholder: "Simulation de Match"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: "Décrivez votre expérience, problème ou suggestion en détail."
+      placeholder: "Je pense que le système d'entraînement pourrait être amélioré en..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Pourquoi c'est important"
+      description: "Comment cela affecte-t-il votre plaisir de jeu ?"
+      placeholder: "C'est important parce que..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Captures d'écran"
+      description: "Glissez ici toute capture pertinente."
+      placeholder: "Glissez les fichiers ici..."
+    validations:
+      required: false

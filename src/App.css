@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+/* Bundled fonts (offline, used weights and supported subsets only) */
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-700.css";
+@import "@fontsource/inter/latin-ext-400.css";
+@import "@fontsource/inter/latin-ext-500.css";
+@import "@fontsource/inter/latin-ext-600.css";
+@import "@fontsource/inter/latin-ext-700.css";
+@import "@fontsource/barlow-condensed/latin-600.css";
+@import "@fontsource/barlow-condensed/latin-700.css";
+@import "@fontsource/barlow-condensed/latin-ext-600.css";
+@import "@fontsource/barlow-condensed/latin-ext-700.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Typography — CJK fallbacks (PingFang SC/Microsoft YaHei/Noto Sans CJK SC) kick in on Chinese characters via the font-family fallback chain */
+  --font-sans: "Inter", "Avenir", "Helvetica", "Arial", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --font-heading: "Barlow Condensed", "Inter", "Arial Narrow", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+
+  /* Primary: Emerald Green */
+  --color-primary-50: #ecfdf5;
+  --color-primary-100: #d1fae5;
+  --color-primary-200: #a7f3d0;
+  --color-primary-300: #6ee7b7;
+  --color-primary-400: #34d399;
+  --color-primary-500: #10b981;
+  --color-primary-600: #059669;
+  --color-primary-700: #047857;
+  --color-primary-800: #065f46;
+  --color-primary-900: #064e3b;
+
+  /* Accent: Gold */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-300: #fcd34d;
+  --color-accent-400: #ffd60a;
+  --color-accent-500: #eab308;
+  --color-accent-600: #b8960a;
+  --color-accent-700: #a16207;
+  --color-accent-800: #854d0e;
+  --color-accent-900: #713f12;
+
+  /* Success: Green */
+  --color-success-400: #06d6a0;
+  --color-success-500: #05a87d;
+  --color-success-600: #059669;
+
+  /* Navy (dark mode backgrounds) */
+  --color-navy-900: #0a1128;
+  --color-navy-800: #131b33;
+  --color-navy-700: #1a2340;
+  --color-navy-600: #243054;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-100 text-navy-900 antialiased dark:bg-navy-900 dark:text-gray-100 transition-colors duration-300;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-navy-600);
+    border-radius: 9999px;
+  }
+}
+
+/* Dark mode: fix native select/option dropdown backgrounds on Linux */
+.dark select {
+  color-scheme: dark;
+}
+
+.dark select option {
+  background-color: var(--color-navy-700);
+  color: #e2e8f0;
+}
+
+/* Dark mode readability: boost low-contrast gray text on navy backgrounds */
+.dark .text-gray-500 {
+  color: #8d99ae;
+}
+
+.dark .text-gray-400 {
+  color: #a0aec0;
+}
+
+/* High-contrast mode: further boost for accessibility */
+.high-contrast.dark .text-gray-500 {
+  color: #b0bec5;
+}
+
+.high-contrast.dark .text-gray-400 {
+  color: #cfd8dc;
+}
+
+.high-contrast.dark .text-gray-600 {
+  color: #90a4ae;
+}

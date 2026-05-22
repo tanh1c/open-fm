@@ -1,0 +1,58 @@
+name: "💬 Feedback / Vorschlag (Deutsch)"
+description: "Teile Feedback oder Verbesserungsvorschläge auf Deutsch"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Vorschlag
+        Wir freuen uns über dein Feedback!
+        Du kannst in diesem Template auf Deutsch schreiben.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Kategorie"
+      options:
+        - "Bedienung"
+        - "Balance"
+        - "Vorschlag"
+        - "Anderes"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "Welcher Teil des Spiels?"
+      description: "z. B. Training, Spielsimulation, Transfers, Postfach, Taktik..."
+      placeholder: "Spielsimulation"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Beschreibung"
+      description: "Beschreibe dein Erlebnis, das Problem oder deinen Vorschlag so genau wie möglich."
+      placeholder: "Ich denke, das Trainingssystem könnte verbessert werden, indem..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Warum das wichtig ist"
+      description: "Wie wirkt sich das auf deinen Spielspaß aus?"
+      placeholder: "Das ist wichtig, weil..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots"
+      description: "Ziehe hier relevante Screenshots hinein."
+      placeholder: "Dateien hierher ziehen..."
+    validations:
+      required: false

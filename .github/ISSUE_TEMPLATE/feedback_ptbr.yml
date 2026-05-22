@@ -1,0 +1,58 @@
+name: "💬 Feedback / Sugestão (Português BR)"
+description: "Compartilhe feedback ou sugestões em português do Brasil"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Sugestão
+        A gente adora ouvir a sua opinião!
+        Você pode escrever em português do Brasil neste template.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Categoria"
+      options:
+        - "Usabilidade"
+        - "Balanceamento"
+        - "Sugestão"
+        - "Outro"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "Que parte do jogo?"
+      description: "ex. Treino, Simulação de Partida, Transferências, Caixa de entrada, Táticas..."
+      placeholder: "Simulação de Partida"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descrição"
+      description: "Descreva sua experiência, problema ou sugestão em detalhes."
+      placeholder: "Acho que o sistema de treino poderia ser melhorado assim..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Por que isso importa"
+      description: "Como isso afeta sua diversão com o jogo?"
+      placeholder: "Isso importa porque..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Capturas de tela"
+      description: "Arraste aqui qualquer captura relevante."
+      placeholder: "Arraste os arquivos aqui..."
+    validations:
+      required: false

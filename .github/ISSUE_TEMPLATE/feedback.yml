@@ -1,0 +1,58 @@
+name: "\U0001F4AC Feedback / Suggestion (English)"
+description: "Share feedback or suggest improvements in English"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Suggestion
+        We'd love to hear your thoughts!
+        Please write in English in this template.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Category"
+      options:
+        - "Usability"
+        - "Balance"
+        - "Suggestion"
+        - "Other"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "What part of the game?"
+      description: "e.g., Training, Match Simulation, Transfers, Inbox, Tactics..."
+      placeholder: "Match Simulation"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: "Describe your experience, issue, or suggestion in detail."
+      placeholder: "I think the training system could be improved by..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Why it matters"
+      description: "How does this affect your enjoyment of the game?"
+      placeholder: "This matters because..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots"
+      description: "Drag and drop any relevant screenshots here."
+      placeholder: "Drag files here..."
+    validations:
+      required: false

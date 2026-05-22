@@ -1,0 +1,58 @@
+name: "💬 Feedback / Suggerimento (Italiano)"
+description: "Condividi feedback o suggerimenti in italiano"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Suggerimento
+        Ci farebbe davvero piacere sentire la tua opinione!
+        Puoi scrivere in italiano in questo template.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Categoria"
+      options:
+        - "Usabilità"
+        - "Bilanciamento"
+        - "Suggerimento"
+        - "Altro"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "Quale parte del gioco?"
+      description: "es. Allenamento, Simulazione Partita, Trasferimenti, Posta, Tattiche..."
+      placeholder: "Simulazione Partita"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Descrizione"
+      description: "Descrivi nel dettaglio la tua esperienza, il problema o il suggerimento."
+      placeholder: "Penso che il sistema di allenamento potrebbe essere migliorato così..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Perché è importante"
+      description: "In che modo questo influisce sul tuo divertimento nel gioco?"
+      placeholder: "È importante perché..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshot"
+      description: "Trascina qui eventuali screenshot rilevanti."
+      placeholder: "Trascina qui i file..."
+    validations:
+      required: false

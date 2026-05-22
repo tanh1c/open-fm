@@ -1,0 +1,87 @@
+name: "\U0001F3AE Session Report (English)"
+description: "Share a summary of your play session in English"
+labels: ["session-report", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Session Report
+        Session reports are incredibly valuable — they help us understand the full player experience.
+        Please write in English in this template.
+
+  - type: input
+    id: play-time
+    attributes:
+      label: "Play time"
+      description: "How long did you play?"
+      placeholder: "About 2 hours"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-did
+    attributes:
+      label: "What I did"
+      description: "Brief summary of your session."
+      placeholder: "Started a new game, played 10 matches, got to matchday 12..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-enjoyed
+    attributes:
+      label: "What I enjoyed"
+      description: "What felt good? What kept you playing?"
+      placeholder: "The match simulation was exciting, especially when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-frustrated-me
+    attributes:
+      label: "What frustrated me"
+      description: "What almost made you stop? What felt broken or tedious?"
+      placeholder: "I got confused by the training page and..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: top-improvements
+    attributes:
+      label: "Top 3 things I'd improve"
+      description: "If you could change three things, what would they be?"
+      placeholder: |
+        1. 
+        2. 
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: play-again
+    attributes:
+      label: "Would you play again?"
+      options:
+        - "Yes"
+        - "Maybe"
+        - "No"
+    validations:
+      required: true
+
+  - type: textarea
+    id: play-again-why
+    attributes:
+      label: "Why?"
+      description: "Tell us why you would or wouldn't play again."
+      placeholder: "Because..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Anything else?"
+      description: "Any other thoughts, screenshots, or log files."
+      placeholder: "Drag files here or write anything else..."
+    validations:
+      required: false

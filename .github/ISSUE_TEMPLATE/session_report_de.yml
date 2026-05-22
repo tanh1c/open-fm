@@ -1,0 +1,87 @@
+name: "🎮 Sitzungsbericht (Deutsch)"
+description: "Teile eine Zusammenfassung deiner Spielsitzung auf Deutsch"
+labels: ["session-report", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Sitzungsbericht
+        Sitzungsberichte sind unglaublich wertvoll — sie helfen uns, das gesamte Spielerlebnis besser zu verstehen.
+        Du kannst in diesem Template auf Deutsch schreiben.
+
+  - type: input
+    id: play-time
+    attributes:
+      label: "Spielzeit"
+      description: "Wie lange hast du gespielt?"
+      placeholder: "Etwa 2 Stunden"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-did
+    attributes:
+      label: "Was ich gemacht habe"
+      description: "Kurze Zusammenfassung deiner Sitzung."
+      placeholder: "Neues Spiel gestartet, 10 Partien gespielt, bis Spieltag 12 gekommen..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-i-enjoyed
+    attributes:
+      label: "Was mir gefallen hat"
+      description: "Was hat sich gut angefühlt? Was hat dich weiterspielen lassen?"
+      placeholder: "Die Spielsimulation war spannend, besonders als..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-frustrated-me
+    attributes:
+      label: "Was mich frustriert hat"
+      description: "Was hätte dich fast zum Aufhören gebracht? Was wirkte kaputt oder mühsam?"
+      placeholder: "Ich war von der Trainingsseite verwirrt und..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: top-improvements
+    attributes:
+      label: "Die 3 wichtigsten Dinge, die ich verbessern würde"
+      description: "Wenn du drei Dinge ändern könntest, welche wären das?"
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: play-again
+    attributes:
+      label: "Würdest du noch einmal spielen?"
+      options:
+        - "Ja"
+        - "Vielleicht"
+        - "Nein"
+    validations:
+      required: true
+
+  - type: textarea
+    id: play-again-why
+    attributes:
+      label: "Warum?"
+      description: "Sag uns, warum du wieder spielen würdest oder nicht."
+      placeholder: "Weil..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: "Noch etwas?"
+      description: "Weitere Gedanken, Screenshots oder Log-Dateien."
+      placeholder: "Dateien hierher ziehen oder noch etwas schreiben..."
+    validations:
+      required: false

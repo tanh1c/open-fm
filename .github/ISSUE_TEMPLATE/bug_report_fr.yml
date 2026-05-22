@@ -1,0 +1,103 @@
+name: "🐛 Rapport de Bug (Français)"
+description: "Signaler un bug ou un crash en français"
+labels: ["bug", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Rapport de Bug
+        Merci de signaler un bug !
+        Merci de remplir un maximum de détails.
+        Vous pouvez écrire en français dans ce template.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: "Que s'est-il passé ?"
+      description: "Décris le bug clairement."
+      placeholder: "Le jeu a crashé quand j'ai essayé de..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "À quoi t'attendais-tu ?"
+      description: "Qu'aurait-il dû se passer à la place ?"
+      placeholder: "Je m'attendais à ce que le match démarre normalement..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "Étapes pour reproduire"
+      description: "Comment pouvons-nous reproduire ce bug ?"
+      placeholder: |
+        1. Démarrer une nouvelle partie
+        2. Choisir une équipe
+        3. Avancer jusqu'au jour de match
+        4. Cliquer sur "Aller sur le terrain"
+        5. Le jeu crash
+    validations:
+      required: false
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: "À quelle fréquence cela arrive-t-il ?"
+      options:
+        - À chaque fois
+        - Parfois
+        - Une seule fois
+    validations:
+      required: true
+
+  - type: textarea
+    id: game-context
+    attributes:
+      label: "Contexte de jeu"
+      description: "À quel jour / quelle journée étais-tu ? Que faisais-tu ? Venais-tu de charger une sauvegarde ?"
+      placeholder: "J'étais à la journée 5, juste après un match..."
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: "Système d'exploitation"
+      description: "ex. Windows 11, macOS 15, Ubuntu 24.04"
+      placeholder: "Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: resolution
+    attributes:
+      label: "Résolution d'écran"
+      description: "ex. 1920x1080"
+      placeholder: "1920x1080"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: logs
+    attributes:
+      label: "Fichiers de log"
+      description: |
+        Merci de joindre vos fichiers de log ! Ils nous aident à corriger les bugs beaucoup plus vite.
+        **Windows:** `C:\Users\<Vous>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
+        **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
+        **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
+      options:
+        - label: "J'ai joint mes fichiers de log (glissez ci-dessous le dossier logs compressé en zip)"
+          required: false
+
+  - type: textarea
+    id: logs-and-screenshots
+    attributes:
+      label: "Fichiers de log et captures d'écran"
+      description: "Glissez ici votre dossier logs compressé et toute capture utile."
+      placeholder: "Glissez les fichiers ici..."
+    validations:
+      required: false

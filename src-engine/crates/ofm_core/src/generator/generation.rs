@@ -148,6 +148,14 @@ pub(super) fn play_style_from_str(s: &str) -> PlayStyle {
     }
 }
 
+fn round_money(value: u64, step: u64) -> u64 {
+    if step == 0 {
+        return value;
+    }
+
+    ((value + step - 1) / step) * step
+}
+
 pub(super) fn generate_random_player_from_def(
     team_id: &str,
     index: usize,
@@ -191,88 +199,61 @@ pub(super) fn generate_random_player_from_def(
     let is_fwd = matches!(group, Position::Forward);
 
     let attributes = PlayerAttributes {
-        pace: rng.random_range(40..95),
-        stamina: rng.random_range(40..95),
-        strength: rng.random_range(40..95),
-        agility: rng.random_range(40..95),
-        passing: rng.random_range(40..95),
+        pace: rng.random_range(55..97),
+        stamina: rng.random_range(55..97),
+        strength: rng.random_range(55..94),
+        agility: rng.random_range(55..97),
+        passing: rng.random_range(55..96),
         shooting: if is_gk {
-            rng.random_range(20..50)
+            rng.random_range(24..52)
         } else {
-            rng.random_range(40..95)
+            rng.random_range(55..96)
         },
         tackling: if is_gk || is_fwd {
-            rng.random_range(20..60)
+            rng.random_range(30..66)
         } else {
-            rng.random_range(40..95)
+            rng.random_range(58..96)
         },
         dribbling: if is_gk {
-            rng.random_range(20..50)
+            rng.random_range(24..52)
         } else {
-            rng.random_range(40..95)
+            rng.random_range(55..96)
         },
         defending: if is_gk {
-            rng.random_range(25..55)
+            rng.random_range(30..58)
         } else if is_def {
-            rng.random_range(55..95)
+            rng.random_range(64..97)
         } else {
-            rng.random_range(40..95)
+            rng.random_range(50..90)
         },
-        positioning: rng.random_range(40..95),
-        vision: rng.random_range(40..95),
-        decisions: rng.random_range(40..95),
-        composure: rng.random_range(40..95),
-        aggression: rng.random_range(30..90),
-        teamwork: rng.random_range(45..95),
-        leadership: rng.random_range(30..90),
+        positioning: rng.random_range(56..96),
+        vision: rng.random_range(55..95),
+        decisions: rng.random_range(55..95),
+        composure: rng.random_range(55..95),
+        aggression: rng.random_range(42..92),
+        teamwork: rng.random_range(56..96),
+        leadership: rng.random_range(38..90),
         handling: if is_gk {
-            rng.random_range(50..95)
+            rng.random_range(62..97)
         } else {
             rng.random_range(10..35)
         },
         reflexes: if is_gk {
-            rng.random_range(50..95)
+            rng.random_range(62..97)
         } else {
-            rng.random_range(20..50)
+            rng.random_range(22..50)
         },
         aerial: if is_gk {
-            rng.random_range(50..95)
+            rng.random_range(60..96)
         } else if is_def {
-            rng.random_range(45..90)
+            rng.random_range(55..92)
         } else {
-            rng.random_range(30..75)
+            rng.random_range(38..80)
         },
     };
 
-    // For initial market-value sizing, use a temporary simple attribute average.
-    // The accurate position-weighted OVR is computed by refresh_player_derived() below.
     let current_year: u32 = 2026;
 
-    let approx_ovr = (attributes.pace as u32
-        + attributes.stamina as u32
-        + attributes.strength as u32
-        + attributes.passing as u32
-        + attributes.shooting as u32
-        + attributes.tackling as u32
-        + attributes.dribbling as u32
-        + attributes.defending as u32
-        + attributes.positioning as u32
-        + attributes.vision as u32
-        + attributes.decisions as u32)
-        / 11;
-
-    let age_factor = if age <= 23 {
-        1.5
-    } else if age <= 28 {
-        1.2
-    } else if age <= 32 {
-        0.8
-    } else {
-        0.4
-    };
-    let base_value = (approx_ovr as f64).powi(2) * 500.0;
-    let market_value = (base_value * age_factor) as u64;
-    let wage = (market_value / 200).max(500) as u32;
     let contract_years = if age <= 21 {
         rng.random_range(3..6)
     } else if age <= 27 {
@@ -296,8 +277,6 @@ pub(super) fn generate_random_player_from_def(
         attributes,
     );
     player.team_id = Some(team_id.to_string());
-    player.market_value = market_value;
-    player.wage = wage;
     player.contract_end = Some(contract_end);
     player.condition = rng.random_range(75..100);
     player.morale = rng.random_range(40..76);
@@ -319,6 +298,45 @@ pub(super) fn generate_random_player_from_def(
     };
     player.potential = generate_potential(temp_ovr, player_age);
     refresh_player_derived(&mut player, current_year);
+
+    let age_factor = if age <= 20 {
+        1.35
+    } else if age <= 23 {
+        1.28
+    } else if age <= 27 {
+        1.15
+    } else if age <= 30 {
+        1.0
+    } else if age <= 32 {
+        0.72
+    } else {
+        0.36
+    };
+    let rating_factor = ((player.ovr as f64 - 42.0).max(1.0) / 50.0).powf(2.2);
+    let position_factor = if is_gk { 0.82 } else if is_fwd { 1.1 } else { 1.0 };
+    let potential_premium = if player_age <= 23 {
+        1.0 + (player.potential.saturating_sub(player.ovr) as f64 * 0.025).min(0.45)
+    } else {
+        1.0
+    };
+    let elite_premium = if player.ovr >= 90 {
+        2.75
+    } else if player.ovr >= 87 {
+        2.15
+    } else if player.ovr >= 84 {
+        1.55
+    } else if player.ovr >= 81 {
+        1.25
+    } else {
+        1.0
+    };
+    let base_value = 300_000.0 + rating_factor * 78_000_000.0;
+    player.market_value = round_money(
+        (base_value * age_factor * position_factor * potential_premium * elite_premium) as u64,
+        50_000,
+    );
+    let weekly_wage = (player.market_value / 1_250).clamp(2_000, 260_000);
+    player.wage = round_money(weekly_wage * 52, 5_000) as u32;
 
     player
 }

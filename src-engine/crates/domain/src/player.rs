@@ -77,6 +77,14 @@ pub struct Player {
     #[serde(default)]
     pub loan_listed: bool,
     #[serde(default)]
+    pub shortlisted: bool,
+    #[serde(default)]
+    pub loan_parent_team_id: Option<String>,
+    #[serde(default)]
+    pub loan_until: Option<String>,
+    #[serde(default)]
+    pub loan_wage_share_percent: Option<u8>,
+    #[serde(default)]
     pub transfer_offers: Vec<TransferOffer>,
     #[serde(default)]
     pub morale_core: PlayerMoraleCore,
@@ -385,6 +393,16 @@ pub struct TransferOffer {
     pub from_team_id: String,
     pub fee: u64,
     pub wage_offered: u32,
+    #[serde(default = "default_transfer_offer_kind")]
+    pub kind: TransferOfferKind,
+    #[serde(default)]
+    pub contract_years: Option<u32>,
+    #[serde(default)]
+    pub loan_months: Option<u32>,
+    #[serde(default)]
+    pub wage_share_percent: Option<u8>,
+    #[serde(default)]
+    pub agreed_fee: Option<u64>,
     #[serde(default)]
     pub last_manager_fee: Option<u64>,
     #[serde(default = "default_transfer_offer_round")]
@@ -395,6 +413,16 @@ pub struct TransferOffer {
     pub status: TransferOfferStatus,
     #[serde(default = "default_transfer_offer_date")]
     pub date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum TransferOfferKind {
+    Permanent,
+    Loan,
+}
+
+fn default_transfer_offer_kind() -> TransferOfferKind {
+    TransferOfferKind::Permanent
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -557,6 +585,10 @@ impl Player {
             training_focus: None,
             transfer_listed: false,
             loan_listed: false,
+            shortlisted: false,
+            loan_parent_team_id: None,
+            loan_until: None,
+            loan_wage_share_percent: None,
             transfer_offers: Vec::new(),
             morale_core: PlayerMoraleCore::default(),
         }

@@ -323,7 +323,9 @@ mod tests {
     };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
-    use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
+    use domain::player::{
+        Player, PlayerAttributes, Position, TransferOffer, TransferOfferKind, TransferOfferStatus,
+    };
     use domain::season::TransferWindowStatus;
     use domain::team::Team;
     use ofm_core::clock::GameClock;
@@ -404,6 +406,11 @@ mod tests {
             from_team_id: "team-2".to_string(),
             fee: 900_000,
             wage_offered: 0,
+            kind: TransferOfferKind::Permanent,
+            contract_years: None,
+            loan_months: None,
+            wage_share_percent: None,
+            agreed_fee: None,
             last_manager_fee: None,
             negotiation_round: 1,
             suggested_counter_fee: None,

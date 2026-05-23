@@ -119,7 +119,7 @@ pub(super) fn default_teams_definition() -> TeamsDefinition {
                 play_style: t.play_style.to_string(),
                 stadium_name: format!("{} Arena", t.city),
                 reputation_range: Some([300, 900]),
-                finance_range: Some([500_000, 10_000_000]),
+                finance_range: Some([25_000_000, 350_000_000]),
             })
             .collect(),
     }

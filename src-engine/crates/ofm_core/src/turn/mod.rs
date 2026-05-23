@@ -64,6 +64,7 @@ where
     }
 
     crate::contracts::process_contract_expiries(game);
+    transfers::process_loan_expiries(game);
 
     // Weekly financial processing (wages, matchday income, warnings)
     crate::finances::process_weekly_finances(game);

@@ -37,8 +37,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           contract_end, wage, market_value, stats, career,
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
-          ovr, potential)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)",
+          ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36)",
         params![
             p.id,
             p.match_name,
@@ -72,6 +72,10 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             format!("{:?}", p.squad_role),
             p.ovr as i64,
             p.potential as i64,
+            p.shortlisted as i32,
+            p.loan_parent_team_id,
+            p.loan_until,
+            p.loan_wage_share_percent.map(i64::from),
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -145,7 +149,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
                     natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
-                    ovr, potential
+                    ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent
              FROM players",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -204,6 +208,11 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let squad_role_str: String = row.get(29).unwrap_or_else(|_| "Senior".to_string());
     let ovr: u8 = row.get::<_, i64>(30).unwrap_or(0) as u8; // default 0 for saves before V20
     let potential: u8 = row.get::<_, i64>(31).unwrap_or(0) as u8; // default 0 for saves before V20
+    let shortlisted_int: i32 = row.get(32).unwrap_or(0);
+    let loan_wage_share_percent: Option<u8> = row
+        .get::<_, Option<i64>>(35)
+        .unwrap_or(None)
+        .map(|value| value.clamp(0, 100) as u8);
     let transfer_listed_int: i32 = row.get(19)?;
     let loan_listed_int: i32 = row.get(20)?;
     let market_value_i64: i64 = row.get(16)?;
@@ -266,6 +275,10 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         training_focus: training_focus_str.and_then(|s| parse_training_focus(&s)),
         transfer_listed: transfer_listed_int != 0,
         loan_listed: loan_listed_int != 0,
+        shortlisted: shortlisted_int != 0,
+        loan_parent_team_id: row.get(33).unwrap_or(None),
+        loan_until: row.get(34).unwrap_or(None),
+        loan_wage_share_percent,
         transfer_offers: serde_json::from_str(&offers_json).unwrap_or_default(),
         morale_core: serde_json::from_str(&morale_core_json).unwrap_or_default(),
     })

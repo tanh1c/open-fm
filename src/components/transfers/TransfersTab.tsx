@@ -3,9 +3,10 @@ import {
   GameStateData,
   PlayerData,
   PlayerSelectionOptions,
+  TeamData,
   TransferOfferData,
 } from "../../store/gameStore";
-import { Badge, Card, CountryFlag } from "../ui";
+import { Badge, Card, CountryFlag, Select } from "../ui";
 import ContextMenu from "../ContextMenu";
 import {
   Activity,
@@ -50,8 +51,11 @@ import TransferBidModal from "./TransferBidModal";
 import TransferCounterOfferModal from "./TransferCounterOfferModal";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import {
+  approachFreeAgent,
   counterOffer,
+  makeLoanOffer,
   respondToOffer,
+  toggleShortlist,
   toggleLoanList,
   toggleTransferList,
   type TransferNegotiationResponseData,
@@ -104,6 +108,9 @@ type VisualTab = {
   view: TransferTabView;
   ariaLabel?: string;
 };
+
+type TransferSortKey = "index" | "player" | "age" | "nationality" | "club" | "position" | "value" | "wage" | "interest" | "rating" | "status";
+type SortDirection = "asc" | "desc";
 
 function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -169,6 +176,8 @@ export default function TransfersTab({
     offerStatus: "Any",
   });
   const [openHeaderMenu, setOpenHeaderMenu] = useState<"shortlist" | "finalize" | "actions" | null>(null);
+  const [sortKey, setSortKey] = useState<TransferSortKey>("index");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
   const pageSize = 10;
   const [counterTarget, setCounterTarget] = useState<CounterTarget | null>(null);
@@ -179,6 +188,15 @@ export default function TransfersTab({
   const [counterFeedback, setCounterFeedback] = useState<NegotiationFeedbackPanelData | null>(null);
   const [scoutingPlayerId, setScoutingPlayerId] = useState<string | null>(null);
   const [scoutError, setScoutError] = useState<string | null>(null);
+  const [loanOfferPlayerId, setLoanOfferPlayerId] = useState<string | null>(null);
+  const [loanTarget, setLoanTarget] = useState<PlayerData | null>(null);
+  const [loanMonths, setLoanMonths] = useState("6");
+  const [loanWageShare, setLoanWageShare] = useState("50");
+  const [freeAgentSigningId, setFreeAgentSigningId] = useState<string | null>(null);
+  const [freeAgentTarget, setFreeAgentTarget] = useState<PlayerData | null>(null);
+  const [freeAgentWage, setFreeAgentWage] = useState("");
+  const [freeAgentYears, setFreeAgentYears] = useState("3");
+  const [selectedPanelPlayerId, setSelectedPanelPlayerId] = useState<string | null>(null);
 
   const openCounterNegotiation = (player: PlayerData, offer: TransferOfferData) => {
     setCounterTarget({ player, offerId: offer.id, fromTeamId: offer.from_team_id, fee: offer.fee });
@@ -234,6 +252,12 @@ export default function TransfersTab({
     bidTarget,
     bidAmount,
     setBidAmount,
+    contractWage,
+    setContractWage,
+    contractYears,
+    setContractYears,
+    contractStepActive,
+    contractResult,
     bidResult,
     bidLoading,
     bidFeedback,
@@ -243,9 +267,11 @@ export default function TransfersTab({
     myTeam,
     hasExistingOffer,
     bidSubmitDisabled,
+    contractSubmitDisabled,
     openBidNegotiation,
     closeBidNegotiation,
     handleMakeBid,
+    handleProposeContract,
   } = useTransferBidFlow({ gameState, onGameUpdate });
 
   const scouts = gameState.staff.filter((staffMember) => staffMember.role === "Scout" && staffMember.team_id === userTeamId);
@@ -268,7 +294,7 @@ export default function TransfersTab({
           : t("season.windowClosed");
 
   const transferCollections = deriveTransferCollections(gameState, userTeamId);
-  const { myTransferList, myLoanList, marketPlayers, loanPlayers, playersWithOffers } = transferCollections;
+  const { myTransferList, myLoanList, marketPlayers, loanPlayers, playersWithOffers, shortlistedPlayers } = transferCollections;
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
   const currentList = getCurrentTransferList(view, transferCollections);
   const basicFilteredList = filterTransferPlayers(currentList, search, posFilter);
@@ -277,10 +303,28 @@ export default function TransfersTab({
     advancedFilters,
     gameState.clock.current_date,
   );
-  const paginatedTargets = paginateTransferPlayers(filteredList, page, pageSize);
+  const sortedList = [...filteredList].sort((a, b) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+
+    if (sortKey === "index") return 0;
+    if (sortKey === "player") return direction * a.full_name.localeCompare(b.full_name, i18n.language);
+    if (sortKey === "age") return direction * (calcAge(a.date_of_birth) - calcAge(b.date_of_birth));
+    if (sortKey === "nationality") return direction * countryName(a.nationality, i18n.language).localeCompare(countryName(b.nationality, i18n.language), i18n.language);
+    if (sortKey === "club") return direction * getTeamName(gameState.teams, a.team_id).localeCompare(getTeamName(gameState.teams, b.team_id), i18n.language);
+    if (sortKey === "position") return direction * translatePositionAbbreviation(t, a.natural_position || a.position).localeCompare(translatePositionAbbreviation(t, b.natural_position || b.position), i18n.language);
+    if (sortKey === "value") return direction * (a.market_value - b.market_value);
+    if (sortKey === "wage") return direction * (a.wage - b.wage);
+    if (sortKey === "interest") return direction * (interestForPlayer(a, userTeamId) - interestForPlayer(b, userTeamId));
+    if (sortKey === "rating") return direction * (ratingForPlayer(a) - ratingForPlayer(b));
+    return direction * statusForPlayer(a, view).label.localeCompare(statusForPlayer(b, view).label, i18n.language);
+  });
+  const paginatedTargets = paginateTransferPlayers(sortedList, page, pageSize);
   const visibleTransferTargets = paginatedTargets.items;
   const weeklyWageBudget = myTeam ? annualAmountToWeeklyCommitment(myTeam.wage_budget) : 0;
-  const panelPlayer = bidTarget ?? counterTarget?.player ?? playersWithOffers[0] ?? filteredList[0] ?? marketPlayers[0] ?? gameState.players[0] ?? null;
+  const selectedPanelPlayer = selectedPanelPlayerId
+    ? gameState.players.find((player) => player.id === selectedPanelPlayerId) ?? null
+    : null;
+  const panelPlayer = bidTarget ?? counterTarget?.player ?? selectedPanelPlayer ?? playersWithOffers[0] ?? filteredList[0] ?? marketPlayers[0] ?? gameState.players[0] ?? null;
   const panelOffer = panelPlayer?.transfer_offers.find((offer) => offer.status === "Pending") ?? null;
   const userTeamPlayers = gameState.players.filter((player) => player.team_id === userTeamId);
   const positionCounts = positions.map((position) => ({
@@ -298,6 +342,7 @@ export default function TransfersTab({
     { m: "Loan", v: myLoanList.length },
     { m: "Market", v: marketPlayers.length },
     { m: "Offers", v: playersWithOffers.length },
+    { m: "Short", v: shortlistedPlayers.length },
     { m: "Pool", v: filteredList.length },
   ];
   const visualTabs: VisualTab[] = [
@@ -307,7 +352,7 @@ export default function TransfersTab({
     { id: "Incoming", label: "Incoming", view: "offers" },
     { id: "Outgoing", label: "Outgoing", view: "my_list" },
     { id: "Loans", label: "Loans", view: "loans" },
-    { id: "Shortlists", label: "Shortlists", view: "my_list" },
+    { id: "Shortlists", label: "Shortlists", view: "shortlist" },
   ];
 
   useEffect(() => {
@@ -317,6 +362,17 @@ export default function TransfersTab({
   const switchTab = (tab: VisualTab) => {
     setVisualTab(tab.id);
     setView(tab.view);
+  };
+
+  const toggleSort = (key: TransferSortKey) => {
+    setPage(1);
+    if (sortKey === key) {
+      setSortDirection((current) => current === "asc" ? "desc" : "asc");
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection(key === "player" || key === "nationality" || key === "club" || key === "position" || key === "status" ? "asc" : "desc");
   };
 
   const openTransferView = (nextView: TransferTabView, nextTab?: string) => {
@@ -388,6 +444,67 @@ export default function TransfersTab({
     }
   };
 
+  const openLoanOfferModal = (player: PlayerData) => {
+    setLoanTarget(player);
+    setLoanMonths(String(player.loan_until ? 3 : 6));
+    setLoanWageShare(String(player.loan_wage_share_percent ?? 50));
+  };
+
+  const handleMakeLoanOffer = async () => {
+    if (!loanTarget) return;
+
+    const months = Math.round(Number.parseFloat(loanMonths));
+    const wageShare = Math.round(Number.parseFloat(loanWageShare));
+    if (!Number.isFinite(months) || !Number.isFinite(wageShare) || months <= 0 || wageShare < 0 || wageShare > 100) return;
+
+    setLoanOfferPlayerId(loanTarget.id);
+    try {
+      const response = await makeLoanOffer(loanTarget.id, months, wageShare);
+      onGameUpdate?.(response.game);
+      setLoanTarget(null);
+    } catch (error) {
+      console.error("Failed to make loan offer:", error);
+    } finally {
+      setLoanOfferPlayerId(null);
+    }
+  };
+
+  const handleToggleShortlist = async (player: PlayerData) => {
+    try {
+      const updated = await toggleShortlist(player.id);
+      onGameUpdate?.(updated);
+    } catch (error) {
+      console.error("Failed to toggle shortlist:", error);
+    }
+  };
+
+  const openFreeAgentModal = (player: PlayerData) => {
+    setFreeAgentTarget(player);
+    setFreeAgentWage(String(player.wage || 1000));
+    setFreeAgentYears("3");
+  };
+
+  const handleApproachFreeAgent = async () => {
+    if (!freeAgentTarget) return;
+
+    const wage = Math.round(Number.parseFloat(freeAgentWage));
+    const years = Math.round(Number.parseFloat(freeAgentYears));
+    if (!Number.isFinite(wage) || !Number.isFinite(years) || wage <= 0 || years <= 0) return;
+
+    setFreeAgentSigningId(freeAgentTarget.id);
+    try {
+      const response = await approachFreeAgent(freeAgentTarget.id, wage, years);
+      onGameUpdate?.(response.game);
+      if (response.suggested_wage !== null) setFreeAgentWage(String(response.suggested_wage));
+      if (response.suggested_years !== null) setFreeAgentYears(String(response.suggested_years));
+      if (response.decision === "accepted") setFreeAgentTarget(null);
+    } catch (error) {
+      console.error("Failed to approach free agent:", error);
+    } finally {
+      setFreeAgentSigningId(null);
+    }
+  };
+
   const renderPlayerContextRow = (player: PlayerData, index: number) => {
     const age = calcAge(player.date_of_birth);
     const scoutState = alreadyScoutingIds.has(player.id)
@@ -411,21 +528,44 @@ export default function TransfersTab({
     if (view === "market" || view === "loans") {
       contextItems.push(buildDividerMenuItem());
       contextItems.push(buildScoutPlayerMenuItem(t, scoutState, () => void handleScoutPlayer(player.id)));
-      contextItems.push({ label: t("transfers.bid"), icon: <Gavel className="w-4 h-4" />, onClick: () => openBidNegotiation(player) });
+      contextItems.push({ label: player.shortlisted ? t("transfers.removeShortlist", "Remove shortlist") : t("transfers.addShortlist", "Add shortlist"), icon: <Star className="w-4 h-4" />, onClick: () => void handleToggleShortlist(player) });
+      contextItems.push(
+        player.team_id === null
+          ? { label: t("transfers.approachToSign", "Approach to sign"), icon: <UserPlus className="w-4 h-4" />, onClick: () => openFreeAgentModal(player) }
+          : view === "loans"
+            ? { label: t("transfers.loanOffer", "Loan offer"), icon: <CalendarDays className="w-4 h-4" />, onClick: () => openLoanOfferModal(player) }
+            : { label: t("transfers.bid"), icon: <Gavel className="w-4 h-4" />, onClick: () => openBidNegotiation(player) },
+      );
     }
 
     const status = statusForPlayer(player, view);
     const interest = interestForPlayer(player, userTeamId);
     const primaryOffer = player.transfer_offers[0] ?? null;
+    const isPanelSelected = panelPlayer?.id === player.id;
     const row = (
-      <tr className="hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => onSelectPlayer(player.id)}>
+      <tr
+        className={cn(
+          "hover:bg-white/5 transition-colors cursor-pointer group",
+          isPanelSelected && "bg-app-green/5 ring-1 ring-inset ring-app-green/30",
+        )}
+        onClick={() => setSelectedPanelPlayerId(player.id)}
+      >
         <td className="py-2.5 px-3 text-app-text-muted text-[10px] w-6">{index + 1}</td>
         <td className="py-2.5 pl-1">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-full overflow-hidden border border-app-border bg-app-bg shrink-0 flex items-center justify-center">
               <User className="w-2.5 h-2.5 text-app-text-muted/50" />
             </div>
-            <span className="font-bold group-hover:text-app-green transition-colors">{player.full_name}</span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectPlayer(player.id);
+              }}
+              className="font-bold text-left transition-colors hover:text-app-green group-hover:text-app-green"
+            >
+              {player.full_name}
+            </button>
           </div>
         </td>
         <td className="py-2.5 px-2 text-app-text-muted">{age}</td>
@@ -479,7 +619,24 @@ export default function TransfersTab({
               ) : null}
             </div>
           ) : view === "market" || view === "loans" ? (
-            <button type="button" onClick={(event) => { event.stopPropagation(); openBidNegotiation(player); }} className="px-2 py-1 rounded text-[9px] font-bold border inline-flex items-center gap-1 text-app-bg bg-app-green border-app-green"><Gavel className="w-2.5 h-2.5" />{t("transfers.bid")}</button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (player.team_id === null) {
+                  openFreeAgentModal(player);
+                } else if (view === "loans") {
+                  openLoanOfferModal(player);
+                } else {
+                  openBidNegotiation(player);
+                }
+              }}
+              disabled={loanOfferPlayerId === player.id || freeAgentSigningId === player.id}
+              className="px-2 py-1 rounded text-[9px] font-bold border inline-flex items-center gap-1 text-app-bg bg-app-green border-app-green disabled:opacity-50"
+            >
+              {player.team_id === null ? <UserPlus className="w-2.5 h-2.5" /> : view === "loans" ? <CalendarDays className="w-2.5 h-2.5" /> : <Gavel className="w-2.5 h-2.5" />}
+              {player.team_id === null ? t("transfers.sign", "Sign") : view === "loans" ? t("transfers.loan", "Loan") : t("transfers.bid")}
+            </button>
           ) : (
             <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold border inline-flex items-center gap-1 max-w-[95px] truncate", status.className)}>{status.label}</span>
           )}
@@ -544,6 +701,7 @@ export default function TransfersTab({
               <HeaderMenu alignRight>
                 <HeaderMenuButton label="Open transfer market" onClick={() => openTransferView("market", "Transfer Targets")} />
                 <HeaderMenuButton label="Open loan market" onClick={() => openTransferView("loans", "Loans")} />
+                <HeaderMenuButton label="Open shortlist" onClick={() => openTransferView("shortlist", "Shortlists")} />
                 <HeaderMenuButton label="Open offers" onClick={() => openTransferView("offers", "Negotiations")} />
                 <HeaderMenuButton label="Open listed players" onClick={() => openTransferView("my_list", "Shortlists")} />
               </HeaderMenu>
@@ -629,7 +787,7 @@ export default function TransfersTab({
         </div>
 
         <div className="flex-1 flex flex-col gap-4 min-w-0 h-full">
-          <Card className="flex flex-col p-4 w-full h-auto">
+          <Card className="relative z-30 flex flex-col overflow-visible p-4 w-full h-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-[10px] font-bold text-app-green tracking-widest uppercase">TRANSFER TARGETS</h2>
               <span className="text-[10px] text-app-text-muted uppercase tracking-wider">{t("common.nResults", { count: filteredList.length })}</span>
@@ -640,8 +798,10 @@ export default function TransfersTab({
               </button>
               {positions.map((position) => <FilterBadge key={position} active={posFilter === position} onClick={() => setPosFilter(posFilter === position ? null : position)}>{translatePositionAbbreviation(t, position)}</FilterBadge>)}
               <FilterDropdown
+                label="Position"
                 ariaLabel="Position filter"
                 value={posFilter ?? ""}
+                className="w-[150px]"
                 onChange={(value) => setPosFilter(value || null)}
                 options={[
                   { value: "", label: "Any Position" },
@@ -652,8 +812,10 @@ export default function TransfersTab({
                 ]}
               />
               <FilterDropdown
+                label="List View"
                 ariaLabel="Transfer list view"
                 value={view}
+                className="w-[150px]"
                 onChange={(value) => {
                   setView(value as TransferTabView);
                   const selectedTab = visualTabs.find((tab) => tab.view === value);
@@ -666,7 +828,7 @@ export default function TransfersTab({
                   { value: "offers", label: "Offers" },
                 ]}
               />
-              <div className="relative ml-auto flex-1 max-w-[240px]">
+              <div className="relative ml-auto flex-1 max-w-[240px] self-end">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
                 <input type="text" placeholder="Search targets..." value={search} onChange={(event) => setSearch(event.target.value)} className="bg-app-bg border border-app-border rounded-lg pl-8 pr-3 py-1.5 text-[11px] focus:outline-none focus:border-app-green/50 placeholder:text-app-text-muted w-full text-app-text" />
               </div>
@@ -680,27 +842,24 @@ export default function TransfersTab({
               </button>
             </div>
             {advancedFiltersOpen ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mt-3 pt-3 border-t border-app-border/40">
-                <AdvancedFilterInput label="Minimum age" value={advancedFilters.minAge} onChange={(value) => setNullableNumberFilter("minAge", value)} />
-                <AdvancedFilterInput label="Maximum age" value={advancedFilters.maxAge} onChange={(value) => setNullableNumberFilter("maxAge", value)} />
-                <AdvancedFilterInput label="Maximum value" value={advancedFilters.maxValue} onChange={(value) => setNullableNumberFilter("maxValue", value)} />
-                <AdvancedFilterInput label="Maximum weekly wage" value={advancedFilters.maxWeeklyWage} onChange={(value) => setNullableNumberFilter("maxWeeklyWage", value)} />
-                <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-                  Offer status
-                  <select
-                    aria-label="Offer status"
+              <div className="mt-3 border-t border-app-border/40 pt-3">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+                  <AdvancedFilterInput label="Minimum age" value={advancedFilters.minAge} onChange={(value) => setNullableNumberFilter("minAge", value)} />
+                  <AdvancedFilterInput label="Maximum age" value={advancedFilters.maxAge} onChange={(value) => setNullableNumberFilter("maxAge", value)} />
+                  <AdvancedFilterInput label="Maximum value" value={advancedFilters.maxValue} onChange={(value) => setNullableNumberFilter("maxValue", value)} />
+                  <AdvancedFilterInput label="Maximum weekly wage" value={advancedFilters.maxWeeklyWage} onChange={(value) => setNullableNumberFilter("maxWeeklyWage", value)} />
+                  <FilterDropdown
+                    label="Offer Status"
+                    ariaLabel="Offer status"
                     value={advancedFilters.offerStatus}
-                    onChange={(event) => setAdvancedFilters((current) => ({
+                    className="min-w-0"
+                    onChange={(value) => setAdvancedFilters((current) => ({
                       ...current,
-                      offerStatus: event.target.value as TransferAdvancedFilters["offerStatus"],
+                      offerStatus: value as TransferAdvancedFilters["offerStatus"],
                     }))}
-                    className="bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-[11px] normal-case tracking-normal font-medium text-app-text focus:outline-none focus:border-app-green/50"
-                  >
-                    {(["Any", "Pending", "Accepted", "Rejected", "Withdrawn"] as const).map((status) => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                </label>
+                    options={(["Any", "Pending", "Accepted", "Rejected", "Withdrawn"] as const).map((status) => ({ value: status, label: status }))}
+                  />
+                </div>
               </div>
             ) : null}
           </Card>
@@ -710,22 +869,22 @@ export default function TransfersTab({
               <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[1000px]">
                 <thead className="sticky top-0 bg-app-card z-10 shadow-sm border-b border-app-border/50">
                   <tr className="text-app-text-muted uppercase tracking-wider text-[9px] font-bold">
-                    <th className="py-2.5 px-3">#</th>
-                    <th className="py-2.5 pl-1">PLAYER</th>
-                    <th className="py-2.5 px-2">AGE</th>
-                    <th className="py-2.5">NAT</th>
-                    <th className="py-2.5">CLUB</th>
-                    <th className="py-2.5">POSITION</th>
-                    <th className="py-2.5 text-right px-2">VALUE</th>
-                    <th className="py-2.5 text-right px-2">WAGE</th>
-                    <th className="py-2.5 text-center">INTEREST</th>
-                    <th className="py-2.5 text-center">SCOUT RATING</th>
-                    <th className="py-2.5 text-center pr-3">STATUS</th>
+                    <SortableHeader label="#" sortKey="index" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5 px-3" />
+                    <SortableHeader label="PLAYER" sortKey="player" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5 pl-1" />
+                    <SortableHeader label="AGE" sortKey="age" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5 px-2" />
+                    <SortableHeader label="NAT" sortKey="nationality" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5" />
+                    <SortableHeader label="CLUB" sortKey="club" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5" />
+                    <SortableHeader label="POSITION" sortKey="position" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5" />
+                    <SortableHeader label="VALUE" sortKey="value" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5 px-2" align="right" />
+                    <SortableHeader label="WAGE" sortKey="wage" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5 px-2" align="right" />
+                    <SortableHeader label="INTEREST" sortKey="interest" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5" align="center" />
+                    <SortableHeader label="SCOUT RATING" sortKey="rating" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5" align="center" />
+                    <SortableHeader label="STATUS" sortKey="status" activeKey={sortKey} direction={sortDirection} onSort={toggleSort} className="py-2.5 pr-3" align="center" />
                   </tr>
                 </thead>
                 <tbody className="text-app-text divide-y divide-app-border/30">
                   {visibleTransferTargets.length > 0 ? visibleTransferTargets.map((player, index) => renderPlayerContextRow(player, (paginatedTargets.page - 1) * pageSize + index)) : (
-                    <tr><td colSpan={11} className="py-12 text-center text-app-text-muted">{view === "market" ? t("transfers.noTransferMarket") : view === "loans" ? t("transfers.noLoanMarket") : view === "offers" ? t("transfers.noOffers") : t("transfers.noPlayersListed")}</td></tr>
+                    <tr><td colSpan={11} className="py-12 text-center text-app-text-muted">{view === "market" ? t("transfers.noTransferMarket") : view === "loans" ? t("transfers.noLoanMarket") : view === "shortlist" ? t("transfers.noShortlist", "No shortlisted players") : view === "offers" ? t("transfers.noOffers") : t("transfers.noPlayersListed")}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -819,12 +978,49 @@ export default function TransfersTab({
         <ShortlistCardGroup players={myTransferList.slice(0, 5)} onSelectPlayer={onSelectPlayer} />
       </div>
 
+      {loanTarget && (
+        <SimpleTransferFormModal
+          title={t("transfers.loanOffer", "Loan offer")}
+          player={loanTarget}
+          teams={gameState.teams}
+          primaryLabel={t("transfers.submitLoan", "Submit loan")}
+          loading={loanOfferPlayerId === loanTarget.id}
+          fields={[
+            { label: t("transfers.loanMonths", "Loan months"), value: loanMonths, onChange: setLoanMonths, min: 1, max: 24 },
+            { label: t("transfers.wageShare", "Wage share %"), value: loanWageShare, onChange: setLoanWageShare, min: 0, max: 100 },
+          ]}
+          onSubmit={() => void handleMakeLoanOffer()}
+          onClose={() => setLoanTarget(null)}
+        />
+      )}
+      {freeAgentTarget && (
+        <SimpleTransferFormModal
+          title={t("transfers.approachToSign", "Approach to sign")}
+          player={freeAgentTarget}
+          teams={gameState.teams}
+          primaryLabel={t("transfers.submitContract", "Submit contract")}
+          loading={freeAgentSigningId === freeAgentTarget.id}
+          fields={[
+            { label: t("transfers.weeklyWage", "Weekly wage"), value: freeAgentWage, onChange: setFreeAgentWage, min: 1 },
+            { label: t("transfers.contractYears", "Years"), value: freeAgentYears, onChange: setFreeAgentYears, min: 1, max: 5 },
+          ]}
+          onSubmit={() => void handleApproachFreeAgent()}
+          onClose={() => setFreeAgentTarget(null)}
+        />
+      )}
+
       {bidTarget && (
         <TransferBidModal
           bidTarget={bidTarget}
           teams={gameState.teams}
           bidAmount={bidAmount}
           onBidAmountChange={setBidAmount}
+          contractWage={contractWage}
+          onContractWageChange={setContractWage}
+          contractYears={contractYears}
+          onContractYearsChange={setContractYears}
+          contractStepActive={contractStepActive}
+          contractResult={contractResult}
           myTeam={myTeam ?? null}
           bidFee={bidFee}
           bidProjection={bidProjection}
@@ -834,7 +1030,9 @@ export default function TransfersTab({
           bidResult={bidResult}
           bidLoading={bidLoading}
           bidSubmitDisabled={bidSubmitDisabled}
+          contractSubmitDisabled={contractSubmitDisabled}
           onSubmit={handleMakeBid}
+          onSubmitContract={handleProposeContract}
           onClose={closeBidNegotiation}
         />
       )}
@@ -859,6 +1057,61 @@ export default function TransfersTab({
           }}
         />
       )}
+    </div>
+  );
+}
+
+function SimpleTransferFormModal({
+  title,
+  player,
+  teams,
+  fields,
+  primaryLabel,
+  loading,
+  onSubmit,
+  onClose,
+}: {
+  title: string;
+  player: PlayerData;
+  teams: TeamData[];
+  fields: Array<{ label: string; value: string; onChange: (value: string) => void; min?: number; max?: number }>;
+  primaryLabel: string;
+  loading: boolean;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-xl border border-app-border bg-app-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <h3 className="mb-3 text-sm font-heading font-bold uppercase tracking-wider text-app-text-muted">{title}</h3>
+        <div className="mb-4 rounded-lg border border-app-border/60 bg-app-bg/50 p-3">
+          <p className="text-sm font-bold text-app-text">{player.full_name}</p>
+          <p className="text-xs text-app-text-muted">{getTeamName(teams, player.team_id)} • {formatVal(player.market_value)}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {fields.map((field) => (
+            <label key={field.label} className="text-[11px] font-semibold text-app-text-muted">
+              {field.label}
+              <input
+                type="number"
+                min={field.min}
+                max={field.max}
+                value={field.value}
+                onChange={(event) => field.onChange(event.target.value)}
+                className="mt-1 h-9 w-full rounded-lg border border-app-border bg-app-bg px-3 text-sm text-app-text focus:outline-none focus:border-app-green/50"
+              />
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 flex gap-2">
+          <button type="button" disabled={loading} onClick={onSubmit} className="flex-1 rounded-lg bg-app-green px-3 py-2 text-sm font-bold uppercase tracking-wider text-app-bg disabled:opacity-50">
+            {loading ? "..." : primaryLabel}
+          </button>
+          <button type="button" onClick={onClose} className="rounded-lg border border-app-border px-3 py-2 text-sm font-bold uppercase tracking-wider text-app-text-muted hover:bg-white/5">
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -907,47 +1160,91 @@ function FilterBadge({ active, children, onClick }: { active: boolean; children:
   return <button type="button" onClick={onClick} className={cn("px-3 py-1 bg-app-bg border text-app-text-muted hover:text-white rounded text-xs font-semibold transition-colors", active ? "border-app-green text-app-green" : "border-app-border")}>{children}</button>;
 }
 
+function SortableHeader({
+  label,
+  sortKey,
+  activeKey,
+  direction,
+  onSort,
+  className,
+  align = "left",
+}: {
+  label: string;
+  sortKey: TransferSortKey;
+  activeKey: TransferSortKey;
+  direction: SortDirection;
+  onSort: (key: TransferSortKey) => void;
+  className?: string;
+  align?: "left" | "center" | "right";
+}) {
+  const active = activeKey === sortKey;
+
+  return (
+    <th className={cn(className, align === "center" && "text-center", align === "right" && "text-right")} aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider transition-colors hover:text-app-green",
+          align === "center" && "justify-center",
+          align === "right" && "justify-end",
+          active ? "text-app-green" : "text-app-text-muted",
+        )}
+      >
+        <span>{label}</span>
+        <span className={cn("text-[8px] leading-none", active ? "opacity-100" : "opacity-40")}>{active ? (direction === "asc" ? "▲" : "▼") : "↕"}</span>
+      </button>
+    </th>
+  );
+}
+
 function FilterDropdown({
+  label,
   ariaLabel,
   value,
   options,
   onChange,
+  className = "min-w-[150px]",
 }: {
+  label: string;
   ariaLabel: string;
   value: string;
   options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
+  className?: string;
 }) {
   return (
-    <div className="relative">
-      <select
-        aria-label={ariaLabel}
+    <div className={className}>
+      <Select
+        fullWidth
+        selectSize="sm"
         value={value}
+        aria-label={ariaLabel}
+        title={label}
+        wrapperClassName="z-40"
+        className="h-[32px] text-[11px]"
         onChange={(event) => onChange(event.target.value)}
-        className="appearance-none px-3 py-1.5 pr-7 bg-app-bg border border-app-border rounded-lg text-xs flex items-center gap-1.5 hover:border-app-green/50 cursor-pointer text-app-text focus:outline-none focus:border-app-green/50"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>{option.label}</option>
         ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 w-3 h-3 -translate-y-1/2 text-app-text-muted" />
+      </Select>
     </div>
   );
 }
 
 function AdvancedFilterInput({ label, value, onChange }: { label: string; value: number | null; onChange: (value: string) => void }) {
   return (
-    <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-      {label}
-      <input
-        aria-label={label}
-        type="number"
-        min={0}
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value)}
-        className="bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-[11px] normal-case tracking-normal font-medium text-app-text focus:outline-none focus:border-app-green/50"
-      />
-    </label>
+    <input
+      aria-label={label}
+      title={label}
+      type="number"
+      min={0}
+      value={value ?? ""}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-[32px] min-w-0 rounded-lg border border-app-border bg-app-bg px-2 text-[11px] font-medium text-app-text placeholder:text-app-text-muted focus:outline-none focus:border-app-green/50"
+      placeholder={label}
+    />
   );
 }
 

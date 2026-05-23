@@ -26,6 +26,12 @@ interface TransferBidModalProps {
   teams: TeamData[];
   bidAmount: string;
   onBidAmountChange: (value: string) => void;
+  contractWage?: string;
+  onContractWageChange?: (value: string) => void;
+  contractYears?: string;
+  onContractYearsChange?: (value: string) => void;
+  contractStepActive?: boolean;
+  contractResult?: TransferNegotiationResponseData["decision"] | "error" | null;
   myTeam: TeamData | null;
   bidFee: number | null;
   bidProjection: TransferBidProjectionData["projection"] | null;
@@ -35,7 +41,9 @@ interface TransferBidModalProps {
   bidResult: TransferNegotiationResponseData["decision"] | "error" | null;
   bidLoading: boolean;
   bidSubmitDisabled: boolean;
+  contractSubmitDisabled?: boolean;
   onSubmit: () => void;
+  onSubmitContract?: () => void;
   onClose: () => void;
 }
 
@@ -44,6 +52,12 @@ export default function TransferBidModal({
   teams,
   bidAmount,
   onBidAmountChange,
+  contractWage,
+  onContractWageChange,
+  contractYears,
+  onContractYearsChange,
+  contractStepActive = false,
+  contractResult = null,
   myTeam,
   bidFee,
   bidProjection,
@@ -53,7 +67,9 @@ export default function TransferBidModal({
   bidResult,
   bidLoading,
   bidSubmitDisabled,
+  contractSubmitDisabled = false,
   onSubmit,
+  onSubmitContract,
   onClose,
 }: TransferBidModalProps) {
   const { t } = useTranslation();
@@ -103,8 +119,9 @@ export default function TransferBidModal({
           step="0.1"
           min="0"
           value={bidAmount}
+          disabled={contractStepActive}
           onChange={(event) => onBidAmountChange(event.target.value)}
-          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+          className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-60"
         />
         {myTeam && bidFee !== null && bidProjection ? (
           <div className="rounded-lg border border-gray-200 dark:border-surface-700 bg-white/70 dark:bg-surface-900/40 p-3 mb-3 space-y-2">
@@ -140,6 +157,36 @@ export default function TransferBidModal({
             ) : null}
           </div>
         ) : null}
+        {contractStepActive ? (
+          <div className="rounded-lg border border-primary-500/20 bg-primary-500/5 p-3 mb-3 space-y-3">
+            <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-primary-600 dark:text-primary-400">
+              {t("transfers.contractStepTitle", "Negotiate contract")}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                {t("transfers.weeklyWage", "Weekly wage")}
+                <input
+                  type="number"
+                  min="1"
+                  value={contractWage ?? ""}
+                  onChange={(event) => onContractWageChange?.(event.target.value)}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </label>
+              <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                {t("transfers.contractYears", "Years")}
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={contractYears ?? ""}
+                  onChange={(event) => onContractYearsChange?.(event.target.value)}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-surface-700 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
         <NegotiationFeedbackPanel
           feedback={bidFeedback}
           titleKey="transfers.negotiationPulse"
@@ -154,7 +201,9 @@ export default function TransferBidModal({
             className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
           >
             {bidResult === "accepted"
-              ? t("transfers.bidAccepted")
+              ? contractStepActive
+                ? t("transfers.bidAcceptedContractNeeded", "Fee accepted — negotiate contract")
+                : t("transfers.bidAccepted")
               : bidResult === "rejected"
                 ? t("transfers.bidRejected")
                 : bidResult === "counter_offer"
@@ -162,13 +211,30 @@ export default function TransferBidModal({
                   : bidResult}
           </div>
         ) : null}
+        {contractResult ? (
+          <div
+            className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${contractResult === "accepted" ? "text-green-500" : contractResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
+          >
+            {contractResult === "accepted"
+              ? t("transfers.contractAccepted", "Contract accepted")
+              : contractResult === "rejected"
+                ? t("transfers.contractRejected", "Contract rejected")
+                : contractResult === "counter_offer"
+                  ? t("transfers.contractCountered", "Contract countered")
+                  : contractResult}
+          </div>
+        ) : null}
         <div className="flex gap-2">
           <button
-            onClick={onSubmit}
-            disabled={bidSubmitDisabled}
+            onClick={contractStepActive ? onSubmitContract ?? onSubmit : onSubmit}
+            disabled={contractStepActive ? contractSubmitDisabled : bidSubmitDisabled}
             className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
           >
-            {bidLoading ? t("transfers.submitting") : t("transfers.submitBid")}
+            {bidLoading
+              ? t("transfers.submitting")
+              : contractStepActive
+                ? t("transfers.submitContract", "Submit contract")
+                : t("transfers.submitBid")}
           </button>
           <button
             onClick={onClose}

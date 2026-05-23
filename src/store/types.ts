@@ -194,6 +194,10 @@ export interface PlayerData {
   career: CareerEntry[];
   transfer_listed: boolean;
   loan_listed: boolean;
+  shortlisted?: boolean;
+  loan_parent_team_id?: string | null;
+  loan_until?: string | null;
+  loan_wage_share_percent?: number | null;
   transfer_offers: TransferOfferData[];
   traits: string[];
   morale_core?: PlayerMoraleCoreData;
@@ -208,6 +212,11 @@ export interface TransferOfferData {
   from_team_id: string;
   fee: number;
   wage_offered: number;
+  kind?: "Permanent" | "Loan";
+  contract_years?: number | null;
+  loan_months?: number | null;
+  wage_share_percent?: number | null;
+  agreed_fee?: number | null;
   last_manager_fee: number | null;
   negotiation_round: number;
   suggested_counter_fee: number | null;

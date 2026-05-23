@@ -9,6 +9,7 @@ import type {
 import {
     makeTransferBid,
     previewTransferBidFinancialImpact,
+    proposeTransferContract,
     type TransferBidProjectionData,
     type TransferNegotiationFeedbackData,
     type TransferNegotiationResponseData,
@@ -27,6 +28,12 @@ interface UseTransferBidFlowResult {
     bidTarget: PlayerData | null;
     bidAmount: string;
     setBidAmount: (value: string) => void;
+    contractWage: string;
+    setContractWage: (value: string) => void;
+    contractYears: string;
+    setContractYears: (value: string) => void;
+    contractStepActive: boolean;
+    contractResult: TransferNegotiationResponseData["decision"] | "error" | null;
     bidResult: TransferNegotiationResponseData["decision"] | "error" | null;
     bidLoading: boolean;
     bidFeedback: TransferNegotiationFeedbackData | null;
@@ -36,9 +43,11 @@ interface UseTransferBidFlowResult {
     myTeam: TeamData | null;
     hasExistingOffer: boolean;
     bidSubmitDisabled: boolean;
+    contractSubmitDisabled: boolean;
     openBidNegotiation: (player: PlayerData) => void;
     closeBidNegotiation: () => void;
     handleMakeBid: () => Promise<void>;
+    handleProposeContract: () => Promise<void>;
 }
 
 export function useTransferBidFlow({
@@ -57,6 +66,12 @@ export function useTransferBidFlow({
     const [bidLoading, setBidLoading] = useState(false);
     const [bidFeedback, setBidFeedback] =
         useState<TransferNegotiationFeedbackData | null>(null);
+    const [contractWage, setContractWage] = useState("");
+    const [contractYears, setContractYears] = useState("3");
+    const [contractStepActive, setContractStepActive] = useState(false);
+    const [contractResult, setContractResult] = useState<
+        TransferNegotiationResponseData["decision"] | "error" | null
+    >(null);
     const [bidProjection, setBidProjection] =
         useState<TransferBidProjectionData["projection"] | null>(null);
 
@@ -114,6 +129,10 @@ export function useTransferBidFlow({
         );
         setBidResult(null);
         setBidFeedback(buildResumedBidFeedback(existingOffer));
+        setContractWage(String(existingOffer?.wage_offered || player.wage || 1000));
+        setContractYears(String(existingOffer?.contract_years || 3));
+        setContractStepActive(existingOffer?.status === "Accepted");
+        setContractResult(null);
         setBidProjection(null);
     };
 
@@ -122,6 +141,10 @@ export function useTransferBidFlow({
         setBidAmount("");
         setBidResult(null);
         setBidFeedback(null);
+        setContractWage("");
+        setContractYears("3");
+        setContractStepActive(false);
+        setContractResult(null);
         setBidProjection(null);
     };
 
@@ -145,9 +168,20 @@ export function useTransferBidFlow({
             }
 
             if (response.decision === "accepted") {
-                setTimeout(() => {
-                    closeBidNegotiation();
-                }, 2000);
+                const acceptedOffer = response.game.players
+                    .find((player) => player.id === bidTarget.id)
+                    ?.transfer_offers.find((offer) => (
+                        offer.from_team_id === userTeamId && offer.status === "Accepted"
+                    ));
+                setContractStepActive(!response.is_terminal && Boolean(acceptedOffer));
+                setContractWage(String(acceptedOffer?.wage_offered || bidTarget.wage || 1000));
+                setContractYears(String(acceptedOffer?.contract_years || 3));
+
+                if (response.is_terminal) {
+                    setTimeout(() => {
+                        closeBidNegotiation();
+                    }, 2000);
+                }
             }
         } catch (error: any) {
             setBidResult(error?.toString() || "error");
@@ -157,10 +191,60 @@ export function useTransferBidFlow({
         }
     };
 
+    const handleProposeContract = async (): Promise<void> => {
+        if (!bidTarget || !activeBidOffer || !contractWage || !contractYears) {
+            return;
+        }
+
+        const weeklyWage = Math.round(Number.parseFloat(contractWage));
+        const years = Math.round(Number.parseFloat(contractYears));
+        if (!Number.isFinite(weeklyWage) || !Number.isFinite(years) || weeklyWage <= 0 || years <= 0) {
+            return;
+        }
+
+        setBidLoading(true);
+        setContractResult(null);
+        setBidFeedback(null);
+
+        try {
+            const response = await proposeTransferContract(
+                bidTarget.id,
+                activeBidOffer.id,
+                weeklyWage,
+                years,
+            );
+            setContractResult(response.decision);
+            setBidFeedback(response.feedback);
+            onGameUpdate?.(response.game);
+
+            if (response.suggested_wage !== null) {
+                setContractWage(String(response.suggested_wage));
+            }
+            if (response.suggested_years !== null) {
+                setContractYears(String(response.suggested_years));
+            }
+            if (response.decision === "accepted") {
+                setTimeout(() => {
+                    closeBidNegotiation();
+                }, 2000);
+            }
+        } catch (error: any) {
+            setContractResult(error?.toString() || "error");
+        } finally {
+            setBidLoading(false);
+        }
+    };
+
     return {
         bidTarget,
         bidAmount,
         setBidAmount,
+        contractWage,
+        setContractWage,
+        contractYears,
+        setContractYears,
+        contractStepActive,
+        contractResult,
         bidResult,
         bidLoading,
         bidFeedback,
@@ -171,14 +255,22 @@ export function useTransferBidFlow({
         hasExistingOffer: activeBidOffer !== null,
         bidSubmitDisabled:
             bidLoading ||
+            contractStepActive ||
             bidResult === "accepted" ||
             bidFee === null ||
             bidFee <= 0 ||
             bidProjection === null ||
             bidProjection.exceeds_transfer_budget ||
             bidProjection.exceeds_finance,
+        contractSubmitDisabled:
+            bidLoading ||
+            !contractStepActive ||
+            contractResult === "accepted" ||
+            Number.parseFloat(contractWage) <= 0 ||
+            Number.parseFloat(contractYears) <= 0,
         openBidNegotiation,
         closeBidNegotiation,
         handleMakeBid,
+        handleProposeContract,
     };
 }

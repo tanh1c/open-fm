@@ -198,6 +198,8 @@ pub enum FinancialTransactionKind {
     ContractTermination,
     BoardSupport,
     CommercialCampaign,
+    TransferFeePaid,
+    TransferFeeReceived,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

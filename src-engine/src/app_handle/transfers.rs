@@ -1,7 +1,7 @@
 // transfers commands — port of src-engine/src/commands/transfers.rs
 use domain::player::Position;
 use ofm_core::game::{YouthScoutingObjective, YouthScoutingRegion};
-use ofm_core::transfers::TransferNegotiationOutcome;
+use ofm_core::transfers::{TransferContractOutcome, TransferNegotiationOutcome};
 use wasm_bindgen::prelude::*;
 
 use super::{AppHandle, to_js, to_js_value};
@@ -49,6 +49,17 @@ fn negotiation_response(outcome: TransferNegotiationOutcome, game: ofm_core::gam
     })
 }
 
+fn contract_response(outcome: TransferContractOutcome, game: ofm_core::game::Game) -> serde_json::Value {
+    serde_json::json!({
+        "decision": outcome.decision,
+        "suggested_wage": outcome.suggested_wage,
+        "suggested_years": outcome.suggested_years,
+        "is_terminal": outcome.is_terminal,
+        "feedback": outcome.feedback,
+        "game": game,
+    })
+}
+
 #[wasm_bindgen]
 impl AppHandle {
     #[wasm_bindgen(js_name = toggleTransferList)]
@@ -82,6 +93,73 @@ impl AppHandle {
             ofm_core::transfers::make_transfer_bid(&mut game, &player_id, fee).map_err(to_js)?;
         self.state.set_game(game.clone());
         to_js_value(&negotiation_response(result, game))
+    }
+
+    #[wasm_bindgen(js_name = toggleShortlist)]
+    pub fn toggle_shortlist(&self, player_id: String) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        ofm_core::transfers::toggle_shortlist(&mut game, &player_id).map_err(to_js)?;
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = approachFreeAgent)]
+    pub fn approach_free_agent(
+        &self,
+        player_id: String,
+        weekly_wage: u32,
+        contract_years: u32,
+    ) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let result = ofm_core::transfers::approach_free_agent(
+            &mut game,
+            &player_id,
+            weekly_wage,
+            contract_years,
+        )
+        .map_err(to_js)?;
+        self.state.set_game(game.clone());
+        to_js_value(&contract_response(result, game))
+    }
+
+    #[wasm_bindgen(js_name = makeLoanOffer)]
+    pub fn make_loan_offer(
+        &self,
+        player_id: String,
+        loan_months: u32,
+        wage_share_percent: u8,
+    ) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let result = ofm_core::transfers::make_loan_offer(
+            &mut game,
+            &player_id,
+            loan_months,
+            wage_share_percent,
+        )
+        .map_err(to_js)?;
+        self.state.set_game(game.clone());
+        to_js_value(&negotiation_response(result, game))
+    }
+
+    #[wasm_bindgen(js_name = proposeTransferContract)]
+    pub fn propose_transfer_contract(
+        &self,
+        player_id: String,
+        offer_id: String,
+        weekly_wage: u32,
+        contract_years: u32,
+    ) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let result = ofm_core::transfers::propose_transfer_contract(
+            &mut game,
+            &player_id,
+            &offer_id,
+            weekly_wage,
+            contract_years,
+        )
+        .map_err(to_js)?;
+        self.state.set_game(game.clone());
+        to_js_value(&contract_response(result, game))
     }
 
     #[wasm_bindgen(js_name = previewTransferBidFinancialImpact)]

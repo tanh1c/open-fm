@@ -20,6 +20,15 @@ export interface TransferNegotiationResponseData {
   game: GameStateData;
 }
 
+export interface TransferContractResponseData {
+  decision: "accepted" | "rejected" | "counter_offer";
+  suggested_wage: number | null;
+  suggested_years: number | null;
+  is_terminal: boolean;
+  feedback: TransferNegotiationFeedbackData;
+  game: GameStateData;
+}
+
 export interface TransferBidProjectionData {
   projection: {
     transfer_budget_before: number;
@@ -35,6 +44,38 @@ export interface TransferBidProjectionData {
   };
 }
 
+export async function toggleShortlist(
+  playerId: string,
+): Promise<GameStateData> {
+  return invoke<GameStateData>("toggle_shortlist", {
+    playerId,
+  });
+}
+
+export async function approachFreeAgent(
+  playerId: string,
+  weeklyWage: number,
+  contractYears: number,
+): Promise<TransferContractResponseData> {
+  return invoke<TransferContractResponseData>("approach_free_agent", {
+    playerId,
+    weeklyWage,
+    contractYears,
+  });
+}
+
+export async function makeLoanOffer(
+  playerId: string,
+  loanMonths: number,
+  wageSharePercent: number,
+): Promise<TransferNegotiationResponseData> {
+  return invoke<TransferNegotiationResponseData>("make_loan_offer", {
+    playerId,
+    loanMonths,
+    wageSharePercent,
+  });
+}
+
 export async function makeTransferBid(
   playerId: string,
   fee: number,
@@ -42,6 +83,20 @@ export async function makeTransferBid(
   return invoke<TransferNegotiationResponseData>("make_transfer_bid", {
     playerId,
     fee,
+  });
+}
+
+export async function proposeTransferContract(
+  playerId: string,
+  offerId: string,
+  weeklyWage: number,
+  contractYears: number,
+): Promise<TransferContractResponseData> {
+  return invoke<TransferContractResponseData>("propose_transfer_contract", {
+    playerId,
+    offerId,
+    weeklyWage,
+    contractYears,
   });
 }
 

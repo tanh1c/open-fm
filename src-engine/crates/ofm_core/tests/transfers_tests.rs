@@ -4,15 +4,17 @@ use domain::manager::Manager;
 use domain::message::MessageCategory;
 use domain::news::{NewsArticle, NewsCategory};
 use domain::player::{
-    Player, PlayerAttributes, PlayerIssueCategory, Position, TransferOffer, TransferOfferStatus,
+    Player, PlayerAttributes, PlayerIssueCategory, Position, TransferOffer, TransferOfferKind,
+    TransferOfferStatus,
 };
 use domain::season::TransferWindowStatus;
-use domain::team::Team;
+use domain::team::{FinancialTransactionKind, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::transfers::{
-    TransferNegotiationDecision, counter_offer, evaluate_transfer_market,
-    generate_incoming_transfer_offers, make_transfer_bid, respond_to_offer,
+    TransferContractDecision, TransferNegotiationDecision, counter_offer, evaluate_transfer_market,
+    approach_free_agent, generate_incoming_transfer_offers, make_loan_offer, make_transfer_bid,
+    process_loan_expiries, propose_transfer_contract, respond_to_offer, toggle_shortlist,
 };
 
 fn default_attrs() -> PlayerAttributes {
@@ -68,6 +70,11 @@ fn make_pending_incoming_offer(id: &str, fee: u64) -> TransferOffer {
         from_team_id: "team-2".to_string(),
         fee,
         wage_offered: 0,
+        kind: TransferOfferKind::Permanent,
+        contract_years: None,
+        loan_months: None,
+        wage_share_percent: None,
+        agreed_fee: None,
         last_manager_fee: None,
         negotiation_round: 1,
         suggested_counter_fee: None,
@@ -291,6 +298,11 @@ fn stale_outgoing_transfer_negotiation_is_withdrawn_before_new_bid() {
         from_team_id: "team-1".to_string(),
         fee: 900_000,
         wage_offered: 0,
+        kind: TransferOfferKind::Permanent,
+        contract_years: None,
+        loan_months: None,
+        wage_share_percent: None,
+        agreed_fee: None,
         last_manager_fee: Some(900_000),
         negotiation_round: 2,
         suggested_counter_fee: Some(1_150_000),
@@ -321,6 +333,149 @@ fn stale_outgoing_transfer_negotiation_is_withdrawn_before_new_bid() {
             && offer.status == TransferOfferStatus::Pending
             && offer.negotiation_round == 1
     }));
+}
+
+#[test]
+fn shortlist_toggle_persists_on_player_state() {
+    let player = make_player("player-shortlist");
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+
+    toggle_shortlist(&mut game, "player-shortlist").expect("toggle shortlist on");
+    assert!(game.players[0].shortlisted);
+
+    toggle_shortlist(&mut game, "player-shortlist").expect("toggle shortlist off");
+    assert!(!game.players[0].shortlisted);
+}
+
+#[test]
+fn free_agent_signs_after_acceptable_contract_terms() {
+    let mut player = make_player("player-free-agent");
+    player.team_id = None;
+    player.wage = 10_000;
+    player.shortlisted = true;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+
+    let counter = approach_free_agent(&mut game, "player-free-agent", 8_000, 1)
+        .expect("free agent counter");
+    assert_eq!(counter.decision, TransferContractDecision::CounterOffer);
+    assert_eq!(game.players[0].team_id, None);
+
+    let accepted = approach_free_agent(
+        &mut game,
+        "player-free-agent",
+        counter.suggested_wage.unwrap(),
+        counter.suggested_years.unwrap(),
+    )
+    .expect("free agent accepted");
+
+    assert_eq!(accepted.decision, TransferContractDecision::Accepted);
+    assert_eq!(game.players[0].team_id.as_deref(), Some("team-1"));
+    assert!(!game.players[0].shortlisted);
+    assert_eq!(game.players[0].wage, counter.suggested_wage.unwrap());
+}
+
+#[test]
+fn accepted_loan_offer_moves_player_temporarily_and_expiry_returns_to_parent() {
+    let mut player = make_player("player-loan");
+    player.loan_listed = true;
+    player.wage = 10_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+
+    let result = make_loan_offer(&mut game, "player-loan", 6, 50).expect("loan offer accepted");
+
+    assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-loan")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    assert_eq!(player.loan_parent_team_id.as_deref(), Some("team-2"));
+    assert_eq!(player.loan_wage_share_percent, Some(50));
+    assert_eq!(player.loan_until.as_deref(), Some("2027-02-01"));
+
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 2, 1, 12, 0, 0).unwrap();
+    process_loan_expiries(&mut game);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-loan")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-2"));
+    assert_eq!(player.loan_parent_team_id, None);
+    assert_eq!(player.loan_until, None);
+    assert_eq!(player.loan_wage_share_percent, None);
+}
+
+#[test]
+fn accepted_outgoing_bid_waits_for_player_contract_before_transfer() {
+    let mut player = make_player("player-contract-step");
+    player.morale = 35;
+    player.stats.appearances = 1;
+    player.wage = 10_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[0].reputation = 700;
+    game.teams[1].reputation = 350;
+    attach_transfer_log_league(&mut game);
+
+    let bid_result = make_transfer_bid(&mut game, "player-contract-step", 1_050_000)
+        .expect("accepted club bid");
+
+    assert_eq!(bid_result.decision, TransferNegotiationDecision::Accepted);
+    assert!(!bid_result.is_terminal);
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-contract-step")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-2"));
+    let offer_id = player
+        .transfer_offers
+        .iter()
+        .find(|offer| offer.status == TransferOfferStatus::Accepted)
+        .unwrap()
+        .id
+        .clone();
+
+    let low_contract = propose_transfer_contract(
+        &mut game,
+        "player-contract-step",
+        &offer_id,
+        8_000,
+        3,
+    )
+    .expect("contract counter");
+    assert_eq!(low_contract.decision, TransferContractDecision::CounterOffer);
+    assert_eq!(
+        game.players
+            .iter()
+            .find(|player| player.id == "player-contract-step")
+            .and_then(|player| player.team_id.as_deref()),
+        Some("team-2")
+    );
+
+    let accepted_contract = propose_transfer_contract(
+        &mut game,
+        "player-contract-step",
+        &offer_id,
+        low_contract.suggested_wage.unwrap(),
+        low_contract.suggested_years.unwrap(),
+    )
+    .expect("contract accepted");
+
+    assert_eq!(accepted_contract.decision, TransferContractDecision::Accepted);
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-contract-step")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    assert_eq!(player.wage, low_contract.suggested_wage.unwrap());
+    assert_eq!(game.league.as_ref().unwrap().transfer_log.len(), 1);
 }
 
 #[test]
@@ -460,6 +615,11 @@ fn does_not_duplicate_pending_incoming_offer_from_same_club() {
         from_team_id: "team-2".to_string(),
         fee: 900_000,
         wage_offered: 0,
+        kind: TransferOfferKind::Permanent,
+        contract_years: None,
+        loan_months: None,
+        wage_share_percent: None,
+        agreed_fee: None,
         last_manager_fee: None,
         negotiation_round: 1,
         suggested_counter_fee: None,
@@ -610,22 +770,21 @@ fn reasonable_counter_offer_is_accepted_and_executes_transfer() {
         player.transfer_offers[0].status,
         TransferOfferStatus::Accepted
     );
-    assert_eq!(
-        game.teams
-            .iter()
-            .find(|team| team.id == "team-1")
-            .unwrap()
-            .finance,
-        6_050_000
-    );
-    assert_eq!(
-        game.teams
-            .iter()
-            .find(|team| team.id == "team-2")
-            .unwrap()
-            .finance,
-        4_950_000
-    );
+    let seller = game.teams.iter().find(|team| team.id == "team-1").unwrap();
+    let buyer = game.teams.iter().find(|team| team.id == "team-2").unwrap();
+
+    assert_eq!(seller.finance, 6_050_000);
+    assert_eq!(seller.transfer_budget, 3_050_000);
+    assert!(seller.financial_ledger.iter().any(|transaction| {
+        transaction.amount == 1_050_000
+            && transaction.kind == FinancialTransactionKind::TransferFeeReceived
+    }));
+    assert_eq!(buyer.finance, 4_950_000);
+    assert_eq!(buyer.transfer_budget, 1_950_000);
+    assert!(buyer.financial_ledger.iter().any(|transaction| {
+        transaction.amount == -1_050_000
+            && transaction.kind == FinancialTransactionKind::TransferFeePaid
+    }));
 }
 
 #[test]

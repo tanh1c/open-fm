@@ -16,6 +16,10 @@ vi.mock("react-i18next", () => ({
       if (key === "common.nResults") return `${params?.count} results`;
       if (key === "common.action") return "Action";
       if (key === "common.viewTeam") return "View team";
+      if (key === "common.posAbbr.Goalkeeper") return "Goalkeeper";
+      if (key === "common.posAbbr.Defender") return "Defender";
+      if (key === "common.posAbbr.Midfielder") return "Midfielder";
+      if (key === "common.posAbbr.Forward") return "Forward";
       if (key === "transfers.transferMarket") return "Transfer Market";
       if (key === "transfers.offers") return "Offers";
       if (key === "transfers.counterOffer") return "Counter Offer";
@@ -75,6 +79,11 @@ vi.mock("react-i18next", () => ({
 }));
 
 const mockedInvoke = vi.mocked(invoke);
+
+function selectTransferFilter(label: string, option: string): void {
+  fireEvent.click(screen.getByRole("combobox", { name: label }));
+  fireEvent.click(screen.getByRole("option", { name: option }));
+}
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
   return {
@@ -618,12 +627,8 @@ describe("TransfersTab", function (): void {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Transfer list view"), {
-      target: { value: "market" },
-    });
-    fireEvent.change(screen.getByLabelText("Position filter"), {
-      target: { value: "Defender" },
-    });
+    selectTransferFilter("Transfer list view", "Transfer Market");
+    selectTransferFilter("Position filter", "Defender");
 
     expect(screen.getByText("Dan Defender")).toBeInTheDocument();
     expect(screen.queryByText("Finn Forward")).not.toBeInTheDocument();
@@ -644,15 +649,52 @@ describe("TransfersTab", function (): void {
 
     fireEvent.click(screen.getByRole("button", { name: "Shortlist menu" }));
     fireEvent.click(screen.getByRole("button", { name: "Open listed players" }));
-    expect(screen.getByLabelText("Transfer list view")).toHaveValue("my_list");
+    expect(screen.getByRole("combobox", { name: "Transfer list view" })).toHaveTextContent("Shortlists");
 
     fireEvent.click(screen.getByRole("button", { name: "Finalize menu" }));
     fireEvent.click(screen.getByRole("button", { name: "Open active offers" }));
-    expect(screen.getByLabelText("Transfer list view")).toHaveValue("offers");
+    expect(screen.getByRole("combobox", { name: "Transfer list view" })).toHaveTextContent("Offers");
 
     fireEvent.click(screen.getByRole("button", { name: "Transfer actions" }));
     fireEvent.click(screen.getByRole("button", { name: "Open loan market" }));
-    expect(screen.getByLabelText("Transfer list view")).toHaveValue("loans");
+    expect(screen.getByRole("combobox", { name: "Transfer list view" })).toHaveTextContent("Loan Market");
+  });
+
+  it("sorts transfer target columns from table headers", function (): void {
+    render(
+      <TransfersTab
+        gameState={createGameState([
+          createPlayer({
+            id: "low-value",
+            full_name: "Alpha Low",
+            match_name: "A. Low",
+            market_value: 500000,
+            team_id: "team-2",
+            transfer_listed: true,
+            transfer_offers: [],
+          }),
+          createPlayer({
+            id: "high-value",
+            full_name: "Zulu High",
+            match_name: "Z. High",
+            market_value: 2500000,
+            team_id: "team-2",
+            transfer_listed: true,
+            transfer_offers: [],
+          }),
+        ])}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    selectTransferFilter("Transfer list view", "Transfer Market");
+    fireEvent.click(screen.getByRole("button", { name: /value/i }));
+
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("Zulu High");
+    expect(rows[2]).toHaveTextContent("Alpha Low");
   });
 
   it("paginates transfer targets with real navigation controls", function (): void {
@@ -676,9 +718,7 @@ describe("TransfersTab", function (): void {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Transfer list view"), {
-      target: { value: "market" },
-    });
+    selectTransferFilter("Transfer list view", "Transfer Market");
 
     expect(screen.getByText("Market Player 0")).toBeInTheDocument();
     expect(screen.queryByText("Market Player 10")).not.toBeInTheDocument();
@@ -688,6 +728,50 @@ describe("TransfersTab", function (): void {
     expect(screen.queryByText("Market Player 0")).not.toBeInTheDocument();
     expect(screen.getByText("Market Player 10")).toBeInTheDocument();
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+
+  it("selects transfer rows for the negotiation panel and opens profiles from player names", function (): void {
+    const onSelectPlayer = vi.fn();
+
+    render(
+      <TransfersTab
+        gameState={createGameState([
+          createPlayer({
+            id: "defender",
+            full_name: "Dan Defender",
+            match_name: "D. Defender",
+            natural_position: "Defender",
+            position: "Defender",
+            transfer_listed: true,
+            team_id: "team-2",
+            transfer_offers: [],
+          }),
+          createPlayer({
+            id: "forward",
+            full_name: "Finn Forward",
+            match_name: "F. Forward",
+            natural_position: "Forward",
+            position: "Forward",
+            transfer_listed: true,
+            team_id: "team-2",
+            transfer_offers: [],
+          }),
+        ])}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    selectTransferFilter("Transfer list view", "Transfer Market");
+    fireEvent.click(screen.getByText("Finn Forward").closest("tr") as HTMLTableRowElement);
+
+    expect(screen.getByText("F. Forward")).toBeInTheDocument();
+    expect(onSelectPlayer).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dan Defender" }));
+
+    expect(onSelectPlayer).toHaveBeenCalledWith("defender");
   });
 
   it("routes bottom card rows to player profiles", function (): void {

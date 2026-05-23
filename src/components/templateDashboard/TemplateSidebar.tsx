@@ -5,7 +5,7 @@ import { cn } from "./templateUtils";
 export interface TemplateSidebarItem {
   id: string;
   label: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   badge?: number;
   disabled?: boolean;
 }
@@ -70,7 +70,7 @@ export function TemplateSidebar({
               )}
             >
               {isActive && <div data-testid="template-sidebar-active-dot" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-app-green rounded-r-full" />}
-              <span className="[&>svg]:w-4 [&>svg]:h-4 shrink-0">{item.icon}</span>
+              {item.icon ? <span className="[&>svg]:w-4 [&>svg]:h-4 shrink-0">{item.icon}</span> : null}
               <span className="flex-1 text-left">{item.label}</span>
               {item.badge !== undefined && item.badge > 0 && (
                 <span className="bg-app-red text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center">

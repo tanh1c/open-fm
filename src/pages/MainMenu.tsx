@@ -376,7 +376,7 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-[#071510] transition-colors duration-500">
+    <div className="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-emerald-50 transition-colors duration-500 dark:bg-[#071510]">
       {/* Football pitch background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <svg
@@ -387,22 +387,22 @@ export default function MainMenu() {
         >
           <defs>
             <linearGradient id="menuPitchGradient" x1="0" x2="1" y1="0" y2="1">
-              <stop offset="0" stopColor="#052e1b" />
-              <stop offset="0.5" stopColor="#0f5f35" />
-              <stop offset="1" stopColor="#052516" />
+              <stop offset="0" stopColor="rgb(187 247 208)" className="dark:[stop-color:#052e1b]" />
+              <stop offset="0.5" stopColor="rgb(34 197 94)" className="dark:[stop-color:#0f5f35]" />
+              <stop offset="1" stopColor="rgb(220 252 231)" className="dark:[stop-color:#052516]" />
             </linearGradient>
             <pattern id="menuPitchStripes" width="180" height="900" patternUnits="userSpaceOnUse">
-              <rect width="90" height="900" fill="rgba(255,255,255,0.045)" />
-              <rect x="90" width="90" height="900" fill="rgba(0,0,0,0.06)" />
+              <rect width="90" height="900" className="fill-white/22 dark:fill-white/[0.045]" />
+              <rect x="90" width="90" height="900" className="fill-emerald-900/5 dark:fill-black/[0.06]" />
             </pattern>
           </defs>
           <rect width="1440" height="900" fill="url(#menuPitchGradient)" />
           <rect width="1440" height="900" fill="url(#menuPitchStripes)" />
-          <g fill="none" stroke="rgba(255,255,255,0.36)" strokeWidth="4">
+          <g fill="none" className="stroke-emerald-950/22 dark:stroke-white/35" strokeWidth="4">
             <rect x="92" y="72" width="1256" height="756" rx="18" />
             <line x1="720" y1="72" x2="720" y2="828" />
             <circle cx="720" cy="450" r="112" />
-            <circle cx="720" cy="450" r="7" fill="rgba(255,255,255,0.55)" stroke="none" />
+            <circle cx="720" cy="450" r="7" className="fill-emerald-950/35 dark:fill-white/55" stroke="none" />
             <rect x="92" y="284" width="176" height="332" />
             <rect x="92" y="360" width="64" height="180" />
             <path d="M268 352a112 112 0 0 1 0 196" />
@@ -411,9 +411,9 @@ export default function MainMenu() {
             <path d="M1172 352a112 112 0 0 0 0 196" />
           </g>
         </svg>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(22,163,74,0.16),transparent_34%),linear-gradient(90deg,rgba(2,6,23,0.82),rgba(2,6,23,0.38),rgba(2,6,23,0.82))]" />
-        <div className="absolute -top-40 -right-40 h-[30rem] w-[30rem] rounded-full bg-primary-400/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full bg-accent-400/20 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.34),transparent_34%),linear-gradient(90deg,rgba(236,253,245,0.82),rgba(255,255,255,0.22),rgba(236,253,245,0.82))] dark:bg-[radial-gradient(circle_at_center,rgba(22,163,74,0.16),transparent_34%),linear-gradient(90deg,rgba(2,6,23,0.82),rgba(2,6,23,0.38),rgba(2,6,23,0.82))]" />
+        <div className="absolute -top-40 -right-40 h-[30rem] w-[30rem] rounded-full bg-emerald-300/40 blur-3xl dark:bg-primary-400/20" />
+        <div className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full bg-lime-300/35 blur-3xl dark:bg-accent-400/20" />
       </div>
 
       {/* Theme Toggle */}
@@ -421,10 +421,8 @@ export default function MainMenu() {
 
       {/* Main Card */}
       <div className="relative z-10 w-full max-w-lg px-4">
-        <div className="rounded-[2rem] border border-white/15 bg-white/90 p-2 shadow-2xl shadow-black/40 backdrop-blur-xl dark:bg-surface-900/86">
-          <div className="h-1.5 rounded-t-[1.45rem] bg-gradient-to-r from-primary-400 via-accent-300 to-primary-500" />
-
-          <div className="rounded-b-[1.45rem] border border-white/50 bg-white/85 p-8 shadow-inner shadow-white/20 transition-all duration-500 dark:border-white/10 dark:bg-surface-800/90">
+        <div className="rounded-[2rem] border border-white/35 bg-white/90 p-2 shadow-2xl shadow-emerald-950/20 backdrop-blur-xl dark:border-white/15 dark:bg-surface-900/86 dark:shadow-black/40">
+          <div className="rounded-[1.45rem] border border-white/50 bg-white/85 p-8 shadow-inner shadow-white/20 transition-all duration-500 dark:border-white/10 dark:bg-surface-800/90">
           {/* Logo */}
           <div className="flex items-center justify-center gap-5 rounded-2xl border border-primary-500/15 bg-gradient-to-br from-primary-500/10 via-transparent to-accent-400/10 p-5">
             <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-white/80 shadow-lg shadow-primary-950/10 ring-1 ring-primary-500/15 dark:bg-white/10">

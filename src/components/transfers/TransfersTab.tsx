@@ -11,7 +11,6 @@ import ContextMenu from "../ContextMenu";
 import {
   Activity,
   AlertTriangle,
-  ArrowRightLeft,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -650,14 +649,9 @@ export default function TransfersTab({
   return (
     <div className="flex flex-col gap-4 min-h-max max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-app-bg border border-app-border rounded-xl flex items-center justify-center">
-            <ArrowRightLeft className="w-7 h-7 text-emerald-500" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">TRANSFERS</h1>
-            <p className="text-sm text-app-text-muted">Transfer Hub • Market Activity</p>
-          </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">TRANSFERS</h1>
+          <p className="text-sm text-app-text-muted">Transfer Hub • Market Activity</p>
         </div>
 
         <div className="flex items-center gap-3">

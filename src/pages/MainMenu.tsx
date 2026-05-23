@@ -112,6 +112,7 @@ export default function MainMenu() {
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
   const { t } = useTranslation();
+  const appName = t("app.name");
 
   const [menuState, setMenuState] = useState<
     "main" | "create" | "world" | "load"
@@ -392,11 +393,21 @@ export default function MainMenu() {
 
         <div className="bg-white dark:bg-surface-800 p-8 rounded-b-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-surface-600 border-t-0 transition-all duration-500">
           {/* Logo */}
-          <img
-            src="/openfootlogo.svg"
-            alt={t("app.name")}
-            className="text-center w-full h-full object-cover"
-          />
+          <div className="flex items-center justify-center gap-4">
+            <img
+              src="/openfootlogo.svg"
+              alt={appName}
+              className="h-20 w-20 object-contain"
+            />
+            <div>
+              <h1 className="font-heading text-3xl font-semibold uppercase tracking-wider text-gray-900 dark:text-white">
+                OPEN FUTBALL
+              </h1>
+              <h1 className="font-heading text-4xl font-bold uppercase tracking-wider text-accent-500 dark:text-accent-400">
+                MANAGER
+              </h1>
+            </div>
+          </div>
 
           <div className="border-t border-gray-200 dark:border-surface-600 my-8 transition-colors duration-500" />
 

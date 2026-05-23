@@ -376,50 +376,87 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-surface-900 transition-colors duration-500 relative overflow-x-hidden">
-      {/* Background gradient accents */}
+    <div className="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-[#071510] transition-colors duration-500">
+      {/* Football pitch background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/10 dark:bg-primary-500/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-accent-400/10 dark:bg-accent-400/5 rounded-full blur-3xl" />
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full opacity-70"
+          preserveAspectRatio="xMidYMid slice"
+          viewBox="0 0 1440 900"
+        >
+          <defs>
+            <linearGradient id="menuPitchGradient" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stopColor="#052e1b" />
+              <stop offset="0.5" stopColor="#0f5f35" />
+              <stop offset="1" stopColor="#052516" />
+            </linearGradient>
+            <pattern id="menuPitchStripes" width="180" height="900" patternUnits="userSpaceOnUse">
+              <rect width="90" height="900" fill="rgba(255,255,255,0.045)" />
+              <rect x="90" width="90" height="900" fill="rgba(0,0,0,0.06)" />
+            </pattern>
+          </defs>
+          <rect width="1440" height="900" fill="url(#menuPitchGradient)" />
+          <rect width="1440" height="900" fill="url(#menuPitchStripes)" />
+          <g fill="none" stroke="rgba(255,255,255,0.36)" strokeWidth="4">
+            <rect x="92" y="72" width="1256" height="756" rx="18" />
+            <line x1="720" y1="72" x2="720" y2="828" />
+            <circle cx="720" cy="450" r="112" />
+            <circle cx="720" cy="450" r="7" fill="rgba(255,255,255,0.55)" stroke="none" />
+            <rect x="92" y="284" width="176" height="332" />
+            <rect x="92" y="360" width="64" height="180" />
+            <path d="M268 352a112 112 0 0 1 0 196" />
+            <rect x="1172" y="284" width="176" height="332" />
+            <rect x="1284" y="360" width="64" height="180" />
+            <path d="M1172 352a112 112 0 0 0 0 196" />
+          </g>
+        </svg>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(22,163,74,0.16),transparent_34%),linear-gradient(90deg,rgba(2,6,23,0.82),rgba(2,6,23,0.38),rgba(2,6,23,0.82))]" />
+        <div className="absolute -top-40 -right-40 h-[30rem] w-[30rem] rounded-full bg-primary-400/20 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-[30rem] w-[30rem] rounded-full bg-accent-400/20 blur-3xl" />
       </div>
 
       {/* Theme Toggle */}
       <ThemeToggle className="absolute top-6 right-6 z-20" />
 
       {/* Main Card */}
-      <div className="relative z-10 w-full max-w-md">
-        {/* Top accent bar */}
-        <div className="h-1.5 bg-gradient-to-r from-primary-500 via-accent-400 to-primary-500 rounded-t-2xl" />
+      <div className="relative z-10 w-full max-w-lg px-4">
+        <div className="rounded-[2rem] border border-white/15 bg-white/90 p-2 shadow-2xl shadow-black/40 backdrop-blur-xl dark:bg-surface-900/86">
+          <div className="h-1.5 rounded-t-[1.45rem] bg-gradient-to-r from-primary-400 via-accent-300 to-primary-500" />
 
-        <div className="bg-white dark:bg-surface-800 p-8 rounded-b-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-surface-600 border-t-0 transition-all duration-500">
+          <div className="rounded-b-[1.45rem] border border-white/50 bg-white/85 p-8 shadow-inner shadow-white/20 transition-all duration-500 dark:border-white/10 dark:bg-surface-800/90">
           {/* Logo */}
-          <div className="flex items-center justify-center gap-4">
-            <img
-              src="/openfootlogo.svg"
-              alt={appName}
-              className="h-20 w-20 object-contain"
-            />
+          <div className="flex items-center justify-center gap-5 rounded-2xl border border-primary-500/15 bg-gradient-to-br from-primary-500/10 via-transparent to-accent-400/10 p-5">
+            <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-white/80 shadow-lg shadow-primary-950/10 ring-1 ring-primary-500/15 dark:bg-white/10">
+              <img
+                src="/openfootlogo.svg"
+                alt={appName}
+                className="h-20 w-20 object-contain"
+              />
+            </div>
             <div>
-              <h1 className="font-heading text-3xl font-semibold uppercase tracking-wider text-gray-900 dark:text-white">
+              <h1 className="font-heading text-4xl font-semibold uppercase leading-none tracking-wider text-gray-900 dark:text-white">
                 OPEN FUTBALL
               </h1>
-              <h1 className="font-heading text-4xl font-bold uppercase tracking-wider text-accent-500 dark:text-accent-400">
+              <h1 className="font-heading text-5xl font-bold uppercase leading-none tracking-wider text-accent-500 dark:text-accent-400">
                 MANAGER
               </h1>
             </div>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-surface-600 my-8 transition-colors duration-500" />
+          <div className="my-7 h-px bg-gradient-to-r from-transparent via-primary-500/30 to-transparent transition-colors duration-500" />
 
           {/* Main Menu */}
           {menuState === "main" && (
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => setMenuState("create")}
-                className="group flex items-center justify-between w-full p-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:shadow-primary-500/20"
+                className="group flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 p-4 text-white shadow-lg shadow-primary-500/20 transition-all duration-300 hover:-translate-y-0.5 hover:from-primary-400 hover:to-primary-600 hover:shadow-xl hover:shadow-primary-500/30"
               >
                 <div className="flex items-center gap-3">
-                  <PlusCircle className="w-6 h-6" />
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
+                    <PlusCircle className="w-6 h-6" />
+                  </span>
                   <span className="font-heading font-bold text-lg uppercase tracking-wide">
                     {t("menu.newGame")}
                   </span>
@@ -429,10 +466,12 @@ export default function MainMenu() {
 
               <button
                 onClick={handleOpenLoadMenu}
-                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-surface-700 hover:bg-gray-50 dark:hover:bg-surface-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-surface-600 hover:border-accent-400 dark:hover:border-accent-400 shadow-sm"
+                className="group flex w-full items-center justify-between rounded-2xl border border-gray-200/80 bg-white/80 p-4 text-gray-800 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-accent-400 hover:bg-white hover:shadow-lg dark:border-white/10 dark:bg-surface-700/80 dark:text-gray-200 dark:hover:border-accent-400 dark:hover:bg-surface-700"
               >
                 <div className="flex items-center gap-3">
-                  <FolderOpen className="w-6 h-6 text-accent-500 dark:text-accent-400" />
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-500/10 ring-1 ring-accent-500/20">
+                    <FolderOpen className="w-6 h-6 text-accent-500 dark:text-accent-400" />
+                  </span>
                   <span className="font-heading font-bold text-lg uppercase tracking-wide">
                     {t("menu.loadGame")}
                   </span>
@@ -442,10 +481,12 @@ export default function MainMenu() {
 
               <button
                 onClick={() => navigate("/settings", { state: { from: "/" } })}
-                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-surface-700 hover:bg-gray-50 dark:hover:bg-surface-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-surface-600 hover:border-gray-300 dark:hover:border-surface-600 shadow-sm"
+                className="group flex w-full items-center justify-between rounded-2xl border border-gray-200/80 bg-white/80 p-4 text-gray-800 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-300 hover:bg-white hover:shadow-lg dark:border-white/10 dark:bg-surface-700/80 dark:text-gray-200 dark:hover:border-surface-500 dark:hover:bg-surface-700"
               >
                 <div className="flex items-center gap-3">
-                  <Settings className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-500/10 ring-1 ring-gray-500/15">
+                    <Settings className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                  </span>
                   <span className="font-heading font-bold text-lg uppercase tracking-wide">
                     {t("menu.settings")}
                   </span>
@@ -457,10 +498,12 @@ export default function MainMenu() {
                 onClick={() => {
                   void handleExitApp();
                 }}
-                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-surface-700 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-surface-600 hover:border-red-200 dark:hover:border-red-500/30 shadow-sm"
+                className="group flex w-full items-center justify-between rounded-2xl border border-gray-200/80 bg-white/80 p-4 text-gray-800 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:shadow-lg dark:border-white/10 dark:bg-surface-700/80 dark:text-gray-200 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
               >
                 <div className="flex items-center gap-3">
-                  <Power className="w-6 h-6 text-red-500 dark:text-red-400" />
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/10 ring-1 ring-red-500/15">
+                    <Power className="w-6 h-6 text-red-500 dark:text-red-400" />
+                  </span>
                   <span className="font-heading font-bold text-lg uppercase tracking-wide">
                     {t("menu.exitGame")}
                   </span>
@@ -519,6 +562,7 @@ export default function MainMenu() {
               />
             </Suspense>
           )}
+          </div>
         </div>
       </div>
 

@@ -11,9 +11,10 @@ use crate::training;
 use crate::transfers;
 use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
-use domain::player::Position as DomainPosition;
+use domain::player::{Player, Position as DomainPosition};
 use domain::stats::StatsState;
 use log::{debug, info};
+use std::collections::HashMap;
 
 // Re-export public items
 pub use news::generate_matchday_news;
@@ -235,7 +236,60 @@ mod tests {
 // Domain → Engine type conversion
 // ---------------------------------------------------------------------------
 
-fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
+struct DaySimulationIndexes {
+    scheduled_legacy_fixture_indices_by_date: HashMap<String, Vec<usize>>,
+    scheduled_competition_fixture_indices_by_date: HashMap<String, Vec<(usize, usize)>>,
+}
+
+fn build_day_simulation_indexes(game: &Game) -> DaySimulationIndexes {
+    let mut scheduled_legacy_fixture_indices_by_date = HashMap::new();
+    if let Some(league) = game.league.as_ref() {
+        for (index, fixture) in league.fixtures.iter().enumerate() {
+            if fixture.status == FixtureStatus::Scheduled {
+                scheduled_legacy_fixture_indices_by_date
+                    .entry(fixture.date.clone())
+                    .or_insert_with(Vec::new)
+                    .push(index);
+            }
+        }
+    }
+
+    let mut scheduled_competition_fixture_indices_by_date = HashMap::new();
+    for (competition_index, competition) in game.competitions.iter().enumerate() {
+        for (fixture_index, fixture) in competition.fixtures.iter().enumerate() {
+            if fixture.status == FixtureStatus::Scheduled {
+                scheduled_competition_fixture_indices_by_date
+                    .entry(fixture.date.clone())
+                    .or_insert_with(Vec::new)
+                    .push((competition_index, fixture_index));
+            }
+        }
+    }
+
+    DaySimulationIndexes {
+        scheduled_legacy_fixture_indices_by_date,
+        scheduled_competition_fixture_indices_by_date,
+    }
+}
+
+fn build_players_by_team(game: &Game) -> HashMap<&str, Vec<&Player>> {
+    let mut players_by_team = HashMap::new();
+    for player in &game.players {
+        if let Some(team_id) = player.team_id.as_deref() {
+            players_by_team
+                .entry(team_id)
+                .or_insert_with(Vec::new)
+                .push(player);
+        }
+    }
+    players_by_team
+}
+
+fn build_engine_team_with_index(
+    game: &Game,
+    team_id: &str,
+    players_by_team: &HashMap<&str, Vec<&Player>>,
+) -> engine::TeamData {
     let team = game.teams.iter().find(|t| t.id == team_id);
     let (name, formation, play_style) = match team {
         Some(t) => (
@@ -257,10 +311,10 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
         ),
     };
 
-    let players: Vec<engine::PlayerData> = game
-        .players
+    let players: Vec<engine::PlayerData> = players_by_team
+        .get(team_id)
+        .map_or(&[][..], |players| players.as_slice())
         .iter()
-        .filter(|p| p.team_id.as_deref() == Some(team_id))
         .map(|p| {
             let pos = match p.position.to_group_position() {
                 DomainPosition::Goalkeeper => engine::Position::Goalkeeper,
@@ -316,17 +370,19 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
 // ---------------------------------------------------------------------------
 
 fn has_scheduled_fixture_today(game: &Game, today: &str) -> bool {
-    game.league.as_ref().is_some_and(|league| {
-        league
-            .fixtures
-            .iter()
-            .any(|fixture| fixture.date == today && fixture.status == FixtureStatus::Scheduled)
-    }) || game.competitions.iter().any(|competition| {
-        competition
-            .fixtures
-            .iter()
-            .any(|fixture| fixture.date == today && fixture.status == FixtureStatus::Scheduled)
-    })
+    let indexes = build_day_simulation_indexes(game);
+    has_scheduled_fixture_today_with_indexes(&indexes, today)
+}
+
+fn has_scheduled_fixture_today_with_indexes(indexes: &DaySimulationIndexes, today: &str) -> bool {
+    indexes
+        .scheduled_legacy_fixture_indices_by_date
+        .get(today)
+        .is_some_and(|fixtures| !fixtures.is_empty())
+        || indexes
+            .scheduled_competition_fixture_indices_by_date
+            .get(today)
+            .is_some_and(|fixtures| !fixtures.is_empty())
 }
 
 fn simulate_matchday_with_capture<F>(game: &mut Game, today: &str, on_capture: &mut F)
@@ -352,27 +408,49 @@ pub fn simulate_other_matches_with_capture<F>(
 ) where
     F: FnMut(StatsState),
 {
-    let fixture_indices: Vec<usize> = game.league.as_ref().map_or(vec![], |league| {
-        league
-            .fixtures
-            .iter()
-            .enumerate()
-            .filter(|(i, f)| {
-                f.date == today
-                    && f.status == FixtureStatus::Scheduled
-                    && (skip_fixture != Some(*i))
-            })
-            .map(|(i, _)| i)
-            .collect()
-    });
+    let indexes = build_day_simulation_indexes(game);
+    let players_by_team = build_players_by_team(game);
+    let fixture_indices = indexes
+        .scheduled_legacy_fixture_indices_by_date
+        .get(today)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|index| skip_fixture != Some(*index))
+        .collect::<Vec<_>>();
 
-    for idx in fixture_indices {
-        simulate_single_match_with_capture(game, idx, on_capture);
+    let prepared_matches = fixture_indices
+        .into_iter()
+        .map(|idx| {
+            let fixture = &game.league.as_ref().unwrap().fixtures[idx];
+            let home_team_id = fixture.home_team_id.clone();
+            let away_team_id = fixture.away_team_id.clone();
+            let home_data = build_engine_team_with_index(game, &home_team_id, &players_by_team);
+            let away_data = build_engine_team_with_index(game, &away_team_id, &players_by_team);
+            (idx, home_team_id, away_team_id, home_data, away_data)
+        })
+        .collect::<Vec<_>>();
+    drop(players_by_team);
+
+    for (idx, home_team_id, away_team_id, home_data, away_data) in prepared_matches {
+        simulate_single_match_with_capture(
+            game,
+            idx,
+            &home_team_id,
+            &away_team_id,
+            home_data,
+            away_data,
+            on_capture,
+        );
     }
-    simulate_competition_matches_for_date(game, today);
+    simulate_competition_matches_for_date(game, today, &indexes);
 }
 
-fn simulate_competition_matches_for_date(game: &mut Game, today: &str) {
+fn simulate_competition_matches_for_date(
+    game: &mut Game,
+    today: &str,
+    indexes: &DaySimulationIndexes,
+) {
     let legacy_league_id = game.league.as_ref().map(|league| league.id.as_str());
     let team_strengths: std::collections::HashMap<&str, u16> = game
         .teams
@@ -380,24 +458,41 @@ fn simulate_competition_matches_for_date(game: &mut Game, today: &str) {
         .map(|team| (team.id.as_str(), team.reputation as u16))
         .collect();
 
-    for competition in game.competitions.iter_mut() {
+    let competition_fixture_indices = indexes
+        .scheduled_competition_fixture_indices_by_date
+        .get(today)
+        .cloned()
+        .unwrap_or_default();
+
+    let mut fixtures_by_competition: HashMap<usize, Vec<usize>> = HashMap::new();
+    for (competition_index, fixture_index) in competition_fixture_indices {
+        fixtures_by_competition
+            .entry(competition_index)
+            .or_default()
+            .push(fixture_index);
+    }
+
+    for (competition_index, fixture_indices) in fixtures_by_competition {
+        let Some(competition) = game.competitions.get_mut(competition_index) else {
+            continue;
+        };
         let is_legacy_league = legacy_league_id == Some(competition.id.as_str());
         if is_legacy_league {
             continue;
         }
-
-        let fixture_indices: Vec<usize> = competition
-            .fixtures
+        let mut standing_index_by_team: HashMap<String, usize> = competition
+            .standings
             .iter()
             .enumerate()
-            .filter(|(_, fixture)| {
-                fixture.date == today && fixture.status == FixtureStatus::Scheduled
-            })
-            .map(|(index, _)| index)
+            .map(|(standing_index, standing)| (standing.team_id.clone(), standing_index))
             .collect();
-
         for fixture_index in fixture_indices {
-            apply_fast_competition_result(competition, fixture_index, &team_strengths);
+            apply_fast_competition_result(
+                competition,
+                fixture_index,
+                &team_strengths,
+                &mut standing_index_by_team,
+            );
         }
     }
 }
@@ -405,7 +500,8 @@ fn simulate_competition_matches_for_date(game: &mut Game, today: &str) {
 fn apply_fast_competition_result(
     competition: &mut domain::league::Competition,
     fixture_index: usize,
-    team_strengths: &std::collections::HashMap<&str, u16>,
+    team_strengths: &HashMap<&str, u16>,
+    standing_index_by_team: &mut HashMap<String, usize>,
 ) {
     let fixture = &competition.fixtures[fixture_index];
     let home_strength = team_strengths
@@ -436,35 +532,33 @@ fn apply_fast_competition_result(
     });
 
     if fixture.counts_for_league_standings() {
-        if let Some(standing) = competition
-            .standings
-            .iter_mut()
-            .find(|standing| standing.team_id == fixture.home_team_id)
+        let home_team_id = fixture.home_team_id.clone();
+        let away_team_id = fixture.away_team_id.clone();
+        if let Some(standing_index) = standing_index_by_team.get(home_team_id.as_str()).copied()
+            && let Some(standing) = competition.standings.get_mut(standing_index)
         {
             standing.record_result(home_goals, away_goals);
         }
-        if let Some(standing) = competition
-            .standings
-            .iter_mut()
-            .find(|standing| standing.team_id == fixture.away_team_id)
+        if let Some(standing_index) = standing_index_by_team.get(away_team_id.as_str()).copied()
+            && let Some(standing) = competition.standings.get_mut(standing_index)
         {
             standing.record_result(away_goals, home_goals);
         }
     }
 }
 
-fn simulate_single_match_with_capture<F>(game: &mut Game, idx: usize, on_capture: &mut F)
-where
+fn simulate_single_match_with_capture<F>(
+    game: &mut Game,
+    idx: usize,
+    home_team_id: &str,
+    away_team_id: &str,
+    home_data: engine::TeamData,
+    away_data: engine::TeamData,
+    on_capture: &mut F,
+) where
     F: FnMut(StatsState),
 {
-    let (home_team_id, away_team_id) = {
-        let f = &game.league.as_ref().unwrap().fixtures[idx];
-        (f.home_team_id.clone(), f.away_team_id.clone())
-    };
-
-    let home_data = build_engine_team(game, &home_team_id);
-    let away_data = build_engine_team(game, &away_team_id);
     let config = engine::MatchConfig::default();
     let report = engine::simulate(&home_data, &away_data, &config);
-    apply_match_report_with_capture(game, idx, &home_team_id, &away_team_id, &report, on_capture);
+    apply_match_report_with_capture(game, idx, home_team_id, away_team_id, &report, on_capture);
 }

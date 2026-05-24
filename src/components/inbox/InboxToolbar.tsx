@@ -50,7 +50,7 @@ export default function InboxToolbar({
   const { t } = useTranslation();
 
   return (
-    <div className="flex gap-2 mb-4 flex-wrap shrink-0">
+    <div className="flex shrink-0 flex-wrap gap-2 rounded-xl border border-app-border bg-app-card p-3">
       <button
         onClick={onShowAll}
         className={getFilterButtonClassName(!categoryFilter)}
@@ -87,7 +87,7 @@ export default function InboxToolbar({
         <div className="flex items-center gap-2">
           <label
             htmlFor="inbox-sort-order"
-            className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted"
           >
             {t("inbox.sortLabel")}
           </label>
@@ -139,7 +139,7 @@ export default function InboxToolbar({
         {unreadCount > 0 ? (
           <button
             onClick={onMarkAllRead}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600 hover:text-primary-500 hover:border-primary-300 transition-all"
+            className="flex items-center gap-1.5 rounded-lg border border-app-border bg-app-card px-3 py-1.5 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted transition-all hover:bg-white/5 hover:text-app-green"
           >
             <CheckCheck className="w-3.5 h-3.5" />
             {t("inbox.markAllRead")}
@@ -147,7 +147,7 @@ export default function InboxToolbar({
         ) : null}
         <button
           onClick={onClearOld}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600 hover:text-red-500 hover:border-red-300 transition-all"
+          className="flex items-center gap-1.5 rounded-lg border border-app-border bg-app-card px-3 py-1.5 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted transition-all hover:bg-red-500/10 hover:text-red-400"
         >
           <Trash2 className="w-3.5 h-3.5" />
           {t("inbox.clearOld")}

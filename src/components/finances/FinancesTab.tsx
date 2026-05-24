@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   GameStateData,
@@ -32,6 +32,7 @@ import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { resolveBackendError, resolveMessage } from "../../utils/backendI18n";
 
 type FacilityId = "Training" | "Medical" | "Scouting";
+type FinanceViewTab = "Overview" | "Commercial" | "Squad Costs" | "Facilities";
 
 interface FacilityUpgradeErrorState {
   facilityId: FacilityId;
@@ -50,6 +51,31 @@ const DEFAULT_FACILITIES = {
   medical: 1,
   scouting: 1,
 };
+
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+function TemplateCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={cx("rounded-xl border border-app-border bg-app-card", className)}>{children}</div>;
+}
+
+function SectionTitle({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{title}</h3>
+      {action ? <span className="text-[10px] font-semibold text-app-green">{action}</span> : null}
+    </div>
+  );
+}
+
+function HeaderChip({ label, value, tone = "text-app-text" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+      {label} <span className={cx("font-bold", tone)}>{value}</span>
+    </div>
+  );
+}
 
 const FACILITY_DEFINITIONS: FacilityDefinition[] = [
   {
@@ -227,12 +253,13 @@ export default function FinancesTab({
   onSelectPlayer,
 }: FinancesTabProps) {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<FinanceViewTab>("Overview");
   const myTeam = gameState.teams.find(
     (tm) => tm.id === gameState.manager.team_id,
   );
   if (!myTeam)
     return (
-      <p className="text-gray-500 dark:text-gray-400">{t("common.noTeam")}</p>
+      <p className="text-app-text-muted">{t("common.noTeam")}</p>
     );
   const weeklySuffix = t("finances.perWeekSuffix");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -652,22 +679,22 @@ export default function FinancesTab({
     {
       label: t("finances.clubBalance"),
       value: myTeam.finance,
-      color: myTeam.finance >= 0 ? "text-primary-500" : "text-red-500",
+      color: myTeam.finance >= 0 ? "text-app-green" : "text-red-500",
     },
     {
       label: t("finances.wageBudget"),
       value: myTeam.wage_budget,
-      color: "text-gray-800 dark:text-gray-200",
+      color: "text-app-text",
     },
     {
       label: t("finances.transferBudget"),
       value: myTeam.transfer_budget,
-      color: "text-gray-800 dark:text-gray-200",
+      color: "text-app-text",
     },
     {
       label: t("finances.seasonIncome"),
       value: myTeam.season_income,
-      color: "text-primary-500",
+      color: "text-app-green",
     },
     {
       label: t("finances.seasonExpenses"),
@@ -676,9 +703,81 @@ export default function FinancesTab({
     },
   ];
 
+  const financeTabs: FinanceViewTab[] = ["Overview", "Commercial", "Squad Costs", "Facilities"];
+
   return (
-    <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* Financial overview */}
+    <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">FINANCES</h1>
+          <p className="text-sm text-app-text-muted">
+            {t("finances.clubBalance")} {formatVal(myTeam.finance)} &bull; {t("finances.projectedWeeklyNet")} {formatWeeklyAmount(formatSignedAmount(projectedWeeklyNet), weeklySuffix)} &bull; {t("finances.wageBudgetUsed", { percent: wageBudgetUsagePercent })}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <HeaderChip label={t("finances.clubBalance")} value={formatVal(myTeam.finance)} tone={myTeam.finance >= 0 ? "text-app-green" : "text-red-500"} />
+          <HeaderChip label={t("finances.transferBudget")} value={formatVal(myTeam.transfer_budget)} />
+          <HeaderChip label={t("finances.wagePressure")} value={`${wageBudgetUsagePercent}%`} tone={wageBudgetUsagePercent <= 100 ? "text-app-green" : "text-red-500"} />
+          <HeaderChip label={t("finances.cashRunway")} value={cashRunwayWeeks === null ? t("finances.runwayStable") : t("finances.runwayWeeks", { count: cashRunwayWeeks })} />
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
+        {financeTabs.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={cx(
+              "pb-3 text-[11px] uppercase tracking-wider transition-colors",
+              activeTab === tab
+                ? "border-b-2 border-app-green font-semibold text-app-green"
+                : "font-medium text-app-text-muted hover:text-white",
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[280px]">
+          <div>
+            <SectionTitle title="SUMMARY" action={myTeam.short_name ?? myTeam.name} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              {financeItems.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-app-text-muted">{item.label}</span>
+                  <span className={cx("font-bold", item.value >= 0 ? "text-app-text" : "text-red-500")}>{formatVal(item.value)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-app-text-muted">{t("finances.squadValue")}</span>
+                <span className="font-bold text-app-text">{formatVal(totalValue)}</span>
+              </div>
+            </TemplateCard>
+          </div>
+
+          <div>
+            <SectionTitle title="HEALTH" action={financeSnapshot.overallStatus.toUpperCase()} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-app-text-muted">{t("finances.weeklyTotal")}</span>
+                <span className="font-bold text-app-text">{formatWeeklyAmount(formatVal(totalWages), weeklySuffix)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-app-text-muted">{t("finances.projectedWeeklyNet")}</span>
+                <span className={cx("font-bold", projectedWeeklyNet >= 0 ? "text-app-green" : "text-red-500")}>{formatWeeklyAmount(formatSignedAmount(projectedWeeklyNet), weeklySuffix)}</span>
+              </div>
+              <ProgressBar value={Math.min(100, wageBudgetUsagePercent)} variant={totalWages <= weeklyWageBudget ? "success" : "danger"} size="sm" showLabel />
+            </TemplateCard>
+          </div>
+        </aside>
+
+        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {activeTab === "Overview" ? (
+              <>
       <Card accent="accent" className="lg:col-span-2">
         <CardHeader>{t("finances.overview")}</CardHeader>
         <CardBody>
@@ -686,9 +785,9 @@ export default function FinancesTab({
             {financeItems.map((item) => (
               <div
                 key={item.label}
-                className="bg-gray-50 dark:bg-surface-800 rounded-xl p-4 text-center"
+                className="rounded-xl border border-app-border bg-app-bg p-4 text-center"
               >
-                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
+                <p className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {item.label}
                 </p>
                 <p className={`font-heading font-bold text-xl ${item.color}`}>
@@ -696,11 +795,11 @@ export default function FinancesTab({
                 </p>
               </div>
             ))}
-            <div className="bg-gray-50 dark:bg-surface-800 rounded-xl p-4 text-center">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
+            <div className="rounded-xl border border-app-border bg-app-bg p-4 text-center">
+              <p className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.squadValue")}
               </p>
-              <p className="font-heading font-bold text-xl text-gray-800 dark:text-gray-200">
+              <p className="font-heading text-xl font-bold text-app-text">
                 {formatVal(totalValue)}
               </p>
             </div>
@@ -708,23 +807,22 @@ export default function FinancesTab({
         </CardBody>
       </Card>
 
-      {/* Wage summary */}
       <Card>
         <CardHeader>{t("finances.wageBill")}</CardHeader>
         <CardBody>
           <div className="text-center mb-4">
-            <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
               {t("finances.weeklyTotal")}
             </p>
-            <p className="font-heading font-bold text-2xl text-gray-800 dark:text-gray-100 mt-1">
+            <p className="mt-1 font-heading text-2xl font-bold text-app-text">
               {formatWeeklyAmount(formatVal(totalWages), weeklySuffix)}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <p className="mt-1 text-xs text-app-text-muted">
               {t("finances.budget")}:{" "}
               {formatWeeklyAmount(formatVal(weeklyWageBudget), weeklySuffix)}{" "}
               —{" "}
               {totalWages <= weeklyWageBudget ? (
-                <span className="text-primary-500">
+                <span className="text-app-green">
                   {t("finances.underBudget")}
                 </span>
               ) : (
@@ -748,8 +846,8 @@ export default function FinancesTab({
         <CardHeader>{t("finances.cashFlow")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+            <div className="rounded-xl border border-app-border bg-app-bg p-4 text-center">
+              <p className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.weeklyWageSpend")}
               </p>
               <p className="font-heading font-bold text-xl text-red-500">
@@ -759,23 +857,23 @@ export default function FinancesTab({
                 )}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+            <div className="rounded-xl border border-app-border bg-app-bg p-4 text-center">
+              <p className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.weeklySponsorIncome")}
               </p>
-              <p className="font-heading font-bold text-xl text-primary-500">
+              <p className="font-heading font-bold text-xl text-app-green">
                 {formatWeeklyAmount(
                   formatSignedAmount(weeklySponsorIncome),
                   weeklySuffix,
                 )}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+            <div className="rounded-xl border border-app-border bg-app-bg p-4 text-center">
+              <p className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.projectedWeeklyNet")}
               </p>
               <p
-                className={`font-heading font-bold text-xl ${projectedWeeklyNet >= 0 ? "text-primary-500" : "text-red-500"}`}
+                className={`font-heading font-bold text-xl ${projectedWeeklyNet >= 0 ? "text-app-green" : "text-red-500"}`}
               >
                 {formatWeeklyAmount(
                   formatSignedAmount(projectedWeeklyNet),
@@ -783,28 +881,28 @@ export default function FinancesTab({
                 )}
               </p>
             </div>
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 text-center">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+            <div className="rounded-xl border border-app-border bg-app-bg p-4 text-center">
+              <p className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.cashRunway")}
               </p>
-              <p className="font-heading font-bold text-base text-gray-800 dark:text-gray-100">
+              <p className="font-heading text-base font-bold text-app-text">
                 {cashRunwayWeeks === null
                   ? t("finances.runwayStable")
                   : t("finances.runwayWeeks", { count: cashRunwayWeeks })}
               </p>
             </div>
           </div>
-          <div className="mt-4 rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
+          <div className="mt-4 space-y-3 rounded-xl border border-app-border bg-app-bg p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
-                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("finances.boardSupport")}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-app-text-muted">
                   {t("finances.boardSupportDescription")}
                 </p>
                 {boardSupportPreviewText ? (
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-app-text-muted">
                     {boardSupportPreviewText}
                   </p>
                 ) : null}
@@ -819,13 +917,13 @@ export default function FinancesTab({
             </div>
             {boardSupportFeedback ? (
               <p
-                className={`text-sm ${boardSupportFeedback.tone === "error" ? "text-red-500" : "text-primary-500"}`}
+                className={`text-sm ${boardSupportFeedback.tone === "error" ? "text-red-500" : "text-app-green"}`}
               >
                 {boardSupportFeedback.text}
               </p>
             ) : null}
             {!canRequestBoardSupport ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-app-text-muted">
                 {t("finances.boardSupportUnavailable")}
               </p>
             ) : null}
@@ -837,11 +935,11 @@ export default function FinancesTab({
         <CardHeader>{t("finances.wagePressure")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <div className="space-y-3 rounded-xl border border-app-border bg-app-bg p-4">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.wagePressure")}
               </p>
-              <p className="font-heading font-bold text-2xl text-gray-900 dark:text-gray-100">
+              <p className="font-heading text-2xl font-bold text-app-text">
                 {t("finances.wageBudgetUsed", {
                   percent: wageBudgetUsagePercent,
                 })}
@@ -856,20 +954,20 @@ export default function FinancesTab({
               />
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
+            <div className="space-y-3 rounded-xl border border-app-border bg-app-bg p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("finances.contractRisk")}
                   </p>
                   {delegatedRenewalsSummary ? (
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                    <p className="text-xs text-app-text-muted">
                       {delegatedRenewalsSummary}
                     </p>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <p className="text-sm font-semibold text-app-text">
                     {t("finances.atRiskWages", {
                       amount: formatExactMoney(atRiskWages),
                     })}
@@ -904,7 +1002,7 @@ export default function FinancesTab({
                   {contractRiskPlayers.map(({ player, riskLevel }) => (
                     <div
                       key={player.id}
-                      className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-3 flex items-start justify-between gap-3"
+                      className="flex items-start justify-between gap-3 rounded-lg border border-app-border bg-app-card p-3"
                     >
                       <div className="flex items-start gap-3">
                         <input
@@ -914,18 +1012,18 @@ export default function FinancesTab({
                           aria-label={t("finances.selectRiskPlayer", {
                             player: player.full_name,
                           })}
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
+                          className="mt-1 h-4 w-4 rounded border-app-border text-app-green focus:ring-app-green/30"
                         />
                         <div className="space-y-1">
-                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                          <p className="text-sm font-semibold text-app-text">
                             {player.full_name}
                           </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                          <p className="text-xs text-app-text-muted">
                             {t("finances.contractExpiresOn", {
                               date: player.contract_end,
                             })}
                           </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                          <p className="text-xs text-app-text-muted">
                             {t("playerProfile.yearsRemaining")}:{" "}
                             {getContractYearsRemaining(
                               player.contract_end,
@@ -940,7 +1038,7 @@ export default function FinancesTab({
                             ? t("finances.contractRiskCritical")
                             : t("finances.contractRiskWarning")}
                         </Badge>
-                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        <span className="text-xs font-semibold text-app-text">
                           {formatWeeklyAmount(
                             formatExactMoney(
                               annualAmountToWeeklyCommitment(player.wage),
@@ -967,7 +1065,7 @@ export default function FinancesTab({
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-app-text-muted">
                   {t("finances.noContractRisks")}
                 </p>
               )}
@@ -976,52 +1074,57 @@ export default function FinancesTab({
         </CardBody>
       </Card>
 
+              </>
+            ) : null}
+
+            {activeTab === "Commercial" ? (
+              <>
       <Card className="lg:col-span-3">
         <CardHeader>{t("finances.sponsors")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-2">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <div className="space-y-2 rounded-xl border border-app-border bg-app-bg p-4">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.activeSponsor")}
               </p>
               {activeSponsorship ? (
                 <>
-                  <h3 className="font-heading font-bold text-base text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                  <h3 className="font-heading text-base font-bold uppercase tracking-wide text-app-text">
                     {activeSponsorship.sponsor_name}
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-app-text-muted">
                     {t("finances.sponsorWeeklyValue", {
                       amount: formatExactMoney(activeSponsorship.base_value),
                     })}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-app-text-muted">
                     {t("finances.sponsorRemainingWeeks", {
                       count: activeSponsorship.remaining_weeks,
                     })}
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-app-text-muted">
                   {t("finances.noActiveSponsor")}
                 </p>
               )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 space-y-3">
-              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <div className="space-y-3 rounded-xl border border-app-border bg-app-bg p-4">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                 {t("finances.pendingSponsorOffers")}
               </p>
-              <div className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-4 space-y-3">
+              <div className="space-y-3 rounded-lg border border-app-border bg-app-card p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
-                    <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                    <h3 className="text-sm font-semibold text-app-text">
                       {t("finances.pitchSponsor")}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-app-text-muted">
                       {t("finances.sponsorPitchDescription")}
                     </p>
                     {sponsorPitchPreviewText ? (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <p className="text-xs text-app-text-muted">
                         {sponsorPitchPreviewText}
                       </p>
                     ) : null}
@@ -1038,7 +1141,7 @@ export default function FinancesTab({
                   </Button>
                 </div>
                 {sponsorPitchDisabledReason ? (
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-app-text-muted">
                     {sponsorPitchDisabledReason}
                   </p>
                 ) : null}
@@ -1047,24 +1150,24 @@ export default function FinancesTab({
                     className={
                       sponsorPitchFeedback.tone === "error"
                         ? "text-sm text-red-500"
-                        : "text-sm text-primary-500"
+                        : "text-sm text-app-green"
                     }
                   >
                     {sponsorPitchFeedback.text}
                   </p>
                 ) : null}
               </div>
-              <div className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-4 space-y-3">
+              <div className="space-y-3 rounded-lg border border-app-border bg-app-card p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
-                    <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                    <h3 className="text-sm font-semibold text-app-text">
                       {t("finances.marketingCampaign")}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-app-text-muted">
                       {t("finances.marketingCampaignDescription")}
                     </p>
                     {marketingCampaignPreviewText ? (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <p className="text-xs text-app-text-muted">
                         {marketingCampaignPreviewText}
                       </p>
                     ) : null}
@@ -1081,7 +1184,7 @@ export default function FinancesTab({
                   </Button>
                 </div>
                 {marketingCampaignDisabledReason ? (
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-app-text-muted">
                     {marketingCampaignDisabledReason}
                   </p>
                 ) : null}
@@ -1090,7 +1193,7 @@ export default function FinancesTab({
                     className={
                       marketingCampaignFeedback.tone === "error"
                         ? "text-sm text-red-500"
-                        : "text-sm text-primary-500"
+                        : "text-sm text-app-green"
                     }
                   >
                     {marketingCampaignFeedback.text}
@@ -1115,13 +1218,13 @@ export default function FinancesTab({
                   return (
                     <div
                       key={message.id}
-                      className="rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 p-4 space-y-3"
+                      className="space-y-3 rounded-lg border border-app-border bg-app-card p-4"
                     >
                       <div className="space-y-1">
-                        <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                        <h3 className="text-sm font-semibold text-app-text">
                           {message.subject}
                         </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-app-text-muted">
                           {message.body}
                         </p>
                       </div>
@@ -1132,9 +1235,9 @@ export default function FinancesTab({
                             return (
                               <div
                                 key={option.id}
-                                className="min-w-55 flex-1 rounded-lg border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-3 space-y-2"
+                                className="min-w-55 flex-1 space-y-2 rounded-lg border border-app-border bg-app-bg p-3"
                               >
-                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                <p className="text-xs text-app-text-muted">
                                   {option.description}
                                 </p>
                                 <Button
@@ -1164,7 +1267,7 @@ export default function FinancesTab({
                   );
                 })
               ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-app-text-muted">
                   {t("finances.noPendingSponsorOffers")}
                 </p>
               )}
@@ -1173,6 +1276,11 @@ export default function FinancesTab({
         </CardBody>
       </Card>
 
+              </>
+            ) : null}
+
+            {activeTab === "Facilities" ? (
+              <>
       <Card className="lg:col-span-3">
         <CardHeader>{t("finances.facilities")}</CardHeader>
         <CardBody>
@@ -1193,22 +1301,22 @@ export default function FinancesTab({
               return (
                 <div
                   key={facility.id}
-                  className="rounded-xl border border-gray-200 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 p-4 flex flex-col gap-4"
+                  className="flex flex-col gap-4 rounded-xl border border-app-border bg-app-bg p-4"
                 >
                   <div className="space-y-1">
-                    <h3 className="font-heading font-bold text-base text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                    <h3 className="font-heading text-base font-bold uppercase tracking-wide text-app-text">
                       {t(facility.titleKey)}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-app-text-muted">
                       {t("finances.facilityLevel", { level })}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-app-text-muted">
                       {t(facility.effectKey)}
                     </p>
                   </div>
 
                   <div className="space-y-2 mt-auto">
-                    <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <p className="text-xs font-heading font-bold uppercase tracking-wider text-app-text-muted">
                       {t("finances.nextUpgradeCost", {
                         amount: formatExactMoney(nextUpgradeCost),
                       })}
@@ -1236,6 +1344,11 @@ export default function FinancesTab({
         </CardBody>
       </Card>
 
+              </>
+            ) : null}
+
+            {activeTab === "Squad Costs" ? (
+              <>
       {/* Payroll */}
       <Card className="lg:col-span-3">
         <CardHeader>{t("finances.payroll")}</CardHeader>
@@ -1243,25 +1356,25 @@ export default function FinancesTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
-                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <tr className="border-b border-app-border bg-app-bg text-xs">
+                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("common.player")}
                   </th>
-                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("common.position")}
                   </th>
-                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("finances.wagePerWeek")}
                   </th>
-                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("finances.marketValue")}
                   </th>
-                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("common.contract")}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
+              <tbody className="divide-y divide-app-border/40">
                 {[...roster]
                   .sort((a, b) => b.wage - a.wage)
                   .slice(0, 10)
@@ -1280,10 +1393,10 @@ export default function FinancesTab({
                       <tr
                         key={p.id}
                         onClick={() => onSelectPlayer?.(p.id)}
-                        className={`hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors ${onSelectPlayer ? "cursor-pointer group" : ""}`}
+                        className={`transition-colors hover:bg-white/5 ${onSelectPlayer ? "cursor-pointer group" : ""}`}
                       >
-                        <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">
-                          <span className="group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                        <td className="px-5 py-3 text-sm font-semibold text-app-text">
+                          <span className="transition-colors group-hover:text-app-green">
                             {p.full_name}
                           </span>
                         </td>
@@ -1292,15 +1405,15 @@ export default function FinancesTab({
                             {translatePositionAbbreviation(t, p.position)}
                           </Badge>
                         </td>
-                        <td className="py-3 px-5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <td className="px-5 py-3 text-sm font-medium text-app-text">
                           {formatExactMoney(
                             annualAmountToWeeklyCommitment(p.wage),
                           )}
                         </td>
-                        <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400">
+                        <td className="px-5 py-3 text-sm text-app-text-muted">
                           {formatVal(p.market_value)}
                         </td>
-                        <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-5 py-3 text-sm text-app-text-muted">
                           {p.contract_end
                             ? t("finances.until", {
                               year: p.contract_end.substring(0, 4),
@@ -1325,6 +1438,11 @@ export default function FinancesTab({
           </div>
         </CardBody>
       </Card>
+              </>
+            ) : null}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

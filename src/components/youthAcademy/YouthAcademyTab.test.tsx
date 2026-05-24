@@ -247,6 +247,7 @@ describe("YouthAcademyTab", () => {
     );
 
     expect(screen.getByText("No youth players")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Development" }));
     expect(screen.getByText("Build your academy")).toBeInTheDocument();
     expect(screen.getByText("1 eligible senior players")).toBeInTheDocument();
     expect(
@@ -281,6 +282,7 @@ describe("YouthAcademyTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Development" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Delegate to youth academy" }),
     );
@@ -311,6 +313,7 @@ describe("YouthAcademyTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Development" }));
     fireEvent.click(screen.getByRole("button", { name: "Open scouting" }));
 
     expect(onNavigate).toHaveBeenCalledWith("Scouting");
@@ -337,6 +340,7 @@ describe("YouthAcademyTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Development" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Youth target" }));
     fireEvent.click(screen.getByRole("option", { name: "Defender" }));
     fireEvent.click(screen.getByRole("button", { name: "Start youth search" }));

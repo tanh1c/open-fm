@@ -86,7 +86,7 @@ export default function ScoutingYouthRecruitmentCard({
                         {hint ?? "Find youth prospects by scout, region, profile, and role."}
                     </p>
                     {embedded ? (
-                        <Button size="sm" icon={<ScanSearch />} disabled={!canStart} onClick={onStartSearch}>Start</Button>
+                        <Button size="sm" icon={<ScanSearch />} disabled={!canStart} onClick={onStartSearch} aria-label="Start youth search">Start</Button>
                     ) : null}
                 </div>
 
@@ -146,19 +146,19 @@ export default function ScoutingYouthRecruitmentCard({
 
                     <div className="flex flex-col gap-1.5">
                         <span className="truncate text-[10px] font-heading uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            {"Role"}
+                            {t("scouting.youthTargetLabel")}
                         </span>
                         <Select
                             fullWidth
                             selectSize="sm"
                             value={targetPosition}
-                            aria-label={"Role"}
+                            aria-label={t("scouting.youthTargetLabel")}
                             onChange={(event) => onTargetPositionChange(event.target.value)}
                         >
                             <option value="">Any</option>
-                            <option value="Defender">DEF</option>
-                            <option value="Midfielder">MID</option>
-                            <option value="Forward">FWD</option>
+                            <option value="Defender">Defender</option>
+                            <option value="Midfielder">Midfielder</option>
+                            <option value="Forward">Forward</option>
                         </Select>
                     </div>
                 </div>

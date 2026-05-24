@@ -346,7 +346,9 @@ describe("FinancesTab facilities", () => {
 
     render(<FinancesTab gameState={gameState} />);
 
-    expect(screen.getByText("Facilities")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Facilities" }));
+
+    expect(screen.getAllByText("Facilities").length).toBeGreaterThan(0);
     expect(screen.getByText("Training Facility")).toBeInTheDocument();
     expect(screen.getByText("Medical Facility")).toBeInTheDocument();
     expect(screen.getByText("Scouting Facility")).toBeInTheDocument();
@@ -390,6 +392,7 @@ describe("FinancesTab facilities", () => {
       <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Facilities" }));
     const upgradeButtons = screen.getAllByRole("button", { name: "Upgrade" });
     fireEvent.click(upgradeButtons[1]);
 
@@ -415,6 +418,8 @@ describe("FinancesTab facilities", () => {
     );
 
     render(<FinancesTab gameState={gameState} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Commercial" }));
 
     expect(screen.getByText("Sponsors")).toBeInTheDocument();
     expect(screen.getByText("Active Sponsor")).toBeInTheDocument();
@@ -470,6 +475,7 @@ describe("FinancesTab facilities", () => {
       <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Commercial" }));
     fireEvent.click(screen.getByRole("button", { name: "Accept the deal" }));
 
     await waitFor(() => {
@@ -537,6 +543,7 @@ describe("FinancesTab facilities", () => {
       <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Commercial" }));
     fireEvent.click(screen.getByRole("button", { name: "Pitch Sponsor" }));
 
     await waitFor(() => {
@@ -604,6 +611,7 @@ describe("FinancesTab facilities", () => {
       <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Commercial" }));
     fireEvent.click(screen.getByRole("button", { name: "Launch Campaign" }));
 
     await waitFor(() => {
@@ -678,6 +686,8 @@ describe("FinancesTab facilities", () => {
       ).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Commercial" }));
+
     expect(
       screen.getByText("Summit Capital will pay €85,000 for 12 weeks"),
     ).toBeInTheDocument();
@@ -722,6 +732,8 @@ describe("FinancesTab facilities", () => {
 
     render(<FinancesTab gameState={initialState} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Commercial" }));
+
     await waitFor(() => {
       expect(
         screen.getByRole("button", { name: "Launch Campaign" }),
@@ -763,6 +775,8 @@ describe("FinancesTab facilities", () => {
 
     render(<FinancesTab gameState={gameState} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Facilities" }));
+
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: "Upgrade" })[0]).toBeDisabled();
     });
@@ -788,11 +802,11 @@ describe("FinancesTab facilities", () => {
     expect(screen.getByText("Cash Flow")).toBeInTheDocument();
     expect(screen.getByText("Weekly Wage Spend")).toBeInTheDocument();
     expect(screen.getByText("Weekly Sponsor Income")).toBeInTheDocument();
-    expect(screen.getByText("Projected Weekly Net")).toBeInTheDocument();
-    expect(screen.getByText("Cash Runway")).toBeInTheDocument();
+    expect(screen.getAllByText("Projected Weekly Net").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cash Runway").length).toBeGreaterThan(0);
     expect(screen.getByText("€10K/wk")).toBeInTheDocument();
-    expect(screen.getByText("-€30K/wk")).toBeInTheDocument();
-    expect(screen.getByText("9 weeks at current pace")).toBeInTheDocument();
+    expect(screen.getAllByText("-€30K/wk").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("9 weeks at current pace").length).toBeGreaterThan(0);
   });
 
   it("renders wage pressure and contract risk indicators for expiring players", () => {

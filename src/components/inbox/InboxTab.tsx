@@ -306,64 +306,90 @@ export default function InboxTab({
   }
 
   return (
-    <div className="max-w-6xl mx-auto flex flex-col h-full">
-      <InboxToolbar
-        allMessagesCount={allMessages.length}
-        bulkSelectionEnabled={bulkSelectionEnabled}
-        categories={categories}
-        categoryCounts={categoryCounts}
-        categoryFilter={categoryFilter}
-        selectedMessageCount={selectedMessageIds.length}
-        sortOrder={sortOrder}
-        unreadCount={unreadCount}
-        onClearOld={() => {
-          void handleClearOld();
-        }}
-        onDeleteSelected={handleRequestBulkDelete}
-        onMarkAllRead={() => {
-          void handleMarkAllRead();
-        }}
-        onShowAll={handleShowAll}
-        onShowUnread={handleShowUnread}
-        onSortOrderChange={handleSortOrderChange}
-        onToggleBulkSelectionMode={handleToggleBulkSelectionMode}
-        onToggleCategory={handleToggleCategory}
-      />
-
-      <div className="flex-1 flex gap-0 rounded-xl overflow-hidden border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-800 min-h-0">
-        <InboxMessageListPane
-          bulkSelectionEnabled={bulkSelectionEnabled}
-          filteredMessages={filteredMessages}
-          hasSelectedMessage={selectedMessage !== null}
-          language={i18n.language}
-          selectedMessageId={selectedMessageId}
-          selectedMessageIds={selectedMessageIds}
-          onRequestDeleteMessage={(message) => {
-            handleRequestDeleteMessage(message.id, message.subject);
-          }}
-          onRequestMarkMessageRead={(messageId) => {
-            void handleSelectMessage(messageId);
-          }}
-          onSelectMessage={(messageId) => {
-            void handleSelectMessage(messageId);
-          }}
-          onToggleMessageSelection={handleToggleMessageSelection}
-        />
-
-        <div className="flex-1 flex flex-col min-w-0">
-          <InboxMessageDetailPane
-            effectFeedback={effectFeedback}
-            gameState={gameState}
-            language={i18n.language}
-            selectedMessage={selectedMessage}
-            onAction={(messageId, actionId, optionId) => {
-              void handleAction(messageId, actionId, optionId);
-            }}
-            onCloseSelectedMessage={handleCloseSelectedMessage}
-            onRequestDelete={handleRequestSingleDelete}
-            onScoutPlayerClick={handleScoutPlayerClick}
-          />
+    <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">INBOX</h1>
+          <p className="text-sm text-app-text-muted">
+            {allMessages.length} messages &bull; {unreadCount} unread &bull; {sortOrder === "newest" ? "Newest first" : "Oldest first"}
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+            Total <span className="font-bold text-app-text">{allMessages.length}</span>
+          </div>
+          <div className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+            Unread <span className="font-bold text-app-green">{unreadCount}</span>
+          </div>
+          {bulkSelectionEnabled ? (
+            <div className="rounded-lg bg-app-green px-4 py-2 text-sm font-bold text-app-bg">
+              {selectedMessageIds.length} selected
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px]">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden">
+          <InboxToolbar
+            allMessagesCount={allMessages.length}
+            bulkSelectionEnabled={bulkSelectionEnabled}
+            categories={categories}
+            categoryCounts={categoryCounts}
+            categoryFilter={categoryFilter}
+            selectedMessageCount={selectedMessageIds.length}
+            sortOrder={sortOrder}
+            unreadCount={unreadCount}
+            onClearOld={() => {
+              void handleClearOld();
+            }}
+            onDeleteSelected={handleRequestBulkDelete}
+            onMarkAllRead={() => {
+              void handleMarkAllRead();
+            }}
+            onShowAll={handleShowAll}
+            onShowUnread={handleShowUnread}
+            onSortOrderChange={handleSortOrderChange}
+            onToggleBulkSelectionMode={handleToggleBulkSelectionMode}
+            onToggleCategory={handleToggleCategory}
+          />
+
+          <div className="flex min-h-0 flex-1 gap-0 overflow-hidden rounded-xl border border-app-border bg-app-card">
+            <InboxMessageListPane
+              bulkSelectionEnabled={bulkSelectionEnabled}
+              filteredMessages={filteredMessages}
+              hasSelectedMessage={selectedMessage !== null}
+              language={i18n.language}
+              selectedMessageId={selectedMessageId}
+              selectedMessageIds={selectedMessageIds}
+              onRequestDeleteMessage={(message) => {
+                handleRequestDeleteMessage(message.id, message.subject);
+              }}
+              onRequestMarkMessageRead={(messageId) => {
+                void handleSelectMessage(messageId);
+              }}
+              onSelectMessage={(messageId) => {
+                void handleSelectMessage(messageId);
+              }}
+              onToggleMessageSelection={handleToggleMessageSelection}
+            />
+
+            <div className="flex min-w-0 flex-1 flex-col">
+              <InboxMessageDetailPane
+                effectFeedback={effectFeedback}
+                gameState={gameState}
+                language={i18n.language}
+                selectedMessage={selectedMessage}
+                onAction={(messageId, actionId, optionId) => {
+                  void handleAction(messageId, actionId, optionId);
+                }}
+                onCloseSelectedMessage={handleCloseSelectedMessage}
+                onRequestDelete={handleRequestSingleDelete}
+                onScoutPlayerClick={handleScoutPlayerClick}
+              />
+            </div>
+          </div>
+        </section>
       </div>
 
       <InboxDeleteConfirmModal

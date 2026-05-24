@@ -48,21 +48,21 @@ export default function InboxMessageListPane({
 
   return (
     <div className={getListPaneClassName(hasSelectedMessage)}>
-      <div className="bg-linear-to-r from-surface-700 to-surface-800 shrink-0 border-b border-gray-100 p-4 dark:border-surface-600">
-        <h3 className="text-sm font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
-          <Mail className="w-4 h-4 text-accent-400" />
+      <div className="shrink-0 border-b border-app-border/50 bg-app-bg p-4">
+        <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+          <Mail className="h-4 w-4 text-app-green" />
           {t("inbox.title")}
         </h3>
-        <p className="text-xs text-gray-400 mt-0.5 font-heading uppercase tracking-wider">
+        <p className="mt-1 text-xs font-semibold text-app-text">
           {t("inbox.nMessages", { count: filteredMessages.length })}
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
         {filteredMessages.length === 0 ? (
           <div className="p-6 text-center">
-            <MailOpen className="w-8 h-8 text-gray-300 dark:text-surface-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-400 dark:text-gray-500">
+            <MailOpen className="mx-auto mb-2 h-8 w-8 text-app-text-muted" />
+            <p className="text-sm text-app-text-muted">
               {t("inbox.noMessages")}
             </p>
           </div>
@@ -99,7 +99,7 @@ export default function InboxMessageListPane({
                           subject: message.subject,
                         })}
                         data-testid={`inbox-select-message-${message.id}`}
-                        className="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
+                        className="h-4 w-4 rounded border-app-border bg-app-bg text-app-green focus:ring-app-green/30"
                       />
                     </div>
                   ) : null}
@@ -118,13 +118,13 @@ export default function InboxMessageListPane({
                         {message.subject}
                       </h4>
                       {!message.read ? (
-                        <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-app-green shrink-0" />
                       ) : null}
                     </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                    <p className="mt-0.5 truncate text-xs text-app-text-muted">
                       {message.sender}
                     </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    <p className="mt-0.5 text-xs text-app-text-muted">
                       {formatDateShort(message.date, language)}
                     </p>
                   </div>

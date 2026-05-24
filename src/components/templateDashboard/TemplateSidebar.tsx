@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, Settings } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "./templateUtils";
 
 export interface TemplateSidebarItem {
@@ -15,7 +15,6 @@ interface TemplateSidebarProps {
   activeId: string;
   onSelect: (id: string) => void;
   onBrandClick?: () => void;
-  onSettings?: () => void;
 }
 
 export function TemplateSidebar({
@@ -23,7 +22,6 @@ export function TemplateSidebar({
   activeId,
   onSelect,
   onBrandClick,
-  onSettings,
 }: TemplateSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -87,10 +85,7 @@ export function TemplateSidebar({
       </nav>
 
 
-      <div className="h-14 border-t border-app-border flex items-center justify-between px-4 shrink-0 text-app-text-muted">
-        <button type="button" onClick={onSettings} className="p-2 hover:text-white transition-colors rounded-lg hover:bg-white/5">
-          <Settings className="w-4 h-4" />
-        </button>
+      <div className="h-14 border-t border-app-border flex items-center justify-center px-4 shrink-0 text-app-text-muted">
         <button
           type="button"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}

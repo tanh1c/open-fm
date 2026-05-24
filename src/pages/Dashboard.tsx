@@ -26,6 +26,7 @@ import {
   UsersRound,
   Building2,
   Trophy,
+  Settings,
 } from "lucide-react";
 import {
   createDashboardProfileNavigationState,
@@ -78,6 +79,7 @@ const DASHBOARD_TAB_PATHS: Record<string, string> = {
   Players: "/players",
   Teams: "/teams",
   Tournaments: "/tournaments",
+  Settings: "/settings",
 };
 
 const DASHBOARD_PATH_TABS = Object.fromEntries(
@@ -482,7 +484,6 @@ export default function Dashboard(): JSX.Element {
         activeId={profileNavigation.activeTab}
         onSelect={handleNavClick}
         onBrandClick={() => handleNavClick("Home")}
-        onSettings={handleNavigateSettings}
         items={[
           { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
           { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
@@ -503,6 +504,7 @@ export default function Dashboard(): JSX.Element {
           { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
           { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },
           { id: "Tournaments", label: t("dashboard.tournaments"), icon: <Trophy /> },
+          { id: "Settings", label: t("settings.title", { defaultValue: "Settings" }), icon: <Settings /> },
         ]}
       />
 

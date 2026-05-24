@@ -18,6 +18,7 @@ const StaffTab = lazy(() => import("../staff/StaffTab"));
 const InboxTab = lazy(() => import("../inbox/InboxTab"));
 const ManagerTab = lazy(() => import("../manager/ManagerTab"));
 const NewsTab = lazy(() => import("../news/NewsTab"));
+const SettingsTab = lazy(() => import("../../pages/Settings"));
 
 interface DashboardTabContentProps {
   viewModel: DashboardTabContentModel;
@@ -161,6 +162,8 @@ export default function DashboardTabContent({
     content = <ManagerTab gameState={gameState} onSelectTeam={onSelectTeam} />;
   } else if (activeTab === "News") {
     content = <NewsTab gameState={gameState} onSelectTeam={onSelectTeam} />;
+  } else if (activeTab === "Settings") {
+    content = <SettingsTab embedded />;
   } else {
     console.warn("DashboardTabContent received unexpected activeTab", activeTab);
     content = renderHomeContent();

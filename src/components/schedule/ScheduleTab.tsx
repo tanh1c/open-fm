@@ -1,19 +1,54 @@
-import { useState } from "react";
-import { GameStateData, FixtureData } from "../../store/gameStore";
-import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
-import { Card, CardBody, Badge } from "../ui";
+import { useState, type ReactNode } from "react";
 import {
   Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  CircleDot,
+  Clock,
+  Info,
   TableProperties,
   Trophy,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import { FixtureData, GameStateData } from "../../store/gameStore";
 import { getTeamName, formatMatchDate } from "../../lib/helpers";
 import { resolveSeasonContext } from "../../lib/seasonContext";
-import { useTranslation } from "react-i18next";
+import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
   onSelectTeam: (id: string) => void;
+}
+
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+function TemplateCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={cx("rounded-xl border border-app-border bg-app-card", className)}>{children}</div>;
+}
+
+function SectionTitle({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{title}</h3>
+      {action ? <span className="text-[10px] font-semibold text-app-green">{action}</span> : null}
+    </div>
+  );
+}
+
+function StatRow({ label, value, tone = "text-app-text" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs">
+      <span className="text-app-text-muted">{label}</span>
+      <span className={cx("font-bold", tone)}>{value}</span>
+    </div>
+  );
+}
+
+function fixtureIncludesTeam(fixture: FixtureData, teamId?: string | null): boolean {
+  return !!teamId && (fixture.home_team_id === teamId || fixture.away_team_id === teamId);
 }
 
 export default function ScheduleTab({
@@ -22,6 +57,7 @@ export default function ScheduleTab({
 }: ScheduleTabProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<"fixtures" | "standings">("fixtures");
+  const [activeFixtureGroupIndex, setActiveFixtureGroupIndex] = useState(0);
   const league = gameState.league;
   const userTeamId = gameState.manager.team_id;
   const seasonContext = resolveSeasonContext(gameState);
@@ -57,18 +93,23 @@ export default function ScheduleTab({
 
   if (!league) {
     return (
-      <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-        {t("schedule.noLeague")}
-      </p>
+      <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+        <TemplateCard className="flex min-h-[360px] flex-col items-center justify-center gap-3 p-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-app-border bg-app-bg text-app-text-muted">
+            <CalendarIcon className="h-6 w-6" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
+          <p className="text-sm text-app-text-muted">{t("schedule.noLeague")}</p>
+        </TemplateCard>
+      </div>
     );
   }
 
-  // Group fixtures by matchday
   const matchdays = new Map<string, FixtureData[]>();
-  league.fixtures.forEach((f) => {
-    const key = getFixtureGroupKey(f);
+  league.fixtures.forEach((fixture) => {
+    const key = getFixtureGroupKey(fixture);
     const list = matchdays.get(key) || [];
-    list.push(f);
+    list.push(fixture);
     matchdays.set(key, list);
   });
   const sortedMatchdays = Array.from(matchdays.entries()).sort((a, b) => {
@@ -80,7 +121,16 @@ export default function ScheduleTab({
     );
   });
 
-  // Sorted standings
+  const activeFixtureGroupSafeIndex = Math.min(
+    activeFixtureGroupIndex,
+    Math.max(sortedMatchdays.length - 1, 0),
+  );
+  const activeFixtureGroup = sortedMatchdays[activeFixtureGroupSafeIndex] ?? null;
+  const activeFixtureGroupFixtures = activeFixtureGroup?.[1] ?? [];
+  const activeFixtureGroupLabel = activeFixtureGroupFixtures[0]
+    ? getFixtureGroupLabel(activeFixtureGroupFixtures[0])
+    : t("schedule.fixtures");
+
   const standings = [...league.standings].sort(
     (a, b) =>
       b.points - a.points ||
@@ -88,245 +138,359 @@ export default function ScheduleTab({
       b.goals_for - a.goals_for,
   );
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      {isPreseason && (
-        <Card accent="accent" className="mb-5">
-          <CardBody>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="accent" size="sm">
-                  {t(`season.phases.${seasonContext.phase}`)}
-                </Badge>
-                <span className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                  {seasonContext.season_start
-                    ? t("season.startsOn", {
-                      date: formatMatchDate(seasonContext.season_start),
-                    })
-                    : t("season.noOpener")}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t("season.standingsLocked")}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+  const userTeamName = userTeamId ? getTeamName(gameState.teams, userTeamId) : t("common.team");
+  const userStandingIndex = standings.findIndex((entry) => entry.team_id === userTeamId);
+  const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
+  const userGoalDifference = userStanding ? userStanding.goals_for - userStanding.goals_against : 0;
+  const userFixtures = league.fixtures
+    .filter((fixture) => fixtureIncludesTeam(fixture, userTeamId))
+    .sort((left, right) => left.date.localeCompare(right.date) || left.matchday - right.matchday);
+  const nextUserFixture = userFixtures.find((fixture) => fixture.status !== "Completed") ?? null;
+  const recentUserFixtures = [...userFixtures]
+    .filter((fixture) => fixture.status === "Completed")
+    .sort((left, right) => right.date.localeCompare(left.date) || right.matchday - left.matchday)
+    .slice(0, 5);
+  const completedFixtureCount = league.fixtures.filter((fixture) => fixture.status === "Completed").length;
+  const upcomingFixtureCount = league.fixtures.length - completedFixtureCount;
+  const currentDate = formatMatchDate(gameState.clock.current_date.slice(0, 10));
 
-      {/* Tab switcher */}
-      <div className="flex gap-2 mb-5">
-        <button
-          onClick={() => setView("fixtures")}
-          className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === "fixtures"
-              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-surface-600"
-            }`}
+  const renderFixtureRow = (fixture: FixtureData) => {
+    const homeName = getTeamName(gameState.teams, fixture.home_team_id);
+    const awayName = getTeamName(gameState.teams, fixture.away_team_id);
+    const isUserMatch = fixtureIncludesTeam(fixture, userTeamId);
+    const completed = fixture.status === "Completed";
+    const contextItems = [
+      buildTeamMenuItem(
+        `${t("common.viewTeam")}: ${homeName}`,
+        fixture.home_team_id,
+      ),
+      buildTeamMenuItem(
+        `${t("common.viewTeam")}: ${awayName}`,
+        fixture.away_team_id,
+      ),
+    ];
+
+    return (
+      <ContextMenu items={contextItems} key={fixture.id}>
+        <div
+          className={cx(
+            "flex items-center rounded-lg border border-app-border/50 bg-app-bg px-4 py-3 transition-colors hover:bg-white/5",
+            isUserMatch && "border-app-green/40 bg-app-green/10",
+          )}
+          data-testid={`schedule-fixture-${fixture.id}`}
         >
-          <CalendarIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" />{" "}
-          {t("schedule.fixtures")}
-        </button>
-        <button
-          onClick={() => setView("standings")}
-          className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === "standings"
-              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-surface-600"
-            }`}
-        >
-          <TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" />{" "}
-          {t("schedule.standings")}
-        </button>
+          <span
+            onClick={() => onSelectTeam(fixture.home_team_id)}
+            className={cx(
+              "min-w-0 flex-1 cursor-pointer truncate text-right text-sm font-semibold hover:underline",
+              fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
+            )}
+          >
+            {homeName}
+          </span>
+          <div className="mx-3 flex w-24 shrink-0 justify-center text-center">
+            {completed && fixture.result ? (
+              <span className="rounded-lg border border-app-border bg-app-bg px-3 py-1 font-heading text-base font-bold text-app-text">
+                {fixture.result.home_goals} - {fixture.result.away_goals}
+              </span>
+            ) : (
+              <span className="rounded border border-app-border bg-app-bg px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+                vs
+              </span>
+            )}
+          </div>
+          <span
+            onClick={() => onSelectTeam(fixture.away_team_id)}
+            className={cx(
+              "min-w-0 flex-1 cursor-pointer truncate text-left text-sm font-semibold hover:underline",
+              fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
+            )}
+          >
+            {awayName}
+          </span>
+        </div>
+      </ContextMenu>
+    );
+  };
+
+  const renderResultSummary = (fixture: FixtureData): string => {
+    const homeName = getTeamName(gameState.teams, fixture.home_team_id);
+    const awayName = getTeamName(gameState.teams, fixture.away_team_id);
+    if (fixture.result) {
+      return `${homeName} ${fixture.result.home_goals}-${fixture.result.away_goals} ${awayName}`;
+    }
+    return `${homeName} vs ${awayName}`;
+  };
+
+  return (
+    <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
+          <p className="text-sm text-app-text-muted">
+            {league.name} &bull; {t("schedule.season", { number: league.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+            <CircleDot className="h-4 w-4 text-app-green" />
+            {t(`season.phases.${seasonContext.phase}`)}
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+            <CalendarIcon className="h-4 w-4 text-app-green" />
+            {currentDate}
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-app-green px-4 py-2 text-sm font-bold text-app-bg">
+            <Trophy className="h-4 w-4" />
+            {league.standings.length} Teams
+          </div>
+        </div>
       </div>
 
-      {view === "fixtures" && (
-        <div className="flex flex-col gap-4">
-          {sortedMatchdays.map(([groupKey, fixtures]) => (
-            <Card key={groupKey}>
-              <div className="px-5 py-3 border-b border-gray-100 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 rounded-t-xl">
-                <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                  {getFixtureGroupLabel(fixtures[0])}
-                </h4>
-              </div>
-              <CardBody className="p-0">
-                <div className="divide-y divide-gray-100 dark:divide-surface-600">
-                  {fixtures.map((f) => {
-                    const isUserMatch =
-                      f.home_team_id === userTeamId ||
-                      f.away_team_id === userTeamId;
-                    const completed = f.status === "Completed";
-                    const contextItems = [
-                      buildTeamMenuItem(
-                        `${t("common.viewTeam")}: ${getTeamName(gameState.teams, f.home_team_id)}`,
-                        f.home_team_id,
-                      ),
-                      buildTeamMenuItem(
-                        `${t("common.viewTeam")}: ${getTeamName(gameState.teams, f.away_team_id)}`,
-                        f.away_team_id,
-                      ),
-                    ];
-
-                    return (
-                      <ContextMenu items={contextItems} key={f.id}>
-                        <div
-                          className={`flex items-center px-5 py-3 transition-colors ${isUserMatch ? "bg-primary-50/50 dark:bg-primary-500/5" : ""}`}
-                          data-testid={`schedule-fixture-${f.id}`}
-                        >
-                          <span
-                            onClick={() => onSelectTeam(f.home_team_id)}
-                            className={`flex-1 text-right font-semibold text-sm cursor-pointer hover:underline ${f.home_team_id === userTeamId ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                          >
-                            {getTeamName(gameState.teams, f.home_team_id)}
-                          </span>
-                          <div className="w-24 text-center mx-3">
-                            {completed && f.result ? (
-                              <span className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100">
-                                {f.result.home_goals} - {f.result.away_goals}
-                              </span>
-                            ) : (
-                              <Badge variant="neutral" size="sm">
-                                vs
-                              </Badge>
-                            )}
-                          </div>
-                          <span
-                            onClick={() => onSelectTeam(f.away_team_id)}
-                            className={`flex-1 text-left font-semibold text-sm cursor-pointer hover:underline ${f.away_team_id === userTeamId ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                          >
-                            {getTeamName(gameState.teams, f.away_team_id)}
-                          </span>
-                        </div>
-                      </ContextMenu>
-                    );
-                  })}
-                </div>
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {view === "standings" &&
-        (isPreseason ? (
-          <Card>
-            <CardBody>
-              <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
-                <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                  {t("season.standingsLocked")}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {seasonContext.season_start
-                    ? t("season.startsOn", {
-                      date: formatMatchDate(seasonContext.season_start),
-                    })
-                    : t("season.noOpener")}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-        ) : (
-          <Card>
-            <div className="p-5 border-b border-gray-100 dark:border-surface-600 bg-gradient-to-r from-surface-700 to-surface-800 rounded-t-xl">
-              <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
-                <Trophy className="text-accent-400 w-5 h-5" />
-                {league.name} —{" "}
-                {t("schedule.season", { number: league.season })}
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">
-                      #
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("common.team")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.played")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.won")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.drawn")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.lost")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.gf")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.ga")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.gd")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.pts")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
-                  {standings.map((entry, idx) => {
-                    const isUser = entry.team_id === userTeamId;
-                    const gd = entry.goals_for - entry.goals_against;
-                    const contextItems = [
-                      buildTeamMenuItem(t("common.viewTeam"), entry.team_id),
-                    ];
-
-                    return (
-                      <ContextMenu items={contextItems} key={entry.team_id}>
-                        <tr
-                          className={`transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-surface-700/50"}`}
-                          data-testid={`schedule-standings-row-${entry.team_id}`}
-                        >
-                          <td className="py-3 px-4 font-heading font-bold text-sm text-gray-400 dark:text-gray-500">
-                            {idx + 1}
-                          </td>
-                          <td
-                            onClick={() => onSelectTeam(entry.team_id)}
-                            className={`py-3 px-4 font-semibold text-sm cursor-pointer hover:underline ${isUser ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                          >
-                            {getTeamName(gameState.teams, entry.team_id)}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.played}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.won}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.drawn}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.lost}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.goals_for}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.goals_against}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-center text-sm font-semibold tabular-nums ${gd > 0 ? "text-primary-500" : gd < 0 ? "text-red-500" : "text-gray-500 dark:text-gray-400"}`}
-                          >
-                            {gd > 0 ? `+${gd}` : gd}
-                          </td>
-                          <td className="py-3 px-4 text-center font-heading font-bold text-sm text-gray-800 dark:text-gray-100 tabular-nums">
-                            {entry.points}
-                          </td>
-                        </tr>
-                      </ContextMenu>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+      <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
+        {([
+          { id: "fixtures", label: t("schedule.fixtures"), icon: <CalendarIcon className="h-4 w-4" /> },
+          { id: "standings", label: t("schedule.standings"), icon: <TableProperties className="h-4 w-4" /> },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setView(tab.id)}
+            className={cx(
+              "-mb-[2px] flex items-center gap-1.5 pb-3 text-sm whitespace-nowrap transition-colors",
+              view === tab.id ? "border-b-2 border-app-green font-semibold text-app-green" : "font-medium text-app-text-muted hover:text-white",
+            )}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
         ))}
+      </div>
+
+      <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
+          <div>
+            <SectionTitle title="LEAGUE SUMMARY" action={league.name} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <StatRow label={t("schedule.season", { number: league.season })} value={league.name} tone="text-app-green" />
+              <StatRow label="Fixtures" value={String(league.fixtures.length)} />
+              <StatRow label="Completed" value={String(completedFixtureCount)} tone="text-app-green" />
+              <StatRow label="Upcoming" value={String(upcomingFixtureCount)} tone="text-blue-300" />
+              <StatRow label="Matchdays" value={String(sortedMatchdays.length)} />
+            </TemplateCard>
+          </div>
+
+          <div>
+            <SectionTitle title="YOUR CLUB" action={userStanding ? `#${userStandingIndex + 1}` : "Pending"} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <div>
+                <p className="text-sm font-bold text-app-text">{userTeamName}</p>
+                <p className="text-xs text-app-text-muted">{userStanding ? t("schedule.standings") : t("season.standingsLocked")}</p>
+              </div>
+              <div className="border-t border-app-border/50 pt-3">
+                <StatRow label={t("common.played")} value={String(userStanding?.played ?? 0)} />
+                <StatRow label={t("common.pts")} value={String(userStanding?.points ?? 0)} tone="text-app-green" />
+                <StatRow label={t("common.gd")} value={userGoalDifference > 0 ? `+${userGoalDifference}` : String(userGoalDifference)} tone={userGoalDifference > 0 ? "text-app-green" : userGoalDifference < 0 ? "text-red-400" : "text-app-text"} />
+              </div>
+            </TemplateCard>
+          </div>
+
+          {isPreseason ? (
+            <div>
+              <SectionTitle title="SEASON STATUS" action={t(`season.phases.${seasonContext.phase}`)} />
+              <TemplateCard className="border-blue-400/35 bg-blue-400/10 p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="mt-0.5 h-4 w-4 text-blue-300" />
+                  <div>
+                    <p className="text-xs font-bold text-app-text">
+                      {seasonContext.season_start
+                        ? t("season.startsOn", { date: formatMatchDate(seasonContext.season_start) })
+                        : t("season.noOpener")}
+                    </p>
+                    <p className="mt-1 text-xs text-app-text-muted">{t("season.standingsLocked")}</p>
+                  </div>
+                </div>
+              </TemplateCard>
+            </div>
+          ) : null}
+        </aside>
+
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full overflow-hidden pr-1">
+          {view === "fixtures" ? (
+            <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex flex-col gap-3 border-b border-app-border/50 bg-app-bg px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                    {t("schedule.fixtures")}
+                  </h4>
+                  <p className="mt-1 text-sm font-bold text-app-text">{activeFixtureGroupLabel}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveFixtureGroupIndex((current) => Math.max(current - 1, 0))}
+                    disabled={activeFixtureGroupSafeIndex === 0}
+                    className="rounded-lg border border-app-border bg-app-card p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Previous fixture date"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-20 text-center text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+                    {sortedMatchdays.length > 0 ? `${activeFixtureGroupSafeIndex + 1} / ${sortedMatchdays.length}` : "0 / 0"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFixtureGroupIndex((current) => Math.min(current + 1, Math.max(sortedMatchdays.length - 1, 0)))}
+                    disabled={activeFixtureGroupSafeIndex >= sortedMatchdays.length - 1}
+                    className="rounded-lg border border-app-border bg-app-card p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="Next fixture date"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <span className="rounded bg-app-green px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg">
+                    {activeFixtureGroupFixtures.length} Matches
+                  </span>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar">
+                <div className="flex flex-col gap-2">
+                  {activeFixtureGroupFixtures.map(renderFixtureRow)}
+                </div>
+              </div>
+            </TemplateCard>
+          ) : isPreseason ? (
+            <TemplateCard className="flex min-h-[320px] flex-col items-center justify-center gap-3 p-8 text-center">
+              <Trophy className="h-9 w-9 text-app-text-muted" />
+              <p className="text-sm font-bold text-app-text">{t("season.standingsLocked")}</p>
+              <p className="text-xs text-app-text-muted">
+                {seasonContext.season_start
+                  ? t("season.startsOn", { date: formatMatchDate(seasonContext.season_start) })
+                  : t("season.noOpener")}
+              </p>
+            </TemplateCard>
+          ) : (
+            <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-app-border/50 bg-app-bg px-4 py-3">
+                <Trophy className="h-4 w-4 text-app-green" />
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                  {league.name} — {t("schedule.season", { number: league.season })}
+                </h3>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
+                <table className="w-full min-w-[720px] text-left text-[11px]">
+                  <thead className="sticky top-0 z-10 bg-app-bg">
+                    <tr className="text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+                      <th className="px-4 py-3 w-8">#</th>
+                      <th className="px-4 py-3">{t("common.team")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.played")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.won")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.drawn")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.lost")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.gf")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.ga")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.gd")}</th>
+                      <th className="px-4 py-3 text-center">{t("common.pts")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-app-border/30 text-app-text">
+                    {standings.map((entry, idx) => {
+                      const isUser = entry.team_id === userTeamId;
+                      const gd = entry.goals_for - entry.goals_against;
+                      const contextItems = [
+                        buildTeamMenuItem(t("common.viewTeam"), entry.team_id),
+                      ];
+
+                      return (
+                        <ContextMenu items={contextItems} key={entry.team_id}>
+                          <tr
+                            className={cx("transition-colors hover:bg-white/5", isUser && "bg-app-green/10")}
+                            data-testid={`schedule-standings-row-${entry.team_id}`}
+                          >
+                            <td className="px-4 py-3 font-heading text-sm font-bold text-app-text-muted">{idx + 1}</td>
+                            <td
+                              onClick={() => onSelectTeam(entry.team_id)}
+                              className={cx("cursor-pointer px-4 py-3 text-sm font-semibold hover:underline", isUser ? "text-app-green" : "text-app-text")}
+                            >
+                              {getTeamName(gameState.teams, entry.team_id)}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.played}</td>
+                            <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.won}</td>
+                            <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.drawn}</td>
+                            <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.lost}</td>
+                            <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.goals_for}</td>
+                            <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.goals_against}</td>
+                            <td className={cx("px-4 py-3 text-center text-sm font-semibold tabular-nums", gd > 0 ? "text-app-green" : gd < 0 ? "text-red-400" : "text-app-text-muted")}>
+                              {gd > 0 ? `+${gd}` : gd}
+                            </td>
+                            <td className="px-4 py-3 text-center font-heading text-sm font-bold tabular-nums text-app-text">{entry.points}</td>
+                          </tr>
+                        </ContextMenu>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </TemplateCard>
+          )}
+        </section>
+
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[360px]">
+          <div>
+            <SectionTitle title="NEXT FIXTURE" action={nextUserFixture ? formatMatchDate(nextUserFixture.date) : "None"} />
+            <TemplateCard className="p-4">
+              {nextUserFixture ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-xs text-app-text-muted">
+                    <Clock className="h-4 w-4 text-app-green" />
+                    {getFixtureGroupLabel(nextUserFixture)}
+                  </div>
+                  <div className="rounded-lg border border-app-border bg-app-bg p-3 text-center">
+                    <p className="text-sm font-bold text-app-text">
+                      {getTeamName(gameState.teams, nextUserFixture.home_team_id)}
+                    </p>
+                    <p className="my-1 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">vs</p>
+                    <p className="text-sm font-bold text-app-text">
+                      {getTeamName(gameState.teams, nextUserFixture.away_team_id)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-app-text-muted">No upcoming fixture found.</p>
+              )}
+            </TemplateCard>
+          </div>
+
+          <div>
+            <SectionTitle title="RECENT RESULTS" action={`${recentUserFixtures.length} Shown`} />
+            <TemplateCard className="overflow-hidden">
+              {recentUserFixtures.length > 0 ? (
+                <div className="divide-y divide-app-border/30">
+                  {recentUserFixtures.map((fixture) => (
+                    <div key={fixture.id} className="px-4 py-3 text-xs">
+                      <p className="font-semibold text-app-text">{renderResultSummary(fixture)}</p>
+                      <p className="mt-1 text-[10px] text-app-text-muted">{getFixtureGroupLabel(fixture)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="p-4 text-xs text-app-text-muted">No completed fixtures yet.</p>
+              )}
+            </TemplateCard>
+          </div>
+
+          <div>
+            <SectionTitle title="MATCH STATUS" action="Legend" />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <StatRow label="Completed" value={String(completedFixtureCount)} tone="text-app-green" />
+              <StatRow label="Upcoming" value={String(upcomingFixtureCount)} tone="text-blue-300" />
+              <div className="border-t border-app-border/50 pt-3 text-xs leading-relaxed text-app-text-muted">
+                Right-click a fixture or standings row for quick team actions.
+              </div>
+            </TemplateCard>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

@@ -1,147 +1,256 @@
-# WASM FM
+# OpenFoot Manager
 
-A browser-based football manager game built from Openfoot Manager, now running the Rust game engine through WebAssembly inside a React/Vite web app.
+**OpenFoot Manager** is an open-source football management web game focused on long-term club building, match-day decisions, squad development, transfers, finances, staff, scouting, and immersive football-world storytelling.
 
-## What this app includes
+Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine compiled to WebAssembly**, OpenFoot Manager aims to deliver the feel of a modern Football Manager-style experience in an accessible web-first architecture.
 
-- Football manager gameplay with squads, contracts, transfers, staff, training, scouting, inbox, news, finances, fixtures, and live match flow.
-- Rust simulation/game-state engine compiled to WebAssembly with `wasm-pack`.
-- React 19 + TypeScript frontend powered by Vite.
-- Tailwind CSS v4 styling with a dark dashboard/Home chrome inspired by the provided frontend template.
-- Local browser persistence through the engine/database WASM runtime.
-- Multi-language UI support through i18next.
-- Vitest test coverage for UI, helpers, and game-facing flows.
+> Status: active development. Expect rapid iteration, incomplete balance, and evolving game systems.
 
-## Tech stack
+---
 
-- **Frontend:** React 19, TypeScript 6, Vite 8, Tailwind CSS 4
-- **State/UI:** Zustand, React Router, lucide-react, i18next/react-i18next
-- **Engine:** Rust workspace compiled to WebAssembly
-- **WASM bridge:** `wasm-bindgen`, `wasm-pack`, Comlink worker wrapper
-- **Testing:** Vitest, Testing Library, jsdom
+## Showcase
 
-## Repository layout
+> Add screenshots to `docs/showcase/` using the filenames below, then the images will render automatically in this README.
+
+| Main Menu | Dashboard Home |
+| --- | --- |
+| ![OpenFoot Manager main menu](docs/showcase/main-menu.png) | ![OpenFoot Manager dashboard home](docs/showcase/dashboard-home.png) |
+
+| Squad & Player Management | Tactics |
+| --- | --- |
+| ![Squad and player management](docs/showcase/squad-management.png) | ![Tactics screen](docs/showcase/tactics.png) |
+
+| Transfers | Scouting |
+| --- | --- |
+| ![Transfer market](docs/showcase/transfers.png) | ![Scouting hub](docs/showcase/scouting.png) |
+
+| Training | Finances |
+| --- | --- |
+| ![Training dashboard](docs/showcase/training.png) | ![Finances dashboard](docs/showcase/finances.png) |
+
+| Match Day | News & Inbox |
+| --- | --- |
+| ![Live match day](docs/showcase/match-day.png) | ![News and inbox](docs/showcase/news-inbox.png) |
+
+### Screenshot checklist for maintainers
+
+Capture these images after starting the app locally:
+
+1. `docs/showcase/main-menu.png` — main menu with the OpenFM branding visible.
+2. `docs/showcase/dashboard-home.png` — dashboard home overview after loading a save.
+3. `docs/showcase/squad-management.png` — squad page with player list and selected player context visible.
+4. `docs/showcase/tactics.png` — tactics page showing formation/shape controls.
+5. `docs/showcase/transfers.png` — transfers hub with market activity or negotiations visible.
+6. `docs/showcase/scouting.png` — scouting page with shortlist/report panels.
+7. `docs/showcase/training.png` — training dashboard with focus, schedule, and readiness panels.
+8. `docs/showcase/finances.png` — finances dashboard showing Overview or Commercial tab.
+9. `docs/showcase/match-day.png` — live match screen during an active match.
+10. `docs/showcase/news-inbox.png` — news or inbox page with football-world messages/articles.
+
+Recommended image format: `1600x900` or `1920x1080` PNG, dark mode, one consistent save file, no personal information visible.
+
+---
+
+## Features
+
+### Club management
+
+- Manage squads, player contracts, morale, injuries, form, and development.
+- Build tactical identities through formations, roles, play styles, and tactical presets.
+- Run weekly training plans with focus, intensity, recovery, and player readiness feedback.
+- Hire and manage staff roles that affect coaching, scouting, and medical outcomes.
+
+### Football world simulation
+
+- Generate a playable football world with teams, players, staff, schedules, news, and inbox messages.
+- Advance time through daily and weekly simulation loops.
+- Follow league standings, fixtures, tournament progress, and club performance over time.
+
+### Match day
+
+- Play through live matches with tactical decisions, match events, condition changes, and post-match flow.
+- Support different match approaches such as live control, spectator-style viewing, or delegation.
+- Simulate outcomes through a Rust-powered football engine.
+
+### Transfers and scouting
+
+- Search players and teams across the football world.
+- Scout players, manage shortlists, and evaluate reports.
+- Negotiate transfers, loans, and squad-building moves.
+- Use youth recruitment and academy workflows to develop future prospects.
+
+### Finance and board management
+
+- Track club balance, wage pressure, sponsorship income, cash runway, and payroll.
+- Upgrade club facilities when finances allow.
+- Handle sponsorship offers, marketing campaigns, and board support requests.
+
+### Settings and accessibility
+
+- Change language, currency, theme, UI scale, match defaults, and display preferences.
+- Supports app-wide settings persistence through the frontend settings store and backend IPC.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite |
+| Styling | Tailwind CSS v4, app design tokens |
+| State | Zustand |
+| Charts/UI | Recharts, Lucide icons, custom UI components |
+| Engine | Rust workspace compiled to WebAssembly |
+| IPC / Commands | Generated engine command bridge |
+| Testing | Vitest, React Testing Library, jsdom |
+
+---
+
+## Project Structure
 
 ```text
-.
-├── src/                         # React frontend
-│   ├── components/              # UI, layout, Home/dashboard widgets
-│   ├── core/                    # WASM worker bridge and generated command map
-│   ├── pages/                   # Dashboard and app pages
-│   └── store/                   # Game state store/types
-├── src-engine/                  # Rust engine and WASM AppHandle wrapper
-│   ├── crates/                  # Engine/domain/db workspace crates
-│   └── src/app_handle/          # WASM command surface used by the web app
-├── scripts/
-│   ├── build-engine-wasm.mjs    # Runs wasm-pack for src-engine
-│   └── generate-engine-commands.mjs
-├── wasm-pkg-app/                # Generated wasm-pack output, ignored by git
-└── dist/                        # Production build output, ignored by git
+openfootmanager/
+├── src/                    # React app, dashboard pages, UI components, stores
+├── src-engine/             # Rust engine/workspace and generated command bridge
+│   ├── crates/domain/      # Shared domain models
+│   ├── crates/engine/      # Football simulation engine
+│   ├── crates/ofm_core/    # Game orchestration logic
+│   ├── crates/db/          # Persistence layer
+│   └── crates/engine_wasm/ # WASM-facing engine package
+├── scripts/                # Build/codegen scripts
+├── docs/                   # Technical and gameplay documentation
+└── public/                 # Static assets
 ```
 
-## Requirements
+---
 
-Install these before running the project:
+## Getting Started
 
-1. **Node.js** 20+ recommended.
-2. **Rust** via `rustup`.
-3. **wasm-pack**:
+### Prerequisites
 
-   ```bash
-   cargo install wasm-pack
-   ```
+- Node.js 20+
+- npm
+- Rust stable toolchain
+- `wasm-pack` for building the Rust engine WebAssembly package
 
-4. **C/C++ toolchain with clang** for the SQLite WASM dependency.
-   - On Windows, install LLVM so `clang.exe` exists at `C:/Program Files/LLVM/bin/clang.exe`, or set `CC` manually before building.
-   - On macOS/Linux, ensure `clang` is available on `PATH`.
-
-## Setup
+Install `wasm-pack` if needed:
 
 ```bash
-git clone https://github.com/tanh1c/wasm-fm.git
-cd wasm-fm
+cargo install wasm-pack
+```
+
+### Install dependencies
+
+```bash
 npm install
 ```
 
-## Development
-
-Start the Vite dev server:
-
-```bash
-npm run dev
-```
-
-The app runs as a web app. Vite prints the local URL, commonly `http://127.0.0.1:1420/` in this project setup.
-
-If the generated WASM package or command map is missing, build the engine once:
+### Build the engine command bridge
 
 ```bash
 npm run build:engine
 ```
 
-## Build
-
-Create a production build:
+### Start the development server
 
 ```bash
-npm run build
+npm run dev
 ```
 
-`npm run build` automatically runs:
+Open the local Vite URL shown in your terminal.
 
-1. `npm run build:engine`
-2. `tsc`
-3. `vite build`
+---
 
-The engine build generates `wasm-pkg-app/openfootmanager_lib.js`, `openfootmanager_lib_bg.wasm`, and `src/core/engineCommands.generated.ts`. The WASM package is generated output and is intentionally not committed.
+## Scripts
 
-## Tests and checks
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server |
+| `npm run build:engine` | Build the Rust/WASM engine and generate engine commands |
+| `npm run build` | Build engine, typecheck, and create production frontend build |
+| `npm run preview` | Preview the production build |
+| `npm run test` | Run the Vitest test suite |
+| `npm run test:watch` | Run Vitest in watch mode |
+| `npm run audit:i18n` | Audit translation key usage |
+
+---
+
+## Testing
 
 Run the full test suite:
 
 ```bash
-npm test
+npm run test
 ```
 
-Run type checking:
+Run TypeScript checks:
 
 ```bash
 npx tsc --noEmit
 ```
 
-Run the i18n audit:
+Run targeted dashboard regression tests:
 
 ```bash
-npm run audit:i18n
+npx vitest run src/pages/Dashboard.test.tsx --reporter=verbose
 ```
 
-Recommended verification before pushing changes:
+---
 
-```bash
-npx tsc --noEmit
-npx vitest run
-npm run build
-```
+## Documentation
 
-## Available scripts
+Technical and gameplay docs live in [`docs/`](docs/README.md):
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Start Vite dev server |
-| `npm run build:engine` | Compile Rust engine to WASM and regenerate command bindings |
-| `npm run build` | Build WASM engine, typecheck, and create production bundle |
-| `npm test` | Run Vitest suite |
-| `npm run test:watch` | Run Vitest in watch mode |
-| `npm run audit:i18n` | Audit translation coverage |
-| `npm run preview` | Preview the production build locally |
+- [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) — player-facing gameplay guide.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — app architecture, data flow, and command interface.
+- [`docs/MATCH_SIMULATION.md`](docs/MATCH_SIMULATION.md) — match engine details.
+- [`docs/GAME_SYSTEMS.md`](docs/GAME_SYSTEMS.md) — training, staff, finance, news, world generation, and more.
+- [`docs/DEFINITIONS.md`](docs/DEFINITIONS.md) — world definition file formats.
 
-## Notes for contributors
+---
 
-- Keep game logic in the existing Rust/application/data adapters; UI styling changes should not introduce mock production data.
-- Do not commit generated `wasm-pkg-app` artifacts or `dist` output.
-- After changing Rust `AppHandle` methods, run `npm run build:engine` so `src/core/engineCommands.generated.ts` stays in sync.
-- Avoid adding charting/template-only dependencies unless the app genuinely needs them; the current Home dashboard uses inline SVG widgets.
+## Roadmap Ideas
+
+OpenFoot Manager is still evolving. Areas that are natural candidates for future work:
+
+- deeper AI squad-building logic
+- richer player personality and media systems
+- expanded transfer negotiation depth
+- more competitions and continental football structures
+- long-term youth development and academy pipelines
+- richer club history, records, and analytics
+- improved save compatibility and modding tools
+
+---
+
+## Contributing
+
+Contributions are welcome. Good first contributions include:
+
+- bug fixes
+- UI polish
+- gameplay balancing
+- translations
+- documentation improvements
+- tests for existing systems
+
+Before submitting a larger gameplay or architecture change, consider opening an issue or draft proposal so the approach can be discussed.
+
+### Development expectations
+
+- Preserve existing game logic unless the change explicitly targets gameplay behavior.
+- Add or update tests for behavior changes.
+- Keep UI changes consistent with the dashboard design language.
+- Avoid committing generated or local-only files unless they are required by the build.
+
+---
 
 ## License
 
-Openfoot Manager is licensed under the GPLv3. See [LICENSE.md](LICENSE.md) for details.
+No license file is currently included. Add a `LICENSE` file before distributing or accepting broad external contributions.
+
+---
+
+## Acknowledgements
+
+OpenFoot Manager is inspired by the long tradition of football management games and by open-source simulation projects that make deep sports-management systems easier to study, modify, and extend.

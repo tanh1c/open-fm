@@ -1,5 +1,8 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
+use domain::league::{
+    Competition, CompetitionFormat, CompetitionKind, Fixture, FixtureCompetition, FixtureStatus,
+    League, StandingEntry,
+};
 use domain::manager::Manager;
 use domain::news::NewsCategory;
 use domain::player::{
@@ -467,6 +470,57 @@ fn process_day_updates_standings() {
     assert_eq!(
         total_played, 2,
         "Both teams should have played 1 match each"
+    );
+}
+
+#[test]
+fn process_day_simulates_background_competition_fixture() {
+    let mut game = make_game_with_match();
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    game.competitions.push(Competition {
+        id: "background-league".to_string(),
+        name: "Background League".to_string(),
+        season: 2026,
+        kind: CompetitionKind::DomesticLeague,
+        format: CompetitionFormat::RoundRobin,
+        country: Some("Spain".to_string()),
+        tier: Some(1),
+        team_ids: vec!["team1".to_string(), "team2".to_string()],
+        fixtures: vec![Fixture {
+            id: "background-fix1".to_string(),
+            matchday: 1,
+            date: today,
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            competition_id: Some("background-league".to_string()),
+            season: Some(2026),
+            competition: FixtureCompetition::DomesticLeague,
+            status: FixtureStatus::Scheduled,
+            result: None,
+        }],
+        standings: vec![
+            StandingEntry::new("team1".to_string()),
+            StandingEntry::new("team2".to_string()),
+        ],
+        transfer_log: vec![],
+    });
+
+    turn::process_day(&mut game);
+
+    let competition = game
+        .competitions
+        .iter()
+        .find(|competition| competition.id == "background-league")
+        .unwrap();
+    assert_eq!(competition.fixtures[0].status, FixtureStatus::Completed);
+    assert!(competition.fixtures[0].result.is_some());
+    assert_eq!(
+        competition
+            .standings
+            .iter()
+            .map(|standing| standing.played)
+            .sum::<u32>(),
+        2
     );
 }
 

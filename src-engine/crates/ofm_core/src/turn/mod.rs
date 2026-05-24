@@ -10,7 +10,7 @@ use crate::scouting;
 use crate::training;
 use crate::transfers;
 use chrono::Datelike;
-use domain::league::FixtureStatus;
+use domain::league::{FixtureStatus, GoalEvent, MatchResult};
 use domain::player::Position as DomainPosition;
 use domain::stats::StatsState;
 use log::{debug, info};
@@ -47,12 +47,7 @@ where
 {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
-    let has_match_today = game.league.as_ref().is_some_and(|league| {
-        league
-            .fixtures
-            .iter()
-            .any(|f| f.date == today && f.status == FixtureStatus::Scheduled)
-    });
+    let has_match_today = has_scheduled_fixture_today(game, &today);
 
     if has_match_today {
         info!("[turn] process_day {}: matchday", today);
@@ -320,6 +315,20 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
 // Matchday simulation using the engine crate
 // ---------------------------------------------------------------------------
 
+fn has_scheduled_fixture_today(game: &Game, today: &str) -> bool {
+    game.league.as_ref().is_some_and(|league| {
+        league
+            .fixtures
+            .iter()
+            .any(|fixture| fixture.date == today && fixture.status == FixtureStatus::Scheduled)
+    }) || game.competitions.iter().any(|competition| {
+        competition
+            .fixtures
+            .iter()
+            .any(|fixture| fixture.date == today && fixture.status == FixtureStatus::Scheduled)
+    })
+}
+
 fn simulate_matchday_with_capture<F>(game: &mut Game, today: &str, on_capture: &mut F)
 where
     F: FnMut(StatsState),
@@ -359,6 +368,88 @@ pub fn simulate_other_matches_with_capture<F>(
 
     for idx in fixture_indices {
         simulate_single_match_with_capture(game, idx, on_capture);
+    }
+    simulate_competition_matches_for_date(game, today);
+}
+
+fn simulate_competition_matches_for_date(game: &mut Game, today: &str) {
+    let legacy_league_id = game.league.as_ref().map(|league| league.id.as_str());
+    let team_strengths: std::collections::HashMap<&str, u16> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.reputation as u16))
+        .collect();
+
+    for competition in game.competitions.iter_mut() {
+        let is_legacy_league = legacy_league_id == Some(competition.id.as_str());
+        if is_legacy_league {
+            continue;
+        }
+
+        let fixture_indices: Vec<usize> = competition
+            .fixtures
+            .iter()
+            .enumerate()
+            .filter(|(_, fixture)| {
+                fixture.date == today && fixture.status == FixtureStatus::Scheduled
+            })
+            .map(|(index, _)| index)
+            .collect();
+
+        for fixture_index in fixture_indices {
+            apply_fast_competition_result(competition, fixture_index, &team_strengths);
+        }
+    }
+}
+
+fn apply_fast_competition_result(
+    competition: &mut domain::league::Competition,
+    fixture_index: usize,
+    team_strengths: &std::collections::HashMap<&str, u16>,
+) {
+    let fixture = &competition.fixtures[fixture_index];
+    let home_strength = team_strengths
+        .get(fixture.home_team_id.as_str())
+        .copied()
+        .unwrap_or(500);
+    let away_strength = team_strengths
+        .get(fixture.away_team_id.as_str())
+        .copied()
+        .unwrap_or(500);
+    let seed = fixture
+        .id
+        .bytes()
+        .fold(0_u32, |acc, byte| acc.wrapping_mul(31).wrapping_add(byte as u32));
+    let home_bias = 8_i16 + ((home_strength as i16 - away_strength as i16) / 75);
+    let away_bias = (away_strength as i16 - home_strength as i16) / 100;
+    let home_goals = ((seed % 3) as i16 + home_bias.max(0) / 8).clamp(0, 5) as u8;
+    let away_goals = (((seed / 7) % 3) as i16 + away_bias.max(0) / 8).clamp(0, 5) as u8;
+
+    let fixture = &mut competition.fixtures[fixture_index];
+    fixture.status = FixtureStatus::Completed;
+    fixture.result = Some(MatchResult {
+        home_goals,
+        away_goals,
+        home_scorers: Vec::<GoalEvent>::new(),
+        away_scorers: Vec::<GoalEvent>::new(),
+        report: None,
+    });
+
+    if fixture.counts_for_league_standings() {
+        if let Some(standing) = competition
+            .standings
+            .iter_mut()
+            .find(|standing| standing.team_id == fixture.home_team_id)
+        {
+            standing.record_result(home_goals, away_goals);
+        }
+        if let Some(standing) = competition
+            .standings
+            .iter_mut()
+            .find(|standing| standing.team_id == fixture.away_team_id)
+        {
+            standing.record_result(away_goals, home_goals);
+        }
     }
 }
 

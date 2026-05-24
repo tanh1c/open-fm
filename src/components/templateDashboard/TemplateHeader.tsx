@@ -184,7 +184,7 @@ export function TemplateHeader({
         {isUnemployed ? (
           <button
             type="button"
-            onClick={onContinue}
+            onClick={() => onContinue()}
             disabled={isAdvancing || seasonComplete}
             className="h-9 bg-linear-to-r from-gray-600 to-gray-700 inline-flex items-center gap-2 rounded-lg px-3 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:brightness-110 disabled:cursor-wait disabled:opacity-70"
           >
@@ -196,7 +196,7 @@ export function TemplateHeader({
             <div className="flex h-9">
               <button
                 type="button"
-                onClick={onContinue}
+                onClick={() => onContinue()}
                 disabled={isAdvancing || seasonComplete}
                 className={`bg-linear-to-r ${currentModeMeta.buttonColorClass} inline-flex items-center gap-2 rounded-l-lg pl-3 pr-2 text-xs font-bold uppercase tracking-wider text-white shadow-md transition-all hover:brightness-110 disabled:cursor-wait disabled:opacity-70`}
               >

@@ -12,6 +12,9 @@ use ofm_core::state::StateManager;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+const SAVES_DIR: &str = "";
+#[cfg(not(target_arch = "wasm32"))]
 const SAVES_DIR: &str = "saves";
 pub(crate) const NO_ACTIVE_GAME_ERROR: &str = "be.error.noActiveGameSession";
 pub(crate) const SAVE_MANAGER_LOCK_ERROR: &str = "be.error.saveManagerUnavailable";

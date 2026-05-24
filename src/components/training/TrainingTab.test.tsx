@@ -213,8 +213,8 @@ describe("TrainingTab", () => {
 
     render(<TrainingTab gameState={exhaustedState} />);
 
-    expect(screen.getByText("Staff alert")).toBeInTheDocument();
-    expect(screen.getByText(/Critical advice/)).toBeInTheDocument();
+    expect(screen.getAllByText("Staff alert").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Critical advice/).length).toBeGreaterThan(0);
   });
 
   it("ignores youth academy players in first-team training summaries", () => {

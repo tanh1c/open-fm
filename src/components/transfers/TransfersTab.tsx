@@ -704,7 +704,7 @@ export default function TransfersTab({
         </div>
       </div>
 
-      <div className="flex items-center gap-6 border-b border-app-border/50 px-2 mt-2 overflow-x-auto custom-scrollbar">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2 mt-2">
         {visualTabs.map((tab) => (
           <button
             type="button"

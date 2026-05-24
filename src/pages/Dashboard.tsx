@@ -11,7 +11,6 @@ import FiredModal from "../components/dashboard/FiredModal";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
 import { TemplateHeader, type TemplateHeaderMatchModeMeta } from "../components/templateDashboard/TemplateHeader";
 import { TemplateSidebar, type TemplateSidebarItem } from "../components/templateDashboard/TemplateSidebar";
-import { buildSidebarNextMatch } from "../components/templateDashboard/templateDashboardAdapters";
 import {
   Briefcase,
   Mail as MailIcon,
@@ -23,7 +22,7 @@ import {
   UserCog,
   GraduationCap,
   DollarSign,
-  TrendingUp,
+  ArrowRightLeft,
   UsersRound,
   Building2,
   Trophy,
@@ -483,8 +482,6 @@ export default function Dashboard(): JSX.Element {
         activeId={profileNavigation.activeTab}
         onSelect={handleNavClick}
         onBrandClick={() => handleNavClick("Home")}
-        nextMatch={buildSidebarNextMatch(gameState, settings.language)}
-        onQuickActions={() => handleNavClick("Transfers")}
         onSettings={handleNavigateSettings}
         items={[
           { id: "Home", label: t("dashboard.home"), icon: <Briefcase /> },
@@ -501,7 +498,7 @@ export default function Dashboard(): JSX.Element {
                 { id: "Scouting", label: t("dashboard.scouting"), icon: <EyeIcon /> },
                 { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
                 { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
-                { id: "Transfers", label: t("dashboard.transfers"), icon: <TrendingUp /> },
+                { id: "Transfers", label: t("dashboard.transfers"), icon: <ArrowRightLeft /> },
               ] as TemplateSidebarItem[])),
           { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
           { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },

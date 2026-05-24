@@ -1,7 +1,18 @@
 import { Gauge } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Card, CardBody, CardHeader } from "../ui";
+
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+function PanelCard({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-xl border border-app-border bg-app-card p-4">{children}</div>;
+}
+
+function PanelTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-4 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{children}</h2>;
+}
 
 interface TrainingSettingsPanelProps {
   currentFocus: string;
@@ -48,34 +59,36 @@ export default function TrainingSettingsPanel({
 
   return (
     <>
-      <Card accent="accent">
-        <CardHeader>{t("training.weeklySchedule")}</CardHeader>
-        <CardBody>
-          <div className="flex gap-3 mb-4">
+      <PanelCard>
+        <PanelTitle>{t("training.weeklySchedule")}</PanelTitle>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {scheduleIds.map((scheduleId) => (
               <button
                 key={scheduleId}
                 disabled={isSaving}
                 onClick={() => onSetSchedule(scheduleId)}
-                className={`flex-1 p-3 rounded-xl text-left transition-all border-2 ${currentSchedule === scheduleId
-                  ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md shadow-primary-500/10"
-                  : "border-gray-200 dark:border-surface-600 hover:border-gray-300 dark:hover:border-surface-600"
-                  } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
+                className={cx(
+                  "rounded-xl border p-3 text-left transition-all",
+                  currentSchedule === scheduleId
+                    ? "border-app-green/50 bg-app-green/10 shadow-md shadow-app-green/10"
+                    : "border-app-border bg-app-bg hover:bg-white/5",
+                  isSaving && "pointer-events-none opacity-60",
+                )}
               >
-                <div className={`mb-1.5 ${scheduleColors[scheduleId]}`}>
+                <div className={cx("mb-1.5", scheduleColors[scheduleId])}>
                   {scheduleIcons[scheduleId]}
                 </div>
-                <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">
+                <p className="font-heading text-sm font-bold uppercase tracking-wider text-app-text">
                   {t(`training.schedules.${scheduleId}.label`)}
                 </p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                <p className="mt-1 text-[11px] text-app-text-muted">
                   {t(`training.schedules.${scheduleId}.desc`)}
                 </p>
               </button>
             ))}
           </div>
 
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+          <p className="mt-4 text-xs text-app-text-muted">
             {t(`training.schedules.${currentSchedule}.detail`)}{" "}
             <span
               dangerouslySetInnerHTML={{
@@ -88,30 +101,31 @@ export default function TrainingSettingsPanel({
               }}
             />
           </p>
-        </CardBody>
-      </Card>
+      </PanelCard>
 
-      <Card accent="primary">
-        <CardHeader>{t("training.trainingFocus")}</CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-3 gap-3">
+      <PanelCard>
+        <PanelTitle>{t("training.trainingFocus")}</PanelTitle>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {trainingFocusIds.map((focusId) => (
               <button
                 key={focusId}
                 disabled={isSaving}
                 onClick={() => onSetTraining(focusId, currentIntensity)}
-                className={`p-4 rounded-xl text-left transition-all border-2 ${currentFocus === focusId
-                  ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md shadow-primary-500/10"
-                  : "border-gray-200 dark:border-surface-600 hover:border-gray-300 dark:hover:border-surface-600"
-                  } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
+                className={cx(
+                  "rounded-xl border p-4 text-left transition-all",
+                  currentFocus === focusId
+                    ? "border-app-green/50 bg-app-green/10 shadow-md shadow-app-green/10"
+                    : "border-app-border bg-app-bg hover:bg-white/5",
+                  isSaving && "pointer-events-none opacity-60",
+                )}
               >
-                <div className="mb-2 text-gray-600 dark:text-gray-300">
+                <div className={cx("mb-2 [&>svg]:h-5 [&>svg]:w-5", currentFocus === focusId ? "text-app-green" : "text-app-text-muted")}>
                   {trainingFocusIcons[focusId]}
                 </div>
-                <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">
+                <p className="font-heading text-sm font-bold uppercase tracking-wider text-app-text">
                   {t(`training.focuses.${focusId}.label`)}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="mt-1 text-xs text-app-text-muted">
                   {t(`training.focuses.${focusId}.desc`)}
                 </p>
                 {trainingFocusAttrs[focusId].length > 0 && (
@@ -119,7 +133,7 @@ export default function TrainingSettingsPanel({
                     {trainingFocusAttrs[focusId].map((attribute) => (
                       <span
                         key={attribute}
-                        className="text-[10px] bg-gray-100 dark:bg-surface-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider"
+                        className="rounded bg-app-card px-1.5 py-0.5 font-heading text-[10px] uppercase tracking-wider text-app-text-muted"
                       >
                         {t(`common.attributes.${attribute}`)}
                       </span>
@@ -130,10 +144,10 @@ export default function TrainingSettingsPanel({
             ))}
           </div>
 
-          <div className="mt-5 pt-4 border-t border-gray-100 dark:border-surface-700">
-            <div className="flex items-center gap-2 mb-3">
-              <Gauge className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-xs font-heading font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">
+          <div className="mt-5 border-t border-app-border/50 pt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-app-text-muted" />
+              <span className="font-heading text-xs font-bold uppercase tracking-widest text-app-text-muted">
                 {t("training.intensity")}
               </span>
             </div>
@@ -143,17 +157,20 @@ export default function TrainingSettingsPanel({
                   key={intensityId}
                   disabled={isSaving}
                   onClick={() => onSetTraining(currentFocus, intensityId)}
-                  className={`flex-1 p-3 rounded-lg text-left transition-all border-2 ${currentIntensity === intensityId
-                    ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10"
-                    : "border-gray-200 dark:border-surface-600 hover:border-gray-300 dark:hover:border-surface-600"
-                    } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
+                  className={cx(
+                    "flex-1 rounded-lg border p-3 text-left transition-all",
+                    currentIntensity === intensityId
+                      ? "border-app-green/50 bg-app-green/10"
+                      : "border-app-border bg-app-bg hover:bg-white/5",
+                    isSaving && "pointer-events-none opacity-60",
+                  )}
                 >
                   <p
                     className={`font-heading font-bold text-sm uppercase tracking-wider ${intensityColors[intensityId]}`}
                   >
                     {t(`training.intensities.${intensityId}.label`)}
                   </p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="mt-0.5 text-[10px] text-app-text-muted">
                     {t(`training.intensities.${intensityId}.desc`)}
                   </p>
                 </button>
@@ -161,7 +178,7 @@ export default function TrainingSettingsPanel({
             </div>
           </div>
 
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
+          <p className="mt-4 text-xs text-app-text-muted">
             {t("training.trainingAppliedNote")}
             {activeFocusAttrs.length > 0 && (
               <>
@@ -180,8 +197,7 @@ export default function TrainingSettingsPanel({
             )}
             {currentFocus === "Recovery" && <> {t("training.recoveryNote")}</>}
           </p>
-        </CardBody>
-      </Card>
+      </PanelCard>
     </>
   );
 }

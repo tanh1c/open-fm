@@ -1,9 +1,11 @@
 // squad commands — port of src-engine/src/commands/squad.rs
+use std::collections::HashSet;
+
 use chrono::Datelike;
 use ofm_core::live_match_manager;
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[derive(serde::Deserialize)]
 struct CustomTacticSlotInput {
@@ -30,6 +32,70 @@ fn parse_squad_role(squad_role: &str) -> Option<domain::player::SquadRole> {
         "Youth" => Some(domain::player::SquadRole::Youth),
         _ => None,
     }
+}
+
+fn parse_training_focus(focus: &str) -> Option<domain::team::TrainingFocus> {
+    match focus {
+        "Physical" => Some(domain::team::TrainingFocus::Physical),
+        "Technical" => Some(domain::team::TrainingFocus::Technical),
+        "Tactical" => Some(domain::team::TrainingFocus::Tactical),
+        "Defending" => Some(domain::team::TrainingFocus::Defending),
+        "Attacking" => Some(domain::team::TrainingFocus::Attacking),
+        "Recovery" => Some(domain::team::TrainingFocus::Recovery),
+        _ => None,
+    }
+}
+
+fn parse_training_intensity(intensity: &str) -> Option<domain::team::TrainingIntensity> {
+    match intensity {
+        "Low" => Some(domain::team::TrainingIntensity::Low),
+        "Medium" => Some(domain::team::TrainingIntensity::Medium),
+        "High" => Some(domain::team::TrainingIntensity::High),
+        _ => None,
+    }
+}
+
+fn parse_training_schedule(schedule: &str) -> Option<domain::team::TrainingSchedule> {
+    match schedule {
+        "Intense" => Some(domain::team::TrainingSchedule::Intense),
+        "Balanced" => Some(domain::team::TrainingSchedule::Balanced),
+        "Light" => Some(domain::team::TrainingSchedule::Light),
+        _ => None,
+    }
+}
+
+fn validate_training_groups(
+    groups: &[domain::team::TrainingGroup],
+    squad_player_ids: &HashSet<String>,
+) -> Result<(), JsValue> {
+    if groups.len() > 5 {
+        return Err(to_js("be.error.training.tooManyGroups".to_string()));
+    }
+
+    let mut group_ids = HashSet::new();
+    let mut assigned_player_ids = HashSet::new();
+
+    for group in groups {
+        if group.id.trim().is_empty() || group.name.trim().is_empty() {
+            return Err(to_js("be.error.training.invalidGroup".to_string()));
+        }
+
+        if !group_ids.insert(group.id.as_str()) {
+            return Err(to_js("be.error.training.duplicateGroup".to_string()));
+        }
+
+        for player_id in &group.player_ids {
+            if !squad_player_ids.contains(player_id) {
+                return Err(to_js("be.error.training.playerNotInTeam".to_string()));
+            }
+
+            if !assigned_player_ids.insert(player_id.as_str()) {
+                return Err(to_js("be.error.training.duplicatePlayer".to_string()));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn player_age_on(current_date: chrono::NaiveDate, date_of_birth: &str) -> Option<i32> {
@@ -60,7 +126,9 @@ fn formation_from_slots(slots: &[CustomTacticSlotInput]) -> String {
         .count();
     let midfielders = slots
         .iter()
-        .filter(|slot| slot.player_id.is_some() && matches!(slot.role.as_str(), "DM" | "MID" | "AM"))
+        .filter(|slot| {
+            slot.player_id.is_some() && matches!(slot.role.as_str(), "DM" | "MID" | "AM")
+        })
         .count();
     let forwards = slots
         .iter()
@@ -172,7 +240,8 @@ impl AppHandle {
         if assigned_player_ids.len() > 11 {
             return Err(to_js("be.error.tactics.tooManyPlayers".to_string()));
         }
-        let unique_player_ids: std::collections::HashSet<&String> = assigned_player_ids.iter().collect();
+        let unique_player_ids: std::collections::HashSet<&String> =
+            assigned_player_ids.iter().collect();
         if unique_player_ids.len() != assigned_player_ids.len() {
             return Err(to_js("be.error.tactics.duplicatePlayer".to_string()));
         }
@@ -191,7 +260,9 @@ impl AppHandle {
             .count();
         let midfielders = slots
             .iter()
-            .filter(|slot| slot.player_id.is_some() && matches!(slot.role.as_str(), "DM" | "MID" | "AM"))
+            .filter(|slot| {
+                slot.player_id.is_some() && matches!(slot.role.as_str(), "DM" | "MID" | "AM")
+            })
             .count();
         let forwards = slots
             .iter()
@@ -226,7 +297,11 @@ impl AppHandle {
                 id,
                 name: preset.name,
                 formation,
-                slots: preset.slots.into_iter().map(to_domain_tactic_slot).collect(),
+                slots: preset
+                    .slots
+                    .into_iter()
+                    .map(to_domain_tactic_slot)
+                    .collect(),
             });
         }
 
@@ -273,7 +348,8 @@ impl AppHandle {
             .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
 
         if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
-            team.saved_tactic_presets.retain(|preset| preset.id != preset_id);
+            team.saved_tactic_presets
+                .retain(|preset| preset.id != preset_id);
         }
 
         self.state.set_game(game.clone());
@@ -328,21 +404,10 @@ impl AppHandle {
             .team_id
             .clone()
             .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
-        let training_focus = match focus.as_str() {
-            "Physical" => domain::team::TrainingFocus::Physical,
-            "Technical" => domain::team::TrainingFocus::Technical,
-            "Tactical" => domain::team::TrainingFocus::Tactical,
-            "Defending" => domain::team::TrainingFocus::Defending,
-            "Attacking" => domain::team::TrainingFocus::Attacking,
-            "Recovery" => domain::team::TrainingFocus::Recovery,
-            _ => domain::team::TrainingFocus::Physical,
-        };
-        let training_intensity = match intensity.as_str() {
-            "Low" => domain::team::TrainingIntensity::Low,
-            "Medium" => domain::team::TrainingIntensity::Medium,
-            "High" => domain::team::TrainingIntensity::High,
-            _ => domain::team::TrainingIntensity::Medium,
-        };
+        let training_focus = parse_training_focus(&focus)
+            .ok_or_else(|| to_js("be.error.training.invalidFocus".to_string()))?;
+        let training_intensity = parse_training_intensity(&intensity)
+            .ok_or_else(|| to_js("be.error.training.invalidIntensity".to_string()))?;
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
             team.training_focus = training_focus;
             team.training_intensity = training_intensity;
@@ -359,12 +424,8 @@ impl AppHandle {
             .team_id
             .clone()
             .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
-        let training_schedule = match schedule.as_str() {
-            "Intense" => domain::team::TrainingSchedule::Intense,
-            "Balanced" => domain::team::TrainingSchedule::Balanced,
-            "Light" => domain::team::TrainingSchedule::Light,
-            _ => domain::team::TrainingSchedule::Balanced,
-        };
+        let training_schedule = parse_training_schedule(&schedule)
+            .ok_or_else(|| to_js("be.error.training.invalidSchedule".to_string()))?;
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
             team.training_schedule = training_schedule;
         }
@@ -382,6 +443,15 @@ impl AppHandle {
             .team_id
             .clone()
             .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+        let squad_player_ids: HashSet<String> = game
+            .players
+            .iter()
+            .filter(|player| player.team_id.as_deref() == Some(team_id.as_str()))
+            .map(|player| player.id.clone())
+            .collect();
+
+        validate_training_groups(&groups, &squad_player_ids)?;
+
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
             team.training_groups = groups;
         }
@@ -402,15 +472,13 @@ impl AppHandle {
             .clone()
             .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
 
-        let training_focus = focus.as_deref().and_then(|f| match f {
-            "Physical" => Some(domain::team::TrainingFocus::Physical),
-            "Technical" => Some(domain::team::TrainingFocus::Technical),
-            "Tactical" => Some(domain::team::TrainingFocus::Tactical),
-            "Defending" => Some(domain::team::TrainingFocus::Defending),
-            "Attacking" => Some(domain::team::TrainingFocus::Attacking),
-            "Recovery" => Some(domain::team::TrainingFocus::Recovery),
-            _ => None,
-        });
+        let training_focus = focus
+            .as_deref()
+            .map(|focus| {
+                parse_training_focus(focus)
+                    .ok_or_else(|| to_js("be.error.training.invalidFocus".to_string()))
+            })
+            .transpose()?;
 
         if let Some(player) = game
             .players
@@ -438,8 +506,8 @@ impl AppHandle {
             .team_id
             .clone()
             .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
-        let target_role =
-            parse_squad_role(&squad_role).ok_or_else(|| to_js("be.error.invalidSquadRole".to_string()))?;
+        let target_role = parse_squad_role(&squad_role)
+            .ok_or_else(|| to_js("be.error.invalidSquadRole".to_string()))?;
         let current_date = game.clock.current_date.date_naive();
 
         let player_index = game

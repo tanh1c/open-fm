@@ -9,7 +9,7 @@ import {
   type TrainingGroupData,
 } from "../../services/trainingService";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
-import { Card, CardBody, CardHeader, Select } from "../ui";
+import { Select } from "../ui";
 import {
   buildPlayerGroupMap,
   reassignPlayerTrainingGroup,
@@ -118,34 +118,30 @@ export default function TrainingGroupsCard({
   const sortedRoster = sortTrainingRoster(roster);
 
   return (
-    <Card>
-      <CardHeader
-        action={
-          groups.length < 5 ? (
-            <button
-              onClick={addGroup}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-400 transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" /> {t("training.groups.addGroup")}
-            </button>
-          ) : null
-        }
-      >
-        {t("training.groups.trainingGroups")}
-      </CardHeader>
-      <CardBody>
+    <div className="rounded-xl border border-app-border bg-app-card p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{t("training.groups.trainingGroups")}</h2>
+        {groups.length < 5 ? (
+          <button
+            onClick={addGroup}
+            disabled={isSaving}
+            className="flex items-center gap-1.5 rounded border border-app-border px-3 py-1.5 text-xs font-bold text-app-green transition-colors hover:bg-white/5 disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> {t("training.groups.addGroup")}
+          </button>
+        ) : null}
+      </div>
         {groups.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="mb-4 flex flex-wrap gap-2">
             {groups.map((group) => {
               const count = group.player_ids.length;
 
               return (
                 <div
                   key={group.id}
-                  className="flex items-center gap-2 bg-gray-50 dark:bg-surface-700/50 border border-gray-200 dark:border-surface-600 rounded-lg px-3 py-1.5"
+                  className="flex items-center gap-2 rounded-lg border border-app-border bg-app-bg px-3 py-1.5"
                 >
-                  <div className="text-gray-400 dark:text-gray-500">
+                  <div className="text-app-text-muted">
                     {trainingFocusIcons[group.focus] ? (
                       <span className="[&>svg]:w-4 [&>svg]:h-4">
                         {trainingFocusIcons[group.focus]}
@@ -160,7 +156,7 @@ export default function TrainingGroupsCard({
                     onChange={(event) =>
                       updateGroupName(group.id, event.target.value)
                     }
-                    className="bg-transparent text-xs font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200 border-none outline-none w-20"
+                    className="w-20 border-none bg-transparent font-heading text-xs font-bold uppercase tracking-wider text-app-text outline-none"
                   />
                   <Select
                     value={group.focus}
@@ -178,7 +174,7 @@ export default function TrainingGroupsCard({
                       </option>
                     ))}
                   </Select>
-                  <span className="text-[10px] text-gray-400 tabular-nums">
+                  <span className="text-[10px] tabular-nums text-app-text-muted">
                     {count}
                   </span>
                   <button
@@ -196,29 +192,29 @@ export default function TrainingGroupsCard({
         )}
 
         {groups.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          <p className="mb-3 text-sm text-app-text-muted">
             {t("training.groups.noGroups")}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-surface-600">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-surface-700/50">
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          <div className="overflow-x-auto rounded-lg border border-app-border custom-scrollbar">
+            <table className="w-full min-w-[620px] text-left text-[11px]">
+              <thead className="sticky top-0 z-10 bg-app-bg">
+                <tr className="text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+                  <th className="px-3 py-2.5">
                     {t("common.player")}
                   </th>
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <th className="px-3 py-2.5">
                     {t("common.position")}
                   </th>
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <th className="px-3 py-2.5">
                     {t("training.groups.group")}
                   </th>
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <th className="px-3 py-2.5">
                     {t("training.effectiveFocus")}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
+              <tbody className="divide-y divide-app-border/30 text-app-text">
                 {sortedRoster.map((player) => {
                   const playerGroup = playerGroupMap.get(player.id);
                   const hasIndividualFocus = !!player.training_focus;
@@ -228,18 +224,18 @@ export default function TrainingGroupsCard({
                   return (
                     <tr
                       key={player.id}
-                      className="hover:bg-gray-50 dark:hover:bg-surface-700/30 transition-colors"
+                      className="transition-colors hover:bg-white/5"
                     >
-                      <td className="py-1.5 px-3 text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[160px]">
+                      <td className="max-w-[160px] truncate px-3 py-2 text-xs font-semibold text-app-text">
                         {player.match_name}
                       </td>
-                      <td className="py-1.5 px-3 text-xs text-gray-500 dark:text-gray-400">
+                      <td className="px-3 py-2 text-xs text-app-text-muted">
                         {translatePositionAbbreviation(
                           t,
                           player.natural_position || player.position,
                         )}
                       </td>
-                      <td className="py-1.5 px-3">
+                      <td className="px-3 py-2">
                         <Select
                           value={playerGroup?.id || ""}
                           onChange={(event) =>
@@ -261,7 +257,7 @@ export default function TrainingGroupsCard({
                           ))}
                         </Select>
                       </td>
-                      <td className="py-1.5 px-3">
+                      <td className="px-3 py-2">
                         <Select
                           value={player.training_focus || ""}
                           onChange={(event) =>
@@ -292,10 +288,9 @@ export default function TrainingGroupsCard({
             </table>
           </div>
         )}
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+        <p className="mt-3 text-xs text-app-text-muted">
           {t("training.groups.trainingGroupsDesc")}
         </p>
-      </CardBody>
-    </Card>
+    </div>
   );
 }

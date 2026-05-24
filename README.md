@@ -1,8 +1,8 @@
-# OpenFoot Manager
+# Open Futball Manager
 
-**OpenFoot Manager** is an open-source football management web game focused on long-term club building, match-day decisions, squad development, transfers, finances, staff, scouting, and immersive football-world storytelling.
+**Open Futball Manager** is an open-source football management web game focused on long-term club building, match-day decisions, squad development, transfers, finances, staff, scouting, and immersive football-world storytelling.
 
-Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine compiled to WebAssembly**, OpenFoot Manager aims to deliver the feel of a modern Football Manager-style experience in an accessible web-first architecture.
+Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine compiled to WebAssembly**, Open Futball Manager aims to deliver the feel of a modern Football Manager-style experience in an accessible web-first architecture.
 
 > Status: active development. Expect rapid iteration, incomplete balance, and evolving game systems.
 
@@ -14,7 +14,7 @@ Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine c
 
 | Main Menu | Dashboard Home |
 | --- | --- |
-| ![OpenFoot Manager main menu](docs/showcase/main-menu.png) | ![OpenFoot Manager dashboard home](docs/showcase/dashboard-home.png) |
+| ![Open Futball Manager main menu](docs/showcase/main-menu.png) | ![Open Futball Manager dashboard home](docs/showcase/dashboard-home.png) |
 
 | Squad & Player Management | Tactics |
 | --- | --- |
@@ -190,7 +190,7 @@ Technical and gameplay docs live in [`docs/`](docs/README.md):
 
 ## Roadmap Ideas
 
-OpenFoot Manager is still evolving. Areas that are natural candidates for future work:
+Open Futball Manager is still evolving. Areas that are natural candidates for future work:
 
 - deeper AI squad-building logic
 - richer player personality and media systems
@@ -232,4 +232,4 @@ No license file is currently included. Add a `LICENSE` file before distributing 
 
 ## Acknowledgements
 
-OpenFoot Manager is inspired by the long tradition of football management games and by open-source simulation projects that make deep sports-management systems easier to study, modify, and extend.
+Open Futball Manager is inspired by the long tradition of football management games and by open-source simulation projects that make deep sports-management systems easier to study, modify, and extend.

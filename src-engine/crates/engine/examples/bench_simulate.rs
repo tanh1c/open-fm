@@ -1,7 +1,10 @@
 // Native benchmark: simulate N matches and print elapsed time + throughput.
 // Run with: cargo run --release -p engine --example bench_simulate
 
-use engine::{MatchConfig, PlayStyle, PlayerData, Position, TeamData, simulate_with_rng};
+use engine::{
+    MatchConfig, PlayStyle, PlayerData, Position, ShapeProfile, TacticalProfile, TeamData,
+    simulate_with_rng,
+};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::time::Instant;
@@ -55,6 +58,7 @@ fn make_team(id: &str, skill: u8) -> TeamData {
         play_style: PlayStyle::Balanced,
         players,
         shape_profile: ShapeProfile::default(),
+        tactical_profile: TacticalProfile::default(),
     }
 }
 

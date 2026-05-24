@@ -57,6 +57,7 @@ fn make_team(id: &str, name: &str, skill: u8, play_style: PlayStyle) -> TeamData
             make_player(&format!("{id}_fwd2"), "FWD2", Position::Forward, skill),
         ],
         shape_profile: ShapeProfile::default(),
+        tactical_profile: TacticalProfile::default(),
     }
 }
 
@@ -929,6 +930,7 @@ fn minimal_team_doesnt_crash() {
             make_player("fwd", "FWD", Position::Forward, 50),
         ],
         shape_profile: ShapeProfile::default(),
+        tactical_profile: TacticalProfile::default(),
     };
     let normal = make_team("normal", "Normal FC", 60, PlayStyle::Balanced);
     let config = MatchConfig::default();

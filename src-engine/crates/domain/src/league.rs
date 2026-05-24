@@ -12,6 +12,45 @@ pub struct League {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CompetitionKind {
+    DomesticLeague,
+    DomesticCup,
+    ContinentalLeague,
+    Friendly,
+    PreseasonTournament,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CompetitionFormat {
+    RoundRobin,
+    GroupStageKnockout,
+    Knockout,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Competition {
+    pub id: String,
+    pub name: String,
+    pub season: u32,
+    pub kind: CompetitionKind,
+    pub format: CompetitionFormat,
+    #[serde(default)]
+    pub country: Option<String>,
+    #[serde(default)]
+    pub tier: Option<u8>,
+    #[serde(default)]
+    pub team_ids: Vec<String>,
+    #[serde(default)]
+    pub fixtures: Vec<Fixture>,
+    #[serde(default)]
+    pub standings: Vec<CompetitionStanding>,
+    #[serde(default)]
+    pub transfer_log: Vec<CompletedTransfer>,
+}
+
+pub type CompetitionStanding = StandingEntry;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CompletedTransfer {
     pub date: String,
     pub from_team_id: String,
@@ -24,6 +63,9 @@ pub struct CompletedTransfer {
 pub enum FixtureCompetition {
     #[default]
     League,
+    DomesticLeague,
+    DomesticCup,
+    ContinentalLeague,
     Friendly,
     PreseasonTournament,
 }
@@ -36,6 +78,10 @@ pub struct Fixture {
     pub date: String, // ISO 8601 date
     pub home_team_id: String,
     pub away_team_id: String,
+    #[serde(default)]
+    pub competition_id: Option<String>,
+    #[serde(default)]
+    pub season: Option<u32>,
     pub competition: FixtureCompetition,
     pub status: FixtureStatus,
     pub result: Option<MatchResult>,
@@ -140,13 +186,16 @@ impl StandingEntry {
 
 impl Fixture {
     pub fn counts_for_league_standings(&self) -> bool {
-        matches!(self.competition, FixtureCompetition::League)
+        matches!(self.competition, FixtureCompetition::League | FixtureCompetition::DomesticLeague)
     }
 
     pub fn generates_match_report_news(&self) -> bool {
         matches!(
             self.competition,
             FixtureCompetition::League
+                | FixtureCompetition::DomesticLeague
+                | FixtureCompetition::DomesticCup
+                | FixtureCompetition::ContinentalLeague
                 | FixtureCompetition::Friendly
                 | FixtureCompetition::PreseasonTournament
         )
@@ -191,6 +240,8 @@ impl Default for Fixture {
             date: String::new(),
             home_team_id: String::new(),
             away_team_id: String::new(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,

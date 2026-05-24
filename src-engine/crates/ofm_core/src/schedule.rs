@@ -1,5 +1,9 @@
 use chrono::{DateTime, Duration, Utc};
-use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League};
+use domain::league::{
+    Competition, CompetitionFormat, CompetitionKind, Fixture, FixtureCompetition, FixtureStatus,
+    League,
+};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Generate a full double round-robin schedule (home & away) for the given teams.
@@ -43,6 +47,8 @@ pub fn generate_league(
                 date: date_str.clone(),
                 home_team_id: team_ids[home_idx].clone(),
                 away_team_id: team_ids[away_idx].clone(),
+                competition_id: Some(league.id.clone()),
+                season: Some(season),
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
@@ -74,6 +80,8 @@ pub fn generate_league(
                 date: date_str.clone(),
                 home_team_id: team_ids[home_idx].clone(),
                 away_team_id: team_ids[away_idx].clone(),
+                competition_id: Some(league.id.clone()),
+                season: Some(season),
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
@@ -88,6 +96,176 @@ pub fn generate_league(
     }
 
     league
+}
+
+pub fn competition_from_league(
+    league: &League,
+    name: String,
+    country: Option<String>,
+    tier: Option<u8>,
+) -> Competition {
+    Competition {
+        id: league.id.clone(),
+        name,
+        season: league.season,
+        kind: CompetitionKind::DomesticLeague,
+        format: CompetitionFormat::RoundRobin,
+        country,
+        tier,
+        team_ids: league
+            .standings
+            .iter()
+            .map(|standing| standing.team_id.clone())
+            .collect(),
+        fixtures: league
+            .fixtures
+            .iter()
+            .cloned()
+            .map(|mut fixture| {
+                fixture.competition = FixtureCompetition::DomesticLeague;
+                fixture.competition_id = Some(league.id.clone());
+                fixture.season = Some(league.season);
+                fixture
+            })
+            .collect(),
+        standings: league.standings.clone(),
+        transfer_log: league.transfer_log.clone(),
+    }
+}
+
+pub fn generate_domestic_competition(
+    name: &str,
+    season: u32,
+    country: Option<String>,
+    tier: Option<u8>,
+    team_ids: &[String],
+    start_date: DateTime<Utc>,
+) -> Competition {
+    let league = generate_league(name, season, team_ids, start_date);
+    competition_from_league(&league, name.to_string(), country, tier)
+}
+
+pub fn generate_domestic_competitions_by_country(
+    teams: &[domain::team::Team],
+    season: u32,
+    start_date: DateTime<Utc>,
+) -> Vec<Competition> {
+    let mut countries: Vec<String> = teams.iter().map(|team| team.country.clone()).collect();
+    countries.sort();
+    countries.dedup();
+
+    countries
+        .into_iter()
+        .filter_map(|country| {
+            let team_ids: Vec<String> = teams
+                .iter()
+                .filter(|team| team.country == country)
+                .map(|team| team.id.clone())
+                .collect();
+
+            if team_ids.len() < 2 {
+                return None;
+            }
+
+            Some(generate_domestic_competition(
+                &format!("{} Premier Division", country),
+                season,
+                Some(country),
+                Some(1),
+                &team_ids,
+                start_date,
+            ))
+        })
+        .collect()
+}
+
+pub fn generate_continental_group_stage(
+    name: &str,
+    season: u32,
+    domestic_competitions: &[Competition],
+    teams: &[domain::team::Team],
+    start_date: DateTime<Utc>,
+) -> Option<Competition> {
+    let reputation_by_team: HashMap<&str, u32> = teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.reputation))
+        .collect();
+    let mut qualified_team_ids = Vec::new();
+
+    for competition in domestic_competitions
+        .iter()
+        .filter(|competition| competition.kind == CompetitionKind::DomesticLeague)
+    {
+        let mut entrants = competition.team_ids.clone();
+        entrants.sort_by(|left, right| {
+            reputation_by_team
+                .get(right.as_str())
+                .unwrap_or(&0)
+                .cmp(reputation_by_team.get(left.as_str()).unwrap_or(&0))
+                .then(left.cmp(right))
+        });
+        qualified_team_ids.extend(entrants.into_iter().take(2));
+    }
+
+    qualified_team_ids.sort();
+    qualified_team_ids.dedup();
+
+    if qualified_team_ids.len() < 4 {
+        return None;
+    }
+
+    let max_teams = qualified_team_ids.len().min(16);
+    qualified_team_ids.truncate(max_teams - (max_teams % 4));
+    if qualified_team_ids.len() < 4 {
+        return None;
+    }
+
+    let competition_id = Uuid::new_v4().to_string();
+    let mut fixtures = Vec::new();
+    let mut matchday = 1;
+
+    for group in qualified_team_ids.chunks(4) {
+        for round in 0..3 {
+            let date = (start_date + Duration::days((matchday as i64 - 1) * 14))
+                .format("%Y-%m-%d")
+                .to_string();
+            let pairings = match round {
+                0 => [(0, 1), (2, 3)],
+                1 => [(0, 2), (1, 3)],
+                _ => [(0, 3), (1, 2)],
+            };
+
+            for (left, right) in pairings {
+                fixtures.push(Fixture {
+                    id: Uuid::new_v4().to_string(),
+                    matchday,
+                    date: date.clone(),
+                    home_team_id: group[left].clone(),
+                    away_team_id: group[right].clone(),
+                    competition_id: Some(competition_id.clone()),
+                    season: Some(season),
+                    competition: FixtureCompetition::ContinentalLeague,
+                    status: FixtureStatus::Scheduled,
+                    result: None,
+                });
+            }
+            matchday += 1;
+        }
+    }
+
+    Some(Competition {
+        id: competition_id,
+        name: name.to_string(),
+        season,
+        kind: CompetitionKind::ContinentalLeague,
+        format: CompetitionFormat::GroupStageKnockout,
+        country: None,
+        tier: None,
+        team_ids: qualified_team_ids,
+        fixtures,
+        standings: Vec::new(),
+        transfer_log: Vec::new(),
+    })
 }
 
 pub fn generate_preseason_friendlies(
@@ -139,6 +317,8 @@ pub fn generate_preseason_friendlies(
                 date: date.clone(),
                 home_team_id: team_ids[home_idx].clone(),
                 away_team_id: team_ids[away_idx].clone(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::Friendly,
                 status: FixtureStatus::Scheduled,
                 result: None,
@@ -224,6 +404,102 @@ mod tests {
         for f in &league.fixtures {
             assert_ne!(f.home_team_id, f.away_team_id);
         }
+    }
+
+    #[test]
+    fn generate_domestic_competitions_groups_teams_by_country() {
+        let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
+        let teams = vec![
+            domain::team::Team::new(
+                "eng-1".to_string(),
+                "English One".to_string(),
+                "EO".to_string(),
+                "England".to_string(),
+                "London".to_string(),
+                "Ground".to_string(),
+                40_000,
+            ),
+            domain::team::Team::new(
+                "eng-2".to_string(),
+                "English Two".to_string(),
+                "ET".to_string(),
+                "England".to_string(),
+                "Manchester".to_string(),
+                "Ground".to_string(),
+                40_000,
+            ),
+            domain::team::Team::new(
+                "de-1".to_string(),
+                "German One".to_string(),
+                "GO".to_string(),
+                "Germany".to_string(),
+                "Berlin".to_string(),
+                "Ground".to_string(),
+                40_000,
+            ),
+            domain::team::Team::new(
+                "de-2".to_string(),
+                "German Two".to_string(),
+                "GT".to_string(),
+                "Germany".to_string(),
+                "Munich".to_string(),
+                "Ground".to_string(),
+                40_000,
+            ),
+        ];
+
+        let competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
+
+        assert_eq!(competitions.len(), 2);
+        assert!(competitions.iter().all(|competition| {
+            competition.kind == CompetitionKind::DomesticLeague
+                && competition.format == CompetitionFormat::RoundRobin
+                && competition.fixtures.len() == 2
+                && competition.fixtures.iter().all(|fixture| {
+                    fixture.competition == FixtureCompetition::DomesticLeague
+                        && fixture.competition_id.as_deref() == Some(competition.id.as_str())
+                })
+        }));
+    }
+
+    #[test]
+    fn generate_continental_group_stage_qualifies_top_domestic_clubs() {
+        let start = Utc.with_ymd_and_hms(2026, 9, 15, 0, 0, 0).unwrap();
+        let mut teams = Vec::new();
+        for (index, country) in ["England", "Spain", "Germany", "France"].iter().enumerate() {
+            for slot in 0..4 {
+                let mut team = domain::team::Team::new(
+                    format!("team-{index}-{slot}"),
+                    format!("{country} {slot}"),
+                    format!("{index}{slot}"),
+                    country.to_string(),
+                    country.to_string(),
+                    "Ground".to_string(),
+                    40_000,
+                );
+                team.reputation = 900 - slot as u32;
+                teams.push(team);
+            }
+        }
+        let domestic_competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
+
+        let competition = generate_continental_group_stage(
+            "Champions League",
+            2026,
+            &domestic_competitions,
+            &teams,
+            start,
+        )
+        .expect("continental competition should be generated");
+
+        assert_eq!(competition.kind, CompetitionKind::ContinentalLeague);
+        assert_eq!(competition.format, CompetitionFormat::GroupStageKnockout);
+        assert_eq!(competition.team_ids.len(), 8);
+        assert_eq!(competition.fixtures.len(), 12);
+        assert!(competition.fixtures.iter().all(|fixture| {
+            fixture.competition == FixtureCompetition::ContinentalLeague
+                && fixture.competition_id.as_deref() == Some(competition.id.as_str())
+        }));
     }
 
     #[test]

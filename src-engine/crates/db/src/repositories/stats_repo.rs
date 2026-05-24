@@ -8,6 +8,9 @@ const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed
 fn competition_to_string(competition: &FixtureCompetition) -> String {
     match competition {
         FixtureCompetition::League => "League".to_string(),
+        FixtureCompetition::DomesticLeague => "DomesticLeague".to_string(),
+        FixtureCompetition::DomesticCup => "DomesticCup".to_string(),
+        FixtureCompetition::ContinentalLeague => "ContinentalLeague".to_string(),
         FixtureCompetition::Friendly => "Friendly".to_string(),
         FixtureCompetition::PreseasonTournament => "PreseasonTournament".to_string(),
     }
@@ -15,6 +18,9 @@ fn competition_to_string(competition: &FixtureCompetition) -> String {
 
 fn parse_competition(value: &str) -> FixtureCompetition {
     match value {
+        "DomesticLeague" => FixtureCompetition::DomesticLeague,
+        "DomesticCup" => FixtureCompetition::DomesticCup,
+        "ContinentalLeague" => FixtureCompetition::ContinentalLeague,
         "Friendly" => FixtureCompetition::Friendly,
         "PreseasonTournament" => FixtureCompetition::PreseasonTournament,
         _ => FixtureCompetition::League,

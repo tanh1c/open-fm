@@ -140,6 +140,8 @@ fn make_game_with_fixture() -> Game {
         date: "2025-06-15".to_string(),
         home_team_id: "team1".to_string(),
         away_team_id: "team2".to_string(),
+        competition_id: None,
+        season: None,
         competition: FixtureCompetition::League,
         status: FixtureStatus::Scheduled,
         result: None,

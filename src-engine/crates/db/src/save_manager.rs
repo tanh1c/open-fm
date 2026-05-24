@@ -620,6 +620,8 @@ mod tests {
                 date: "2027-08-15".to_string(),
                 home_team_id: "team-001".to_string(),
                 away_team_id: "team-002".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,

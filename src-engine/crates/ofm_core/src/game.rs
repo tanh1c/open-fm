@@ -1,5 +1,5 @@
 use crate::clock::GameClock;
-use domain::league::League;
+use domain::league::{Competition, CompetitionFormat, CompetitionKind, League};
 use domain::manager::Manager;
 use domain::message::InboxMessage;
 use domain::news::NewsArticle;
@@ -79,6 +79,8 @@ pub struct Game {
     pub news: Vec<NewsArticle>,
     pub league: Option<League>,
     #[serde(default)]
+    pub competitions: Vec<Competition>,
+    #[serde(default)]
     pub scouting_assignments: Vec<ScoutingAssignment>,
     #[serde(default)]
     pub youth_scouting_assignments: Vec<YouthScoutingAssignment>,
@@ -114,6 +116,7 @@ impl Game {
             messages,
             news: vec![],
             league: None,
+            competitions: vec![],
             scouting_assignments: vec![],
             youth_scouting_assignments: vec![],
             board_objectives: vec![],
@@ -137,5 +140,54 @@ impl Game {
         } else {
             self.managers.push(self.manager.clone());
         }
+    }
+
+    pub fn sync_competitions_from_legacy_league(&mut self) {
+        if !self.competitions.is_empty() {
+            return;
+        }
+
+        let Some(league) = self.league.as_ref() else {
+            return;
+        };
+
+        self.competitions.push(Competition {
+            id: league.id.clone(),
+            name: league.name.clone(),
+            season: league.season,
+            kind: CompetitionKind::DomesticLeague,
+            format: CompetitionFormat::RoundRobin,
+            country: None,
+            tier: Some(1),
+            team_ids: league
+                .standings
+                .iter()
+                .map(|standing| standing.team_id.clone())
+                .collect(),
+            fixtures: league
+                .fixtures
+                .iter()
+                .cloned()
+                .map(|mut fixture| {
+                    fixture.competition_id = Some(league.id.clone());
+                    fixture.season = Some(league.season);
+                    fixture
+                })
+                .collect(),
+            standings: league.standings.clone(),
+            transfer_log: league.transfer_log.clone(),
+        });
+    }
+
+    pub fn primary_league_competition(&self) -> Option<&Competition> {
+        self.competitions
+            .iter()
+            .find(|competition| competition.kind == CompetitionKind::DomesticLeague)
+    }
+
+    pub fn primary_league_competition_mut(&mut self) -> Option<&mut Competition> {
+        self.competitions
+            .iter_mut()
+            .find(|competition| competition.kind == CompetitionKind::DomesticLeague)
     }
 }

@@ -140,6 +140,7 @@ impl AppHandle {
             .find(|t| t.id == team_id)
             .ok_or_else(|| to_js("be.error.teamNotFound".to_string()))?;
         let team_name = team.name.clone();
+        let team_country = team.country.clone();
 
         game.manager.hire(team_id.clone());
         if let Some(t) = game.teams.iter_mut().find(|t| t.id == team_id) {
@@ -151,12 +152,69 @@ impl AppHandle {
         use chrono::Duration;
         let season_start = game.clock.current_date + Duration::days(30);
         let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
-        let league_name = default_league_name();
+        let user_domestic_team_ids: Vec<String> = game
+            .teams
+            .iter()
+            .filter(|team| team.country == team_country)
+            .map(|team| team.id.clone())
+            .collect();
+        let league_team_ids = if user_domestic_team_ids.len() >= 2 {
+            user_domestic_team_ids.as_slice()
+        } else {
+            team_ids.as_slice()
+        };
+        let league_name = if user_domestic_team_ids.len() >= 2 {
+            format!("{} Premier Division", team_country)
+        } else {
+            default_league_name()
+        };
         let mut league =
-            ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
+            ofm_core::schedule::generate_league(&league_name, 2026, league_team_ids, season_start);
         let friendlies =
-            ofm_core::schedule::generate_preseason_friendlies(&team_ids, season_start, 4);
+            ofm_core::schedule::generate_preseason_friendlies(league_team_ids, season_start, 4);
         ofm_core::schedule::append_fixtures(&mut league, friendlies);
+        game.competitions = ofm_core::schedule::generate_domestic_competitions_by_country(
+            &game.teams,
+            2026,
+            season_start,
+        );
+        if let Some(primary_competition) = game
+            .competitions
+            .iter_mut()
+            .find(|competition| competition.country.as_deref() == Some(team_country.as_str()))
+        {
+            primary_competition.id = league.id.clone();
+            primary_competition.name = league_name.clone();
+            primary_competition.team_ids = league_team_ids.to_vec();
+            primary_competition.fixtures = league
+                .fixtures
+                .iter()
+                .cloned()
+                .map(|mut fixture| {
+                    fixture.competition = domain::league::FixtureCompetition::DomesticLeague;
+                    fixture.competition_id = Some(league.id.clone());
+                    fixture
+                })
+                .collect();
+            primary_competition.standings = league.standings.clone();
+            primary_competition.transfer_log = league.transfer_log.clone();
+        } else {
+            game.competitions.push(ofm_core::schedule::competition_from_league(
+                &league,
+                league_name.clone(),
+                Some(team_country.clone()),
+                Some(1),
+            ));
+        }
+        if let Some(continental_competition) = ofm_core::schedule::generate_continental_group_stage(
+            "Champions League",
+            2026,
+            &game.competitions,
+            &game.teams,
+            season_start + Duration::days(45),
+        ) {
+            game.competitions.push(continental_competition);
+        }
         game.league = Some(league);
         ofm_core::season_context::refresh_game_context(&mut game);
 

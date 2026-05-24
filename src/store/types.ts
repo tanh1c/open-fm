@@ -365,13 +365,23 @@ export interface ManagerCareerEntry {
   best_league_position: number | null;
 }
 
+export type FixtureCompetitionData =
+  | "League"
+  | "DomesticLeague"
+  | "DomesticCup"
+  | "ContinentalLeague"
+  | "Friendly"
+  | "PreseasonTournament";
+
 export interface FixtureData {
   id: string;
   matchday: number;
   date: string;
   home_team_id: string;
   away_team_id: string;
-  competition: "League" | "Friendly" | "PreseasonTournament";
+  competition_id?: string | null;
+  season?: number | null;
+  competition: FixtureCompetitionData;
   status: "Scheduled" | "InProgress" | "Completed";
   result: null | {
     home_goals: number;
@@ -422,6 +432,23 @@ export interface LeagueData {
   id: string;
   name: string;
   season: number;
+  fixtures: FixtureData[];
+  standings: StandingData[];
+}
+
+export type CompetitionKindData = "DomesticLeague" | "DomesticCup" | "ContinentalLeague" | "Friendly" | "PreseasonTournament";
+
+export type CompetitionFormatData = "RoundRobin" | "GroupStageKnockout" | "Knockout";
+
+export interface CompetitionData {
+  id: string;
+  name: string;
+  season: number;
+  kind: CompetitionKindData;
+  format: CompetitionFormatData;
+  country?: string | null;
+  tier?: number | null;
+  team_ids: string[];
   fixtures: FixtureData[];
   standings: StandingData[];
 }
@@ -519,6 +546,7 @@ export interface GameStateData {
   messages: MessageData[];
   news: NewsArticle[];
   league: LeagueData | null;
+  competitions?: CompetitionData[];
   scouting_assignments: ScoutingAssignment[];
   youth_scouting_assignments?: YouthScoutingAssignment[];
   board_objectives: BoardObjective[];

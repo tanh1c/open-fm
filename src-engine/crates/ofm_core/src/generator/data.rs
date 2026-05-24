@@ -539,7 +539,7 @@ pub(super) const NATIONALITY_POOLS: &[NationalityNames] = &[
 ];
 
 // ---------------------------------------------------------------------------
-// Team data — 16 teams across multiple countries
+// Team data — 24 teams across multiple countries
 // ---------------------------------------------------------------------------
 
 pub(super) struct TeamTemplate {
@@ -662,5 +662,61 @@ pub(super) const TEAM_TEMPLATES: &[TeamTemplate] = &[
         country: "Belgium",
         colors: ("#7c3aed", "#fbbf24"),
         play_style: "Balanced",
+    },
+    TeamTemplate {
+        name: "Seville Atlético",
+        city: "Seville",
+        country: "Spain",
+        colors: ("#dc2626", "#ffffff"),
+        play_style: "Counter",
+    },
+    TeamTemplate {
+        name: "Valencia Orange",
+        city: "Valencia",
+        country: "Spain",
+        colors: ("#f97316", "#111827"),
+        play_style: "Balanced",
+    },
+    TeamTemplate {
+        name: "Leipzig Bulls",
+        city: "Leipzig",
+        country: "Germany",
+        colors: ("#ffffff", "#dc2626"),
+        play_style: "HighPress",
+    },
+    TeamTemplate {
+        name: "Hamburg Harbor",
+        city: "Hamburg",
+        country: "Germany",
+        colors: ("#1d4ed8", "#ffffff"),
+        play_style: "Balanced",
+    },
+    TeamTemplate {
+        name: "Marseille Phocéens",
+        city: "Marseille",
+        country: "France",
+        colors: ("#38bdf8", "#ffffff"),
+        play_style: "Possession",
+    },
+    TeamTemplate {
+        name: "Monaco Principality",
+        city: "Monaco",
+        country: "France",
+        colors: ("#ef4444", "#ffffff"),
+        play_style: "Counter",
+    },
+    TeamTemplate {
+        name: "Turin Zebras",
+        city: "Turin",
+        country: "Italy",
+        colors: ("#111827", "#ffffff"),
+        play_style: "Defensive",
+    },
+    TeamTemplate {
+        name: "Naples Partenopei",
+        city: "Naples",
+        country: "Italy",
+        colors: ("#0ea5e9", "#ffffff"),
+        play_style: "Attacking",
     },
 ];

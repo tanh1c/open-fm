@@ -192,6 +192,8 @@ fn make_game_with_match() -> Game {
             date: today,
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
@@ -1521,6 +1523,8 @@ fn make_round_summary_game() -> Game {
                 date: today.clone(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "team2".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(domain::league::MatchResult {
@@ -1540,6 +1544,8 @@ fn make_round_summary_game() -> Game {
                 date: today,
                 home_team_id: "team3".to_string(),
                 away_team_id: "team4".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(domain::league::MatchResult {

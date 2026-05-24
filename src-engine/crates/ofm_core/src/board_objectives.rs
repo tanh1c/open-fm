@@ -497,6 +497,8 @@ mod tests {
                 date: "2025-08-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "team2".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
@@ -513,6 +515,8 @@ mod tests {
                 date: "2025-08-08".to_string(),
                 home_team_id: "team3".to_string(),
                 away_team_id: "team1".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
@@ -580,6 +584,8 @@ mod tests {
                 date: "2025-08-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "team2".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
@@ -596,6 +602,8 @@ mod tests {
                 date: "2025-08-08".to_string(),
                 home_team_id: "team2".to_string(),
                 away_team_id: "team1".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
@@ -668,6 +676,8 @@ mod tests {
                 date: "2025-08-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "team2".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
@@ -684,6 +694,8 @@ mod tests {
                 date: "2025-08-08".to_string(),
                 home_team_id: "team2".to_string(),
                 away_team_id: "team1".to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
@@ -731,6 +743,8 @@ mod tests {
                 date: format!("2025-08-{:02}", matchday),
                 home_team_id: home_team_id.to_string(),
                 away_team_id: away_team_id.to_string(),
+                competition_id: None,
+                season: None,
                 competition: FixtureCompetition::League,
                 status,
                 result: score.map(|(home_goals, away_goals)| MatchResult {

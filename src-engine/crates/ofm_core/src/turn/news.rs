@@ -723,6 +723,8 @@ mod tests {
             date: date.to_string(),
             home_team_id: home_team_id.to_string(),
             away_team_id: away_team_id.to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status,
             result: result.map(|(home_goals, away_goals)| MatchResult {

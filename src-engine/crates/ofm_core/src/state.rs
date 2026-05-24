@@ -276,6 +276,8 @@ mod tests {
             date: "2025-06-15".to_string(),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,

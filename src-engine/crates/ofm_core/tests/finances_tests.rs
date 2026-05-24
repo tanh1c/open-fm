@@ -793,6 +793,8 @@ fn home_match_generates_income() {
             date: "2025-06-14".to_string(), // Saturday, within 7 days of Monday 2025-06-16
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
@@ -840,6 +842,8 @@ fn away_match_no_income() {
             date: "2025-06-14".to_string(),
             home_team_id: "team2".to_string(), // team1 is away
             away_team_id: "team1".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {

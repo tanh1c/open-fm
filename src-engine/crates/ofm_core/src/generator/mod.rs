@@ -345,9 +345,24 @@ mod tests {
     #[test]
     fn test_generate_world_team_count() {
         let (teams, players, staff) = generate_world(None);
-        assert_eq!(teams.len(), 16);
-        assert_eq!(players.len(), 16 * 22);
-        assert_eq!(staff.len(), 16 * 4 + 12);
+        assert_eq!(teams.len(), 24);
+        assert_eq!(players.len(), 24 * 22);
+        assert_eq!(staff.len(), 24 * 4 + 12);
+    }
+
+    #[test]
+    fn test_generate_world_has_multiple_league_ready_countries() {
+        let (teams, _, _) = generate_world(None);
+        let mut counts = std::collections::HashMap::<String, usize>::new();
+        for team in &teams {
+            *counts.entry(team.country.clone()).or_default() += 1;
+        }
+
+        let league_ready_countries = counts.values().filter(|count| **count >= 4).count();
+        assert!(
+            league_ready_countries >= 5,
+            "expected at least five countries with four or more clubs, got {league_ready_countries}"
+        );
     }
 
     #[test]

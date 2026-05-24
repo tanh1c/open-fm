@@ -63,6 +63,7 @@ fn make_team(id: &str, name: &str, skill: u8, style: PlayStyle) -> TeamData {
         play_style: style,
         players,
         shape_profile: ShapeProfile::default(),
+        tactical_profile: TacticalProfile::default(),
     }
 }
 
@@ -1337,6 +1338,7 @@ fn make_team_with_traits(id: &str, name: &str, skill: u8, traits: Vec<&str>) -> 
         play_style: PlayStyle::Balanced,
         players,
         shape_profile: ShapeProfile::default(),
+        tactical_profile: TacticalProfile::default(),
     }
 }
 

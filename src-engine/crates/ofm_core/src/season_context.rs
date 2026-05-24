@@ -144,6 +144,8 @@ mod tests {
             date: date.to_string(),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: status.clone(),
             result: (status == FixtureStatus::Completed).then_some(MatchResult {

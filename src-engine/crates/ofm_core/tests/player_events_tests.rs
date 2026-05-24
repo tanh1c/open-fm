@@ -273,6 +273,8 @@ fn bench_complaint_after_5_missed_matches() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
@@ -332,6 +334,8 @@ fn bench_complaint_not_for_gk() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
@@ -377,6 +381,8 @@ fn bench_complaint_not_with_fewer_than_5_fixtures() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition_id: None,
+            season: None,
             competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {

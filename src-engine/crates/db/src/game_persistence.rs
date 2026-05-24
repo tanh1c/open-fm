@@ -69,6 +69,7 @@ impl GamePersistenceWriter {
         if let Some(ref league) = game.league {
             league_repo::upsert_league(conn, league)?;
         }
+        league_repo::upsert_competitions(conn, &game.competitions)?;
 
         let objective_rows: Vec<objective_repo::BoardObjectiveRow> = game
             .board_objectives
@@ -188,6 +189,7 @@ impl GamePersistenceReader {
         let messages = message_repo::load_all_messages(conn)?;
         let news = news_repo::load_all_news(conn)?;
         let league = league_repo::load_league(conn)?;
+        let competitions = league_repo::load_competitions(conn)?;
 
         let objective_rows = objective_repo::load_all_objectives(conn)?;
         let board_objectives: Vec<BoardObjective> = objective_rows
@@ -239,6 +241,7 @@ impl GamePersistenceReader {
             messages,
             news,
             league,
+            competitions,
             scouting_assignments,
             youth_scouting_assignments,
             board_objectives,
@@ -246,6 +249,7 @@ impl GamePersistenceReader {
             days_since_last_job_offer: None,
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
         };
+        game.sync_competitions_from_legacy_league();
         ofm_core::season_context::refresh_game_context(&mut game);
 
         Ok(game)

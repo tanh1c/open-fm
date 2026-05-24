@@ -91,7 +91,10 @@ pub fn match_report_article(
     date: &str,
 ) -> NewsArticle {
     let mut rng = rand::rng();
-    let is_league_fixture = matches!(competition, FixtureCompetition::League);
+    let is_league_fixture = matches!(
+        competition,
+        FixtureCompetition::League | FixtureCompetition::DomesticLeague | FixtureCompetition::ContinentalLeague
+    );
 
     let scorer_parts = scorer_parts(home_name, away_name, home_scorers, away_scorers);
     let scorers_data = scorer_params_json(home_name, away_name, home_scorers, away_scorers);
@@ -109,6 +112,10 @@ pub fn match_report_article(
 
     if !is_league_fixture {
         let (title_key, body_key) = match competition {
+            FixtureCompetition::DomesticCup => (
+                "be.news.matchReport.reportPreseason.title",
+                "be.news.matchReport.reportPreseason.body",
+            ),
             FixtureCompetition::Friendly => (
                 "be.news.matchReport.reportFriendly.title",
                 "be.news.matchReport.reportFriendly.body",
@@ -117,7 +124,9 @@ pub fn match_report_article(
                 "be.news.matchReport.reportPreseason.title",
                 "be.news.matchReport.reportPreseason.body",
             ),
-            FixtureCompetition::League => unreachable!(),
+            FixtureCompetition::League
+            | FixtureCompetition::DomesticLeague
+            | FixtureCompetition::ContinentalLeague => unreachable!(),
         };
 
         return NewsArticle::new(

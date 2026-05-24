@@ -28,27 +28,6 @@ Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine c
 | --- | --- |
 | ![Training dashboard](docs/showcase/training.png) | ![Finances dashboard](docs/showcase/finances.png) |
 
-| Match Day | News & Inbox |
-| --- | --- |
-| ![Live match day](docs/showcase/match-day.png) | ![News and inbox](docs/showcase/news-inbox.png) |
-
-### Screenshot checklist for maintainers
-
-Capture these images after starting the app locally:
-
-1. `docs/showcase/main-menu.png` — main menu with the OpenFM branding visible.
-2. `docs/showcase/dashboard-home.png` — dashboard home overview after loading a save.
-3. `docs/showcase/squad-management.png` — squad page with player list and selected player context visible.
-4. `docs/showcase/tactics.png` — tactics page showing formation/shape controls.
-5. `docs/showcase/transfers.png` — transfers hub with market activity or negotiations visible.
-6. `docs/showcase/scouting.png` — scouting page with shortlist/report panels.
-7. `docs/showcase/training.png` — training dashboard with focus, schedule, and readiness panels.
-8. `docs/showcase/finances.png` — finances dashboard showing Overview or Commercial tab.
-9. `docs/showcase/match-day.png` — live match screen during an active match.
-10. `docs/showcase/news-inbox.png` — news or inbox page with football-world messages/articles.
-
-Recommended image format: `1600x900` or `1920x1080` PNG, dark mode, one consistent save file, no personal information visible.
-
 ---
 
 ## Features

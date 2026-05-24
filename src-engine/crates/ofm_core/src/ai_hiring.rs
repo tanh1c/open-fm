@@ -1,9 +1,11 @@
 use crate::game::Game;
 use domain::manager::{Manager, ManagerCareerEntry};
 use domain::staff::{Staff, StaffRole};
+use std::collections::HashMap;
 
 const BASE_AI_MANAGER_SATISFACTION: i32 = 50;
 const AI_MANAGER_REPLACEMENT_DELAY_DAYS: u32 = 7;
+const AI_MANAGER_SATISFACTION_BATCH_SIZE: usize = 12;
 
 fn manager_seed_staff<'a>(staff: &'a [Staff], team_id: &str) -> Option<&'a Staff> {
     staff
@@ -215,20 +217,36 @@ pub fn update_ai_manager_satisfaction(game: &mut Game) {
     } else {
         game.manager_id.clone()
     };
+    let team_form_by_id: HashMap<&str, &[String]> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.form.as_slice()))
+        .collect();
+    let ai_manager_indices: Vec<usize> = game
+        .managers
+        .iter()
+        .enumerate()
+        .filter(|(_, manager)| manager.id != user_manager_id && manager.team_id.is_some())
+        .map(|(index, _)| index)
+        .collect();
 
-    for manager in game.managers.iter_mut() {
-        if manager.id == user_manager_id {
-            continue;
-        }
+    if ai_manager_indices.is_empty() {
+        return;
+    }
 
-        let Some(team_id) = manager.team_id.clone() else {
+    let day_index = game.clock.current_date.timestamp().div_euclid(86_400) as usize;
+    let offset = day_index % ai_manager_indices.len();
+
+    for batch_offset in 0..AI_MANAGER_SATISFACTION_BATCH_SIZE.min(ai_manager_indices.len()) {
+        let manager_index = ai_manager_indices[(offset + batch_offset) % ai_manager_indices.len()];
+        let Some(team_id) = game.managers[manager_index].team_id.as_deref() else {
             continue;
         };
-        let Some(team) = game.teams.iter().find(|team| team.id == team_id) else {
+        let Some(form) = team_form_by_id.get(team_id) else {
             continue;
         };
 
-        manager.satisfaction = ai_manager_satisfaction(&team.form);
+        game.managers[manager_index].satisfaction = ai_manager_satisfaction(form);
     }
 }
 

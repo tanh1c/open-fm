@@ -13,6 +13,8 @@ use uuid::Uuid;
 
 const TRANSFER_NEGOTIATION_STALE_DAYS: i64 = 14;
 const MAX_COMPLETED_AI_TRANSFERS_PER_DAY: usize = 2;
+const TRANSFER_MARKET_EVALUATION_INTERVAL_DAYS: i64 = 3;
+const TRANSFER_MARKET_BUYERS_PER_TICK: usize = 8;
 const ERR_TRANSFER_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
 const ERR_CANNOT_BID_ON_OWN_PLAYER: &str = "be.error.transfers.cannotBidOnOwnPlayer";
 const ERR_PLAYER_HAS_NO_TEAM: &str = "be.error.transfers.playerHasNoTeam";
@@ -378,10 +380,18 @@ fn transfer_window_is_open(game: &Game) -> bool {
     )
 }
 
+fn should_evaluate_transfer_market(game: &Game) -> bool {
+    if matches!(game.season_context.transfer_window.status, TransferWindowStatus::DeadlineDay) {
+        return true;
+    }
+
+    game.clock.current_date.timestamp().div_euclid(86_400) % TRANSFER_MARKET_EVALUATION_INTERVAL_DAYS == 0
+}
+
 pub fn evaluate_transfer_market(game: &mut Game) {
     expire_stale_transfer_offers(game);
 
-    if !transfer_window_is_open(game) {
+    if !transfer_window_is_open(game) || !should_evaluate_transfer_market(game) {
         return;
     }
 
@@ -390,12 +400,19 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     let current_date = game.clock.current_date.date_naive();
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
-    let buyer_ids: Vec<String> = game
+    let mut buyer_ids: Vec<String> = game
         .teams
         .iter()
         .filter(|team| Some(team.id.as_str()) != user_team_id.as_deref())
         .map(|team| team.id.clone())
         .collect();
+    buyer_ids.sort();
+    if !buyer_ids.is_empty() {
+        let day_index = game.clock.current_date.timestamp().div_euclid(86_400) as usize;
+        let offset = day_index % buyer_ids.len();
+        buyer_ids.rotate_left(offset);
+        buyer_ids.truncate(TRANSFER_MARKET_BUYERS_PER_TICK.min(buyer_ids.len()));
+    }
     let mut completed_ai_transfers = 0_usize;
     let mut moved_player_ids: HashSet<String> = HashSet::new();
 

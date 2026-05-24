@@ -6,6 +6,15 @@ use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
+const MAX_RETAINED_NEWS_ARTICLES: usize = 250;
+
+pub(super) fn prune_old_news(game: &mut Game) {
+    if game.news.len() > MAX_RETAINED_NEWS_ARTICLES {
+        let remove_count = game.news.len() - MAX_RETAINED_NEWS_ARTICLES;
+        game.news.drain(0..remove_count);
+    }
+}
+
 fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fixture> {
     league
         .fixtures

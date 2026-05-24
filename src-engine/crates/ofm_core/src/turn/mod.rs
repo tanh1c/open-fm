@@ -79,6 +79,7 @@ where
 
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
+    news::prune_old_news(game);
 
     crate::firing::check_manager_firing(game);
     crate::ai_hiring::process_vacant_ai_clubs(game);
@@ -110,6 +111,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     crate::ai_hiring::update_ai_manager_satisfaction(game);
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
+    news::prune_old_news(game);
 
     crate::firing::check_manager_firing(game);
     crate::ai_hiring::process_vacant_ai_clubs(game);

@@ -1,6 +1,6 @@
 # Game Systems
 
-This document describes the major gameplay systems in OpenFoot Manager beyond match simulation (which is covered in [MATCH_SIMULATION.md](MATCH_SIMULATION.md)).
+This document describes the major gameplay systems in Open Futball Manager beyond match simulation (which is covered in [MATCH_SIMULATION.md](MATCH_SIMULATION.md)).
 
 ---
 

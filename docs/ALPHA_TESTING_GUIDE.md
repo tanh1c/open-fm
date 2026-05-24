@@ -1,14 +1,14 @@
-# Openfoot Manager — Alpha Testing Guide
+# Open Futball Manager — Alpha Testing Guide
 
-Hey there, and welcome to the **Openfoot Manager** alpha! First off — thank you so much for being here. Seriously. The fact that you're willing to play an unfinished game and help us make it better means the world to us.
+Hey there, and welcome to the **Open Futball Manager** alpha! First off — thank you so much for being here. Seriously. The fact that you're willing to play an unfinished game and help us make it better means the world to us.
 
 This guide will walk you through what the game is, what works, what doesn't (yet), and how you can help us the most.
 
 ---
 
-## What is Openfoot Manager?
+## What is Open Futball Manager?
 
-Openfoot Manager is an **open-source football management simulation game**. Think of it as a love letter to the classic football manager genre — you take charge of a club, manage your squad, set tactics, handle transfers, and guide your team through a full season of competitive league football.
+Open Futball Manager is an **open-source football management simulation game**. Think of it as a love letter to the classic football manager genre — you take charge of a club, manage your squad, set tactics, handle transfers, and guide your team through a full season of competitive league football.
 
 It's built as a desktop app using [Tauri](https://tauri.app/) (Rust backend + React frontend), which means it runs natively on Windows, macOS, and Linux with no browser or internet connection needed.
 
@@ -52,7 +52,7 @@ We'll get there. But right now, we need your help finding the bugs and rough edg
 
 1. Download the installer for your platform from the link we shared with you
 2. Run the installer — on Windows you might see a SmartScreen warning since the app isn't signed yet. Click "More info" → "Run anyway"
-3. Launch **Openfoot Manager**
+3. Launch **Open Futball Manager**
 
 ### Your first game
 
@@ -167,7 +167,7 @@ So play the game, have fun with it (we hope!), and don't hold back on the feedba
 
 Thanks for being part of this. Let's build something great together.
 
-— The Openfoot Manager Team
+— The Open Futball Manager Team
 
 ---
 

@@ -1,14 +1,14 @@
-# Openfoot Manager — Guide pour les Testeurs Alpha
+# Open Futball Manager — Guide pour les Testeurs Alpha
 
-Salut et bienvenue dans l'alpha d'**Openfoot Manager** ! Avant tout — merci énormément d'être là. Sérieusement. Le fait que tu sois prêt à jouer à un jeu inachevé et à nous aider à l'améliorer, ça compte énormément pour nous.
+Salut et bienvenue dans l'alpha d'**Open Futball Manager** ! Avant tout — merci énormément d'être là. Sérieusement. Le fait que tu sois prêt à jouer à un jeu inachevé et à nous aider à l'améliorer, ça compte énormément pour nous.
 
 Ce guide va t'expliquer ce qu'est le jeu, ce qui marche, ce qui ne marche pas (encore), et comment tu peux nous aider au mieux.
 
 ---
 
-## C'est quoi Openfoot Manager ?
+## C'est quoi Open Futball Manager ?
 
-Openfoot Manager est un **jeu de simulation de gestion de football open-source**. Vois-le comme une lettre d'amour au genre classique du football manager — tu prends les rênes d'un club, tu gères ton effectif, tu définis les tactiques, tu gères les transferts et tu guides ton équipe à travers une saison complète de football compétitif.
+Open Futball Manager est un **jeu de simulation de gestion de football open-source**. Vois-le comme une lettre d'amour au genre classique du football manager — tu prends les rênes d'un club, tu gères ton effectif, tu définis les tactiques, tu gères les transferts et tu guides ton équipe à travers une saison complète de football compétitif.
 
 C'est une application de bureau construite avec [Tauri](https://tauri.app/) (backend Rust + frontend React), ce qui veut dire qu'elle tourne nativement sur Windows, macOS et Linux sans navigateur ni connexion internet.
 
@@ -52,7 +52,7 @@ On y arrivera. Mais pour l'instant, on a besoin de ton aide pour trouver les bug
 
 1. Télécharge l'installateur pour ta plateforme depuis le lien qu'on t'a partagé
 2. Lance l'installateur — sur Windows tu peux voir un avertissement SmartScreen car l'app n'est pas encore signée. Clique sur "Informations complémentaires" → "Exécuter quand même"
-3. Lance **Openfoot Manager**
+3. Lance **Open Futball Manager**
 
 ### Ta première partie
 
@@ -164,7 +164,7 @@ Alors joue, amuse-toi (on espère !), et n'hésite pas sur le feedback. Il n'y a
 
 Merci de faire partie de l'aventure. Construisons quelque chose de génial ensemble.
 
-— L'équipe Openfoot Manager
+— L'équipe Open Futball Manager
 
 ---
 

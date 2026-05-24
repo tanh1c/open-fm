@@ -1,6 +1,6 @@
-# OpenFoot Manager — Documentation Index
+# Open Futball Manager — Documentation Index
 
-This directory contains the technical documentation for OpenFoot Manager, a desktop football management simulation built with Tauri (Rust) and React (TypeScript).
+This directory contains the technical documentation for Open Futball Manager, a desktop football management simulation built with Tauri (Rust) and React (TypeScript).
 
 ---
 

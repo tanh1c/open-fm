@@ -1,6 +1,6 @@
 # Architecture
 
-OpenFoot Manager is a desktop football management simulation built with **Tauri** (Rust backend) and **React** (TypeScript frontend). This document describes the project structure, key architectural decisions, and how the pieces fit together.
+Open Futball Manager is a desktop football management simulation built with **Tauri** (Rust backend) and **React** (TypeScript frontend). This document describes the project structure, key architectural decisions, and how the pieces fit together.
 
 ---
 

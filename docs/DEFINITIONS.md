@@ -1,6 +1,6 @@
 # Definition Files
 
-OpenFootManager uses **JSON definition files** to drive world generation. These files control the name pools, team templates, and other data used when creating a new game. You can customize or replace them to create your own leagues, nationalities, and more.
+Open Futball Manager uses **JSON definition files** to drive world generation. These files control the name pools, team templates, and other data used when creating a new game. You can customize or replace them to create your own leagues, nationalities, and more.
 
 ## File Locations
 

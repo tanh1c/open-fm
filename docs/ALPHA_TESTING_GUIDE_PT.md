@@ -1,14 +1,14 @@
-# Openfoot Manager — Guia para Testadores Alpha
+# Open Futball Manager — Guia para Testadores Alpha
 
-Olá e bem-vindo ao alpha do **Openfoot Manager**! Antes de mais — muito obrigado por estares aqui. A sério. O facto de estares disposto a jogar um jogo inacabado e a ajudar-nos a melhorá-lo significa imenso para nós.
+Olá e bem-vindo ao alpha do **Open Futball Manager**! Antes de mais — muito obrigado por estares aqui. A sério. O facto de estares disposto a jogar um jogo inacabado e a ajudar-nos a melhorá-lo significa imenso para nós.
 
 Este guia vai explicar-te o que é o jogo, o que funciona, o que ainda não funciona, e como nos podes ajudar da melhor forma.
 
 ---
 
-## O que é o Openfoot Manager?
+## O que é o Open Futball Manager?
 
-O Openfoot Manager é um **jogo de simulação de gestão de futebol open-source**. Pensa nele como uma carta de amor ao género clássico de football manager — assumes o comando de um clube, geres o teu plantel, defines táticas, tratas de transferências e guias a tua equipa ao longo de uma temporada completa de futebol competitivo.
+O Open Futball Manager é um **jogo de simulação de gestão de futebol open-source**. Pensa nele como uma carta de amor ao género clássico de football manager — assumes o comando de um clube, geres o teu plantel, defines táticas, tratas de transferências e guias a tua equipa ao longo de uma temporada completa de futebol competitivo.
 
 É construído como uma aplicação de desktop com [Tauri](https://tauri.app/) (backend em Rust + frontend em React), o que significa que corre nativamente em Windows, macOS e Linux sem precisar de browser ou ligação à internet.
 
@@ -52,7 +52,7 @@ Vamos lá chegar. Mas agora, precisamos da tua ajuda para encontrar os bugs e as
 
 1. Descarrega o instalador para a tua plataforma a partir do link que te enviámos
 2. Executa o instalador — no Windows pode aparecer um aviso do SmartScreen porque a aplicação ainda não está assinada digitalmente. Clica em "Mais informações" → "Executar mesmo assim"
-3. Abre o **Openfoot Manager**
+3. Abre o **Open Futball Manager**
 
 ### O teu primeiro jogo
 
@@ -164,7 +164,7 @@ Por isso joga, diverte-te (esperamos nós!), e não te contenhas no feedback. N�
 
 Obrigado por fazeres parte disto. Vamos construir algo fantástico juntos.
 
-— A equipa Openfoot Manager
+— A equipa Open Futball Manager
 
 ---
 

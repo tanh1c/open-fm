@@ -1,6 +1,6 @@
 # Getting Started
 
-Welcome to **OpenFoot Manager** — an open-source football management simulation where you take charge of a club, build your squad, set tactics, and lead your team through a full league season.
+Welcome to **Open Futball Manager** — an open-source football management simulation where you take charge of a club, build your squad, set tactics, and lead your team through a full league season.
 
 This guide walks you through the basics of gameplay from creating your manager to lifting the trophy.
 
@@ -67,7 +67,7 @@ The Dashboard is your command centre. It's organized into a **sidebar** with nav
 
 ## Day-to-Day Gameplay
 
-Openfoot Manager advances **one day at a time**. Each day either has a match or is a training day.
+Open Futball Manager advances **one day at a time**. Each day either has a match or is a training day.
 
 ### Advancing Time
 

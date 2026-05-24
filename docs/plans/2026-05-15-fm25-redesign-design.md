@@ -1,7 +1,7 @@
 # FM25-style UI Redesign — Design Document
 
 **Status**: Approved 2026-05-15
-**Scope**: Full overhaul of OpenFootManager web app to match Football Manager 2025 visual language (default dark + violet variant).
+**Scope**: Full overhaul of Open Futball Manager web app to match Football Manager 2025 visual language (default dark + violet variant).
 
 ## Goals
 

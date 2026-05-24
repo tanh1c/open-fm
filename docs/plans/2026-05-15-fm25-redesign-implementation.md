@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Refactor OpenFootManager web UI to match the Football Manager 2025 default skin (deep charcoal + violet primary + lime accent) with sharp 6px-radius components and a topbar+sidebar in-game layout shell.
+**Goal:** Refactor Open Futball Manager web UI to match the Football Manager 2025 default skin (deep charcoal + violet primary + lime accent) with sharp 6px-radius components and a topbar+sidebar in-game layout shell.
 
 **Architecture:** Layered overhaul in 4 phases — tokens, primitives, layout shell, polish. Each phase is independently shippable. Legacy classes (`navy-*`, `text-emerald-*`) keep rendering through CSS variable aliases until the polish phase removes them.
 

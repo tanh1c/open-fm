@@ -1,14 +1,14 @@
-# Openfoot Manager — Alpha-Tester-Leitfaden
+# Open Futball Manager — Alpha-Tester-Leitfaden
 
-Hey, willkommen beim Alpha von **Openfoot Manager**! Erstmal — vielen Dank, dass du dabei bist. Ehrlich. Die Tatsache, dass du bereit bist, ein unfertiges Spiel zu spielen und uns zu helfen, es besser zu machen, bedeutet uns unglaublich viel.
+Hey, willkommen beim Alpha von **Open Futball Manager**! Erstmal — vielen Dank, dass du dabei bist. Ehrlich. Die Tatsache, dass du bereit bist, ein unfertiges Spiel zu spielen und uns zu helfen, es besser zu machen, bedeutet uns unglaublich viel.
 
 Dieser Leitfaden erklärt dir, was das Spiel ist, was funktioniert, was (noch) nicht, und wie du uns am besten helfen kannst.
 
 ---
 
-## Was ist Openfoot Manager?
+## Was ist Open Futball Manager?
 
-Openfoot Manager ist ein **Open-Source-Fußballmanager-Simulationsspiel**. Stell es dir als Liebesbrief an das klassische Football-Manager-Genre vor — du übernimmst einen Verein, verwaltest deinen Kader, legst Taktiken fest, kümmerst dich um Transfers und führst dein Team durch eine komplette Saison im Ligafußball.
+Open Futball Manager ist ein **Open-Source-Fußballmanager-Simulationsspiel**. Stell es dir als Liebesbrief an das klassische Football-Manager-Genre vor — du übernimmst einen Verein, verwaltest deinen Kader, legst Taktiken fest, kümmerst dich um Transfers und führst dein Team durch eine komplette Saison im Ligafußball.
 
 Es ist als Desktop-App mit [Tauri](https://tauri.app/) gebaut (Rust-Backend + React-Frontend), was bedeutet, dass es nativ auf Windows, macOS und Linux läuft — ohne Browser oder Internetverbindung.
 
@@ -52,7 +52,7 @@ Wir kommen dahin. Aber jetzt brauchen wir deine Hilfe, um die Bugs und Ecken und
 
 1. Lade den Installer für deine Plattform über den Link herunter, den wir dir geschickt haben
 2. Führe den Installer aus — unter Windows kann eine SmartScreen-Warnung erscheinen, da die App noch nicht signiert ist. Klicke auf "Weitere Informationen" → "Trotzdem ausführen"
-3. Starte **Openfoot Manager**
+3. Starte **Open Futball Manager**
 
 ### Dein erstes Spiel
 
@@ -164,7 +164,7 @@ Also spiel, hab Spaß (hoffen wir!), und halt dich nicht zurück mit dem Feedbac
 
 Danke, dass du dabei bist. Lass uns zusammen etwas Großartiges bauen.
 
-— Das Openfoot Manager Team
+— Das Open Futball Manager Team
 
 ---
 

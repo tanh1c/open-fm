@@ -226,7 +226,7 @@ Before submitting a larger gameplay or architecture change, consider opening an 
 
 ## License
 
-No license file is currently included. Add a `LICENSE` file before distributing or accepting broad external contributions.
+Open Futball Manager is released under the MIT License. See [`LICENSE.md`](LICENSE.md) for details.
 
 ---
 

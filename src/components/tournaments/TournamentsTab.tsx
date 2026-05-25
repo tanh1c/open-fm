@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData, FixtureData } from "../../store/gameStore";
+import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
 import { Card, CardHeader, CardBody, Badge } from "../ui";
 import {
@@ -65,8 +65,11 @@ export default function TournamentsTab({
     competitionOptions.find((competition) => competition.id === selectedCompetitionId) ??
     competitionOptions[0] ??
     null;
-  const domesticCompetitions = competitionOptions.filter(
-    (competition) => !('kind' in competition) || competition.kind === "DomesticLeague" || competition.kind === "DomesticCup",
+  const domesticLeagueCompetitions = competitionOptions.filter(
+    (competition) => !('kind' in competition) || competition.kind === "DomesticLeague",
+  );
+  const domesticCupCompetitions = competitionOptions.filter(
+    (competition) => 'kind' in competition && competition.kind === "DomesticCup",
   );
   const continentalCompetitions = competitionOptions.filter(
     (competition) => 'kind' in competition && competition.kind === "ContinentalLeague",
@@ -143,6 +146,7 @@ export default function TournamentsTab({
   }
 
   const hasStandings = selectedCompetition.standings.length > 0;
+  const competitionLabel = getCompetitionDisplayName(selectedCompetition);
   const competitionTeamCount =
     'team_ids' in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
       ? selectedCompetition.team_ids.length
@@ -271,7 +275,7 @@ export default function TournamentsTab({
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-heading font-bold text-white uppercase tracking-wide">
-                {selectedCompetition.name}
+                {competitionLabel}
               </h2>
               <p className="text-gray-400 text-sm mt-0.5">
                 {t("schedule.season", { number: selectedCompetition.season })} —{" "}
@@ -287,13 +291,16 @@ export default function TournamentsTab({
                   >
                     {competitionOptions.map((competition) => (
                       <option key={competition.id} value={competition.id} className="bg-surface-800 text-white">
-                        {competition.name}
+                        {getCompetitionDisplayName(competition)}
                       </option>
                     ))}
                   </select>
                   <div className="flex flex-wrap gap-2 text-[10px] font-heading font-bold uppercase tracking-wider text-gray-300">
                     <span className="rounded-full bg-white/10 px-2.5 py-1">
-                      Domestic {domesticCompetitions.length}
+                      Leagues {domesticLeagueCompetitions.length}
+                    </span>
+                    <span className="rounded-full bg-white/10 px-2.5 py-1">
+                      Cups {domesticCupCompetitions.length}
                     </span>
                     <span className="rounded-full bg-accent-500/20 px-2.5 py-1 text-accent-200">
                       Continental {continentalCompetitions.length}

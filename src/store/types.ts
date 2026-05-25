@@ -555,11 +555,34 @@ export interface GameStateData {
   season_context?: SeasonContextData;
 }
 
-export function getPrimaryCompetition(gameState: GameStateData): CompetitionLikeData | null {
-  const userTeamId = gameState.manager.team_id;
+export function getCompetitionForTeam(gameState: GameStateData, teamId: string | null | undefined): CompetitionLikeData | null {
   const domesticCompetition = gameState.competitions?.find((competition) => {
-    return competition.kind === "DomesticLeague" && (!userTeamId || competition.team_ids.includes(userTeamId));
+    return competition.kind === "DomesticLeague" && !!teamId && competition.team_ids.includes(teamId);
   });
 
-  return domesticCompetition ?? gameState.competitions?.[0] ?? gameState.league ?? null;
+  return domesticCompetition ?? gameState.league ?? null;
+}
+
+export function getPrimaryCompetition(gameState: GameStateData): CompetitionLikeData | null {
+  return getCompetitionForTeam(gameState, gameState.manager.team_id) ?? gameState.competitions?.[0] ?? null;
+}
+
+export function getCompetitionDisplayName(competition: CompetitionLikeData): string {
+  if (!("kind" in competition)) {
+    return competition.name;
+  }
+
+  if (competition.kind === "DomesticLeague" && competition.tier) {
+    return `${competition.name} (Tier ${competition.tier})`;
+  }
+
+  if (competition.kind === "DomesticCup") {
+    return `${competition.name} (Cup)`;
+  }
+
+  if (competition.kind === "ContinentalLeague") {
+    return `${competition.name} (Continental)`;
+  }
+
+  return competition.name;
 }

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { FixtureData, GameStateData } from "../../store/gameStore";
+import { FixtureData, GameStateData, getCompetitionDisplayName } from "../../store/gameStore";
 import { getTeamName, formatMatchDate } from "../../lib/helpers";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
@@ -73,6 +73,8 @@ export default function ScheduleTab({
   const userTeamId = gameState.manager.team_id;
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
+  const canShowStandings = selectedCompetition?.standings.length > 0;
+  const competitionLabel = selectedCompetition ? getCompetitionDisplayName(selectedCompetition) : "";
 
   useEffect(() => {
     if (competitionOptions.length === 0) {
@@ -90,6 +92,12 @@ export default function ScheduleTab({
   useEffect(() => {
     setActiveFixtureGroupIndex(0);
   }, [selectedCompetitionId]);
+
+  useEffect(() => {
+    if (!canShowStandings && view === "standings") {
+      setView("fixtures");
+    }
+  }, [canShowStandings, view]);
 
   const getFixtureGroupKey = (fixture: FixtureData): string => {
     if (fixture.competition === "League" || fixture.competition === "DomesticLeague") {
@@ -264,7 +272,7 @@ export default function ScheduleTab({
         <div>
           <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
           <p className="text-sm text-app-text-muted">
-            {selectedCompetition.name} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
+            {competitionLabel} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
           </p>
         </div>
 
@@ -278,7 +286,7 @@ export default function ScheduleTab({
             >
               {competitionOptions.map((competition) => (
                 <option key={competition.id} value={competition.id} className="bg-app-bg text-app-text">
-                  {competition.name}
+                  {getCompetitionDisplayName(competition)}
                 </option>
               ))}
             </select>
@@ -293,7 +301,7 @@ export default function ScheduleTab({
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-app-green px-4 py-2 text-sm font-bold text-app-bg">
             <Trophy className="h-4 w-4" />
-            {selectedCompetition.standings.length} Teams
+            {"team_ids" in selectedCompetition && Array.isArray(selectedCompetition.team_ids) ? selectedCompetition.team_ids.length : selectedCompetition.standings.length} Teams
           </div>
         </div>
       </div>
@@ -301,7 +309,7 @@ export default function ScheduleTab({
       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
         {([
           { id: "fixtures", label: t("schedule.fixtures"), icon: <CalendarIcon className="h-4 w-4" /> },
-          { id: "standings", label: t("schedule.standings"), icon: <TableProperties className="h-4 w-4" /> },
+          ...(canShowStandings ? [{ id: "standings", label: t("schedule.standings"), icon: <TableProperties className="h-4 w-4" /> } as const] : []),
         ] as const).map((tab) => (
           <button
             key={tab.id}

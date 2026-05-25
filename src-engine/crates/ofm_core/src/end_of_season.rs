@@ -1,7 +1,7 @@
 use crate::game::Game;
 use crate::schedule::{
-    append_fixtures, generate_domestic_competitions_by_country, generate_league,
-    generate_preseason_friendlies,
+    append_fixtures, domestic_pyramid_definition, generate_domestic_competitions_by_country,
+    generate_domestic_competitions_for_tier_memberships, generate_league, generate_preseason_friendlies,
 };
 use crate::season_awards::compute_season_awards;
 use chrono::Duration;
@@ -66,6 +66,117 @@ fn competition_season_has_started(competition: &Competition) -> bool {
     competition.fixtures.iter().any(|fixture| {
         fixture.counts_for_league_standings() && fixture.status == FixtureStatus::Completed
     }) || competition.standings.iter().any(|entry| entry.played > 0)
+}
+
+fn sorted_competition_standings(competition: &Competition) -> Vec<domain::league::StandingEntry> {
+    let league = league_from_competition(competition);
+    league.sorted_standings()
+}
+
+fn apply_promotion_and_relegation(
+    country: &str,
+    domestic_leagues: &[Competition],
+) -> Option<Vec<(u8, Vec<String>)>> {
+    let definition = domestic_pyramid_definition(country)?;
+    let mut tier_memberships: Vec<(u8, Vec<String>)> = definition
+        .leagues
+        .iter()
+        .filter_map(|league_definition| {
+            let competition = domestic_leagues.iter().find(|competition| {
+                competition.country.as_deref() == Some(country)
+                    && competition.tier == Some(league_definition.tier)
+            })?;
+            Some((
+                league_definition.tier,
+                sorted_competition_standings(competition)
+                    .into_iter()
+                    .map(|standing| standing.team_id)
+                    .collect(),
+            ))
+        })
+        .collect();
+
+    if tier_memberships.len() < 2 {
+        return None;
+    }
+
+    tier_memberships.sort_by_key(|(tier, _)| *tier);
+
+    for pair_index in 0..definition.leagues.len().saturating_sub(1) {
+        let upper_definition = &definition.leagues[pair_index];
+        let lower_definition = &definition.leagues[pair_index + 1];
+        let upper_index = tier_memberships
+            .iter()
+            .position(|(tier, _)| *tier == upper_definition.tier)?;
+        let lower_index = tier_memberships
+            .iter()
+            .position(|(tier, _)| *tier == lower_definition.tier)?;
+        let movement_count = upper_definition
+            .relegation_count
+            .min(lower_definition.promotion_count)
+            .min(tier_memberships[upper_index].1.len())
+            .min(tier_memberships[lower_index].1.len());
+
+        if movement_count == 0 {
+            continue;
+        }
+
+        let upper_len = tier_memberships[upper_index].1.len();
+        let relegated = tier_memberships[upper_index].1.split_off(upper_len - movement_count);
+        let promoted: Vec<String> = tier_memberships[lower_index].1.drain(..movement_count).collect();
+        tier_memberships[upper_index].1.extend(promoted);
+        tier_memberships[lower_index].1.extend(relegated);
+    }
+
+    Some(tier_memberships)
+}
+
+fn generate_next_domestic_competitions(
+    current_competitions: &[Competition],
+    teams: &[domain::team::Team],
+    next_season: u32,
+    next_start: chrono::DateTime<chrono::Utc>,
+) -> Vec<Competition> {
+    let mut generated_competitions = Vec::new();
+    let mut countries: Vec<String> = teams.iter().map(|team| team.country.clone()).collect();
+    countries.sort();
+    countries.dedup();
+
+    for country in countries {
+        let country_leagues: Vec<Competition> = current_competitions
+            .iter()
+            .filter(|competition| {
+                competition.kind == CompetitionKind::DomesticLeague
+                    && competition.country.as_deref() == Some(country.as_str())
+            })
+            .cloned()
+            .collect();
+
+        if let Some(tier_memberships) = apply_promotion_and_relegation(&country, &country_leagues) {
+            if let Some(mut competitions) = generate_domestic_competitions_for_tier_memberships(
+                &country,
+                &tier_memberships,
+                next_season,
+                next_start,
+            ) {
+                generated_competitions.append(&mut competitions);
+                continue;
+            }
+        }
+
+        let country_teams: Vec<domain::team::Team> = teams
+            .iter()
+            .filter(|team| team.country == country)
+            .cloned()
+            .collect();
+        generated_competitions.append(&mut generate_domestic_competitions_by_country(
+            &country_teams,
+            next_season,
+            next_start,
+        ));
+    }
+
+    generated_competitions
 }
 
 pub fn is_competition_league_complete(competition: &Competition) -> bool {
@@ -394,7 +505,12 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         append_fixtures(&mut new_league, friendlies);
         game.league = Some(new_league);
     } else {
-        game.competitions = generate_domestic_competitions_by_country(&game.teams, next_season, next_start);
+        game.competitions = generate_next_domestic_competitions(
+            &game.competitions,
+            &game.teams,
+            next_season,
+            next_start,
+        );
         if let Some(user_competition) = game.primary_league_competition() {
             let mut user_league = league_from_competition(user_competition);
             let friendlies = generate_preseason_friendlies(&user_league_team_ids, next_start, 4);
@@ -641,7 +757,19 @@ mod tests {
         assert!(game.competitions.iter().any(|competition| {
             competition.name == "FA Cup" && competition.season == 2027
         }));
-        assert_eq!(game.league.as_ref().unwrap().name, "Championship");
+        let premier_league = game
+            .competitions
+            .iter()
+            .find(|competition| competition.name == "Premier League")
+            .unwrap();
+        let championship = game
+            .competitions
+            .iter()
+            .find(|competition| competition.name == "Championship")
+            .unwrap();
+        assert_eq!(premier_league.team_ids, vec!["eng-1", "eng-3"]);
+        assert_eq!(championship.team_ids, vec!["eng-4", "eng-2"]);
+        assert_eq!(game.league.as_ref().unwrap().name, "Premier League");
         assert!(game
             .league
             .as_ref()

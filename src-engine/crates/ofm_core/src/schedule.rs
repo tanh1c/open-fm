@@ -62,7 +62,7 @@ pub const DOMESTIC_PYRAMID_DEFINITIONS: &[DomesticPyramidDefinition] = &[Domesti
     cups: ENGLAND_CUPS,
 }];
 
-fn domestic_pyramid_definition(country: &str) -> Option<&'static DomesticPyramidDefinition> {
+pub fn domestic_pyramid_definition(country: &str) -> Option<&'static DomesticPyramidDefinition> {
     DOMESTIC_PYRAMID_DEFINITIONS
         .iter()
         .find(|definition| definition.country == country)
@@ -300,14 +300,13 @@ fn eligible_cup_team_ids(
         .collect()
 }
 
-fn generate_pyramid_domestic_competitions(
+fn generate_competitions_from_tier_memberships(
     country: &str,
-    team_ids: &[String],
+    tier_memberships: &[(&'static DomesticLeagueTierDefinition, Vec<String>)],
     definition: &DomesticPyramidDefinition,
     season: u32,
     start_date: DateTime<Utc>,
 ) -> Vec<Competition> {
-    let tier_memberships = split_country_teams_into_tiers(team_ids, definition);
     let mut competitions: Vec<Competition> = tier_memberships
         .iter()
         .map(|(league_definition, tier_team_ids)| {
@@ -323,7 +322,7 @@ fn generate_pyramid_domestic_competitions(
         .collect();
 
     for cup_definition in definition.cups {
-        let cup_team_ids = eligible_cup_team_ids(&tier_memberships, cup_definition);
+        let cup_team_ids = eligible_cup_team_ids(tier_memberships, cup_definition);
         if cup_team_ids.len() < 2 {
             continue;
         }
@@ -338,6 +337,47 @@ fn generate_pyramid_domestic_competitions(
     }
 
     competitions
+}
+
+fn generate_pyramid_domestic_competitions(
+    country: &str,
+    team_ids: &[String],
+    definition: &DomesticPyramidDefinition,
+    season: u32,
+    start_date: DateTime<Utc>,
+) -> Vec<Competition> {
+    let tier_memberships = split_country_teams_into_tiers(team_ids, definition);
+    generate_competitions_from_tier_memberships(country, &tier_memberships, definition, season, start_date)
+}
+
+pub fn generate_domestic_competitions_for_tier_memberships(
+    country: &str,
+    tier_memberships: &[(u8, Vec<String>)],
+    season: u32,
+    start_date: DateTime<Utc>,
+) -> Option<Vec<Competition>> {
+    let definition = domestic_pyramid_definition(country)?;
+    let resolved_memberships: Vec<(&'static DomesticLeagueTierDefinition, Vec<String>)> = definition
+        .leagues
+        .iter()
+        .filter_map(|league_definition| {
+            let team_ids = tier_memberships
+                .iter()
+                .find(|(tier, _)| *tier == league_definition.tier)
+                .map(|(_, team_ids)| team_ids.clone())?;
+            (team_ids.len() >= 2).then_some((league_definition, team_ids))
+        })
+        .collect();
+
+    (!resolved_memberships.is_empty()).then(|| {
+        generate_competitions_from_tier_memberships(
+            country,
+            &resolved_memberships,
+            definition,
+            season,
+            start_date,
+        )
+    })
 }
 
 pub fn generate_domestic_competitions_by_country(

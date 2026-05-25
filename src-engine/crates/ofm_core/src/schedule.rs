@@ -6,6 +6,68 @@ use domain::league::{
 use std::collections::HashMap;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy)]
+pub struct DomesticLeagueTierDefinition {
+    pub name: &'static str,
+    pub tier: u8,
+    pub target_team_count: usize,
+    pub promotion_count: usize,
+    pub relegation_count: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DomesticCupDefinition {
+    pub name: &'static str,
+    pub eligible_tiers: &'static [u8],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DomesticPyramidDefinition {
+    pub country: &'static str,
+    pub leagues: &'static [DomesticLeagueTierDefinition],
+    pub cups: &'static [DomesticCupDefinition],
+}
+
+const ENGLAND_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
+    DomesticLeagueTierDefinition {
+        name: "Premier League",
+        tier: 1,
+        target_team_count: 2,
+        promotion_count: 0,
+        relegation_count: 1,
+    },
+    DomesticLeagueTierDefinition {
+        name: "Championship",
+        tier: 2,
+        target_team_count: 2,
+        promotion_count: 1,
+        relegation_count: 0,
+    },
+];
+
+const ENGLAND_CUPS: &[DomesticCupDefinition] = &[
+    DomesticCupDefinition {
+        name: "FA Cup",
+        eligible_tiers: &[1, 2],
+    },
+    DomesticCupDefinition {
+        name: "League Cup",
+        eligible_tiers: &[1, 2],
+    },
+];
+
+pub const DOMESTIC_PYRAMID_DEFINITIONS: &[DomesticPyramidDefinition] = &[DomesticPyramidDefinition {
+    country: "England",
+    leagues: ENGLAND_LEAGUE_TIERS,
+    cups: ENGLAND_CUPS,
+}];
+
+fn domestic_pyramid_definition(country: &str) -> Option<&'static DomesticPyramidDefinition> {
+    DOMESTIC_PYRAMID_DEFINITIONS
+        .iter()
+        .find(|definition| definition.country == country)
+}
+
 /// Generate a full double round-robin schedule (home & away) for the given teams.
 /// Matchdays are spaced 7 days apart starting from `start_date`.
 /// Uses a rotation-based algorithm for balanced scheduling.
@@ -145,6 +207,53 @@ pub fn generate_domestic_competition(
     competition_from_league(&league, name.to_string(), country, tier)
 }
 
+fn split_country_teams_into_tiers(
+    team_ids: &[String],
+    definition: &DomesticPyramidDefinition,
+) -> Vec<(&'static DomesticLeagueTierDefinition, Vec<String>)> {
+    let mut remaining_team_ids = team_ids.to_vec();
+    let mut tiers = Vec::new();
+
+    for (index, league_definition) in definition.leagues.iter().enumerate() {
+        if remaining_team_ids.len() < 2 {
+            break;
+        }
+
+        let remaining_tiers = definition.leagues.len().saturating_sub(index + 1);
+        let minimum_reserved = remaining_tiers * 2;
+        let target = league_definition
+            .target_team_count
+            .min(remaining_team_ids.len().saturating_sub(minimum_reserved));
+        let tier_size = target.max(2).min(remaining_team_ids.len());
+        let tier_team_ids = remaining_team_ids.drain(..tier_size).collect();
+        tiers.push((league_definition, tier_team_ids));
+    }
+
+    tiers
+}
+
+fn generate_pyramid_domestic_competitions(
+    country: &str,
+    team_ids: &[String],
+    definition: &DomesticPyramidDefinition,
+    season: u32,
+    start_date: DateTime<Utc>,
+) -> Vec<Competition> {
+    split_country_teams_into_tiers(team_ids, definition)
+        .into_iter()
+        .map(|(league_definition, tier_team_ids)| {
+            generate_domestic_competition(
+                league_definition.name,
+                season,
+                Some(country.to_string()),
+                Some(league_definition.tier),
+                &tier_team_ids,
+                start_date,
+            )
+        })
+        .collect()
+}
+
 pub fn generate_domestic_competitions_by_country(
     teams: &[domain::team::Team],
     season: u32,
@@ -156,25 +265,48 @@ pub fn generate_domestic_competitions_by_country(
 
     countries
         .into_iter()
-        .filter_map(|country| {
-            let team_ids: Vec<String> = teams
+        .flat_map(|country| {
+            let mut country_teams: Vec<&domain::team::Team> = teams
                 .iter()
                 .filter(|team| team.country == country)
+                .collect();
+            country_teams.sort_by(|left, right| {
+                right
+                    .reputation
+                    .cmp(&left.reputation)
+                    .then(left.name.cmp(&right.name))
+                    .then(left.id.cmp(&right.id))
+            });
+            let team_ids: Vec<String> = country_teams
+                .into_iter()
                 .map(|team| team.id.clone())
                 .collect();
 
             if team_ids.len() < 2 {
-                return None;
+                return Vec::new();
             }
 
-            Some(generate_domestic_competition(
+            if let Some(definition) = domestic_pyramid_definition(&country) {
+                let competitions = generate_pyramid_domestic_competitions(
+                    &country,
+                    &team_ids,
+                    definition,
+                    season,
+                    start_date,
+                );
+                if !competitions.is_empty() {
+                    return competitions;
+                }
+            }
+
+            vec![generate_domestic_competition(
                 &format!("{} Premier Division", country),
                 season,
                 Some(country),
                 Some(1),
                 &team_ids,
                 start_date,
-            ))
+            )]
         })
         .collect()
 }
@@ -406,55 +538,67 @@ mod tests {
         }
     }
 
+    fn test_team(
+        id: &str,
+        name: &str,
+        country: &str,
+        reputation: u32,
+    ) -> domain::team::Team {
+        let mut team = domain::team::Team::new(
+            id.to_string(),
+            name.to_string(),
+            name.chars().take(2).collect(),
+            country.to_string(),
+            country.to_string(),
+            "Ground".to_string(),
+            40_000,
+        );
+        team.reputation = reputation;
+        team
+    }
+
     #[test]
-    fn generate_domestic_competitions_groups_teams_by_country() {
+    fn generate_domestic_competitions_uses_pyramid_for_defined_country() {
         let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
         let teams = vec![
-            domain::team::Team::new(
-                "eng-1".to_string(),
-                "English One".to_string(),
-                "EO".to_string(),
-                "England".to_string(),
-                "London".to_string(),
-                "Ground".to_string(),
-                40_000,
-            ),
-            domain::team::Team::new(
-                "eng-2".to_string(),
-                "English Two".to_string(),
-                "ET".to_string(),
-                "England".to_string(),
-                "Manchester".to_string(),
-                "Ground".to_string(),
-                40_000,
-            ),
-            domain::team::Team::new(
-                "de-1".to_string(),
-                "German One".to_string(),
-                "GO".to_string(),
-                "Germany".to_string(),
-                "Berlin".to_string(),
-                "Ground".to_string(),
-                40_000,
-            ),
-            domain::team::Team::new(
-                "de-2".to_string(),
-                "German Two".to_string(),
-                "GT".to_string(),
-                "Germany".to_string(),
-                "Munich".to_string(),
-                "Ground".to_string(),
-                40_000,
-            ),
+            test_team("eng-1", "English One", "England", 900),
+            test_team("eng-2", "English Two", "England", 800),
+            test_team("eng-3", "English Three", "England", 700),
+            test_team("eng-4", "English Four", "England", 600),
+            test_team("de-1", "German One", "Germany", 900),
+            test_team("de-2", "German Two", "Germany", 800),
         ];
 
         let competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
 
-        assert_eq!(competitions.len(), 2);
+        assert_eq!(competitions.len(), 3);
+        let premier_league = competitions
+            .iter()
+            .find(|competition| competition.name == "Premier League")
+            .expect("Premier League should be generated");
+        let championship = competitions
+            .iter()
+            .find(|competition| competition.name == "Championship")
+            .expect("Championship should be generated");
+        let germany = competitions
+            .iter()
+            .find(|competition| competition.country.as_deref() == Some("Germany"))
+            .expect("Germany should keep fallback domestic league");
+
+        assert_eq!(premier_league.country.as_deref(), Some("England"));
+        assert_eq!(premier_league.tier, Some(1));
+        assert_eq!(premier_league.team_ids, vec!["eng-1", "eng-2"]);
+        assert_eq!(premier_league.fixtures.len(), 2);
+        assert_eq!(championship.country.as_deref(), Some("England"));
+        assert_eq!(championship.tier, Some(2));
+        assert_eq!(championship.team_ids, vec!["eng-3", "eng-4"]);
+        assert_eq!(championship.fixtures.len(), 2);
+        assert_eq!(germany.name, "Germany Premier Division");
+        assert_eq!(germany.tier, Some(1));
+        assert_eq!(germany.fixtures.len(), 2);
         assert!(competitions.iter().all(|competition| {
             competition.kind == CompetitionKind::DomesticLeague
                 && competition.format == CompetitionFormat::RoundRobin
-                && competition.fixtures.len() == 2
                 && competition.fixtures.iter().all(|fixture| {
                     fixture.competition == FixtureCompetition::DomesticLeague
                         && fixture.competition_id.as_deref() == Some(competition.id.as_str())

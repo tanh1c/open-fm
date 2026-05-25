@@ -12,8 +12,19 @@ pub fn refresh_game_context(game: &mut Game) {
 }
 
 pub fn derive_season_context(game: &Game) -> SeasonContext {
-    let Some(league) = &game.league else {
-        return SeasonContext::default();
+    let competition_league = game
+        .primary_league_competition()
+        .map(|competition| League {
+            id: competition.id.clone(),
+            name: competition.name.clone(),
+            season: competition.season,
+            fixtures: competition.fixtures.clone(),
+            standings: competition.standings.clone(),
+            transfer_log: competition.transfer_log.clone(),
+        });
+    let league = match competition_league.as_ref().or(game.league.as_ref()) {
+        Some(league) => league,
+        None => return SeasonContext::default(),
     };
 
     let season_start = league_boundary_date(league, Boundary::Start);

@@ -1,8 +1,11 @@
 use crate::game::Game;
-use crate::schedule::{append_fixtures, generate_league, generate_preseason_friendlies};
+use crate::schedule::{
+    append_fixtures, generate_domestic_competitions_by_country, generate_league,
+    generate_preseason_friendlies,
+};
 use crate::season_awards::compute_season_awards;
 use chrono::Duration;
-use domain::league::{FixtureStatus, League};
+use domain::league::{Competition, CompetitionKind, FixtureStatus, League};
 use domain::message::*;
 use domain::player::PlayerSeasonStats;
 use domain::team::{FinancialTransaction, FinancialTransactionKind, TeamSeasonRecord};
@@ -29,6 +32,21 @@ pub fn has_full_schedule(league: &League) -> bool {
     }
 }
 
+fn league_from_competition(competition: &Competition) -> League {
+    League {
+        id: competition.id.clone(),
+        name: competition.name.clone(),
+        season: competition.season,
+        fixtures: competition.fixtures.clone(),
+        standings: competition.standings.clone(),
+        transfer_log: competition.transfer_log.clone(),
+    }
+}
+
+fn sync_legacy_league_from_primary_competition(game: &mut Game) {
+    game.league = game.primary_league_competition().map(league_from_competition);
+}
+
 fn free_agent_team_name() -> String {
     ["Free", "Agent"].join(" ")
 }
@@ -44,6 +62,30 @@ pub fn season_has_started(league: &League) -> bool {
         || league.standings.iter().any(|e| e.played > 0)
 }
 
+fn competition_season_has_started(competition: &Competition) -> bool {
+    competition.fixtures.iter().any(|fixture| {
+        fixture.counts_for_league_standings() && fixture.status == FixtureStatus::Completed
+    }) || competition.standings.iter().any(|entry| entry.played > 0)
+}
+
+pub fn is_competition_league_complete(competition: &Competition) -> bool {
+    competition.kind == CompetitionKind::DomesticLeague
+        && competition_season_has_started(competition)
+        && expected_fixture_count(competition.standings.len()).is_some_and(|expected| {
+            competition
+                .fixtures
+                .iter()
+                .filter(|fixture| fixture.counts_for_league_standings())
+                .count()
+                == expected
+        })
+        && competition
+            .fixtures
+            .iter()
+            .filter(|fixture| fixture.counts_for_league_standings())
+            .all(|fixture| fixture.status == FixtureStatus::Completed)
+}
+
 pub fn is_league_complete(league: &League) -> bool {
     season_has_started(league)
         && has_full_schedule(league)
@@ -56,6 +98,12 @@ pub fn is_league_complete(league: &League) -> bool {
 
 /// Check if the season is complete (all fixtures played).
 pub fn is_season_complete(game: &Game) -> bool {
+    if !game.competitions.is_empty() {
+        return game
+            .primary_league_competition()
+            .is_some_and(is_competition_league_complete);
+    }
+
     game.league.as_ref().is_some_and(is_league_complete)
 }
 
@@ -112,6 +160,10 @@ fn prize_money_for_position(position: u32) -> i64 {
 /// Process end-of-season: record history, compute awards, reset stats, generate next season.
 /// Returns a summary struct for the frontend to display.
 pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
+    if !game.competitions.is_empty() {
+        sync_legacy_league_from_primary_competition(game);
+    }
+
     let league = match &game.league {
         Some(l) => l,
         None => return EndOfSeasonSummary::default(),
@@ -328,13 +380,28 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     // 7. Generate next season schedule
     let next_season = season + 1;
-    let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
+    let user_league_team_ids: Vec<String> = final_standings
+        .iter()
+        .map(|standing| standing.team_id.clone())
+        .collect();
+    let all_team_ids: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
     // Start date: roughly a year after current start, or a few weeks from now
     let next_start = game.clock.current_date + Duration::days(28); // 4 weeks break
-    let mut new_league = generate_league(&league_name, next_season, &team_ids, next_start);
-    let friendlies = generate_preseason_friendlies(&team_ids, next_start, 4);
-    append_fixtures(&mut new_league, friendlies);
-    game.league = Some(new_league);
+
+    if game.competitions.is_empty() {
+        let mut new_league = generate_league(&league_name, next_season, &all_team_ids, next_start);
+        let friendlies = generate_preseason_friendlies(&all_team_ids, next_start, 4);
+        append_fixtures(&mut new_league, friendlies);
+        game.league = Some(new_league);
+    } else {
+        game.competitions = generate_domestic_competitions_by_country(&game.teams, next_season, next_start);
+        if let Some(user_competition) = game.primary_league_competition() {
+            let mut user_league = league_from_competition(user_competition);
+            let friendlies = generate_preseason_friendlies(&user_league_team_ids, next_start, 4);
+            append_fixtures(&mut user_league, friendlies);
+            game.league = Some(user_league);
+        }
+    }
 
     let preview_date = game.clock.current_date.to_rfc3339();
     let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
@@ -472,4 +539,115 @@ pub struct EndOfSeasonSummary {
     pub poty_player: String,
     pub poty_rating: f64,
     pub total_teams: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clock::GameClock;
+    use crate::schedule::generate_domestic_competitions_by_country;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::team::Team;
+
+    fn test_team(id: &str, name: &str, reputation: u32) -> Team {
+        let mut team = Team::new(
+            id.to_string(),
+            name.to_string(),
+            name.chars().take(2).collect(),
+            "England".to_string(),
+            "England".to_string(),
+            "Ground".to_string(),
+            40_000,
+        );
+        team.reputation = reputation;
+        team
+    }
+
+    fn completed_multi_competition_game(user_team_id: &str) -> Game {
+        let start = Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap();
+        let mut manager = Manager::new(
+            "manager".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire(user_team_id.to_string());
+        let teams = vec![
+            test_team("eng-1", "English One", 900),
+            test_team("eng-2", "English Two", 800),
+            test_team("eng-3", "English Three", 700),
+            test_team("eng-4", "English Four", 600),
+        ];
+        let mut game = Game::new(
+            GameClock::new(start + Duration::days(14)),
+            manager,
+            teams,
+            vec![],
+            vec![],
+            vec![],
+        );
+        game.competitions = generate_domestic_competitions_by_country(&game.teams, 2026, start);
+
+        for competition in game.competitions.iter_mut() {
+            if competition.kind != CompetitionKind::DomesticLeague {
+                continue;
+            }
+
+            for fixture in competition.fixtures.iter_mut() {
+                fixture.status = FixtureStatus::Completed;
+                fixture.result = Some(domain::league::MatchResult {
+                    home_goals: 1,
+                    away_goals: 0,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                });
+            }
+
+            for standing in competition.standings.iter_mut() {
+                standing.played = 2;
+            }
+        }
+
+        sync_legacy_league_from_primary_competition(&mut game);
+        game
+    }
+
+    #[test]
+    fn season_complete_uses_user_domestic_competition() {
+        let game = completed_multi_competition_game("eng-3");
+
+        assert!(is_season_complete(&game));
+        assert_eq!(game.primary_league_competition().unwrap().name, "Championship");
+        assert_eq!(game.league.as_ref().unwrap().name, "Championship");
+    }
+
+    #[test]
+    fn process_end_of_season_regenerates_competitions_and_syncs_legacy_league() {
+        let mut game = completed_multi_competition_game("eng-3");
+
+        let summary = process_end_of_season(&mut game);
+
+        assert_eq!(summary.season, 2026);
+        assert_eq!(summary.league_name, "Championship");
+        assert!(game.competitions.iter().any(|competition| {
+            competition.name == "Premier League" && competition.season == 2027
+        }));
+        assert!(game.competitions.iter().any(|competition| {
+            competition.name == "Championship" && competition.season == 2027
+        }));
+        assert!(game.competitions.iter().any(|competition| {
+            competition.name == "FA Cup" && competition.season == 2027
+        }));
+        assert_eq!(game.league.as_ref().unwrap().name, "Championship");
+        assert!(game
+            .league
+            .as_ref()
+            .unwrap()
+            .fixtures
+            .iter()
+            .any(|fixture| fixture.competition == domain::league::FixtureCompetition::Friendly));
+    }
 }

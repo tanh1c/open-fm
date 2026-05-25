@@ -180,14 +180,37 @@ impl Game {
     }
 
     pub fn primary_league_competition(&self) -> Option<&Competition> {
+        let user_team_id = self.manager.team_id.as_deref();
         self.competitions
             .iter()
-            .find(|competition| competition.kind == CompetitionKind::DomesticLeague)
+            .find(|competition| {
+                competition.kind == CompetitionKind::DomesticLeague
+                    && user_team_id.is_some_and(|team_id| competition.team_ids.iter().any(|id| id == team_id))
+            })
+            .or_else(|| {
+                self.competitions
+                    .iter()
+                    .find(|competition| competition.kind == CompetitionKind::DomesticLeague)
+            })
     }
 
     pub fn primary_league_competition_mut(&mut self) -> Option<&mut Competition> {
-        self.competitions
-            .iter_mut()
-            .find(|competition| competition.kind == CompetitionKind::DomesticLeague)
+        let user_team_id = self.manager.team_id.clone();
+        let competition_index = self
+            .competitions
+            .iter()
+            .position(|competition| {
+                competition.kind == CompetitionKind::DomesticLeague
+                    && user_team_id
+                        .as_ref()
+                        .is_some_and(|team_id| competition.team_ids.iter().any(|id| id == team_id))
+            })
+            .or_else(|| {
+                self.competitions
+                    .iter()
+                    .position(|competition| competition.kind == CompetitionKind::DomesticLeague)
+            })?;
+
+        self.competitions.get_mut(competition_index)
     }
 }

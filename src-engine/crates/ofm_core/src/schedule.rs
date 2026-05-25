@@ -450,19 +450,36 @@ pub fn generate_continental_group_stage(
         .collect();
     let mut qualified_team_ids = Vec::new();
 
-    for competition in domestic_competitions
-        .iter()
-        .filter(|competition| competition.kind == CompetitionKind::DomesticLeague)
-    {
-        let mut entrants = competition.team_ids.clone();
-        entrants.sort_by(|left, right| {
-            reputation_by_team
-                .get(right.as_str())
-                .unwrap_or(&0)
-                .cmp(reputation_by_team.get(left.as_str()).unwrap_or(&0))
-                .then(left.cmp(right))
-        });
-        qualified_team_ids.extend(entrants.into_iter().take(2));
+    for competition in domestic_competitions.iter().filter(|competition| {
+        competition.kind == CompetitionKind::DomesticLeague && competition.tier == Some(1)
+    }) {
+        let has_finished_standings = competition.standings.iter().any(|standing| standing.played > 0);
+        let mut entrants: Vec<String> = if has_finished_standings {
+            let mut standings = competition.standings.clone();
+            standings.sort_by(|left, right| {
+                right
+                    .points
+                    .cmp(&left.points)
+                    .then(right.goal_difference().cmp(&left.goal_difference()))
+                    .then(right.goals_for.cmp(&left.goals_for))
+                    .then(left.team_id.cmp(&right.team_id))
+            });
+            standings
+                .into_iter()
+                .map(|standing| standing.team_id)
+                .collect()
+        } else {
+            let mut entrants = competition.team_ids.clone();
+            entrants.sort_by(|left, right| {
+                reputation_by_team
+                    .get(right.as_str())
+                    .unwrap_or(&0)
+                    .cmp(reputation_by_team.get(left.as_str()).unwrap_or(&0))
+                    .then(left.cmp(right))
+            });
+            entrants
+        };
+        qualified_team_ids.extend(entrants.drain(..entrants.len().min(2)));
     }
 
     qualified_team_ids.sort();
@@ -790,11 +807,59 @@ mod tests {
         assert_eq!(competition.kind, CompetitionKind::ContinentalLeague);
         assert_eq!(competition.format, CompetitionFormat::GroupStageKnockout);
         assert_eq!(competition.team_ids.len(), 8);
+        assert!(competition.team_ids.contains(&"team-0-0".to_string()));
+        assert!(competition.team_ids.contains(&"team-0-1".to_string()));
+        assert!(!competition.team_ids.contains(&"team-0-2".to_string()));
+        assert!(!competition.team_ids.contains(&"team-0-3".to_string()));
         assert_eq!(competition.fixtures.len(), 12);
         assert!(competition.fixtures.iter().all(|fixture| {
             fixture.competition == FixtureCompetition::ContinentalLeague
                 && fixture.competition_id.as_deref() == Some(competition.id.as_str())
         }));
+    }
+
+    #[test]
+    fn generate_continental_group_stage_uses_finished_top_tier_standings() {
+        let start = Utc.with_ymd_and_hms(2026, 9, 15, 0, 0, 0).unwrap();
+        let mut teams = Vec::new();
+        for country in ["England", "Spain", "Germany", "France"] {
+            for slot in 0..4 {
+                let mut team = test_team(
+                    &format!("{country}-{slot}"),
+                    &format!("{country} {slot}"),
+                    country,
+                    900 - slot as u32,
+                );
+                if slot >= 2 {
+                    team.reputation = 1_000;
+                }
+                teams.push(team);
+            }
+        }
+        let mut domestic_competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
+
+        for competition in domestic_competitions.iter_mut().filter(|competition| {
+            competition.kind == CompetitionKind::DomesticLeague && competition.tier == Some(1)
+        }) {
+            for (index, standing) in competition.standings.iter_mut().enumerate() {
+                standing.played = 2;
+                standing.points = if index == 0 { 1 } else { 6 };
+            }
+        }
+
+        let competition = generate_continental_group_stage(
+            "Champions League",
+            2027,
+            &domestic_competitions,
+            &teams,
+            start,
+        )
+        .expect("continental competition should be generated");
+
+        assert!(competition.team_ids.contains(&"England-1".to_string()));
+        assert!(competition.team_ids.contains(&"England-0".to_string()));
+        assert!(!competition.team_ids.contains(&"England-2".to_string()));
+        assert!(!competition.team_ids.contains(&"England-3".to_string()));
     }
 
     #[test]

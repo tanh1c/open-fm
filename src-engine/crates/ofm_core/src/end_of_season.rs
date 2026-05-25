@@ -1,7 +1,8 @@
 use crate::game::Game;
 use crate::schedule::{
-    append_fixtures, domestic_pyramid_definition, generate_domestic_competitions_by_country,
-    generate_domestic_competitions_for_tier_memberships, generate_league, generate_preseason_friendlies,
+    append_fixtures, domestic_pyramid_definition, generate_continental_group_stage,
+    generate_domestic_competitions_by_country, generate_domestic_competitions_for_tier_memberships,
+    generate_league, generate_preseason_friendlies,
 };
 use crate::season_awards::compute_season_awards;
 use chrono::Duration;
@@ -505,12 +506,22 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         append_fixtures(&mut new_league, friendlies);
         game.league = Some(new_league);
     } else {
+        let continental_competition = generate_continental_group_stage(
+            "Champions League",
+            next_season,
+            &game.competitions,
+            &game.teams,
+            next_start + Duration::days(45),
+        );
         game.competitions = generate_next_domestic_competitions(
             &game.competitions,
             &game.teams,
             next_season,
             next_start,
         );
+        if let Some(competition) = continental_competition {
+            game.competitions.push(competition);
+        }
         if let Some(user_competition) = game.primary_league_competition() {
             let mut user_league = league_from_competition(user_competition);
             let friendlies = generate_preseason_friendlies(&user_league_team_ids, next_start, 4);
@@ -756,6 +767,9 @@ mod tests {
         }));
         assert!(game.competitions.iter().any(|competition| {
             competition.name == "FA Cup" && competition.season == 2027
+        }));
+        assert!(game.competitions.iter().any(|competition| {
+            competition.name == "Champions League" && competition.season == 2027
         }));
         let premier_league = game
             .competitions

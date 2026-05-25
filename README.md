@@ -41,9 +41,10 @@ Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine c
 
 ### Football world simulation
 
-- Generate a playable football world with teams, players, staff, schedules, news, and inbox messages.
+- Generate a playable European football world with 244 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium.
+- Run domestic league pyramids, domestic cups, continental qualification, promotion/relegation, schedules, news, and inbox messages.
 - Advance time through daily and weekly simulation loops.
-- Follow league standings, fixtures, tournament progress, and club performance over time.
+- Follow league standings, cup fixtures, tournament progress, and club performance over time.
 
 ### Match day
 
@@ -195,7 +196,7 @@ Open Futball Manager is still evolving. Areas that are natural candidates for fu
 - deeper AI squad-building logic
 - richer player personality and media systems
 - expanded transfer negotiation depth
-- more competitions and continental football structures
+- more exact real-world cup formats and continental football structures
 - long-term youth development and academy pipelines
 - richer club history, records, and analytics
 - improved save compatibility and modding tools

@@ -64,7 +64,8 @@ Controls the teams created during world generation.
       "name": "London FC",
       "short_name": "LFC",
       "city": "London",
-      "country": "ENG",
+      "country": "England",
+      "domestic_tier": 1,
       "colors": {
         "primary": "#dc2626",
         "secondary": "#ffffff"
@@ -91,7 +92,8 @@ Controls the teams created during world generation.
 | `name` | `string` | **Yes** | — | Full team name |
 | `short_name` | `string` | No | Auto-generated from initials | 2-3 letter abbreviation |
 | `city` | `string` | **Yes** | — | City name |
-| `country` | `string` | **Yes** | — | Team location / football identity code |
+| `country` | `string` | **Yes** | — | Team location / football identity. Country names such as `"England"` and short football codes such as `"ENG"` are both normalized. |
+| `domestic_tier` | `number` | No | `null` | Domestic division tier used by built-in pyramid scheduling (`1` = top tier, `2` = second tier). Custom worlds can omit it and fall back to country/reputation grouping. |
 | `colors.primary` | `string` | **Yes** | — | Primary color (hex, e.g. `"#dc2626"`) |
 | `colors.secondary` | `string` | **Yes** | — | Secondary color (hex) |
 | `play_style` | `string` | No | `"Balanced"` | One of: `Attacking`, `Defensive`, `Possession`, `Counter`, `HighPress`, `Balanced` |
@@ -100,7 +102,9 @@ Controls the teams created during world generation.
 | `finance_range` | `[min, max]` | No | `[500000, 10000000]` | Random starting finance range |
 
 **Notes:**
-- The number of teams determines the league size. Must be an **even** number ≥ 2 for schedule generation.
+- The built-in fallback world contains 244 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium.
+- `domestic_tier` is optional for custom definitions. It is required only when you want deterministic multi-division placement for countries configured with pyramid rules.
+- The number of teams in each scheduled league should be **even** and ≥ 2 for round-robin generation.
 - Each team gets 22 players (2 GK, 7 DEF, 7 MID, 6 FWD) and 4 staff (AssistantManager, Coach, Scout, Physio).
 - Player nationalities are weighted 60% toward the team's country, 40% random from available pools.
 - 12 free-agent staff are also generated regardless of team count.

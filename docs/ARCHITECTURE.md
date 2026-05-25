@@ -1,6 +1,6 @@
 # Architecture
 
-Open Futball Manager is a desktop football management simulation built with **Tauri** (Rust backend) and **React** (TypeScript frontend). This document describes the project structure, key architectural decisions, and how the pieces fit together.
+Open Futball Manager is a web-first football management simulation built with **React** (TypeScript frontend) and a **Rust engine compiled to WebAssembly**. This document describes the project structure, key architectural decisions, and how the pieces fit together.
 
 ---
 
@@ -8,8 +8,8 @@ Open Futball Manager is a desktop football management simulation built with **Ta
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Desktop shell** | Tauri v2 | Native window, IPC, file system access |
-| **Backend** | Rust | Game logic, simulation, persistence |
+| **Runtime** | Browser + WebAssembly | Web-first game shell and Rust engine execution |
+| **Backend engine** | Rust workspace | Game logic, simulation, persistence, WASM bindings |
 | **Frontend** | React + TypeScript | UI rendering, user interaction |
 | **Styling** | Tailwind CSS | Utility-first CSS framework |
 | **State (frontend)** | Zustand | Lightweight stores for game and settings |
@@ -36,16 +36,15 @@ openfootmanager/
 │   ├── utils/                    # Frontend helpers and i18n adapters
 │   ├── App.tsx                   # Router setup
 │   └── main.tsx                  # Entry point
-├── src-tauri/                    # Backend (Rust + Tauri)
-│   ├── src/
-│   │   └── lib.rs                # Tauri commands, app setup, settings
+├── src-engine/                   # Rust engine/workspace + WASM command bridge
+│   ├── src/                      # WASM-facing AppHandle command modules
 │   ├── crates/
 │   │   ├── domain/               # Pure data types (no logic)
 │   │   ├── engine/               # Match simulation engine
 │   │   ├── ofm_core/             # Game logic, state, turn processing
-│   │   └── db/                   # Save/load persistence
-│   ├── data/                     # External definition files (names, teams JSON)
-│   └── databases/                # Bundled world database files
+│   │   ├── db/                   # Save/load persistence
+│   │   └── engine_wasm/          # WASM package boundary
+│   └── examples/                 # Native benchmark and diagnostic entry points
 ├── docs/                         # Documentation
 ├── public/                       # Static assets
 └── images/                       # Branding assets

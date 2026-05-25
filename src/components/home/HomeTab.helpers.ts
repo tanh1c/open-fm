@@ -1,5 +1,6 @@
 import { findNextFixture, getPlayerOvr } from "../../lib/helpers";
 import { hasCompetitiveStandings } from "../../lib/seasonContext";
+import { getPrimaryCompetition } from "../../store/gameStore";
 import type {
   FixtureData,
   GameStateData,
@@ -60,13 +61,13 @@ function getStandingPosition(
   gameState: GameStateData,
   teamId: string,
 ): number | null {
-  const league = gameState.league;
+  const competition = getPrimaryCompetition(gameState);
 
-  if (!league) {
+  if (!competition) {
     return null;
   }
 
-  const sortedStandings = [...league.standings].sort((leftEntry, rightEntry) => {
+  const sortedStandings = [...competition.standings].sort((leftEntry, rightEntry) => {
     return (
       rightEntry.points - leftEntry.points ||
       rightEntry.goals_for -
@@ -88,14 +89,14 @@ function getStandingPosition(
 export function getNextOpponentWidgetData(
   gameState: GameStateData,
 ): NextOpponentWidgetData | null {
-  const league = gameState.league;
+  const competition = getPrimaryCompetition(gameState);
   const userTeamId = gameState.manager.team_id;
 
-  if (!league || !userTeamId) {
+  if (!competition || !userTeamId) {
     return null;
   }
 
-  const nextFixture = findNextFixture(league.fixtures, userTeamId);
+  const nextFixture = findNextFixture(competition.fixtures, userTeamId);
 
   if (!nextFixture) {
     return null;
@@ -110,9 +111,10 @@ export function getNextOpponentWidgetData(
   }
 
   const canShowStandings =
-    hasCompetitiveStandings(gameState) && nextFixture.competition === "League";
+    hasCompetitiveStandings(gameState) &&
+    (nextFixture.competition === "League" || nextFixture.competition === "DomesticLeague");
   const standingEntry = canShowStandings
-    ? league.standings.find((entry) => entry.team_id === opponentId)
+    ? getPrimaryCompetition(gameState)?.standings.find((entry) => entry.team_id === opponentId)
     : null;
 
   return {
@@ -197,15 +199,15 @@ export function getRecentResultsForTeam(
   teamId: string | null,
   limit = 5,
 ): HomeRecentResult[] {
-  const league = gameState.league;
+  const competition = getPrimaryCompetition(gameState);
 
-  if (!league || !teamId) {
+  if (!competition || !teamId) {
     return [];
   }
 
   const recentResults: HomeRecentResult[] = [];
 
-  for (const fixture of [...league.fixtures].reverse()) {
+  for (const fixture of [...competition.fixtures].reverse()) {
     if (
       fixture.status !== "Completed" ||
       !fixture.result ||

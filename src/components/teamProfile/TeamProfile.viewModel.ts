@@ -1,4 +1,5 @@
 import { getPlayerOvr } from "../../lib/helpers";
+import { getPrimaryCompetition } from "../../store/gameStore";
 import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 
 import type { LeagueStanding, TeamProfileViewModel } from "./TeamProfile.types";
@@ -32,11 +33,13 @@ function calculateAverageOvr(roster: PlayerData[]): number {
 }
 
 function getSortedStandings(gameState: GameStateData): LeagueStanding[] {
-  if (!gameState.league?.standings) {
+  const competition = getPrimaryCompetition(gameState);
+
+  if (!competition?.standings) {
     return [];
   }
 
-  return [...gameState.league.standings].sort(
+  return [...competition.standings].sort(
     (leftEntry, rightEntry) =>
       rightEntry.points - leftEntry.points ||
       rightEntry.goals_for -
@@ -54,6 +57,7 @@ export function buildTeamProfileViewModel(
     gameState.players.filter((player) => player.team_id === team.id),
   );
   const allStandings = getSortedStandings(gameState);
+  const teamStanding = allStandings.find((entry) => entry.team_id === team.id) ?? null;
 
   return {
     roster,
@@ -62,7 +66,6 @@ export function buildTeamProfileViewModel(
     totalValue: roster.reduce((sum, player) => sum + player.market_value, 0),
     manager: gameState.manager.team_id === team.id ? gameState.manager : null,
     leaguePos: allStandings.findIndex((entry) => entry.team_id === team.id) + 1,
-    standings:
-      gameState.league?.standings.find((entry) => entry.team_id === team.id) ?? null,
+    standings: teamStanding,
   };
 }

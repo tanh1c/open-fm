@@ -53,7 +53,24 @@ export default function TournamentsTab({
   onSelectPlayer,
 }: TournamentsTabProps) {
   const { t } = useTranslation();
-  const league = gameState.league;
+  const competitionOptions = gameState.competitions?.length
+    ? gameState.competitions
+    : gameState.league
+      ? [gameState.league]
+      : [];
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>(
+    competitionOptions[0]?.id ?? "",
+  );
+  const selectedCompetition =
+    competitionOptions.find((competition) => competition.id === selectedCompetitionId) ??
+    competitionOptions[0] ??
+    null;
+  const domesticCompetitions = competitionOptions.filter(
+    (competition) => !('kind' in competition) || competition.kind === "DomesticLeague" || competition.kind === "DomesticCup",
+  );
+  const continentalCompetitions = competitionOptions.filter(
+    (competition) => 'kind' in competition && competition.kind === "ContinentalLeague",
+  );
   const userTeamId = gameState.manager.team_id;
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
@@ -67,8 +84,21 @@ export default function TournamentsTab({
     "idle" | "loading" | "error"
   >("idle");
   const [awardsRetryCount, setAwardsRetryCount] = useState(0);
-  const currentSeason = league?.season ?? 0;
+  const currentSeason = selectedCompetition?.season ?? 0;
   const awards = awardsBySeason[currentSeason] ?? null;
+
+  useEffect(() => {
+    if (competitionOptions.length === 0) {
+      if (selectedCompetitionId) {
+        setSelectedCompetitionId("");
+      }
+      return;
+    }
+
+    if (!competitionOptions.some((competition) => competition.id === selectedCompetitionId)) {
+      setSelectedCompetitionId(competitionOptions[0].id);
+    }
+  }, [competitionOptions, selectedCompetitionId]);
 
   useEffect(() => {
     if (view !== "awards" || awards) {
@@ -101,7 +131,7 @@ export default function TournamentsTab({
     };
   }, [view, awards, currentSeason, awardsRetryCount]);
 
-  if (!league) {
+  if (!selectedCompetition) {
     return (
       <div className="max-w-4xl mx-auto text-center py-12">
         <Trophy className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
@@ -112,14 +142,14 @@ export default function TournamentsTab({
     );
   }
 
-  const standings = [...league.standings].sort(
+  const standings = [...selectedCompetition.standings].sort(
     (a, b) =>
       b.points - a.points ||
       b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
       b.goals_for - a.goals_for,
   );
 
-  const competitiveFixtures = getCompetitiveFixtures(league.fixtures);
+  const competitiveFixtures = getCompetitiveFixtures(selectedCompetition.fixtures);
 
   const matchdays = new Map<number, FixtureData[]>();
   competitiveFixtures.forEach((f) => {
@@ -228,12 +258,36 @@ export default function TournamentsTab({
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-heading font-bold text-white uppercase tracking-wide">
-                {league.name}
+                {selectedCompetition.name}
               </h2>
               <p className="text-gray-400 text-sm mt-0.5">
-                {t("schedule.season", { number: league.season })} —{" "}
-                {t("tournaments.nTeams", { count: league.standings.length })}
+                {t("schedule.season", { number: selectedCompetition.season })} —{" "}
+                {t("tournaments.nTeams", { count: selectedCompetition.standings.length })}
               </p>
+              {competitionOptions.length > 1 ? (
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <select
+                    value={selectedCompetition.id}
+                    onChange={(event) => setSelectedCompetitionId(event.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm font-heading font-bold text-white outline-none transition-colors hover:bg-white/15 focus:border-accent-400 sm:max-w-xs"
+                    aria-label="Select competition"
+                  >
+                    {competitionOptions.map((competition) => (
+                      <option key={competition.id} value={competition.id} className="bg-surface-800 text-white">
+                        {competition.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex flex-wrap gap-2 text-[10px] font-heading font-bold uppercase tracking-wider text-gray-300">
+                    <span className="rounded-full bg-white/10 px-2.5 py-1">
+                      Domestic {domesticCompetitions.length}
+                    </span>
+                    <span className="rounded-full bg-accent-500/20 px-2.5 py-1 text-accent-200">
+                      Continental {continentalCompetitions.length}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="hidden md:flex gap-4">
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
@@ -470,8 +524,8 @@ export default function TournamentsTab({
             <div className="p-5 border-b border-gray-100 dark:border-surface-600 bg-gradient-to-r from-surface-700 to-surface-800 rounded-t-xl">
               <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
                 <Trophy className="text-accent-400 w-5 h-5" />
-                {league.name} —{" "}
-                {t("schedule.season", { number: league.season })}
+                {selectedCompetition.name} —{" "}
+                {t("schedule.season", { number: selectedCompetition.season })}
               </h3>
             </div>
             <div className="overflow-x-auto">

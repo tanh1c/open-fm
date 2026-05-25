@@ -47,6 +47,8 @@ function normalizeGameStateNationalities(state: GameStateData): GameStateData {
 }
 
 // Re-export all types so existing imports from gameStore keep working
+export { getPrimaryCompetition } from './types';
+
 export type {
   TeamColors,
   TeamSeasonRecord,
@@ -74,6 +76,10 @@ export type {
   FixtureData,
   StandingData,
   LeagueData,
+  CompetitionData,
+  CompetitionKindData,
+  CompetitionFormatData,
+  CompetitionLikeData,
   SeasonPhase,
   TransferWindowStatus,
   TransferWindowContextData,

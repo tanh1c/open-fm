@@ -453,6 +453,8 @@ export interface CompetitionData {
   standings: StandingData[];
 }
 
+export type CompetitionLikeData = CompetitionData | LeagueData;
+
 export type SeasonPhase = "Preseason" | "InSeason" | "PostSeason";
 
 export type TransferWindowStatus = "Closed" | "Open" | "DeadlineDay";
@@ -551,4 +553,13 @@ export interface GameStateData {
   youth_scouting_assignments?: YouthScoutingAssignment[];
   board_objectives: BoardObjective[];
   season_context?: SeasonContextData;
+}
+
+export function getPrimaryCompetition(gameState: GameStateData): CompetitionLikeData | null {
+  const userTeamId = gameState.manager.team_id;
+  const domesticCompetition = gameState.competitions?.find((competition) => {
+    return competition.kind === "DomesticLeague" && (!userTeamId || competition.team_ids.includes(userTeamId));
+  });
+
+  return domesticCompetition ?? gameState.competitions?.[0] ?? gameState.league ?? null;
 }

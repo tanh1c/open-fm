@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -58,13 +58,41 @@ export default function ScheduleTab({
   const { t } = useTranslation();
   const [view, setView] = useState<"fixtures" | "standings">("fixtures");
   const [activeFixtureGroupIndex, setActiveFixtureGroupIndex] = useState(0);
-  const league = gameState.league;
+  const competitionOptions = gameState.competitions?.length
+    ? gameState.competitions
+    : gameState.league
+      ? [gameState.league]
+      : [];
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>(
+    competitionOptions[0]?.id ?? "",
+  );
+  const selectedCompetition =
+    competitionOptions.find((competition) => competition.id === selectedCompetitionId) ??
+    competitionOptions[0] ??
+    null;
   const userTeamId = gameState.manager.team_id;
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
 
+  useEffect(() => {
+    if (competitionOptions.length === 0) {
+      if (selectedCompetitionId) {
+        setSelectedCompetitionId("");
+      }
+      return;
+    }
+
+    if (!competitionOptions.some((competition) => competition.id === selectedCompetitionId)) {
+      setSelectedCompetitionId(competitionOptions[0].id);
+    }
+  }, [competitionOptions, selectedCompetitionId]);
+
+  useEffect(() => {
+    setActiveFixtureGroupIndex(0);
+  }, [selectedCompetitionId]);
+
   const getFixtureGroupKey = (fixture: FixtureData): string => {
-    if (fixture.competition === "League") {
+    if (fixture.competition === "League" || fixture.competition === "DomesticLeague") {
       return `league-${fixture.matchday}`;
     }
 
@@ -72,8 +100,16 @@ export default function ScheduleTab({
   };
 
   const getFixtureGroupLabel = (fixture: FixtureData): string => {
-    if (fixture.competition === "League") {
+    if (fixture.competition === "League" || fixture.competition === "DomesticLeague") {
       return `${t("schedule.matchday", { number: fixture.matchday })} — ${formatMatchDate(fixture.date)}`;
+    }
+
+    if (fixture.competition === "ContinentalLeague") {
+      return `Champions League — ${formatMatchDate(fixture.date)}`;
+    }
+
+    if (fixture.competition === "DomesticCup") {
+      return `Domestic Cup — ${formatMatchDate(fixture.date)}`;
     }
 
     if (fixture.competition === "PreseasonTournament") {
@@ -91,7 +127,7 @@ export default function ScheduleTab({
     onClick: () => onSelectTeam(teamId),
   });
 
-  if (!league) {
+  if (!selectedCompetition) {
     return (
       <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
         <TemplateCard className="flex min-h-[360px] flex-col items-center justify-center gap-3 p-8 text-center">
@@ -106,7 +142,7 @@ export default function ScheduleTab({
   }
 
   const matchdays = new Map<string, FixtureData[]>();
-  league.fixtures.forEach((fixture) => {
+  selectedCompetition.fixtures.forEach((fixture) => {
     const key = getFixtureGroupKey(fixture);
     const list = matchdays.get(key) || [];
     list.push(fixture);
@@ -131,7 +167,7 @@ export default function ScheduleTab({
     ? getFixtureGroupLabel(activeFixtureGroupFixtures[0])
     : t("schedule.fixtures");
 
-  const standings = [...league.standings].sort(
+  const standings = [...selectedCompetition.standings].sort(
     (a, b) =>
       b.points - a.points ||
       b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
@@ -142,7 +178,7 @@ export default function ScheduleTab({
   const userStandingIndex = standings.findIndex((entry) => entry.team_id === userTeamId);
   const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
   const userGoalDifference = userStanding ? userStanding.goals_for - userStanding.goals_against : 0;
-  const userFixtures = league.fixtures
+  const userFixtures = selectedCompetition.fixtures
     .filter((fixture) => fixtureIncludesTeam(fixture, userTeamId))
     .sort((left, right) => left.date.localeCompare(right.date) || left.matchday - right.matchday);
   const nextUserFixture = userFixtures.find((fixture) => fixture.status !== "Completed") ?? null;
@@ -150,8 +186,8 @@ export default function ScheduleTab({
     .filter((fixture) => fixture.status === "Completed")
     .sort((left, right) => right.date.localeCompare(left.date) || right.matchday - left.matchday)
     .slice(0, 5);
-  const completedFixtureCount = league.fixtures.filter((fixture) => fixture.status === "Completed").length;
-  const upcomingFixtureCount = league.fixtures.length - completedFixtureCount;
+  const completedFixtureCount = selectedCompetition.fixtures.filter((fixture) => fixture.status === "Completed").length;
+  const upcomingFixtureCount = selectedCompetition.fixtures.length - completedFixtureCount;
   const currentDate = formatMatchDate(gameState.clock.current_date.slice(0, 10));
 
   const renderFixtureRow = (fixture: FixtureData) => {
@@ -228,11 +264,25 @@ export default function ScheduleTab({
         <div>
           <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
           <p className="text-sm text-app-text-muted">
-            {league.name} &bull; {t("schedule.season", { number: league.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
+            {selectedCompetition.name} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {competitionOptions.length > 1 ? (
+            <select
+              value={selectedCompetition.id}
+              onChange={(event) => setSelectedCompetitionId(event.target.value)}
+              className="rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-bold text-app-text outline-none transition-colors hover:bg-white/5 focus:border-app-green"
+              aria-label="Select competition"
+            >
+              {competitionOptions.map((competition) => (
+                <option key={competition.id} value={competition.id} className="bg-app-bg text-app-text">
+                  {competition.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
             <CircleDot className="h-4 w-4 text-app-green" />
             {t(`season.phases.${seasonContext.phase}`)}
@@ -243,7 +293,7 @@ export default function ScheduleTab({
           </div>
           <div className="flex items-center gap-2 rounded-lg bg-app-green px-4 py-2 text-sm font-bold text-app-bg">
             <Trophy className="h-4 w-4" />
-            {league.standings.length} Teams
+            {selectedCompetition.standings.length} Teams
           </div>
         </div>
       </div>
@@ -271,10 +321,10 @@ export default function ScheduleTab({
       <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
         <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
           <div>
-            <SectionTitle title="LEAGUE SUMMARY" action={league.name} />
+            <SectionTitle title="COMPETITION SUMMARY" action={selectedCompetition.name} />
             <TemplateCard className="flex flex-col gap-3 p-4">
-              <StatRow label={t("schedule.season", { number: league.season })} value={league.name} tone="text-app-green" />
-              <StatRow label="Fixtures" value={String(league.fixtures.length)} />
+              <StatRow label={t("schedule.season", { number: selectedCompetition.season })} value={selectedCompetition.name} tone="text-app-green" />
+              <StatRow label="Fixtures" value={String(selectedCompetition.fixtures.length)} />
               <StatRow label="Completed" value={String(completedFixtureCount)} tone="text-app-green" />
               <StatRow label="Upcoming" value={String(upcomingFixtureCount)} tone="text-blue-300" />
               <StatRow label="Matchdays" value={String(sortedMatchdays.length)} />
@@ -374,7 +424,7 @@ export default function ScheduleTab({
               <div className="flex items-center gap-2 border-b border-app-border/50 bg-app-bg px-4 py-3">
                 <Trophy className="h-4 w-4 text-app-green" />
                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-                  {league.name} — {t("schedule.season", { number: league.season })}
+                  {selectedCompetition.name} — {t("schedule.season", { number: selectedCompetition.season })}
                 </h3>
               </div>
               <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">

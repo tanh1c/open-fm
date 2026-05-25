@@ -142,12 +142,25 @@ export default function TournamentsTab({
     );
   }
 
+  const hasStandings = selectedCompetition.standings.length > 0;
+  const competitionTeamCount =
+    'team_ids' in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
+      ? selectedCompetition.team_ids.length
+      : selectedCompetition.standings.length;
   const standings = [...selectedCompetition.standings].sort(
     (a, b) =>
       b.points - a.points ||
       b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
       b.goals_for - a.goals_for,
   );
+
+  const getFixtureRoundLabel = (fixture: FixtureData): string => {
+    if ('kind' in selectedCompetition && selectedCompetition.kind === "DomesticCup") {
+      return `${selectedCompetition.name} round ${fixture.matchday}`;
+    }
+
+    return t("schedule.matchday", { number: fixture.matchday });
+  };
 
   const competitiveFixtures = getCompetitiveFixtures(selectedCompetition.fixtures);
 
@@ -262,7 +275,7 @@ export default function TournamentsTab({
               </h2>
               <p className="text-gray-400 text-sm mt-0.5">
                 {t("schedule.season", { number: selectedCompetition.season })} —{" "}
-                {t("tournaments.nTeams", { count: selectedCompetition.standings.length })}
+                {t("tournaments.nTeams", { count: competitionTeamCount })}
               </p>
               {competitionOptions.length > 1 ? (
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -362,7 +375,17 @@ export default function TournamentsTab({
           <Card className="lg:col-span-2">
             <CardHeader>{t("tournaments.leagueTable")}</CardHeader>
             <CardBody className="p-0">
-              {isPreseason ? (
+              {!hasStandings ? (
+                <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
+                  <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
+                  <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
+                    Knockout competition
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
+                    Use the fixtures tab to follow each cup round.
+                  </p>
+                </div>
+              ) : isPreseason ? (
                 <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
                   <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
                   <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
@@ -505,7 +528,21 @@ export default function TournamentsTab({
 
       {/* Full standings */}
       {view === "standings" &&
-        (isPreseason ? (
+        (!hasStandings ? (
+          <Card>
+            <CardBody>
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
+                <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
+                  Knockout competition
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
+                  Use the fixtures tab to follow each cup round.
+                </p>
+              </div>
+            </CardBody>
+          </Card>
+        ) : isPreseason ? (
           <Card>
             <CardBody>
               <div className="flex flex-col items-center gap-2 py-6 text-center">
@@ -629,8 +666,7 @@ export default function TournamentsTab({
             <Card key={md}>
               <div className="px-5 py-3 border-b border-gray-100 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 rounded-t-xl">
                 <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                  {t("schedule.matchday", { number: md })} —{" "}
-                  {formatMatchDate(fixtures[0].date)}
+                  {getFixtureRoundLabel(fixtures[0])} — {formatMatchDate(fixtures[0].date)}
                 </h4>
               </div>
               <CardBody className="p-0">

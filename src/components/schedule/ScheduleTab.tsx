@@ -109,7 +109,7 @@ export default function ScheduleTab({
     }
 
     if (fixture.competition === "DomesticCup") {
-      return `Domestic Cup — ${formatMatchDate(fixture.date)}`;
+      return `${selectedCompetition.name} round ${fixture.matchday} — ${formatMatchDate(fixture.date)}`;
     }
 
     if (fixture.competition === "PreseasonTournament") {

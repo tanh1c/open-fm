@@ -207,6 +207,63 @@ pub fn generate_domestic_competition(
     competition_from_league(&league, name.to_string(), country, tier)
 }
 
+pub fn generate_domestic_cup(
+    name: &str,
+    season: u32,
+    country: Option<String>,
+    team_ids: &[String],
+    start_date: DateTime<Utc>,
+) -> Competition {
+    let competition_id = Uuid::new_v4().to_string();
+    let mut fixtures = Vec::new();
+    let mut round_team_ids = team_ids.to_vec();
+    let mut matchday = 1;
+
+    while round_team_ids.len() >= 2 {
+        let round_date = start_date + Duration::days((matchday as i64 - 1) * 14);
+        let date = round_date.format("%Y-%m-%d").to_string();
+        let mut next_round_team_ids = Vec::new();
+
+        for pairing in round_team_ids.chunks(2) {
+            if pairing.len() == 1 {
+                next_round_team_ids.push(pairing[0].clone());
+                continue;
+            }
+
+            fixtures.push(Fixture {
+                id: Uuid::new_v4().to_string(),
+                matchday,
+                date: date.clone(),
+                home_team_id: pairing[0].clone(),
+                away_team_id: pairing[1].clone(),
+                competition_id: Some(competition_id.clone()),
+                season: Some(season),
+                competition: FixtureCompetition::DomesticCup,
+                status: FixtureStatus::Scheduled,
+                result: None,
+            });
+            next_round_team_ids.push(pairing[0].clone());
+        }
+
+        round_team_ids = next_round_team_ids;
+        matchday += 1;
+    }
+
+    Competition {
+        id: competition_id,
+        name: name.to_string(),
+        season,
+        kind: CompetitionKind::DomesticCup,
+        format: CompetitionFormat::Knockout,
+        country,
+        tier: None,
+        team_ids: team_ids.to_vec(),
+        fixtures,
+        standings: Vec::new(),
+        transfer_log: Vec::new(),
+    }
+}
+
 fn split_country_teams_into_tiers(
     team_ids: &[String],
     definition: &DomesticPyramidDefinition,
@@ -232,6 +289,17 @@ fn split_country_teams_into_tiers(
     tiers
 }
 
+fn eligible_cup_team_ids(
+    tier_memberships: &[(&'static DomesticLeagueTierDefinition, Vec<String>)],
+    cup_definition: &DomesticCupDefinition,
+) -> Vec<String> {
+    tier_memberships
+        .iter()
+        .filter(|(league_definition, _)| cup_definition.eligible_tiers.contains(&league_definition.tier))
+        .flat_map(|(_, tier_team_ids)| tier_team_ids.iter().cloned())
+        .collect()
+}
+
 fn generate_pyramid_domestic_competitions(
     country: &str,
     team_ids: &[String],
@@ -239,19 +307,37 @@ fn generate_pyramid_domestic_competitions(
     season: u32,
     start_date: DateTime<Utc>,
 ) -> Vec<Competition> {
-    split_country_teams_into_tiers(team_ids, definition)
-        .into_iter()
+    let tier_memberships = split_country_teams_into_tiers(team_ids, definition);
+    let mut competitions: Vec<Competition> = tier_memberships
+        .iter()
         .map(|(league_definition, tier_team_ids)| {
             generate_domestic_competition(
                 league_definition.name,
                 season,
                 Some(country.to_string()),
                 Some(league_definition.tier),
-                &tier_team_ids,
+                tier_team_ids,
                 start_date,
             )
         })
-        .collect()
+        .collect();
+
+    for cup_definition in definition.cups {
+        let cup_team_ids = eligible_cup_team_ids(&tier_memberships, cup_definition);
+        if cup_team_ids.len() < 2 {
+            continue;
+        }
+
+        competitions.push(generate_domestic_cup(
+            cup_definition.name,
+            season,
+            Some(country.to_string()),
+            &cup_team_ids,
+            start_date + Duration::days(30),
+        ));
+    }
+
+    competitions
 }
 
 pub fn generate_domestic_competitions_by_country(
@@ -571,7 +657,7 @@ mod tests {
 
         let competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
 
-        assert_eq!(competitions.len(), 3);
+        assert_eq!(competitions.len(), 5);
         let premier_league = competitions
             .iter()
             .find(|competition| competition.name == "Premier League")
@@ -580,30 +666,55 @@ mod tests {
             .iter()
             .find(|competition| competition.name == "Championship")
             .expect("Championship should be generated");
+        let fa_cup = competitions
+            .iter()
+            .find(|competition| competition.name == "FA Cup")
+            .expect("FA Cup should be generated");
+        let league_cup = competitions
+            .iter()
+            .find(|competition| competition.name == "League Cup")
+            .expect("League Cup should be generated");
         let germany = competitions
             .iter()
             .find(|competition| competition.country.as_deref() == Some("Germany"))
             .expect("Germany should keep fallback domestic league");
 
         assert_eq!(premier_league.country.as_deref(), Some("England"));
+        assert_eq!(premier_league.kind, CompetitionKind::DomesticLeague);
         assert_eq!(premier_league.tier, Some(1));
         assert_eq!(premier_league.team_ids, vec!["eng-1", "eng-2"]);
         assert_eq!(premier_league.fixtures.len(), 2);
         assert_eq!(championship.country.as_deref(), Some("England"));
+        assert_eq!(championship.kind, CompetitionKind::DomesticLeague);
         assert_eq!(championship.tier, Some(2));
         assert_eq!(championship.team_ids, vec!["eng-3", "eng-4"]);
         assert_eq!(championship.fixtures.len(), 2);
+        assert_eq!(fa_cup.kind, CompetitionKind::DomesticCup);
+        assert_eq!(fa_cup.format, CompetitionFormat::Knockout);
+        assert_eq!(fa_cup.team_ids.len(), 4);
+        assert_eq!(fa_cup.fixtures.len(), 3);
+        assert!(fa_cup.fixtures.iter().all(|fixture| {
+            fixture.competition == FixtureCompetition::DomesticCup
+                && fixture.competition_id.as_deref() == Some(fa_cup.id.as_str())
+                && !fixture.counts_for_league_standings()
+        }));
+        assert_eq!(league_cup.kind, CompetitionKind::DomesticCup);
+        assert_eq!(league_cup.team_ids.len(), 4);
+        assert_eq!(league_cup.fixtures.len(), 3);
         assert_eq!(germany.name, "Germany Premier Division");
+        assert_eq!(germany.kind, CompetitionKind::DomesticLeague);
         assert_eq!(germany.tier, Some(1));
         assert_eq!(germany.fixtures.len(), 2);
-        assert!(competitions.iter().all(|competition| {
-            competition.kind == CompetitionKind::DomesticLeague
-                && competition.format == CompetitionFormat::RoundRobin
-                && competition.fixtures.iter().all(|fixture| {
-                    fixture.competition == FixtureCompetition::DomesticLeague
-                        && fixture.competition_id.as_deref() == Some(competition.id.as_str())
-                })
-        }));
+        assert!(competitions
+            .iter()
+            .filter(|competition| competition.kind == CompetitionKind::DomesticLeague)
+            .all(|competition| {
+                competition.format == CompetitionFormat::RoundRobin
+                    && competition.fixtures.iter().all(|fixture| {
+                        fixture.competition == FixtureCompetition::DomesticLeague
+                            && fixture.competition_id.as_deref() == Some(competition.id.as_str())
+                    })
+            }));
     }
 
     #[test]

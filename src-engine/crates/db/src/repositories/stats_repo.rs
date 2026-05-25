@@ -28,14 +28,18 @@ fn parse_competition(value: &str) -> FixtureCompetition {
 }
 
 pub fn replace_stats_state(conn: &Connection, stats: &StatsState) -> Result<(), String> {
-    conn.execute("DELETE FROM player_match_stats", [])
+    upsert_stats_state(conn, stats)
+}
+
+pub fn upsert_stats_state(conn: &Connection, stats: &StatsState) -> Result<(), String> {
+    conn.prepare("SELECT fixture_id FROM player_match_stats LIMIT 0")
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM team_match_stats", [])
+    conn.prepare("SELECT fixture_id FROM team_match_stats LIMIT 0")
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     for record in &stats.player_matches {
         conn.execute(
-            "INSERT INTO player_match_stats (
+            "INSERT OR REPLACE INTO player_match_stats (
                 fixture_id, season, matchday, date, competition, player_id, team_id,
                 opponent_team_id, home_team_id, away_team_id, home_goals, away_goals,
                 minutes_played, goals, assists, shots, shots_on_target, passes_completed,
@@ -75,7 +79,7 @@ pub fn replace_stats_state(conn: &Connection, stats: &StatsState) -> Result<(), 
 
     for record in &stats.team_matches {
         conn.execute(
-            "INSERT INTO team_match_stats (
+            "INSERT OR REPLACE INTO team_match_stats (
                 fixture_id, season, matchday, date, competition, team_id, opponent_team_id,
                 home_team_id, away_team_id, goals_for, goals_against, possession_pct,
                 shots, shots_on_target, passes_completed, passes_attempted, tackles_won,

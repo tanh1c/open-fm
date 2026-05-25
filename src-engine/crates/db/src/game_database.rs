@@ -61,6 +61,28 @@ impl GameDatabase {
         &self.conn
     }
 
+    pub fn with_write_transaction<T, F>(&self, write: F) -> Result<T, String>
+    where
+        F: FnOnce(&Connection) -> Result<T, String>,
+    {
+        self.conn
+            .execute("BEGIN IMMEDIATE TRANSACTION", [])
+            .map_err(|_| GAME_DATABASE_OPEN_FAILED.to_string())?;
+
+        match write(&self.conn) {
+            Ok(value) => {
+                self.conn
+                    .execute("COMMIT", [])
+                    .map_err(|_| GAME_DATABASE_OPEN_FAILED.to_string())?;
+                Ok(value)
+            }
+            Err(error) => {
+                let _ = self.conn.execute("ROLLBACK", []);
+                Err(error)
+            }
+        }
+    }
+
     /// Get the file path, if this is a file-backed database.
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()

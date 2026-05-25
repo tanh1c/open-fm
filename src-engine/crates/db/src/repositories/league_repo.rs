@@ -9,13 +9,19 @@ const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed
 
 /// Insert or replace the league row and its fixtures + standings.
 pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
-    conn.execute("DELETE FROM fixtures", [])
+    conn.execute("DELETE FROM league WHERE id != ?1", params![league.id])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM standings", [])
+    conn.execute("DELETE FROM fixtures WHERE league_id != ?1", params![league.id])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM transfer_log", [])
+    conn.execute("DELETE FROM fixtures WHERE league_id = ?1", params![league.id])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM league", [])
+    conn.execute("DELETE FROM standings WHERE league_id != ?1", params![league.id])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute("DELETE FROM standings WHERE league_id = ?1", params![league.id])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute("DELETE FROM transfer_log WHERE league_id != ?1", params![league.id])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute("DELETE FROM transfer_log WHERE league_id = ?1", params![league.id])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     conn.execute(
@@ -32,7 +38,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
             .as_ref()
             .map(|r| serde_json::to_string(r).unwrap_or_default());
         conn.execute(
-            "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
+            "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 f.id,

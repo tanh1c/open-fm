@@ -27,7 +27,7 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
-        let conn = db.conn();
+        db.with_write_transaction(|conn| {
         let now = Utc::now().to_rfc3339();
         let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
             .map_err(|_| game_persistence_write_error())?;
@@ -114,12 +114,13 @@ impl GamePersistenceWriter {
         scouting_repo::upsert_youth_scouting_list(conn, &youth_scouting_rows)?;
 
         Ok(())
+        })
     }
 }
 
 impl GamePersistenceWriter {
     pub fn write_stats_state(db: &GameDatabase, stats: &StatsState) -> Result<(), String> {
-        stats_repo::replace_stats_state(db.conn(), stats)
+        stats_repo::upsert_stats_state(db.conn(), stats)
     }
 }
 

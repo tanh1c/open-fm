@@ -747,8 +747,11 @@ mod tests {
         let game = completed_multi_competition_game("eng-3");
 
         assert!(is_season_complete(&game));
-        assert_eq!(game.primary_league_competition().unwrap().name, "Championship");
-        assert_eq!(game.league.as_ref().unwrap().name, "Championship");
+        assert_eq!(
+            game.primary_league_competition().unwrap().name,
+            "EFL Championship"
+        );
+        assert_eq!(game.league.as_ref().unwrap().name, "EFL Championship");
     }
 
     #[test]
@@ -758,12 +761,12 @@ mod tests {
         let summary = process_end_of_season(&mut game);
 
         assert_eq!(summary.season, 2026);
-        assert_eq!(summary.league_name, "Championship");
+        assert_eq!(summary.league_name, "EFL Championship");
         assert!(game.competitions.iter().any(|competition| {
             competition.name == "Premier League" && competition.season == 2027
         }));
         assert!(game.competitions.iter().any(|competition| {
-            competition.name == "Championship" && competition.season == 2027
+            competition.name == "EFL Championship" && competition.season == 2027
         }));
         assert!(game.competitions.iter().any(|competition| {
             competition.name == "FA Cup" && competition.season == 2027

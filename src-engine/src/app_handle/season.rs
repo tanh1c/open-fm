@@ -1,7 +1,7 @@
 // season commands — port of src-engine/src/commands/season.rs
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js_value};
+use super::{to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {

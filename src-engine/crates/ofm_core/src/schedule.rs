@@ -32,18 +32,110 @@ const ENGLAND_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
     DomesticLeagueTierDefinition {
         name: "Premier League",
         tier: 1,
-        target_team_count: 2,
+        target_team_count: 20,
         promotion_count: 0,
-        relegation_count: 1,
+        relegation_count: 3,
     },
     DomesticLeagueTierDefinition {
-        name: "Championship",
+        name: "EFL Championship",
         tier: 2,
-        target_team_count: 2,
-        promotion_count: 1,
+        target_team_count: 20,
+        promotion_count: 3,
         relegation_count: 0,
     },
 ];
+
+const FRANCE_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
+    DomesticLeagueTierDefinition {
+        name: "Ligue 1",
+        tier: 1,
+        target_team_count: 18,
+        promotion_count: 0,
+        relegation_count: 3,
+    },
+    DomesticLeagueTierDefinition {
+        name: "Ligue 2",
+        tier: 2,
+        target_team_count: 18,
+        promotion_count: 3,
+        relegation_count: 0,
+    },
+];
+
+const GERMANY_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
+    DomesticLeagueTierDefinition {
+        name: "Bundesliga",
+        tier: 1,
+        target_team_count: 18,
+        promotion_count: 0,
+        relegation_count: 3,
+    },
+    DomesticLeagueTierDefinition {
+        name: "2. Bundesliga",
+        tier: 2,
+        target_team_count: 18,
+        promotion_count: 3,
+        relegation_count: 0,
+    },
+];
+
+const ITALY_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
+    DomesticLeagueTierDefinition {
+        name: "Serie A",
+        tier: 1,
+        target_team_count: 20,
+        promotion_count: 0,
+        relegation_count: 3,
+    },
+    DomesticLeagueTierDefinition {
+        name: "Serie B",
+        tier: 2,
+        target_team_count: 20,
+        promotion_count: 3,
+        relegation_count: 0,
+    },
+];
+
+const SPAIN_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
+    DomesticLeagueTierDefinition {
+        name: "LaLiga",
+        tier: 1,
+        target_team_count: 20,
+        promotion_count: 0,
+        relegation_count: 3,
+    },
+    DomesticLeagueTierDefinition {
+        name: "Segunda División",
+        tier: 2,
+        target_team_count: 20,
+        promotion_count: 3,
+        relegation_count: 0,
+    },
+];
+
+const PORTUGAL_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[DomesticLeagueTierDefinition {
+    name: "Primeira Liga",
+    tier: 1,
+    target_team_count: 18,
+    promotion_count: 0,
+    relegation_count: 0,
+}];
+
+const NETHERLANDS_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[DomesticLeagueTierDefinition {
+    name: "Eredivisie",
+    tier: 1,
+    target_team_count: 18,
+    promotion_count: 0,
+    relegation_count: 0,
+}];
+
+const BELGIUM_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[DomesticLeagueTierDefinition {
+    name: "Belgian Pro League",
+    tier: 1,
+    target_team_count: 16,
+    promotion_count: 0,
+    relegation_count: 0,
+}];
 
 const ENGLAND_CUPS: &[DomesticCupDefinition] = &[
     DomesticCupDefinition {
@@ -51,16 +143,112 @@ const ENGLAND_CUPS: &[DomesticCupDefinition] = &[
         eligible_tiers: &[1, 2],
     },
     DomesticCupDefinition {
-        name: "League Cup",
+        name: "EFL Cup",
         eligible_tiers: &[1, 2],
     },
 ];
 
-pub const DOMESTIC_PYRAMID_DEFINITIONS: &[DomesticPyramidDefinition] = &[DomesticPyramidDefinition {
-    country: "England",
-    leagues: ENGLAND_LEAGUE_TIERS,
-    cups: ENGLAND_CUPS,
+const FRANCE_CUPS: &[DomesticCupDefinition] = &[
+    DomesticCupDefinition {
+        name: "Coupe de France",
+        eligible_tiers: &[1, 2],
+    },
+    DomesticCupDefinition {
+        name: "Trophée des Champions",
+        eligible_tiers: &[1],
+    },
+];
+
+const GERMANY_CUPS: &[DomesticCupDefinition] = &[
+    DomesticCupDefinition {
+        name: "DFB-Pokal",
+        eligible_tiers: &[1, 2],
+    },
+    DomesticCupDefinition {
+        name: "DFL-Supercup",
+        eligible_tiers: &[1],
+    },
+];
+
+const ITALY_CUPS: &[DomesticCupDefinition] = &[
+    DomesticCupDefinition {
+        name: "Coppa Italia",
+        eligible_tiers: &[1, 2],
+    },
+    DomesticCupDefinition {
+        name: "Supercoppa Italiana",
+        eligible_tiers: &[1],
+    },
+];
+
+const SPAIN_CUPS: &[DomesticCupDefinition] = &[
+    DomesticCupDefinition {
+        name: "Copa del Rey",
+        eligible_tiers: &[1, 2],
+    },
+    DomesticCupDefinition {
+        name: "Supercopa de España",
+        eligible_tiers: &[1],
+    },
+];
+
+const PORTUGAL_CUPS: &[DomesticCupDefinition] = &[DomesticCupDefinition {
+    name: "Taça de Portugal",
+    eligible_tiers: &[1],
 }];
+
+const NETHERLANDS_CUPS: &[DomesticCupDefinition] = &[DomesticCupDefinition {
+    name: "KNVB Cup",
+    eligible_tiers: &[1],
+}];
+
+const BELGIUM_CUPS: &[DomesticCupDefinition] = &[DomesticCupDefinition {
+    name: "Belgian Cup",
+    eligible_tiers: &[1],
+}];
+
+pub const DOMESTIC_PYRAMID_DEFINITIONS: &[DomesticPyramidDefinition] = &[
+    DomesticPyramidDefinition {
+        country: "England",
+        leagues: ENGLAND_LEAGUE_TIERS,
+        cups: ENGLAND_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "France",
+        leagues: FRANCE_LEAGUE_TIERS,
+        cups: FRANCE_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "Germany",
+        leagues: GERMANY_LEAGUE_TIERS,
+        cups: GERMANY_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "Italy",
+        leagues: ITALY_LEAGUE_TIERS,
+        cups: ITALY_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "Spain",
+        leagues: SPAIN_LEAGUE_TIERS,
+        cups: SPAIN_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "Portugal",
+        leagues: PORTUGAL_LEAGUE_TIERS,
+        cups: PORTUGAL_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "Netherlands",
+        leagues: NETHERLANDS_LEAGUE_TIERS,
+        cups: NETHERLANDS_CUPS,
+    },
+    DomesticPyramidDefinition {
+        country: "Belgium",
+        leagues: BELGIUM_LEAGUE_TIERS,
+        cups: BELGIUM_CUPS,
+    },
+];
 
 pub fn domestic_pyramid_definition(country: &str) -> Option<&'static DomesticPyramidDefinition> {
     DOMESTIC_PYRAMID_DEFINITIONS
@@ -341,12 +529,31 @@ fn generate_competitions_from_tier_memberships(
 
 fn generate_pyramid_domestic_competitions(
     country: &str,
-    team_ids: &[String],
+    teams: &[&domain::team::Team],
     definition: &DomesticPyramidDefinition,
     season: u32,
     start_date: DateTime<Utc>,
 ) -> Vec<Competition> {
-    let tier_memberships = split_country_teams_into_tiers(team_ids, definition);
+    let explicit_tiers: Vec<(&'static DomesticLeagueTierDefinition, Vec<String>)> = definition
+        .leagues
+        .iter()
+        .filter_map(|league_definition| {
+            let team_ids: Vec<String> = teams
+                .iter()
+                .filter(|team| team.domestic_tier == Some(league_definition.tier))
+                .map(|team| team.id.clone())
+                .collect();
+            (team_ids.len() >= 2).then_some((league_definition, team_ids))
+        })
+        .collect();
+
+    let tier_memberships = if explicit_tiers.is_empty() {
+        let team_ids: Vec<String> = teams.iter().map(|team| team.id.clone()).collect();
+        split_country_teams_into_tiers(&team_ids, definition)
+    } else {
+        explicit_tiers
+    };
+
     generate_competitions_from_tier_memberships(country, &tier_memberships, definition, season, start_date)
 }
 
@@ -403,19 +610,14 @@ pub fn generate_domestic_competitions_by_country(
                     .then(left.name.cmp(&right.name))
                     .then(left.id.cmp(&right.id))
             });
-            let team_ids: Vec<String> = country_teams
-                .into_iter()
-                .map(|team| team.id.clone())
-                .collect();
-
-            if team_ids.len() < 2 {
+            if country_teams.len() < 2 {
                 return Vec::new();
             }
 
             if let Some(definition) = domestic_pyramid_definition(&country) {
                 let competitions = generate_pyramid_domestic_competitions(
                     &country,
-                    &team_ids,
+                    &country_teams,
                     definition,
                     season,
                     start_date,
@@ -425,6 +627,10 @@ pub fn generate_domestic_competitions_by_country(
                 }
             }
 
+            let team_ids: Vec<String> = country_teams
+                .into_iter()
+                .map(|team| team.id.clone())
+                .collect();
             vec![generate_domestic_competition(
                 &format!("{} Premier Division", country),
                 season,
@@ -703,38 +909,36 @@ mod tests {
     #[test]
     fn generate_domestic_competitions_uses_pyramid_for_defined_country() {
         let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
-        let teams = vec![
+        let mut teams = vec![
             test_team("eng-1", "English One", "England", 900),
             test_team("eng-2", "English Two", "England", 800),
             test_team("eng-3", "English Three", "England", 700),
             test_team("eng-4", "English Four", "England", 600),
-            test_team("de-1", "German One", "Germany", 900),
-            test_team("de-2", "German Two", "Germany", 800),
         ];
+        teams[0].domestic_tier = Some(1);
+        teams[1].domestic_tier = Some(1);
+        teams[2].domestic_tier = Some(2);
+        teams[3].domestic_tier = Some(2);
 
         let competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
 
-        assert_eq!(competitions.len(), 5);
+        assert_eq!(competitions.len(), 4);
         let premier_league = competitions
             .iter()
             .find(|competition| competition.name == "Premier League")
             .expect("Premier League should be generated");
         let championship = competitions
             .iter()
-            .find(|competition| competition.name == "Championship")
-            .expect("Championship should be generated");
+            .find(|competition| competition.name == "EFL Championship")
+            .expect("EFL Championship should be generated");
         let fa_cup = competitions
             .iter()
             .find(|competition| competition.name == "FA Cup")
             .expect("FA Cup should be generated");
         let league_cup = competitions
             .iter()
-            .find(|competition| competition.name == "League Cup")
-            .expect("League Cup should be generated");
-        let germany = competitions
-            .iter()
-            .find(|competition| competition.country.as_deref() == Some("Germany"))
-            .expect("Germany should keep fallback domestic league");
+            .find(|competition| competition.name == "EFL Cup")
+            .expect("EFL Cup should be generated");
 
         assert_eq!(premier_league.country.as_deref(), Some("England"));
         assert_eq!(premier_league.kind, CompetitionKind::DomesticLeague);
@@ -758,10 +962,6 @@ mod tests {
         assert_eq!(league_cup.kind, CompetitionKind::DomesticCup);
         assert_eq!(league_cup.team_ids.len(), 4);
         assert_eq!(league_cup.fixtures.len(), 3);
-        assert_eq!(germany.name, "Germany Premier Division");
-        assert_eq!(germany.kind, CompetitionKind::DomesticLeague);
-        assert_eq!(germany.tier, Some(1));
-        assert_eq!(germany.fixtures.len(), 2);
         assert!(competitions
             .iter()
             .filter(|competition| competition.kind == CompetitionKind::DomesticLeague)
@@ -772,6 +972,55 @@ mod tests {
                             && fixture.competition_id.as_deref() == Some(competition.id.as_str())
                     })
             }));
+    }
+
+    #[test]
+    fn generate_domestic_competitions_matches_realistic_default_world() {
+        let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
+        let (teams, _, _) = crate::generator::generate_world(None);
+        let competitions = generate_domestic_competitions_by_country(&teams, 2026, start);
+
+        for country in ["England", "France", "Germany", "Italy", "Spain"] {
+            assert_eq!(
+                competitions
+                    .iter()
+                    .filter(|competition| competition.country.as_deref() == Some(country)
+                        && competition.kind == CompetitionKind::DomesticLeague)
+                    .count(),
+                2,
+                "{country} should have two domestic leagues",
+            );
+            assert_eq!(
+                competitions
+                    .iter()
+                    .filter(|competition| competition.country.as_deref() == Some(country)
+                        && competition.kind == CompetitionKind::DomesticCup)
+                    .count(),
+                2,
+                "{country} should have two domestic cups",
+            );
+        }
+
+        for country in ["Portugal", "Netherlands", "Belgium"] {
+            assert_eq!(
+                competitions
+                    .iter()
+                    .filter(|competition| competition.country.as_deref() == Some(country)
+                        && competition.kind == CompetitionKind::DomesticLeague)
+                    .count(),
+                1,
+                "{country} should have one domestic league",
+            );
+            assert_eq!(
+                competitions
+                    .iter()
+                    .filter(|competition| competition.country.as_deref() == Some(country)
+                        && competition.kind == CompetitionKind::DomesticCup)
+                    .count(),
+                1,
+                "{country} should have one domestic cup",
+            );
+        }
     }
 
     #[test]
@@ -830,6 +1079,7 @@ mod tests {
                     country,
                     900 - slot as u32,
                 );
+                team.domestic_tier = Some(if slot < 2 { 1 } else { 2 });
                 if slot >= 2 {
                     team.reputation = 1_000;
                 }

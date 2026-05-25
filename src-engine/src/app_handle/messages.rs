@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {
@@ -77,7 +77,8 @@ impl AppHandle {
     ) -> Result<JsValue, JsValue> {
         let mut game = self.snapshot_game()?;
 
-        let (effect, effect_i18n_key, effect_i18n_params) = if let Some(opt) = option_id.as_deref() {
+        let (effect, effect_i18n_key, effect_i18n_params) = if let Some(opt) = option_id.as_deref()
+        {
             if let Some(player_effect) = ofm_core::player_events::apply_player_response(
                 &mut game,
                 &message_id,

@@ -1,10 +1,8 @@
 // contracts commands — port of src-engine/src/commands/contracts.rs
-use ofm_core::contracts::{
-    ContractTerminationResult, DelegatedRenewalOptions, RenewalOffer,
-};
+use ofm_core::contracts::{ContractTerminationResult, DelegatedRenewalOptions, RenewalOffer};
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {
@@ -106,8 +104,8 @@ impl AppHandle {
     #[wasm_bindgen(js_name = previewContractTermination)]
     pub fn preview_contract_termination(&self, player_id: String) -> Result<JsValue, JsValue> {
         let game = self.snapshot_game()?;
-        let preview = ofm_core::contracts::preview_contract_termination(&game, &player_id)
-            .map_err(to_js)?;
+        let preview =
+            ofm_core::contracts::preview_contract_termination(&game, &player_id).map_err(to_js)?;
         to_js_value(&serde_json::json!({ "preview": preview }))
     }
 

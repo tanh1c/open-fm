@@ -2,7 +2,7 @@
 use ofm_core::finances::{self, FinanceHealthLevel};
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {
@@ -25,13 +25,17 @@ impl AppHandle {
         let snapshot = finances::team_finance_snapshot(&game, &team_id)
             .ok_or_else(|| to_js("be.error.managedTeamNotFound".to_string()))?;
         if snapshot.currently_over_budget {
-            return Err(to_js("be.error.finance.facilityUpgradeOverBudget".to_string()));
+            return Err(to_js(
+                "be.error.finance.facilityUpgradeOverBudget".to_string(),
+            ));
         }
         if matches!(
             snapshot.overall_status,
             FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
         ) {
-            return Err(to_js("be.error.finance.facilityUpgradeCritical".to_string()));
+            return Err(to_js(
+                "be.error.finance.facilityUpgradeCritical".to_string(),
+            ));
         }
 
         let team = game

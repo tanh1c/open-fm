@@ -2,7 +2,7 @@
 use ofm_core::job_offers::{self, JobApplicationResult};
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js_value};
+use super::{to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {

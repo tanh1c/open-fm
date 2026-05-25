@@ -204,7 +204,10 @@ fn planned_contract_exit_crisis_blocker(game: &Game) -> Option<serde_json::Value
         names.sort();
         let listed_names = names.into_iter().take(3).collect::<Vec<_>>().join(", ");
         let healthy_players = planned_exit_report.squad_safety.healthy_players.to_string();
-        let healthy_goalkeepers = planned_exit_report.squad_safety.healthy_goalkeepers.to_string();
+        let healthy_goalkeepers = planned_exit_report
+            .squad_safety
+            .healthy_goalkeepers
+            .to_string();
         build_blocker(
             "planned_contract_exit_crisis",
             "warn",

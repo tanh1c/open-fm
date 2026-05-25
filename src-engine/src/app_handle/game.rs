@@ -13,7 +13,7 @@ use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, SAVE_MANAGER_LOCK_ERROR, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle, SAVE_MANAGER_LOCK_ERROR};
 
 const NO_ACTIVE_SAVE_ERROR: &str = "be.error.noActiveSaveSession";
 
@@ -121,9 +121,8 @@ impl AppHandle {
         nationality: String,
         world_json: String,
     ) -> Result<JsValue, JsValue> {
-        let new_game =
-            build_new_game(first_name, last_name, dob, nationality, Some(&world_json))
-                .map_err(to_js)?;
+        let new_game = build_new_game(first_name, last_name, dob, nationality, Some(&world_json))
+            .map_err(to_js)?;
         self.state.set_game(new_game.clone());
         self.state.set_stats_state(StatsState::default());
         to_js_value(&new_game)
@@ -151,60 +150,56 @@ impl AppHandle {
 
         use chrono::Duration;
         let season_start = game.clock.current_date + Duration::days(30);
-        let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
-        let user_domestic_team_ids: Vec<String> = game
-            .teams
-            .iter()
-            .filter(|team| team.country == team_country)
-            .map(|team| team.id.clone())
-            .collect();
-        let league_team_ids = if user_domestic_team_ids.len() >= 2 {
-            user_domestic_team_ids.as_slice()
-        } else {
-            team_ids.as_slice()
-        };
-        let league_name = if user_domestic_team_ids.len() >= 2 {
-            format!("{} Premier Division", team_country)
-        } else {
-            default_league_name()
-        };
-        let mut league =
-            ofm_core::schedule::generate_league(&league_name, 2026, league_team_ids, season_start);
-        let friendlies =
-            ofm_core::schedule::generate_preseason_friendlies(league_team_ids, season_start, 4);
-        ofm_core::schedule::append_fixtures(&mut league, friendlies);
         game.competitions = ofm_core::schedule::generate_domestic_competitions_by_country(
             &game.teams,
             2026,
             season_start,
         );
+        let primary_competition = game
+            .competitions
+            .iter()
+            .find(|competition| {
+                competition.kind == domain::league::CompetitionKind::DomesticLeague
+                    && competition.team_ids.contains(&team_id)
+            })
+            .cloned();
+        let mut league = if let Some(primary_competition) = primary_competition {
+            domain::league::League {
+                id: primary_competition.id.clone(),
+                name: primary_competition.name.clone(),
+                season: primary_competition.season,
+                fixtures: primary_competition.fixtures.clone(),
+                standings: primary_competition.standings.clone(),
+                transfer_log: primary_competition.transfer_log.clone(),
+            }
+        } else {
+            let team_ids: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
+            let league_name = default_league_name();
+            let fallback_league =
+                ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
+            game.competitions
+                .push(ofm_core::schedule::competition_from_league(
+                    &fallback_league,
+                    league_name,
+                    Some(team_country.clone()),
+                    Some(1),
+                ));
+            fallback_league
+        };
+        let league_team_ids: Vec<String> = league
+            .standings
+            .iter()
+            .map(|standing| standing.team_id.clone())
+            .collect();
+        let friendlies =
+            ofm_core::schedule::generate_preseason_friendlies(&league_team_ids, season_start, 4);
+        ofm_core::schedule::append_fixtures(&mut league, friendlies);
         if let Some(primary_competition) = game
             .competitions
             .iter_mut()
-            .find(|competition| competition.country.as_deref() == Some(team_country.as_str()))
+            .find(|competition| competition.id == league.id)
         {
-            primary_competition.id = league.id.clone();
-            primary_competition.name = league_name.clone();
-            primary_competition.team_ids = league_team_ids.to_vec();
-            primary_competition.fixtures = league
-                .fixtures
-                .iter()
-                .cloned()
-                .map(|mut fixture| {
-                    fixture.competition = domain::league::FixtureCompetition::DomesticLeague;
-                    fixture.competition_id = Some(league.id.clone());
-                    fixture
-                })
-                .collect();
-            primary_competition.standings = league.standings.clone();
-            primary_competition.transfer_log = league.transfer_log.clone();
-        } else {
-            game.competitions.push(ofm_core::schedule::competition_from_league(
-                &league,
-                league_name.clone(),
-                Some(team_country.clone()),
-                Some(1),
-            ));
+            primary_competition.fixtures = league.fixtures.clone();
         }
         if let Some(continental_competition) = ofm_core::schedule::generate_continental_group_stage(
             "Champions League",
@@ -215,6 +210,7 @@ impl AppHandle {
         ) {
             game.competitions.push(continental_competition);
         }
+        let league_name = league.name.clone();
         game.league = Some(league);
         ofm_core::season_context::refresh_game_context(&mut game);
 
@@ -230,8 +226,10 @@ impl AppHandle {
         game.messages.push(season_msg);
 
         let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
-        game.news
-            .push(ofm_core::news::season_preview_article(&team_names, &date_str));
+        game.news.push(ofm_core::news::season_preview_article(
+            &team_names,
+            &date_str,
+        ));
 
         let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
         game.messages.push(staff_msg);

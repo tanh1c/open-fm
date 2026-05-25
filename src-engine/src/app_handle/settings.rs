@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, SAVE_MANAGER_LOCK_ERROR, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle, SAVE_MANAGER_LOCK_ERROR};
 
 const SETTINGS_KEY: &str = "settings:json";
 const SETTINGS_PARSE_FAILED_ERROR: &str = "be.error.settings.parseFailed";

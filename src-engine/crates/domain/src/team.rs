@@ -8,6 +8,8 @@ pub struct Team {
     pub country: String,
     #[serde(default)]
     pub football_nation: String,
+    #[serde(default)]
+    pub domestic_tier: Option<u8>,
     pub city: String,
     pub stadium_name: String,
     pub stadium_capacity: u32,
@@ -284,6 +286,7 @@ impl Team {
             short_name,
             country,
             football_nation,
+            domestic_tier: None,
             city,
             stadium_name,
             stadium_capacity,

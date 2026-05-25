@@ -258,6 +258,7 @@ pub fn generate_world(
             stadium,
             rng.random_range(10000..80000),
         );
+        team.domestic_tier = tdef.domestic_tier;
         team.finance = rng.random_range(fin_range[0]..fin_range[1]);
         team.reputation = rng.random_range(rep_range[0]..rep_range[1]);
         team.wage_budget = (team.finance as f64 * 0.45) as i64;
@@ -345,9 +346,9 @@ mod tests {
     #[test]
     fn test_generate_world_team_count() {
         let (teams, players, staff) = generate_world(None);
-        assert_eq!(teams.len(), 24);
-        assert_eq!(players.len(), 24 * 22);
-        assert_eq!(staff.len(), 24 * 4 + 12);
+        assert_eq!(teams.len(), 244);
+        assert_eq!(players.len(), 244 * 22);
+        assert_eq!(staff.len(), 244 * 4 + 12);
     }
 
     #[test]
@@ -597,7 +598,7 @@ mod tests {
     #[test]
     fn test_world_data_wrapper() {
         let world = generate_world_data(None);
-        assert_eq!(world.teams.len(), 16);
+        assert_eq!(world.teams.len(), 244);
         assert!(!world.name.is_empty());
         assert!(!world.description.is_empty());
     }

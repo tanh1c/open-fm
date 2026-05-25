@@ -5,6 +5,6 @@
 // to JS. Per-domain command bindings live in submodules and are added through
 // additional `#[wasm_bindgen] impl AppHandle` blocks.
 
-pub mod application;
 #[cfg(target_arch = "wasm32")]
 pub mod app_handle;
+pub mod application;

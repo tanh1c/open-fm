@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn export_world_to_json_writes_canonical_football_identity_fields() {
         let mut world = generate_world_data(None);
-        world.teams[0].country = "GB".to_string();
+        world.teams[0].country = "England".to_string();
         world.teams[0].football_nation.clear();
 
         if let Some(player) = world

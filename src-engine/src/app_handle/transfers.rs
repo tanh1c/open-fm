@@ -4,7 +4,7 @@ use ofm_core::game::{YouthScoutingObjective, YouthScoutingRegion};
 use ofm_core::transfers::{TransferContractOutcome, TransferNegotiationOutcome};
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 const INVALID_YOUTH_SCOUTING_REGION_ERROR: &str = "be.error.transfers.invalidYouthScoutingRegion";
 const INVALID_YOUTH_SCOUTING_OBJECTIVE_ERROR: &str =
@@ -39,7 +39,10 @@ fn parse_youth_target_position(value: Option<&str>) -> Result<Option<Position>, 
     }
 }
 
-fn negotiation_response(outcome: TransferNegotiationOutcome, game: ofm_core::game::Game) -> serde_json::Value {
+fn negotiation_response(
+    outcome: TransferNegotiationOutcome,
+    game: ofm_core::game::Game,
+) -> serde_json::Value {
     serde_json::json!({
         "decision": outcome.decision,
         "suggested_fee": outcome.suggested_fee,
@@ -49,7 +52,10 @@ fn negotiation_response(outcome: TransferNegotiationOutcome, game: ofm_core::gam
     })
 }
 
-fn contract_response(outcome: TransferContractOutcome, game: ofm_core::game::Game) -> serde_json::Value {
+fn contract_response(
+    outcome: TransferContractOutcome,
+    game: ofm_core::game::Game,
+) -> serde_json::Value {
     serde_json::json!({
         "decision": outcome.decision,
         "suggested_wage": outcome.suggested_wage,
@@ -223,8 +229,8 @@ impl AppHandle {
         let mut game = self.snapshot_game()?;
         let region = parse_youth_region(region.as_deref()).map_err(to_js)?;
         let objective = parse_youth_objective(objective.as_deref()).map_err(to_js)?;
-        let target_position = parse_youth_target_position(target_position.as_deref())
-            .map_err(to_js)?;
+        let target_position =
+            parse_youth_target_position(target_position.as_deref()).map_err(to_js)?;
 
         ofm_core::scouting::start_youth_scouting(
             &mut game,

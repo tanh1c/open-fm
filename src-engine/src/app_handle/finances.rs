@@ -2,7 +2,7 @@
 use ofm_core::finances;
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {

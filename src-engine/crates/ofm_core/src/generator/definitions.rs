@@ -42,6 +42,8 @@ pub struct TeamDef {
     pub city: String,
     /// ISO 3166-1 alpha-2 country code.
     pub country: String,
+    #[serde(default)]
+    pub domestic_tier: Option<u8>,
     pub colors: TeamColorsDef,
     #[serde(default = "default_play_style")]
     pub play_style: String,
@@ -112,6 +114,7 @@ pub(super) fn default_teams_definition() -> TeamsDefinition {
                     .collect(),
                 city: t.city.to_string(),
                 country: t.country.to_string(),
+                domestic_tier: Some(t.domestic_tier),
                 colors: TeamColorsDef {
                     primary: t.colors.0.to_string(),
                     secondary: t.colors.1.to_string(),

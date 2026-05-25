@@ -13,12 +13,12 @@ use wasm_bindgen::prelude::*;
 use crate::application::live_match::{
     apply_match_command as apply_match_command_service,
     finish_live_match as finish_live_match_service,
-    get_match_snapshot as get_match_snapshot_service,
-    start_live_match as start_live_match_service, step_live_match as step_live_match_service,
+    get_match_snapshot as get_match_snapshot_service, start_live_match as start_live_match_service,
+    step_live_match as step_live_match_service,
 };
 use crate::application::team_talk::apply_team_talk as apply_team_talk_service;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[derive(Debug, Deserialize)]
 struct PressConferenceAnswer {
@@ -57,8 +57,9 @@ impl AppHandle {
         mode: String,
         allows_extra_time: bool,
     ) -> Result<JsValue, JsValue> {
-        let snapshot = start_live_match_service(&self.state, fixture_index, &mode, allows_extra_time)
-            .map_err(to_js)?;
+        let snapshot =
+            start_live_match_service(&self.state, fixture_index, &mode, allows_extra_time)
+                .map_err(to_js)?;
         to_js_value(&snapshot)
     }
 
@@ -175,7 +176,10 @@ impl AppHandle {
             }
         }
 
-        let result_str = format!("{} {} - {} {}", home_team, home_score, away_score, away_team);
+        let result_str = format!(
+            "{} {} - {} {}",
+            home_team, home_score, away_score, away_team
+        );
         let headline_key = if quotes.is_empty() {
             "be.news.pressConference.headlinePostMatch"
         } else if rng.random::<bool>() {

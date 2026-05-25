@@ -157,6 +157,7 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
         short_name: row.get(2)?,
         country: row.get(3)?,
         football_nation: row.get(4)?,
+        domestic_tier: None,
         city: row.get(5)?,
         stadium_name: row.get(6)?,
         stadium_capacity: row.get(7)?,

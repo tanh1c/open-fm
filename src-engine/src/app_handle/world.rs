@@ -10,7 +10,7 @@
 use ofm_core::generator::WorldData;
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 const EXPORTED_WORLD_NAME_KEY: &str = "be.msg.world.exportedName";
 const EXPORTED_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.exportedDescription";

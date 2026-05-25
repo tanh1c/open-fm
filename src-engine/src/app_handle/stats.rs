@@ -10,7 +10,7 @@ use crate::application::stats::{
     get_team_match_history_internal, get_team_stats_overview_internal,
 };
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 #[wasm_bindgen]
 impl AppHandle {
@@ -20,8 +20,8 @@ impl AppHandle {
         player_id: String,
         limit: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        let entries = get_player_match_history_internal(&self.state, &player_id, limit)
-            .map_err(to_js)?;
+        let entries =
+            get_player_match_history_internal(&self.state, &player_id, limit).map_err(to_js)?;
         to_js_value(&entries)
     }
 
@@ -44,8 +44,8 @@ impl AppHandle {
         team_id: String,
         limit: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        let entries = get_team_match_history_internal(&self.state, &team_id, limit)
-            .map_err(to_js)?;
+        let entries =
+            get_team_match_history_internal(&self.state, &team_id, limit).map_err(to_js)?;
         to_js_value(&entries)
     }
 }

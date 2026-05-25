@@ -11,7 +11,7 @@ use crate::application::time_advancement::{
 };
 use crate::application::time_blockers::compute_blocking_actions as compute_blocking_actions_service;
 
-use super::{AppHandle, to_js_value};
+use super::{to_js_value, AppHandle};
 
 const NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 

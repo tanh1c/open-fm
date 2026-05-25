@@ -1,7 +1,7 @@
 // staff commands — port of src-engine/src/commands/staff.rs
 use wasm_bindgen::prelude::*;
 
-use super::{AppHandle, to_js, to_js_value};
+use super::{to_js, to_js_value, AppHandle};
 
 const NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 

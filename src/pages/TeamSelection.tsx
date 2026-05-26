@@ -5,9 +5,10 @@ import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData, PlayerData } from "../store/gameStore";
 import { TeamData } from "../store/types";
 import { formatVal, getPlayerOvr } from "../lib/helpers";
-import { getTeamLogoUrl } from "../lib/teamLogos";
 import { Card, CardBody, Badge, TeamLocation, ThemeToggle, CountryFlag } from "../components/ui";
-import { ArrowLeft, Users, Trophy, Landmark, ChevronRight, Star, Loader2, Layers3 } from "lucide-react";
+import DivisionLogo from "../components/common/DivisionLogo";
+import TeamLogo from "../components/common/TeamLogo";
+import { ArrowLeft, Users, Trophy, Landmark, ChevronRight, Star, Loader2 } from "lucide-react";
 import { resolveBackendError } from "../utils/backendI18n";
 
 export default function TeamSelection() {
@@ -225,7 +226,7 @@ export default function TeamSelection() {
                         }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <TeamLogo team={team} isSelected={isSelected} />
+                            <TeamLogo team={team} selected={isSelected} />
                             <div>
                               <h3 className={`font-heading font-bold uppercase tracking-wide text-sm ${isSelected ? "text-white" : "text-gray-900 dark:text-white"}`}>
                                 {team.name}
@@ -331,54 +332,6 @@ function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: 
   );
 }
 
-function DivisionLogo({ country, leagueName }: { country: string; leagueName: string }) {
-  const logoUrl = DIVISION_LOGOS[`${country}:${leagueName}`];
-
-  if (!logoUrl) {
-    return (
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-500/10 text-accent-600 dark:text-accent-300">
-        <Layers3 className="h-5 w-5" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-2 shadow-sm ring-1 ring-gray-200 dark:bg-white dark:ring-white/20">
-      <img src={logoUrl} alt={`${leagueName} logo`} className="h-full w-full object-contain" loading="lazy" />
-    </div>
-  );
-}
-
-function TeamLogo({ team, isSelected }: { team: TeamData; isSelected: boolean }) {
-  const logoUrl = getTeamLogoUrl(team);
-  const fallbackClassName = `w-12 h-12 rounded-lg flex items-center justify-center font-heading font-bold text-lg ${isSelected
-    ? "bg-white/20 text-white"
-    : "bg-white/10 text-gray-300"
-    }`;
-
-  if (!logoUrl) {
-    return <div className={fallbackClassName}>{team.short_name}</div>;
-  }
-
-  return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/90 p-1.5 shadow-sm">
-      <img
-        src={logoUrl}
-        alt={`${team.name} logo`}
-        className="h-full w-full object-contain"
-        loading="lazy"
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-          event.currentTarget.nextElementSibling?.classList.remove("hidden");
-        }}
-      />
-      <span className="hidden font-heading text-sm font-bold text-surface-800">
-        {team.short_name}
-      </span>
-    </div>
-  );
-}
-
 function StatItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
@@ -399,22 +352,6 @@ const COUNTRY_FLAG_CODES: Record<string, string> = {
   Portugal: "PT",
   Netherlands: "NL",
   Belgium: "BE",
-};
-
-const DIVISION_LOGOS: Record<string, string> = {
-  "England:Premier League": "/images/logo/england/england_english-premier-league.football-logos.cc.svg",
-  "England:EFL Championship": "/images/logo/england/england_efl-championship.football-logos.cc.svg",
-  "Spain:LaLiga": "/images/logo/spain/spain_la-liga.football-logos.cc.svg",
-  "Spain:Segunda División": "/images/logo/spain/spain_la-liga-2.football-logos.cc.svg",
-  "Italy:Serie A": "/images/logo/italy/italy_serie-a.football-logos.cc.svg",
-  "Italy:Serie B": "/images/logo/italy/italy_serie-b.football-logos.cc.svg",
-  "France:Ligue 1": "/images/logo/france/france_ligue-1.football-logos.cc.svg",
-  "France:Ligue 2": "/images/logo/france/france_ligue-2.football-logos.cc.svg",
-  "Germany:Bundesliga": "/images/logo/germany/germany_bundesliga.football-logos.cc.svg",
-  "Germany:2. Bundesliga": "/images/logo/germany/germany_2-bundesliga.football-logos.cc.svg",
-  "Portugal:Primeira Liga": "/images/logo/portugal/portugal_primeira-liga.football-logos.cc.svg",
-  "Netherlands:Eredivisie": "/images/logo/netherlands/netherlands_eredivisie.football-logos.cc.svg",
-  "Belgium:Belgian Pro League": "/images/logo/belgium/belgium_belgian-pro-league.football-logos.cc.svg",
 };
 
 const LEAGUE_NAMES: Record<string, Record<number, string>> = {

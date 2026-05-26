@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
+import DivisionLogo from "../common/DivisionLogo";
+import TeamLogo from "../common/TeamLogo";
 import { Card, CardHeader, CardBody, Badge } from "../ui";
 import {
   Trophy,
@@ -24,6 +26,15 @@ import {
   buildViewProfileMenuItem,
   buildViewTeamMenuItem,
 } from "../playerActions/playerContextMenuItems";
+
+function competitionLogoMeta(competition: unknown): { country: string | null; tier: number | null } {
+  if (!competition || typeof competition !== "object") return { country: null, tier: null };
+  const value = competition as { country?: unknown; tier?: unknown };
+  return {
+    country: typeof value.country === "string" ? value.country : null,
+    tier: typeof value.tier === "number" ? value.tier : null,
+  };
+}
 
 interface AwardEntry {
   player_id: string;
@@ -53,6 +64,10 @@ export default function TournamentsTab({
   onSelectPlayer,
 }: TournamentsTabProps) {
   const { t } = useTranslation();
+  const teamById = useMemo(
+    () => new Map(gameState.teams.map((team) => [team.id, team])),
+    [gameState.teams],
+  );
   const competitionOptions = gameState.competitions?.length
     ? gameState.competitions
     : gameState.league
@@ -147,6 +162,7 @@ export default function TournamentsTab({
 
   const hasStandings = selectedCompetition.standings.length > 0;
   const competitionLabel = getCompetitionDisplayName(selectedCompetition);
+  const { country: competitionCountry, tier: competitionTier } = competitionLogoMeta(selectedCompetition);
   const competitionTeamCount =
     'team_ids' in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
       ? selectedCompetition.team_ids.length
@@ -309,6 +325,13 @@ export default function TournamentsTab({
                 </div>
               ) : null}
             </div>
+            {competitionCountry && competitionTier ? (
+              <DivisionLogo country={competitionCountry} leagueName={competitionLabel} />
+            ) : (
+              <div className="hidden h-14 w-14 items-center justify-center rounded-xl bg-accent-500/20 md:flex">
+                <Trophy className="w-7 h-7 text-accent-400" />
+              </div>
+            )}
             <div className="hidden md:flex gap-4">
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
                 <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
@@ -435,6 +458,7 @@ export default function TournamentsTab({
                   <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                     {standings.map((entry, idx) => {
                       const isUser = entry.team_id === userTeamId;
+                      const team = teamById.get(entry.team_id);
                       const gd = entry.goals_for - entry.goals_against;
                       return (
                         <ContextMenu
@@ -452,7 +476,10 @@ export default function TournamentsTab({
                             <td
                               className={`py-2 px-3 font-semibold text-sm ${isUser ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
                             >
-                              {getTeamName(gameState.teams, entry.team_id)}
+                              <span className="flex items-center gap-2">
+                                {team ? <TeamLogo team={team} size="sm" /> : null}
+                                <span>{team?.name ?? getTeamName(gameState.teams, entry.team_id)}</span>
+                              </span>
                             </td>
                             <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
                               {entry.played}
@@ -611,6 +638,7 @@ export default function TournamentsTab({
                 <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
                   {standings.map((entry, idx) => {
                     const isUser = entry.team_id === userTeamId;
+                    const team = teamById.get(entry.team_id);
                     const gd = entry.goals_for - entry.goals_against;
                     return (
                       <ContextMenu
@@ -628,7 +656,10 @@ export default function TournamentsTab({
                           <td
                             className={`py-3 px-4 font-semibold text-sm ${isUser ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
                           >
-                            {getTeamName(gameState.teams, entry.team_id)}
+                            <span className="flex items-center gap-2">
+                              {team ? <TeamLogo team={team} size="sm" /> : null}
+                              <span>{team?.name ?? getTeamName(gameState.teams, entry.team_id)}</span>
+                            </span>
                           </td>
                           <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
                             {entry.played}
@@ -682,6 +713,8 @@ export default function TournamentsTab({
                     const isUserMatch =
                       f.home_team_id === userTeamId ||
                       f.away_team_id === userTeamId;
+                    const homeTeam = teamById.get(f.home_team_id);
+                    const awayTeam = teamById.get(f.away_team_id);
                     const completed = f.status === "Completed";
                     return (
                       <ContextMenu items={buildFixtureMenuItems(f)} key={f.id}>
@@ -693,7 +726,10 @@ export default function TournamentsTab({
                             onClick={() => onSelectTeam(f.home_team_id)}
                             className={`flex-1 text-right font-semibold text-sm cursor-pointer hover:underline ${f.home_team_id === userTeamId ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
                           >
-                            {getTeamName(gameState.teams, f.home_team_id)}
+                            <span className="flex items-center justify-end gap-2">
+                              <span>{homeTeam?.name ?? getTeamName(gameState.teams, f.home_team_id)}</span>
+                              {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
+                            </span>
                           </span>
                           <div className="w-24 text-center mx-3">
                             {completed && f.result ? (
@@ -710,7 +746,10 @@ export default function TournamentsTab({
                             onClick={() => onSelectTeam(f.away_team_id)}
                             className={`flex-1 text-left font-semibold text-sm cursor-pointer hover:underline ${f.away_team_id === userTeamId ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
                           >
-                            {getTeamName(gameState.teams, f.away_team_id)}
+                            <span className="flex items-center gap-2">
+                              {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
+                              <span>{awayTeam?.name ?? getTeamName(gameState.teams, f.away_team_id)}</span>
+                            </span>
                           </span>
                         </div>
                       </ContextMenu>

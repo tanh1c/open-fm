@@ -1,18 +1,18 @@
 import { TeamData } from "../store/types";
 
-const PREMIER_LEAGUE_LOGO_BASE = "/images/logo/english-premier-league-2026-2027.football-logos.cc/128x128";
-const CHAMPIONSHIP_LOGO_BASE = "/images/logo/england-efl-championship-2026-2027.football-logos.cc/128x128";
-const LA_LIGA_LOGO_BASE = "/images/logo/spain-la-liga-2025-2026.football-logos.cc/128x128";
-const LA_LIGA_2_LOGO_BASE = "/images/logo/spain-la-liga-2-2025-2026.football-logos.cc/128x128";
-const SERIE_A_LOGO_BASE = "/images/logo/italy-serie-a-2025-2026.football-logos.cc/128x128";
-const SERIE_B_LOGO_BASE = "/images/logo/italy-serie-b-2025-2026.football-logos.cc/128x128";
-const LIGUE_1_LOGO_BASE = "/images/logo/france-ligue-1-2025-2026.football-logos.cc/128x128";
-const LIGUE_2_LOGO_BASE = "/images/logo/france-ligue-2-2025-2026.football-logos.cc/128x128";
-const BUNDESLIGA_LOGO_BASE = "/images/logo/germany-bundesliga-2025-2026.football-logos.cc/128x128";
-const BUNDESLIGA_2_LOGO_BASE = "/images/logo/germany-2-bundesliga-2025-2026.football-logos.cc/128x128";
-const PRIMEIRA_LIGA_LOGO_BASE = "/images/logo/portugal-primeira-liga-2025-2026.football-logos.cc/128x128";
-const EREDIVISIE_LOGO_BASE = "/images/logo/netherlands-eredivisie-2025-2026.football-logos.cc/128x128";
-const BELGIAN_PRO_LEAGUE_LOGO_BASE = "/images/logo/belgium-pro-league-2025-2026.football-logos.cc/128x128";
+const PREMIER_LEAGUE_LOGO_BASE = "/images/logo/england/english-premier-league-2026-2027.football-logos.cc/128x128";
+const CHAMPIONSHIP_LOGO_BASE = "/images/logo/england/england-efl-championship-2026-2027.football-logos.cc/128x128";
+const LA_LIGA_LOGO_BASE = "/images/logo/spain/spain-la-liga-2025-2026.football-logos.cc/128x128";
+const LA_LIGA_2_LOGO_BASE = "/images/logo/spain/spain-la-liga-2-2025-2026.football-logos.cc/128x128";
+const SERIE_A_LOGO_BASE = "/images/logo/italy/italy-serie-a-2025-2026.football-logos.cc/128x128";
+const SERIE_B_LOGO_BASE = "/images/logo/italy/italy-serie-b-2025-2026.football-logos.cc/128x128";
+const LIGUE_1_LOGO_BASE = "/images/logo/france/france-ligue-1-2025-2026.football-logos.cc/128x128";
+const LIGUE_2_LOGO_BASE = "/images/logo/france/france-ligue-2-2025-2026.football-logos.cc/128x128";
+const BUNDESLIGA_LOGO_BASE = "/images/logo/germany/germany-bundesliga-2025-2026.football-logos.cc/128x128";
+const BUNDESLIGA_2_LOGO_BASE = "/images/logo/germany/germany-2-bundesliga-2025-2026.football-logos.cc/128x128";
+const PRIMEIRA_LIGA_LOGO_BASE = "/images/logo/portugal/portugal-primeira-liga-2025-2026.football-logos.cc/128x128";
+const EREDIVISIE_LOGO_BASE = "/images/logo/netherlands/netherlands-eredivisie-2025-2026.football-logos.cc/128x128";
+const BELGIAN_PRO_LEAGUE_LOGO_BASE = "/images/logo/belgium/belgium-pro-league-2025-2026.football-logos.cc/128x128";
 
 const LOGO_SLUGS_BY_TEAM: Record<string, string> = {
   Arsenal: `${PREMIER_LEAGUE_LOGO_BASE}/arsenal.football-logos.cc.png`,

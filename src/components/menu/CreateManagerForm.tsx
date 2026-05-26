@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker } from "../ui";
-import { AlertCircle, ChevronRight, X } from "lucide-react";
+import { AlertCircle, ChevronRight, Shuffle, X } from "lucide-react";
 
 const CreateManagerNationalityField = lazy(
     () => import("./CreateManagerNationalityField"),
@@ -23,6 +23,7 @@ interface CreateManagerFormProps {
     onChange: (field: CreateManagerField, value: string) => void;
     onClearError: (field: CreateManagerField) => void;
     onClose: () => void;
+    onRandomize: () => void;
     onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }
 
@@ -72,23 +73,34 @@ export default function CreateManagerForm({
     onChange,
     onClearError,
     onClose,
+    onRandomize,
     onSubmit,
 }: CreateManagerFormProps) {
     const { t, i18n } = useTranslation();
 
     return (
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between gap-3">
                 <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 transition-colors dark:text-white">
                     {t("createManager.title")}
                 </h2>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-surface-600 dark:hover:text-white"
-                >
-                    <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={onRandomize}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary-500/20 bg-primary-500/10 px-2.5 py-1.5 text-xs font-heading font-bold uppercase tracking-wider text-primary-600 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
+                    >
+                        <Shuffle className="h-3.5 w-3.5" />
+                        {t("createManager.randomize")}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-surface-600 dark:hover:text-white"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
             </div>
 
             <div className="mb-1 flex items-center gap-2">

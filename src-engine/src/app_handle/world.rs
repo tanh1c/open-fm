@@ -37,9 +37,9 @@ impl AppHandle {
         let databases = vec![serde_json::json!({
             "id": "random",
             "name": RANDOM_WORLD_NAME_KEY,
-            "description": backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 16),
-            "team_count": 16,
-            "player_count": 352,
+            "description": backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 248),
+            "team_count": 248,
+            "player_count": 5456,
             "source": "builtin",
             "path": "",
         })];

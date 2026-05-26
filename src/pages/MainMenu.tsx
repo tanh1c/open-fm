@@ -38,6 +38,43 @@ interface SaveEntry {
  * leaving as-is until product agrees.
  */
 const MANAGER_MINIMUM_AGE = 30;
+const DEFAULT_WORLD_TEAM_COUNT = 248;
+const DEFAULT_WORLD_PLAYER_COUNT = 5456;
+
+const RANDOM_MANAGER_FIRST_NAMES = [
+  "Alex",
+  "Marco",
+  "Daniel",
+  "Lucas",
+  "Julien",
+  "Thomas",
+  "Rafael",
+  "Nico",
+];
+const RANDOM_MANAGER_LAST_NAMES = [
+  "Morgan",
+  "Silva",
+  "Keller",
+  "Moretti",
+  "Dubois",
+  "Santos",
+  "Hughes",
+  "Rossi",
+];
+const RANDOM_MANAGER_NATIONALITIES = ["ENG", "ES", "IT", "FR", "DE", "PT", "NL", "BE"];
+
+function pickRandom<T>(values: readonly T[]): T {
+  return values[Math.floor(Math.random() * values.length)];
+}
+
+function randomManagerDob(): string {
+  const today = new Date();
+  const age = 30 + Math.floor(Math.random() * 36);
+  const year = today.getFullYear() - age;
+  const month = 1 + Math.floor(Math.random() * 12);
+  const day = 1 + Math.floor(Math.random() * 28);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 function flooredAgeFromIsoDate(isoDob: string): number | null {
   if (!isoDob) return null;
@@ -173,6 +210,16 @@ export default function MainMenu() {
     [],
   );
 
+  const randomizeManager = useCallback(() => {
+    setFormData({
+      firstName: pickRandom(RANDOM_MANAGER_FIRST_NAMES),
+      lastName: pickRandom(RANDOM_MANAGER_LAST_NAMES),
+      dob: randomManagerDob(),
+      nationality: pickRandom(RANDOM_MANAGER_NATIONALITIES),
+    });
+    setFormErrors({});
+  }, []);
+
   const validateForm = (): {
     ok: boolean;
     errors: Partial<Record<keyof CreateManagerFormData, string>>;
@@ -249,8 +296,8 @@ export default function MainMenu() {
           id: "random",
           name: t("worldSelect.randomWorld"),
           description: t("worldSelect.randomDescription"),
-          team_count: 8,
-          player_count: 160,
+          team_count: DEFAULT_WORLD_TEAM_COUNT,
+          player_count: DEFAULT_WORLD_PLAYER_COUNT,
           source: "builtin",
           path: "",
         },
@@ -519,6 +566,7 @@ export default function MainMenu() {
                 dobError={dobDisplayedError}
                 onChange={updateFormField}
                 onClearError={clearFormError}
+                onRandomize={randomizeManager}
                 onClose={() => {
                   setMenuState("main");
                   setFormErrors({});

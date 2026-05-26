@@ -32,6 +32,7 @@
     "selectCountry": "Select Country/Region...",
     "searchNationalities": "Search nationalities...",
     "chooseWorld": "Choose World",
+    "randomize": "Random",
     "placeholderFirst": "e.g. José",
     "placeholderLast": "e.g. Mourinho"
   },
@@ -51,7 +52,7 @@
     "teams": "{{count}} teams",
     "players": "{{count}} players",
     "randomWorld": "Random World",
-    "randomDescription": "Randomly generated league with 8 teams, players, and staff"
+    "randomDescription": "Expanded European world with realistic leagues, players, and staff"
   },
   "dashboard": {
     "home": "Home",

@@ -1,3 +1,4 @@
+import type { TeamData } from "../../store/gameStore";
 import { TemplateBriefingStrip, type TemplateBriefingItem } from "./widgets/TemplateBriefingStrip";
 import type { TemplateClubBriefingSection } from "./widgets/TemplateClubBriefing";
 import { TemplateGoalsAnalysis, type TemplateGoalSegment } from "./widgets/TemplateGoalsAnalysis";
@@ -18,6 +19,8 @@ export interface TemplateDashboardProps {
     timeLabel?: string;
     homeTeamName: string;
     awayTeamName: string;
+    homeTeam?: TeamData;
+    awayTeam?: TeamData;
     homeSideLabel: string;
     awaySideLabel: string;
     homeForm: string[];

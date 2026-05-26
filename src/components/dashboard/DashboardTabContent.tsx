@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import EndOfSeasonScreen from "../EndOfSeasonScreen";
 import HomeTab from "../home/HomeTab";
 import type { DashboardTabContentModel } from "./dashboardTabContentModel";
@@ -19,6 +19,13 @@ const InboxTab = lazy(() => import("../inbox/InboxTab"));
 const ManagerTab = lazy(() => import("../manager/ManagerTab"));
 const NewsTab = lazy(() => import("../news/NewsTab"));
 const SettingsTab = lazy(() => import("../../pages/Settings"));
+
+function prefetchHeavyDashboardTabs() {
+  void import("../scouting/ScoutingTab");
+  void import("../players/PlayersListTab");
+  void import("../teams/TeamsListTab");
+  void import("../tournaments/TournamentsTab");
+}
 
 interface DashboardTabContentProps {
   viewModel: DashboardTabContentModel;
@@ -49,6 +56,13 @@ export default function DashboardTabContent({
       onSelectTeam,
     },
   } = viewModel;
+
+  useEffect(() => {
+    const schedulePrefetch = window.requestIdleCallback ?? ((callback: IdleRequestCallback) => window.setTimeout(callback, 400));
+    const cancelPrefetch = window.cancelIdleCallback ?? window.clearTimeout;
+    const id = schedulePrefetch(() => prefetchHeavyDashboardTabs());
+    return () => cancelPrefetch(id);
+  }, []);
 
   const renderHomeContent = () => {
     if (seasonComplete) {

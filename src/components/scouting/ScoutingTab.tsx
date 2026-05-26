@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
@@ -34,8 +34,9 @@ import TransferBidModal from "../transfers/TransferBidModal";
 import { useTransferBidFlow } from "../transfers/useTransferBidFlow";
 import { cancelYouthScouting, reassignYouthScouting, sendScout, startYouthScouting } from "../../services/scoutingService";
 import { calculateAvailableScouts, scoutAssignmentCount, scoutMaxSlots } from "./ScoutingTab.helpers";
-import { buildAlreadyScoutingIds, filterScoutablePlayers, paginateScoutablePlayers } from "./ScoutingTab.model";
+import { buildAlreadyScoutingIds, filterScoutablePlayers } from "./ScoutingTab.model";
 import ScoutingYouthRecruitmentCard from "./ScoutingYouthRecruitmentCard";
+import TeamLogo from "../common/TeamLogo";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -57,6 +58,14 @@ type RoleProfileFilter = "Any" | "High Potential" | "Ready Now" | "Budget" | "Wo
 type ScoutingOpsTab = "Trip" | "Youth";
 type SearchSortKey = "player" | "age" | "nat" | "team" | "pos" | "value" | "wage" | "ca" | "pa" | "knowledge" | "interest" | "status";
 type SortDirection = "asc" | "desc";
+interface ScoutingPlayerMeta {
+  age: number;
+  overall: number;
+  potential: number;
+  teamName: string;
+  nationality: string;
+  position: string;
+}
 const TEMPLATE_POSITION_FILTER_MAP: Record<string, string> = {
   All: "All",
   GK: "Goalkeeper",
@@ -104,6 +113,8 @@ export default function ScoutingTab({
   );
   const [assignmentHint, setAssignmentHint] = useState(false);
   const [savedSearchNotice, setSavedSearchNotice] = useState<string | null>(null);
+  const [searchReady, setSearchReady] = useState(false);
+  const [secondaryPanelsReady, setSecondaryPanelsReady] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     bidTarget,
@@ -124,56 +135,100 @@ export default function ScoutingTab({
   } = useTransferBidFlow({ gameState, onGameUpdate });
 
   const myTeamId = gameState.manager.team_id ?? "";
-  const scouts = gameState.staff.filter((staff) => staff.role === "Scout" && staff.team_id === myTeamId);
+  const teamById = useMemo(
+    () => new Map(gameState.teams.map((team) => [team.id, team])),
+    [gameState.teams],
+  );
+  const playerById = useMemo(
+    () => new Map(gameState.players.map((player) => [player.id, player])),
+    [gameState.players],
+  );
+  const playerMetaById = useMemo(
+    () => buildScoutingPlayerMetaMap(gameState.players, teamById),
+    [gameState.players, teamById],
+  );
+  const scouts = useMemo(
+    () => gameState.staff.filter((staff) => staff.role === "Scout" && staff.team_id === myTeamId),
+    [gameState.staff, myTeamId],
+  );
   const assignments = gameState.scouting_assignments || [];
   const youthAssignments = gameState.youth_scouting_assignments || [];
   const allAssignments = useMemo(() => [...assignments, ...youthAssignments], [assignments, youthAssignments]);
-  const availableScouts = calculateAvailableScouts(scouts, allAssignments);
+  const availableScouts = useMemo(
+    () => calculateAvailableScouts(scouts, allAssignments),
+    [scouts, allAssignments],
+  );
 
   useEffect(() => {
     if (selectedYouthScoutId && availableScouts.some((scout) => scout.id === selectedYouthScoutId)) return;
     setSelectedYouthScoutId(availableScouts[0]?.id ?? "");
   }, [availableScouts, selectedYouthScoutId]);
 
-  const baseScoutable = filterScoutablePlayers({
-    players: gameState.players,
-    teams: gameState.teams,
-    myTeamId,
-    posFilter: TEMPLATE_POSITION_FILTER_MAP[posFilter] ?? posFilter,
-    searchQuery,
-  });
-  const allScoutable = applyScoutingFilters(baseScoutable, {
-    ageFilter,
-    nationalityFilter,
-    transferTypeFilter,
-    contractStatusFilter,
-    roleProfileFilter,
-    recruitmentFocus,
-    managerNationality: gameState.manager.football_nation ?? gameState.manager.nationality,
-    currentDate: gameState.clock.current_date,
-  });
-  const listedTargets = buildShortlistPlayers(baseScoutable, shortlistMode, myTeamId);
-  const sortedScoutable = useMemo(
-    () => sortScoutablePlayers(allScoutable, searchSort, gameState.teams, assignments),
-    [allScoutable, searchSort, gameState.teams, assignments],
-  );
-  const { totalPages, safePage, players: scoutablePlayers } = paginateScoutablePlayers(
-    sortedScoutable,
-    page,
-    SCOUTING_PAGE_SIZE,
-  );
-  const alreadyScoutingIds = buildAlreadyScoutingIds(assignments);
-  const completedScoutReports = useMemo(() => buildScoutReportMap(gameState.messages), [gameState.messages]);
-  const selectedReportPlayer = selectedReportPlayerId
-    ? gameState.players.find((player) => player.id === selectedReportPlayerId) ?? null
-    : null;
-  const featuredPlayer = selectedReportPlayer ?? scoutablePlayers[0] ?? sortedScoutable[0] ?? listedTargets[0] ?? baseScoutable[0] ?? null;
-  const featuredScoutReport = featuredPlayer ? completedScoutReports.get(featuredPlayer.id) ?? null : null;
-  const featuredActiveAssignment = featuredPlayer ? assignments.find((assignment) => assignment.player_id === featuredPlayer.id) ?? null : null;
+  useEffect(() => {
+    const id = window.setTimeout(() => setSearchReady(true), 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
-  const focusPlayerSearch = () => {
+  useEffect(() => {
+    if (!searchReady) return;
+    return requestIdleTask(() => setSecondaryPanelsReady(true));
+  }, [searchReady]);
+
+  const baseScoutable = useMemo(
+    () => searchReady ? filterScoutablePlayers({
+      players: gameState.players,
+      teams: gameState.teams,
+      myTeamId,
+      posFilter: TEMPLATE_POSITION_FILTER_MAP[posFilter] ?? posFilter,
+      searchQuery,
+    }) : [],
+    [searchReady, gameState.players, gameState.teams, myTeamId, posFilter, searchQuery],
+  );
+  const allScoutable = useMemo(
+    () => applyScoutingFilters(baseScoutable, playerMetaById, {
+      ageFilter,
+      nationalityFilter,
+      transferTypeFilter,
+      contractStatusFilter,
+      roleProfileFilter,
+      recruitmentFocus,
+      managerNationality: gameState.manager.football_nation ?? gameState.manager.nationality,
+      currentDate: gameState.clock.current_date,
+    }),
+    [
+      baseScoutable,
+      playerMetaById,
+      ageFilter,
+      nationalityFilter,
+      transferTypeFilter,
+      contractStatusFilter,
+      roleProfileFilter,
+      recruitmentFocus,
+      gameState.manager.football_nation,
+      gameState.manager.nationality,
+      gameState.clock.current_date,
+    ],
+  );
+  const listedTargets = useMemo(
+    () => secondaryPanelsReady ? buildShortlistPlayers(baseScoutable, shortlistMode, myTeamId, playerMetaById) : [],
+    [secondaryPanelsReady, baseScoutable, shortlistMode, myTeamId, playerMetaById],
+  );
+  const alreadyScoutingIds = useMemo(() => buildAlreadyScoutingIds(assignments), [assignments]);
+  const totalPages = Math.max(1, Math.ceil(allScoutable.length / SCOUTING_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const scoutableWindow = useMemo(
+    () => selectScoutableWindow(allScoutable, searchSort, playerMetaById, alreadyScoutingIds, (safePage + 1) * SCOUTING_PAGE_SIZE),
+    [allScoutable, searchSort, playerMetaById, alreadyScoutingIds, safePage],
+  );
+  const scoutablePlayers = scoutableWindow.slice(safePage * SCOUTING_PAGE_SIZE, (safePage + 1) * SCOUTING_PAGE_SIZE);
+  const completedScoutReports = useMemo(() => buildScoutReportMap(gameState.messages), [gameState.messages]);
+  const assignmentByPlayerId = useMemo(() => buildAssignmentByPlayerId(assignments), [assignments]);
+  const initialReportPlayer = scoutablePlayers[0] ?? scoutableWindow[0] ?? listedTargets[0] ?? baseScoutable[0] ?? null;
+  const selectedReportPlayerKey = selectedReportPlayerId ?? initialReportPlayer?.id ?? null;
+
+  const focusPlayerSearch = useCallback(() => {
     requestAnimationFrame(() => searchInputRef.current?.focus());
-  };
+  }, []);
 
   const handleCreateAssignmentClick = () => {
     setAssignmentHint(true);
@@ -193,9 +248,9 @@ export default function ScoutingTab({
     setPage(0);
   };
 
-  const handleReportPlayerSelect = (playerId: string) => {
-    setSelectedReportPlayerId(playerId);
-  };
+  const handleReportPlayerSelect = useCallback((playerId: string) => {
+    setSelectedReportPlayerId((current) => current === playerId ? current : playerId);
+  }, []);
 
   const handleSaveSearchClick = () => {
     setSavedSearchNotice(`${allScoutable.length} targets saved for this scouting view.`);
@@ -207,7 +262,7 @@ export default function ScoutingTab({
     focusPlayerSearch();
   };
 
-  const handleSendScout = async (playerId: string) => {
+  const handleSendScout = useCallback(async (playerId: string) => {
     if (availableScouts.length === 0) {
       setPlayerSearchError(null);
       return;
@@ -226,7 +281,7 @@ export default function ScoutingTab({
     } finally {
       setSending(null);
     }
-  };
+  }, [availableScouts, onGameUpdate, t]);
 
   const handleStartYouthScouting = async () => {
     if (!selectedYouthScoutId) return;
@@ -272,7 +327,7 @@ export default function ScoutingTab({
   };
 
   return (
-    <div className="flex min-h-max max-w-[1700px] flex-col gap-4 mx-auto">
+    <div className="relative flex min-h-max max-w-[1700px] flex-col gap-4 mx-auto">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-app-text">SCOUTING</h1>
@@ -343,7 +398,11 @@ export default function ScoutingTab({
               <NoScoutsCard title={t("scouting.noScouts")} hint={t("scouting.noScoutsHint")} />
             )}
           />
-          <ScoutRecommendationsCard players={gameState.players} targetPlayers={allScoutable} myTeamId={myTeamId} managerTeam={myTeam} />
+          {secondaryPanelsReady ? (
+            <ScoutRecommendationsCard players={gameState.players} targetPlayers={allScoutable} myTeamId={myTeamId} managerTeam={myTeam} playerMetaById={playerMetaById} />
+          ) : (
+            <SecondaryPanelShell title="SCOUT RECOMMENDATIONS" />
+          )}
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col gap-4 h-full">
@@ -443,9 +502,10 @@ export default function ScoutingTab({
                       key={player.id}
                       index={safePage * SCOUTING_PAGE_SIZE + index + 1}
                       player={player}
-                      teams={gameState.teams}
+                      meta={getPlayerMeta(playerMetaById, player)}
+                      teamById={teamById}
                       locale={i18n.language}
-                      isActive={player.id === featuredPlayer?.id}
+                      isActive={player.id === selectedReportPlayerKey}
                       isScouting={alreadyScoutingIds.has(player.id)}
                       sendingPlayerId={sending}
                       availableScoutCount={availableScouts.length}
@@ -477,15 +537,24 @@ export default function ScoutingTab({
         </section>
 
         <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[420px]">
-          <PlayerReportCard player={featuredPlayer} scoutReport={featuredScoutReport} activeAssignment={featuredActiveAssignment} teams={gameState.teams} locale={i18n.language} t={t} />
+          <ScoutingReportSidebar
+            selectedPlayerId={selectedReportPlayerId}
+            fallbackPlayerId={initialReportPlayer?.id ?? null}
+            playerById={playerById}
+            playerMetaById={playerMetaById}
+            scoutReports={completedScoutReports}
+            assignmentByPlayerId={assignmentByPlayerId}
+            locale={i18n.language}
+            t={t}
+          />
         </aside>
       </div>
 
       <div className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 xl:grid-cols-4">
         <ActiveAssignmentsCard assignments={assignments} scouts={scouts} players={gameState.players} teams={gameState.teams} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} onFooterClick={() => handleFooterAction()} t={t} />
         <ScoutNetworkCard scouts={scouts} assignments={assignments} onFooterClick={() => handleFooterAction()} t={t} />
-        <MarketInsightsCard players={baseScoutable} teams={gameState.teams} />
-        <ShortlistedPlayersCard players={listedTargets} teams={gameState.teams} mode={shortlistMode} onFooterClick={() => handleFooterAction()} onSelectPlayer={onSelectPlayer} />
+        {secondaryPanelsReady ? <MarketInsightsCard players={baseScoutable} teamById={teamById} playerMetaById={playerMetaById} /> : <SecondaryPanelShell title="MARKET INSIGHTS" compact />}
+        {secondaryPanelsReady ? <ShortlistedPlayersCard players={listedTargets} teamById={teamById} playerMetaById={playerMetaById} mode={shortlistMode} onFooterClick={() => handleFooterAction()} onSelectPlayer={onSelectPlayer} /> : <SecondaryPanelShell title="SHORTLISTED PLAYERS" />}
       </div>
 
       {bidTarget && (
@@ -509,6 +578,16 @@ export default function ScoutingTab({
       )}
     </div>
   );
+}
+
+function requestIdleTask(callback: () => void): () => void {
+  if ("requestIdleCallback" in window) {
+    const id = window.requestIdleCallback(callback, { timeout: 500 });
+    return () => window.cancelIdleCallback(id);
+  }
+
+  const id = setTimeout(callback, 16);
+  return () => clearTimeout(id);
 }
 
 function ScoutingTemplateCard({ className = "", children }: { className?: string; children: ReactNode }) {
@@ -585,10 +664,11 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function ScoutingPlayerRow({
+const ScoutingPlayerRow = memo(function ScoutingPlayerRow({
   index,
   player,
-  teams,
+  meta,
+  teamById,
   locale,
   isActive,
   isScouting,
@@ -603,7 +683,8 @@ function ScoutingPlayerRow({
 }: {
   index: number;
   player: PlayerData;
-  teams: TeamData[];
+  meta: ScoutingPlayerMeta;
+  teamById: Map<string, TeamData>;
   locale: string;
   isActive: boolean;
   isScouting: boolean;
@@ -616,9 +697,9 @@ function ScoutingPlayerRow({
   onSendScout: (playerId: string) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
-  const team = player.team_id ? getTeamName(teams, player.team_id) : t("common.freeAgent");
-  const overall = getPlayerOvr(player);
-  const status = getPlayerScoutStatus(overall, isScouting);
+  const team = player.team_id ? teamById.get(player.team_id) ?? null : null;
+  const teamName = meta.teamName || team?.name || (player.team_id ? t("common.team") : t("common.freeAgent"));
+  const status = getPlayerScoutStatus(meta.overall, isScouting);
   const scoutState = isScouting ? "already-assigned" : sendingPlayerId === player.id ? "busy" : availableScoutCount === 0 ? "unavailable" : "ready";
   const contextItems = [
     ...(onSelectPlayer ? [buildViewProfileMenuItem(t, () => onSelectPlayer(player.id))] : []),
@@ -641,7 +722,7 @@ function ScoutingPlayerRow({
           </button>
         </div>
       </td>
-      <td className="px-3 py-3 text-center text-app-text">{calcAge(player.date_of_birth)}</td>
+      <td className="px-3 py-3 text-center text-app-text">{meta.age}</td>
       <td className="px-3 py-3">
         <div className="flex items-center gap-2">
           <CountryFlag code={player.nationality} locale={locale} className="text-sm leading-none" />
@@ -650,20 +731,20 @@ function ScoutingPlayerRow({
       </td>
       <td className="px-3 py-3">
         <div className="flex items-center gap-2">
-          <div className="h-4 w-4 shrink-0 rounded-full border border-white/20 bg-blue-600" />
-          <button type="button" onClick={(event) => { event.stopPropagation(); player.team_id && onSelectTeam?.(player.team_id); }} className="max-w-[110px] truncate text-xs text-app-text-muted hover:text-app-green">{team}</button>
+          {team ? <TeamLogo team={team} size="sm" /> : <div className="h-4 w-4 shrink-0 rounded-full border border-white/20 bg-blue-600" />}
+          <button type="button" onClick={(event) => { event.stopPropagation(); player.team_id && onSelectTeam?.(player.team_id); }} className="max-w-[110px] truncate text-xs text-app-text-muted hover:text-app-green">{teamName}</button>
         </div>
       </td>
       <td className="px-3 py-3 text-app-text-muted">{translatePositionAbbreviation(t, player.natural_position || player.position)}</td>
       <td className="px-3 py-3 text-right font-medium">{formatVal(player.market_value)}</td>
       <td className="px-3 py-3 text-right text-app-text-muted">{formatVal(player.wage)} p/w</td>
-      <td className="px-3 py-3"><StarRating rating={overall / 20} /></td>
-      <td className="px-3 py-3"><StarRating rating={Math.min(5, overall / 18)} /></td>
-      <td className="px-3 py-3"><StarRating rating={Math.min(5, overall / 19)} /></td>
+      <td className="px-3 py-3"><StarRating rating={meta.overall / 20} /></td>
+      <td className="px-3 py-3"><StarRating rating={Math.min(5, meta.potential / 18)} /></td>
+      <td className="px-3 py-3"><StarRating rating={Math.min(5, meta.overall / 19)} /></td>
       <td className="px-3 py-3 text-center font-mono text-[10px]">
         <div className="flex items-center justify-center gap-1 text-app-green">
           <div className="h-3 w-3 animate-spin-slow rounded-full border-2 border-app-green border-r-transparent" />
-          {isScouting ? "100%" : `${Math.min(99, Math.max(55, overall + 15))}%`}
+          {isScouting ? "100%" : `${Math.min(99, Math.max(55, meta.overall + 15))}%`}
         </div>
       </td>
       <td className="px-3 py-3 text-center"><span className={status.interestClass}>{status.interest} <ArrowUpRight className="h-3 w-3" /></span></td>
@@ -682,7 +763,7 @@ function ScoutingPlayerRow({
   );
 
   return <ContextMenu items={contextItems}>{row}</ContextMenu>;
-}
+});
 
 function getPlayerScoutStatus(overall: number, isScouting: boolean) {
   if (overall >= 72) {
@@ -788,12 +869,19 @@ function NextScoutingTripCard({ assignments, youthAssignments, scouts, players, 
   );
 }
 
-function ScoutRecommendationsCard({ players, targetPlayers, myTeamId, managerTeam }: { players: PlayerData[]; targetPlayers: PlayerData[]; myTeamId: string; managerTeam: TeamData | null }) {
+function ScoutRecommendationsCard({ players, targetPlayers, myTeamId, managerTeam, playerMetaById }: { players: PlayerData[]; targetPlayers: PlayerData[]; myTeamId: string; managerTeam: TeamData | null; playerMetaById: Map<string, ScoutingPlayerMeta> }) {
   const myPlayers = players.filter((player) => player.team_id === myTeamId);
   const lowDepthPositions = ["Goalkeeper", "Defender", "Midfielder", "Forward"].filter((position) => myPlayers.filter((player) => player.position === position || player.natural_position === position).length < 2).length;
-  const highPriority = targetPlayers.filter((player) => (player.potential ?? getPlayerOvr(player)) >= 75 || getPlayerOvr(player) >= 70).length;
+  const highPriority = targetPlayers.filter((player) => {
+    const meta = getPlayerMeta(playerMetaById, player);
+    return meta.potential >= 75 || meta.overall >= 70;
+  }).length;
   const affordable = targetPlayers.filter((player) => !managerTeam || player.market_value <= managerTeam.transfer_budget).length;
-  const hiddenGems = targetPlayers.filter((player) => calcAge(player.date_of_birth) <= 23 && (player.potential ?? getPlayerOvr(player)) >= 70 && player.market_value <= medianMarketValue(targetPlayers)).length;
+  const medianValue = medianMarketValue(targetPlayers);
+  const hiddenGems = targetPlayers.filter((player) => {
+    const meta = getPlayerMeta(playerMetaById, player);
+    return meta.age <= 23 && meta.potential >= 70 && player.market_value <= medianValue;
+  }).length;
 
   return (
     <div className="mt-2 flex flex-col gap-2">
@@ -810,16 +898,33 @@ function ScoutRecommendationsCard({ players, targetPlayers, myTeamId, managerTea
   );
 }
 
-function PlayerReportCard({ player, scoutReport, activeAssignment, teams, locale, t }: { player: PlayerData | null; scoutReport: ScoutReportData | null; activeAssignment: ScoutingAssignment | null; teams: TeamData[]; locale: string; t: (key: string, params?: Record<string, string | number>) => string }) {
-  if (!player) {
+const ScoutingReportSidebar = memo(function ScoutingReportSidebar({ selectedPlayerId, fallbackPlayerId, playerById, playerMetaById, scoutReports, assignmentByPlayerId, locale, t }: { selectedPlayerId: string | null; fallbackPlayerId: string | null; playerById: Map<string, PlayerData>; playerMetaById: Map<string, ScoutingPlayerMeta>; scoutReports: Map<string, ScoutReportData>; assignmentByPlayerId: Map<string, ScoutingAssignment>; locale: string; t: (key: string, params?: Record<string, string | number>) => string }) {
+  const playerId = selectedPlayerId ?? fallbackPlayerId;
+  const player = playerId ? playerById.get(playerId) ?? null : null;
+  const meta = player ? getPlayerMeta(playerMetaById, player) : null;
+
+  return (
+    <PlayerReportCard
+      player={player}
+      meta={meta}
+      scoutReport={player ? scoutReports.get(player.id) ?? null : null}
+      activeAssignment={player ? assignmentByPlayerId.get(player.id) ?? null : null}
+      locale={locale}
+      t={t}
+    />
+  );
+});
+
+const PlayerReportCard = memo(function PlayerReportCard({ player, meta, scoutReport, activeAssignment, locale, t }: { player: PlayerData | null; meta: ScoutingPlayerMeta | null; scoutReport: ScoutReportData | null; activeAssignment: ScoutingAssignment | null; locale: string; t: (key: string, params?: Record<string, string | number>) => string }) {
+  if (!player || !meta) {
     return <ScoutingTemplateCard className="p-4 text-sm text-app-text-muted">No player report available</ScoutingTemplateCard>;
   }
 
   const reportName = scoutReport?.player_name ?? player.match_name;
-  const nationality = scoutReport?.nationality ?? player.nationality;
-  const position = scoutReport?.position ?? player.position;
-  const team = scoutReport?.team_name ?? (player.team_id ? getTeamName(teams, player.team_id) : t("common.freeAgent"));
-  const age = calcAge(scoutReport?.dob ?? player.date_of_birth);
+  const nationality = scoutReport?.nationality ?? meta.nationality;
+  const position = scoutReport?.position ?? meta.position;
+  const team = scoutReport?.team_name ?? (meta.teamName || t("common.freeAgent"));
+  const age = scoutReport?.dob ? calcAge(scoutReport.dob) : meta.age;
 
   if (activeAssignment) {
     return (
@@ -897,7 +1002,7 @@ function PlayerReportCard({ player, scoutReport, activeAssignment, teams, locale
             <ScoutReportAttrList title="REPORT" items={attributeItems.slice(0, 3)} />
             <ScoutReportAttrList title="PROFILE" items={attributeItems.slice(3)} />
           </div>
-          <ScoutReportRadar report={scoutReport} />
+          <DeferredScoutReportRadar report={scoutReport} />
         </div>
       </div>
       <div className="mt-4 flex gap-4 border-t border-app-border/50 pt-4">
@@ -945,7 +1050,7 @@ function PlayerReportCard({ player, scoutReport, activeAssignment, teams, locale
       </div>
     </ScoutingTemplateCard>
   );
-}
+});
 
 function AssignmentsTable({ assignments, scouts, players, teams, onSelectPlayer, onSelectTeam, t, limit }: { assignments: ScoutingAssignment[]; scouts: StaffData[]; players: PlayerData[]; teams: TeamData[]; onSelectPlayer?: (id: string) => void; onSelectTeam?: (id: string) => void; t: (key: string, params?: Record<string, string | number>) => string; limit?: number }) {
   const visibleAssignments = limit ? assignments.slice(0, limit) : assignments;
@@ -1013,9 +1118,9 @@ function ScoutNetworkCard({ scouts, assignments, onFooterClick, t }: { scouts: S
   );
 }
 
-function MarketInsightsCard({ players, teams }: { players: PlayerData[]; teams: TeamData[] }) {
-  const markets = buildMarketRows(players, teams);
-  const ageBands = buildAgeBands(players);
+function MarketInsightsCard({ players, teamById, playerMetaById }: { players: PlayerData[]; teamById: Map<string, TeamData>; playerMetaById: Map<string, ScoutingPlayerMeta> }) {
+  const markets = useMemo(() => buildMarketRows(players, teamById), [players, teamById]);
+  const ageBands = useMemo(() => buildAgeBands(players, playerMetaById), [players, playerMetaById]);
 
   return (
     <BottomSection title="MARKET INSIGHTS" compact>
@@ -1039,12 +1144,12 @@ function MarketInsightsCard({ players, teams }: { players: PlayerData[]; teams: 
   );
 }
 
-function ShortlistedPlayersCard({ players, teams, mode, onFooterClick, onSelectPlayer }: { players: PlayerData[]; teams: TeamData[]; mode: ShortlistMode; onFooterClick: () => void; onSelectPlayer?: (id: string) => void }) {
+function ShortlistedPlayersCard({ players, teamById, playerMetaById, mode, onFooterClick, onSelectPlayer }: { players: PlayerData[]; teamById: Map<string, TeamData>; playerMetaById: Map<string, ScoutingPlayerMeta>; mode: ShortlistMode; onFooterClick: () => void; onSelectPlayer?: (id: string) => void }) {
   return (
     <BottomSection title="SHORTLISTED PLAYERS" footer="View All Shortlists" onFooterClick={onFooterClick}>
       <span className="mb-2 text-[9px] font-semibold uppercase tracking-wide text-app-text-muted">Source: {mode}</span>
       <div className="flex h-full gap-2 overflow-x-auto pb-2 custom-scrollbar">
-        {players.length > 0 ? players.map((player) => <ShortlistCard key={player.id} player={player} teams={teams} onSelectPlayer={onSelectPlayer} />) : <span className="py-6 text-xs text-app-text-muted">No matching listed targets.</span>}
+        {players.length > 0 ? players.map((player) => <ShortlistCard key={player.id} player={player} meta={getPlayerMeta(playerMetaById, player)} team={player.team_id ? teamById.get(player.team_id) : undefined} onSelectPlayer={onSelectPlayer} />) : <span className="py-6 text-xs text-app-text-muted">No matching listed targets.</span>}
       </div>
     </BottomSection>
   );
@@ -1064,6 +1169,14 @@ function BottomSection({ title, children, footer, onFooterClick, compact = false
         ) : null}
       </ScoutingTemplateCard>
     </div>
+  );
+}
+
+function SecondaryPanelShell({ title, compact = false }: { title: string; compact?: boolean }) {
+  return (
+    <BottomSection title={title} compact={compact}>
+      <div className="min-h-20 text-[11px] text-app-text-muted" />
+    </BottomSection>
   );
 }
 
@@ -1137,6 +1250,19 @@ function ScoutReportAttrList({ title, items }: { title: string; items: Array<[st
   );
 }
 
+function DeferredScoutReportRadar({ report }: { report: ScoutReportData }) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(false);
+    return requestIdleTask(() => setReady(true));
+  }, [report]);
+
+  if (!ready) return <div className="h-[100px] w-[100px] shrink-0 rounded border border-app-border/50" />;
+
+  return <ScoutReportRadar report={report} />;
+}
+
 function ScoutReportRadar({ report }: { report: ScoutReportData }) {
   const radarStats = buildScoutReportAttributeItems(report).map(([subject, value]) => ({ subject: subject.slice(0, 3).toUpperCase(), A: value ?? 0 }));
 
@@ -1207,6 +1333,10 @@ function buildScoutReportMap(messages: MessageData[]): Map<string, ScoutReportDa
   return reports;
 }
 
+function buildAssignmentByPlayerId(assignments: ScoutingAssignment[]): Map<string, ScoutingAssignment> {
+  return new Map(assignments.map((assignment) => [assignment.player_id, assignment]));
+}
+
 function buildScoutReportAttributeItems(report: ScoutReportData): Array<[string, number | null]> {
   return [
     ["Pace", report.pace],
@@ -1242,58 +1372,114 @@ function getScoutReportSummary(report: ScoutReportData): string {
   return `${report.rating_key} rating with ${report.potential_key} potential.`;
 }
 
-function sortScoutablePlayers(players: PlayerData[], sort: { key: SearchSortKey; direction: SortDirection }, teams: TeamData[], assignments: ScoutingAssignment[]): PlayerData[] {
-  const direction = sort.direction === "asc" ? 1 : -1;
-  const assignedIds = buildAlreadyScoutingIds(assignments);
-
-  return [...players].sort((left, right) => {
-    const leftValue = getSearchSortValue(left, sort.key, teams, assignedIds);
-    const rightValue = getSearchSortValue(right, sort.key, teams, assignedIds);
-    const result = typeof leftValue === "number" && typeof rightValue === "number"
-      ? leftValue - rightValue
-      : String(leftValue).localeCompare(String(rightValue));
-    return result * direction;
-  });
+function buildScoutingPlayerMetaMap(players: PlayerData[], teamById: Map<string, TeamData>): Map<string, ScoutingPlayerMeta> {
+  return new Map(players.map((player) => {
+    const overall = getPlayerOvr(player);
+    return [player.id, {
+      age: calcAge(player.date_of_birth),
+      overall,
+      potential: player.potential ?? overall,
+      teamName: player.team_id ? teamById.get(player.team_id)?.name ?? "" : "",
+      nationality: player.football_nation ?? player.nationality,
+      position: player.natural_position || player.position,
+    }];
+  }));
 }
 
-function getSearchSortValue(player: PlayerData, key: SearchSortKey, teams: TeamData[], assignedIds: Set<string>): string | number {
+function getPlayerMeta(playerMetaById: Map<string, ScoutingPlayerMeta>, player: PlayerData): ScoutingPlayerMeta {
+  const meta = playerMetaById.get(player.id);
+  if (meta) return meta;
+
   const overall = getPlayerOvr(player);
+  return {
+    age: calcAge(player.date_of_birth),
+    overall,
+    potential: player.potential ?? overall,
+    teamName: "",
+    nationality: player.football_nation ?? player.nationality,
+    position: player.natural_position || player.position,
+  };
+}
+
+function selectScoutableWindow(players: PlayerData[], sort: { key: SearchSortKey; direction: SortDirection }, playerMetaById: Map<string, ScoutingPlayerMeta>, assignedIds: Set<string>, limit: number): PlayerData[] {
+  if (limit >= players.length) {
+    return [...players].sort((left, right) => compareScoutablePlayers(left, right, sort, playerMetaById, assignedIds));
+  }
+
+  const selected: PlayerData[] = [];
+  for (const player of players) {
+    insertSortedScoutable(selected, player, sort, playerMetaById, assignedIds, limit);
+  }
+  return selected;
+}
+
+function insertSortedScoutable(selected: PlayerData[], player: PlayerData, sort: { key: SearchSortKey; direction: SortDirection }, playerMetaById: Map<string, ScoutingPlayerMeta>, assignedIds: Set<string>, limit: number): void {
+  let low = 0;
+  let high = selected.length;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (compareScoutablePlayers(player, selected[mid], sort, playerMetaById, assignedIds) < 0) high = mid;
+    else low = mid + 1;
+  }
+
+  if (low >= limit) return;
+  selected.splice(low, 0, player);
+  if (selected.length > limit) selected.pop();
+}
+
+function compareScoutablePlayers(left: PlayerData, right: PlayerData, sort: { key: SearchSortKey; direction: SortDirection }, playerMetaById: Map<string, ScoutingPlayerMeta>, assignedIds: Set<string>): number {
+  const direction = sort.direction === "asc" ? 1 : -1;
+  const leftValue = getSearchSortValue(left, sort.key, playerMetaById, assignedIds);
+  const rightValue = getSearchSortValue(right, sort.key, playerMetaById, assignedIds);
+  const result = typeof leftValue === "number" && typeof rightValue === "number"
+    ? leftValue - rightValue
+    : String(leftValue).localeCompare(String(rightValue));
+  return result * direction;
+}
+
+function getSearchSortValue(player: PlayerData, key: SearchSortKey, playerMetaById: Map<string, ScoutingPlayerMeta>, assignedIds: Set<string>): string | number {
+  const meta = getPlayerMeta(playerMetaById, player);
   if (key === "player") return player.full_name;
-  if (key === "age") return calcAge(player.date_of_birth);
-  if (key === "nat") return player.football_nation ?? player.nationality;
-  if (key === "team") return player.team_id ? getTeamName(teams, player.team_id) : "";
-  if (key === "pos") return player.natural_position || player.position;
+  if (key === "age") return meta.age;
+  if (key === "nat") return meta.nationality;
+  if (key === "team") return meta.teamName;
+  if (key === "pos") return meta.position;
   if (key === "value") return player.market_value;
   if (key === "wage") return player.wage;
-  if (key === "ca") return overall;
-  if (key === "pa") return player.potential ?? overall;
-  if (key === "knowledge") return assignedIds.has(player.id) ? 100 : Math.min(99, Math.max(55, overall + 15));
-  if (key === "interest") return overall;
-  if (key === "status") return assignedIds.has(player.id) ? 2 : overall >= 72 ? 1 : 0;
+  if (key === "ca") return meta.overall;
+  if (key === "pa") return meta.potential;
+  if (key === "knowledge") return assignedIds.has(player.id) ? 100 : Math.min(99, Math.max(55, meta.overall + 15));
+  if (key === "interest") return meta.overall;
+  if (key === "status") return assignedIds.has(player.id) ? 2 : meta.overall >= 72 ? 1 : 0;
   return "";
 }
 
-function applyScoutingFilters(players: PlayerData[], options: { ageFilter: AgeFilter; nationalityFilter: NationalityFilter; transferTypeFilter: TransferTypeFilter; contractStatusFilter: ContractStatusFilter; roleProfileFilter: RoleProfileFilter; recruitmentFocus: RecruitmentFocus; managerNationality: string; currentDate: string }): PlayerData[] {
+function applyScoutingFilters(players: PlayerData[], playerMetaById: Map<string, ScoutingPlayerMeta>, options: { ageFilter: AgeFilter; nationalityFilter: NationalityFilter; transferTypeFilter: TransferTypeFilter; contractStatusFilter: ContractStatusFilter; roleProfileFilter: RoleProfileFilter; recruitmentFocus: RecruitmentFocus; managerNationality: string; currentDate: string }): PlayerData[] {
   return players.filter((player) => {
-    const age = calcAge(player.date_of_birth);
-    if (options.ageFilter === "U21" && age > 21) return false;
-    if (options.ageFilter === "U23" && age > 23) return false;
-    if (options.ageFilter === "Prime 24-29" && (age < 24 || age > 29)) return false;
-    if (options.ageFilter === "30+" && age < 30) return false;
-    const nationality = player.football_nation ?? player.nationality;
-    if (options.nationalityFilter === "Domestic" && nationality !== options.managerNationality) return false;
-    if (options.nationalityFilter === "Foreign" && nationality === options.managerNationality) return false;
+    const meta = getPlayerMeta(playerMetaById, player);
+    if (!matchesAgeFilter(meta, options.ageFilter)) return false;
+    if (options.nationalityFilter === "Domestic" && meta.nationality !== options.managerNationality) return false;
+    if (options.nationalityFilter === "Foreign" && meta.nationality === options.managerNationality) return false;
     if (options.transferTypeFilter === "Transfer Listed" && !player.transfer_listed) return false;
     if (options.transferTypeFilter === "Loan Listed" && !player.loan_listed) return false;
     if (options.transferTypeFilter === "Free Agent" && player.team_id) return false;
     if (!matchesContractFilter(player, options.contractStatusFilter, options.currentDate)) return false;
-    if (!matchesRoleProfile(player, options.roleProfileFilter)) return false;
-    if (options.recruitmentFocus === "High Potential" && !matchesRoleProfile(player, "High Potential")) return false;
-    if (options.recruitmentFocus === "Ready Soon" && !matchesRoleProfile(player, "Ready Now")) return false;
+    if (!matchesRoleProfile(player, meta, options.roleProfileFilter)) return false;
+    if (options.recruitmentFocus === "High Potential" && !matchesRoleProfile(player, meta, "High Potential")) return false;
+    if (options.recruitmentFocus === "Ready Soon" && !matchesRoleProfile(player, meta, "Ready Now")) return false;
     if (options.recruitmentFocus === "Transfer Listed" && !player.transfer_listed) return false;
     if (options.recruitmentFocus === "Loan Listed" && !player.loan_listed) return false;
     return true;
   });
+}
+
+function matchesAgeFilter(meta: ScoutingPlayerMeta, filter: AgeFilter): boolean {
+  if (filter === "Any") return true;
+  if (filter === "U21") return meta.age <= 21;
+  if (filter === "U23") return meta.age <= 23;
+  if (filter === "Prime 24-29") return meta.age >= 24 && meta.age <= 29;
+  if (filter === "30+") return meta.age >= 30;
+  return true;
 }
 
 function matchesContractFilter(player: PlayerData, filter: ContractStatusFilter, currentDate: string): boolean {
@@ -1306,29 +1492,66 @@ function matchesContractFilter(player: PlayerData, filter: ContractStatusFilter,
   return true;
 }
 
-function matchesRoleProfile(player: PlayerData, filter: RoleProfileFilter): boolean {
+function matchesRoleProfile(player: PlayerData, meta: ScoutingPlayerMeta, filter: RoleProfileFilter): boolean {
   if (filter === "Any") return true;
-  const age = calcAge(player.date_of_birth);
-  const overall = getPlayerOvr(player);
-  const potential = player.potential ?? overall;
-  if (filter === "High Potential") return potential >= 75;
-  if (filter === "Ready Now") return overall >= 68;
+  if (filter === "High Potential") return meta.potential >= 75;
+  if (filter === "Ready Now") return meta.overall >= 68;
   if (filter === "Budget") return player.market_value <= 5_000_000 || !player.team_id;
-  if (filter === "Wonderkid") return age <= 21 && potential >= 75;
+  if (filter === "Wonderkid") return meta.age <= 21 && meta.potential >= 75;
   return true;
 }
 
-function buildShortlistPlayers(players: PlayerData[], mode: ShortlistMode, myTeamId: string): PlayerData[] {
-  const external = players.filter((player) => player.team_id !== myTeamId);
-  const selected = mode === "Transfer Listed"
-    ? external.filter((player) => player.transfer_listed)
-    : mode === "Loan Listed"
-      ? external.filter((player) => player.loan_listed)
-      : mode === "High Potential"
-        ? external.filter((player) => (player.potential ?? getPlayerOvr(player)) >= 75)
-        : external.filter((player) => player.transfer_listed || player.loan_listed);
-  const fallback = selected.length > 0 ? selected : external.filter((player) => calcAge(player.date_of_birth) <= 23 || (player.potential ?? getPlayerOvr(player)) >= 70);
-  return fallback.sort((a, b) => (b.potential ?? getPlayerOvr(b)) - (a.potential ?? getPlayerOvr(a))).slice(0, 8);
+function buildShortlistPlayers(players: PlayerData[], mode: ShortlistMode, myTeamId: string, playerMetaById: Map<string, ScoutingPlayerMeta>): PlayerData[] {
+  const selected = selectShortlistPlayers(players, mode, myTeamId, playerMetaById);
+  if (selected.length > 0) return selected;
+
+  return selectFallbackShortlistPlayers(players, myTeamId, playerMetaById);
+}
+
+function selectShortlistPlayers(players: PlayerData[], mode: ShortlistMode, myTeamId: string, playerMetaById: Map<string, ScoutingPlayerMeta>): PlayerData[] {
+  const selected: PlayerData[] = [];
+
+  for (const player of players) {
+    const meta = getPlayerMeta(playerMetaById, player);
+    if (player.team_id === myTeamId) continue;
+    if (mode === "Transfer Listed" && !player.transfer_listed) continue;
+    if (mode === "Loan Listed" && !player.loan_listed) continue;
+    if (mode === "High Potential" && meta.potential < 75) continue;
+    if (mode === "Recommended" && !player.transfer_listed && !player.loan_listed) continue;
+    insertShortlistPlayer(selected, player, playerMetaById, 8);
+  }
+
+  return selected;
+}
+
+function selectFallbackShortlistPlayers(players: PlayerData[], myTeamId: string, playerMetaById: Map<string, ScoutingPlayerMeta>): PlayerData[] {
+  const selected: PlayerData[] = [];
+
+  for (const player of players) {
+    const meta = getPlayerMeta(playerMetaById, player);
+    if (player.team_id === myTeamId) continue;
+    if (meta.age > 23 && meta.potential < 70) continue;
+    insertShortlistPlayer(selected, player, playerMetaById, 8);
+  }
+
+  return selected;
+}
+
+function insertShortlistPlayer(selected: PlayerData[], player: PlayerData, playerMetaById: Map<string, ScoutingPlayerMeta>, limit: number): void {
+  const playerScore = getPlayerMeta(playerMetaById, player).potential;
+  let low = 0;
+  let high = selected.length;
+
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    const midScore = getPlayerMeta(playerMetaById, selected[mid]).potential;
+    if (playerScore > midScore) high = mid;
+    else low = mid + 1;
+  }
+
+  if (low >= limit) return;
+  selected.splice(low, 0, player);
+  if (selected.length > limit) selected.pop();
 }
 
 function medianMarketValue(players: PlayerData[]): number {
@@ -1337,10 +1560,10 @@ function medianMarketValue(players: PlayerData[]): number {
   return values[Math.floor(values.length / 2)] ?? 0;
 }
 
-function buildMarketRows(players: PlayerData[], teams: TeamData[]) {
+function buildMarketRows(players: PlayerData[], teamById: Map<string, TeamData>) {
   const totals = new Map<string, number>();
   players.forEach((player) => {
-    const team = teams.find((candidate) => candidate.id === player.team_id);
+    const team = player.team_id ? teamById.get(player.team_id) : null;
     const key = team?.country ?? player.football_nation ?? player.nationality;
     totals.set(key, (totals.get(key) ?? 0) + player.market_value);
   });
@@ -1349,19 +1572,26 @@ function buildMarketRows(players: PlayerData[], teams: TeamData[]) {
   return rows.length > 0 ? rows.map((row) => ({ ...row, pct: Math.max(5, Math.round((row.value / max) * 100)) })) : [{ name: "No market", value: 0, pct: 0 }];
 }
 
-function buildAgeBands(players: PlayerData[]) {
+function buildAgeBands(players: PlayerData[], playerMetaById: Map<string, ScoutingPlayerMeta>) {
+  const counts = { u21: 0, u23: 0, prime: 0, veteran: 0 };
+  players.forEach((player) => {
+    const age = getPlayerMeta(playerMetaById, player).age;
+    if (age <= 21) counts.u21 += 1;
+    if (age > 21 && age <= 23) counts.u23 += 1;
+    if (age >= 24 && age <= 29) counts.prime += 1;
+    if (age >= 30) counts.veteran += 1;
+  });
   const bands = [
-    { label: "U21", count: players.filter((player) => calcAge(player.date_of_birth) <= 21).length },
-    { label: "U23", count: players.filter((player) => calcAge(player.date_of_birth) > 21 && calcAge(player.date_of_birth) <= 23).length },
-    { label: "24+", count: players.filter((player) => calcAge(player.date_of_birth) >= 24 && calcAge(player.date_of_birth) <= 29).length },
-    { label: "30+", count: players.filter((player) => calcAge(player.date_of_birth) >= 30).length },
+    { label: "U21", count: counts.u21 },
+    { label: "U23", count: counts.u23 },
+    { label: "24+", count: counts.prime },
+    { label: "30+", count: counts.veteran },
   ];
   const max = Math.max(1, ...bands.map((band) => band.count));
   return bands.map((band) => ({ ...band, pct: Math.max(8, Math.round((band.count / max) * 100)) }));
 }
 
-function ShortlistCard({ player, teams, onSelectPlayer }: { player: PlayerData; teams: TeamData[]; onSelectPlayer?: (id: string) => void }) {
-  const team = teams.find((candidate) => candidate.id === player.team_id);
+function ShortlistCard({ player, meta, team, onSelectPlayer }: { player: PlayerData; meta: ScoutingPlayerMeta; team?: TeamData; onSelectPlayer?: (id: string) => void }) {
   const clubColor = team?.colors?.primary ?? "#ef4444";
 
   return (
@@ -1370,14 +1600,14 @@ function ShortlistCard({ player, teams, onSelectPlayer }: { player: PlayerData; 
       onClick={() => onSelectPlayer?.(player.id)}
       className="group flex min-w-[86px] flex-1 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-app-border bg-app-bg/50 p-2 transition-colors hover:border-app-green/50"
     >
-      <div className="relative flex h-8 w-8 shrink-0 items-end justify-center overflow-hidden rounded-full border border-app-border bg-app-bg pb-0.5">
-        <UserPlus className="h-4 w-4 text-app-text-muted/50" />
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-app-border bg-app-bg">
+        {team ? <TeamLogo team={team} size="sm" className="h-8 w-8 rounded-full" /> : <UserPlus className="h-4 w-4 text-app-text-muted/50" />}
         <div className="absolute right-0 top-0 h-2 w-2.5 rounded-[2px] border-[0.5px] border-app-border" style={{ backgroundColor: clubColor }} />
       </div>
       <div className="flex w-full flex-col items-center">
         <span className="w-full truncate text-center text-[9px] font-bold transition-colors group-hover:text-app-green">{player.match_name}</span>
         <div className="mt-0.5 flex items-center gap-1">
-          <span className="text-[8px] text-app-text-muted">{calcAge(player.date_of_birth)} years old</span>
+          <span className="text-[8px] text-app-text-muted">{meta.age} years old</span>
         </div>
         <div className="mt-0.5 flex items-center gap-1">
           <span className="rounded bg-white/5 px-1 text-[8px] font-bold text-app-text-muted">{player.position.slice(0, 3).toUpperCase()}</span>
@@ -1389,7 +1619,7 @@ function ShortlistCard({ player, teams, onSelectPlayer }: { player: PlayerData; 
         </div>
         <div className="relative z-10 rounded border border-app-border bg-app-bg px-1.5 py-0.5 text-[9px] font-bold">{formatVal(player.market_value)}</div>
       </div>
-      <span className="hidden">{team ? getTeamName(teams, team.id) : ""}</span>
+      <span className="hidden">{team?.name ?? ""}</span>
     </button>
   );
 }

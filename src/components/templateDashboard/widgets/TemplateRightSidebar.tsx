@@ -1,4 +1,6 @@
-import { ChevronRight, Goal, MoreHorizontal, Shield } from "lucide-react";
+import { ChevronRight, Goal, MoreHorizontal } from "lucide-react";
+import type { TeamData } from "../../../store/gameStore";
+import TeamLogo from "../../common/TeamLogo";
 import { TemplateCard, TemplateCardHeader } from "../Card";
 import { cn } from "../templateUtils";
 import type { TemplateBriefingRow, TemplateClubBriefingSection } from "./TemplateClubBriefing";
@@ -11,6 +13,7 @@ export interface TemplateLeagueTableRow {
   pts: number;
   active?: boolean;
   color: string;
+  team?: TeamData;
 }
 
 export interface TemplateFixtureRow {
@@ -20,6 +23,7 @@ export interface TemplateFixtureRow {
   isHome: boolean;
   type: string;
   color: string;
+  team?: TeamData;
 }
 
 export interface TemplateTrainingRow {
@@ -89,7 +93,7 @@ function LeagueTableWidget({ rows, onViewTable }: { rows: TemplateLeagueTableRow
               <tr key={team.pos} className={cn("border-b border-app-border/30 last:border-0", team.active ? "bg-app-green/10" : "")}>
                 <td className="py-2 text-app-text-muted">{team.pos}</td>
                 <td className="py-2 flex items-center gap-2">
-                  <Shield className={cn("w-3.5 h-3.5", team.color)} />
+                  {team.team ? <TeamLogo team={team.team} size="sm" className="h-5 w-5 rounded-md" /> : <span className={cn("h-2.5 w-2.5 rounded-full", team.color.replace("text-", "bg-"))} />}
                   <span className={cn("font-medium", team.active ? "text-app-green" : "text-app-text")}>{team.name}</span>
                 </td>
                 <td className="py-2 text-right text-app-text-muted">{team.p}</td>
@@ -212,9 +216,9 @@ function UpcomingFixturesWidget({ fixtures, onViewSchedule }: { fixtures: Templa
               <span className="text-[10px] text-app-text-muted">{match.date}</span>
               <div className="w-1.5 h-1.5 rounded-full bg-app-border mt-0.5" />
             </div>
-            <div className="flex flex-1 items-center gap-2 text-[11px]">
-              <Shield className={cn("w-3.5 h-3.5", match.color)} />
-              <span className="text-app-text font-medium">{match.opponent} {match.isHome ? "(H)" : "(A)"}</span>
+            <div className="flex flex-1 items-center gap-2 text-[11px] min-w-0">
+              {match.team ? <TeamLogo team={match.team} size="sm" className="h-5 w-5 rounded-md" /> : <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", match.color.replace("text-", "bg-"))} />}
+              <span className="text-app-text font-medium truncate">{match.opponent} {match.isHome ? "(H)" : "(A)"}</span>
             </div>
             <span className="text-[10px] text-app-text-muted">{match.type}</span>
           </div>

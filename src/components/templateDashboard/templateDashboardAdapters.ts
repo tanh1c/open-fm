@@ -212,6 +212,7 @@ export function buildTemplateUpcomingMatch(gameState: GameStateData, lang: strin
       dateLabel: "--",
       homeTeamName: teamName,
       awayTeamName: "TBD",
+      homeTeam: gameState.teams.find((team) => team.id === teamId),
       homeSideLabel: "Home",
       awaySideLabel: "Away",
       homeForm: [],
@@ -228,6 +229,8 @@ export function buildTemplateUpcomingMatch(gameState: GameStateData, lang: strin
     dateLabel: formatMatchDate(fixture.date, lang),
     homeTeamName: homeTeam?.short_name || homeTeam?.name || "Home",
     awayTeamName: awayTeam?.short_name || awayTeam?.name || "Away",
+    homeTeam,
+    awayTeam,
     homeSideLabel: fixture.home_team_id === teamId ? "Home" : "Away",
     awaySideLabel: fixture.away_team_id === teamId ? "Home" : "Away",
     homeForm: homeTeam?.form ?? [],
@@ -255,6 +258,7 @@ export function buildTemplateLeagueRows(gameState: GameStateData): TemplateDashb
       pts: standing.points,
       active: standing.team_id === activeTeamId,
       color: shieldColor(index),
+      team,
     };
   });
 }
@@ -281,13 +285,15 @@ export function buildTemplateUpcomingFixtures(gameState: GameStateData, teamId: 
     .map((fixture, index) => {
       const isHome = fixture.home_team_id === teamId;
       const opponentId = isHome ? fixture.away_team_id : fixture.home_team_id;
+      const opponentTeam = gameState.teams.find((team) => team.id === opponentId);
       return {
         id: fixture.id,
         date: formatDateShort(fixture.date, lang),
-        opponent: getTeamName(gameState.teams, opponentId),
+        opponent: opponentTeam?.short_name || opponentTeam?.name || opponentId,
         isHome,
         type: fixture.competition,
         color: shieldColor(index),
+        team: opponentTeam,
       };
     });
 }

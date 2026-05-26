@@ -3,7 +3,7 @@ import type {
   ScoutingAssignment,
   TeamData,
 } from "../../store/gameStore";
-import { getPlayerOvr, getTeamName } from "../../lib/helpers";
+import { getTeamName } from "../../lib/helpers";
 import { normalisePosition } from "../squad/SquadTab.helpers";
 
 interface FilterScoutablePlayersParams {
@@ -21,31 +21,29 @@ export function filterScoutablePlayers({
   posFilter,
   searchQuery,
 }: FilterScoutablePlayersParams): PlayerData[] {
-  return players
-    .filter((player) => player.team_id !== myTeamId)
-    .filter(
-      (player) =>
-        posFilter === "All" ||
-        normalisePosition(player.natural_position || player.position) === posFilter,
-    )
-    .filter((player) => {
-      if (!searchQuery) {
-        return true;
-      }
+  const query = searchQuery.trim().toLowerCase();
+  const hasQuery = query.length > 0;
+  const teamNameById = hasQuery
+    ? new Map(teams.map((team) => [team.id, getTeamName(teams, team.id).toLowerCase()]))
+    : null;
+  const result: PlayerData[] = [];
 
-      const query = searchQuery.toLowerCase();
+  for (const player of players) {
+    if (player.team_id === myTeamId) continue;
+    if (posFilter !== "All" && normalisePosition(player.natural_position || player.position) !== posFilter) continue;
+    if (
+      hasQuery &&
+      !player.full_name.toLowerCase().includes(query) &&
+      !player.nationality.toLowerCase().includes(query) &&
+      !(player.team_id && teamNameById?.get(player.team_id)?.includes(query))
+    ) {
+      continue;
+    }
 
-      return (
-        player.full_name.toLowerCase().includes(query) ||
-        player.nationality.toLowerCase().includes(query) ||
-        (player.team_id &&
-          getTeamName(teams, player.team_id).toLowerCase().includes(query))
-      );
-    })
-    .sort(
-      (left, right) =>
-        getPlayerOvr(right) - getPlayerOvr(left),
-    );
+    result.push(player);
+  }
+
+  return result;
 }
 
 export function paginateScoutablePlayers(

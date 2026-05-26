@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -12,9 +12,12 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { FixtureData, GameStateData, getCompetitionDisplayName } from "../../store/gameStore";
+import { TeamData } from "../../store/types";
 import { getTeamName, formatMatchDate } from "../../lib/helpers";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
+import DivisionLogo from "../common/DivisionLogo";
+import TeamLogo from "../common/TeamLogo";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
@@ -47,6 +50,24 @@ function StatRow({ label, value, tone = "text-app-text" }: { label: string; valu
   );
 }
 
+function competitionLogoMeta(competition: unknown): { country: string | null; tier: number | null } {
+  if (!competition || typeof competition !== "object") return { country: null, tier: null };
+  const value = competition as { country?: unknown; tier?: unknown };
+  return {
+    country: typeof value.country === "string" ? value.country : null,
+    tier: typeof value.tier === "number" ? value.tier : null,
+  };
+}
+
+function FixtureTeamLine({ team, name }: { team?: TeamData; name: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 text-sm font-bold text-app-text">
+      {team ? <TeamLogo team={team} size="sm" /> : null}
+      <span>{name}</span>
+    </div>
+  );
+}
+
 function fixtureIncludesTeam(fixture: FixtureData, teamId?: string | null): boolean {
   return !!teamId && (fixture.home_team_id === teamId || fixture.away_team_id === teamId);
 }
@@ -71,10 +92,15 @@ export default function ScheduleTab({
     competitionOptions[0] ??
     null;
   const userTeamId = gameState.manager.team_id;
+  const teamById = useMemo(
+    () => new Map(gameState.teams.map((team) => [team.id, team])),
+    [gameState.teams],
+  );
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
   const canShowStandings = selectedCompetition?.standings.length > 0;
   const competitionLabel = selectedCompetition ? getCompetitionDisplayName(selectedCompetition) : "";
+  const { country: competitionCountry, tier: competitionTier } = competitionLogoMeta(selectedCompetition);
 
   useEffect(() => {
     if (competitionOptions.length === 0) {
@@ -182,7 +208,8 @@ export default function ScheduleTab({
       b.goals_for - a.goals_for,
   );
 
-  const userTeamName = userTeamId ? getTeamName(gameState.teams, userTeamId) : t("common.team");
+  const userTeam = userTeamId ? teamById.get(userTeamId) : null;
+  const userTeamName = userTeam?.name ?? (userTeamId ? getTeamName(gameState.teams, userTeamId) : t("common.team"));
   const userStandingIndex = standings.findIndex((entry) => entry.team_id === userTeamId);
   const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
   const userGoalDifference = userStanding ? userStanding.goals_for - userStanding.goals_against : 0;
@@ -199,8 +226,10 @@ export default function ScheduleTab({
   const currentDate = formatMatchDate(gameState.clock.current_date.slice(0, 10));
 
   const renderFixtureRow = (fixture: FixtureData) => {
-    const homeName = getTeamName(gameState.teams, fixture.home_team_id);
-    const awayName = getTeamName(gameState.teams, fixture.away_team_id);
+    const homeTeam = teamById.get(fixture.home_team_id);
+    const awayTeam = teamById.get(fixture.away_team_id);
+    const homeName = homeTeam?.name ?? getTeamName(gameState.teams, fixture.home_team_id);
+    const awayName = awayTeam?.name ?? getTeamName(gameState.teams, fixture.away_team_id);
     const isUserMatch = fixtureIncludesTeam(fixture, userTeamId);
     const completed = fixture.status === "Completed";
     const contextItems = [
@@ -226,11 +255,12 @@ export default function ScheduleTab({
           <span
             onClick={() => onSelectTeam(fixture.home_team_id)}
             className={cx(
-              "min-w-0 flex-1 cursor-pointer truncate text-right text-sm font-semibold hover:underline",
+              "flex min-w-0 flex-1 cursor-pointer items-center justify-end gap-2 truncate text-right text-sm font-semibold hover:underline",
               fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
             )}
           >
-            {homeName}
+            <span className="truncate">{homeName}</span>
+            {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
           </span>
           <div className="mx-3 flex w-24 shrink-0 justify-center text-center">
             {completed && fixture.result ? (
@@ -246,11 +276,12 @@ export default function ScheduleTab({
           <span
             onClick={() => onSelectTeam(fixture.away_team_id)}
             className={cx(
-              "min-w-0 flex-1 cursor-pointer truncate text-left text-sm font-semibold hover:underline",
+              "flex min-w-0 flex-1 cursor-pointer items-center gap-2 truncate text-left text-sm font-semibold hover:underline",
               fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
             )}
           >
-            {awayName}
+            {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
+            <span className="truncate">{awayName}</span>
           </span>
         </div>
       </ContextMenu>
@@ -269,11 +300,16 @@ export default function ScheduleTab({
   return (
     <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
-          <p className="text-sm text-app-text-muted">
-            {competitionLabel} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
-          </p>
+        <div className="flex items-center gap-3">
+          {competitionCountry && competitionTier ? (
+            <DivisionLogo country={competitionCountry} leagueName={competitionLabel} size="sm" />
+          ) : null}
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
+            <p className="text-sm text-app-text-muted">
+              {competitionLabel} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -342,9 +378,12 @@ export default function ScheduleTab({
           <div>
             <SectionTitle title="YOUR CLUB" action={userStanding ? `#${userStandingIndex + 1}` : "Pending"} />
             <TemplateCard className="flex flex-col gap-3 p-4">
-              <div>
-                <p className="text-sm font-bold text-app-text">{userTeamName}</p>
-                <p className="text-xs text-app-text-muted">{userStanding ? t("schedule.standings") : t("season.standingsLocked")}</p>
+              <div className="flex items-center gap-2">
+                {userTeam ? <TeamLogo team={userTeam} size="sm" /> : null}
+                <div>
+                  <p className="text-sm font-bold text-app-text">{userTeamName}</p>
+                  <p className="text-xs text-app-text-muted">{userStanding ? t("schedule.standings") : t("season.standingsLocked")}</p>
+                </div>
               </div>
               <div className="border-t border-app-border/50 pt-3">
                 <StatRow label={t("common.played")} value={String(userStanding?.played ?? 0)} />
@@ -454,6 +493,7 @@ export default function ScheduleTab({
                   <tbody className="divide-y divide-app-border/30 text-app-text">
                     {standings.map((entry, idx) => {
                       const isUser = entry.team_id === userTeamId;
+                      const standingTeam = teamById.get(entry.team_id);
                       const gd = entry.goals_for - entry.goals_against;
                       const contextItems = [
                         buildTeamMenuItem(t("common.viewTeam"), entry.team_id),
@@ -470,7 +510,10 @@ export default function ScheduleTab({
                               onClick={() => onSelectTeam(entry.team_id)}
                               className={cx("cursor-pointer px-4 py-3 text-sm font-semibold hover:underline", isUser ? "text-app-green" : "text-app-text")}
                             >
-                              {getTeamName(gameState.teams, entry.team_id)}
+                              <span className="flex items-center gap-2">
+                                {standingTeam ? <TeamLogo team={standingTeam} size="sm" /> : null}
+                                <span>{standingTeam?.name ?? getTeamName(gameState.teams, entry.team_id)}</span>
+                              </span>
                             </td>
                             <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.played}</td>
                             <td className="px-4 py-3 text-center text-sm tabular-nums text-app-text-muted">{entry.won}</td>
@@ -504,13 +547,9 @@ export default function ScheduleTab({
                     {getFixtureGroupLabel(nextUserFixture)}
                   </div>
                   <div className="rounded-lg border border-app-border bg-app-bg p-3 text-center">
-                    <p className="text-sm font-bold text-app-text">
-                      {getTeamName(gameState.teams, nextUserFixture.home_team_id)}
-                    </p>
+                    <FixtureTeamLine team={teamById.get(nextUserFixture.home_team_id)} name={getTeamName(gameState.teams, nextUserFixture.home_team_id)} />
                     <p className="my-1 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">vs</p>
-                    <p className="text-sm font-bold text-app-text">
-                      {getTeamName(gameState.teams, nextUserFixture.away_team_id)}
-                    </p>
+                    <FixtureTeamLine team={teamById.get(nextUserFixture.away_team_id)} name={getTeamName(gameState.teams, nextUserFixture.away_team_id)} />
                   </div>
                 </div>
               ) : (

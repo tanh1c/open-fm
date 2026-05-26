@@ -9,6 +9,7 @@ export interface TemplateSquadRow {
   position: string;
   number: number;
   matchName: string;
+  fullName?: string;
   age: number;
   nationality: string;
   condition: number;
@@ -91,7 +92,7 @@ const COLUMNS_BY_TAB: Record<SquadTab, SquadColumn[]> = {
   Overview: [
     { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-14" },
     { key: "number", sortKey: "number", label: "#", className: "w-12 pl-3" },
-    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[190px]" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[240px]" },
     { key: "age", sortKey: "age", label: "AGE", className: "w-12 text-center" },
     { key: "nationality", sortKey: "nationality", label: "NAT", className: "w-12 text-center" },
     { key: "ovr", sortKey: "ovr", label: "OVR", className: "w-14 text-center" },
@@ -102,7 +103,7 @@ const COLUMNS_BY_TAB: Record<SquadTab, SquadColumn[]> = {
   ],
   Stats: [
     { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-16" },
-    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[180px]" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[240px]" },
     { key: "appearances", sortKey: "appearances", label: "APPS", className: "w-16 text-center" },
     { key: "goals", sortKey: "goals", label: "GLS", className: "w-16 text-center" },
     { key: "assists", sortKey: "assists", label: "AST", className: "w-16 text-center" },
@@ -110,7 +111,7 @@ const COLUMNS_BY_TAB: Record<SquadTab, SquadColumn[]> = {
   ],
   Contract: [
     { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-16" },
-    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[180px]" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[240px]" },
     { key: "age", sortKey: "age", label: "AGE", className: "w-12" },
     { key: "wage", sortKey: "wage", label: "WAGE", className: "w-24 text-right" },
     { key: "marketValue", sortKey: "marketValue", label: "VALUE", className: "w-24 text-right" },
@@ -118,7 +119,7 @@ const COLUMNS_BY_TAB: Record<SquadTab, SquadColumn[]> = {
   ],
   Fitness: [
     { key: "position", sortKey: "position", label: "POS", className: "pl-4 w-16" },
-    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[180px]" },
+    { key: "matchName", sortKey: "matchName", label: "PLAYER", className: "min-w-[240px]" },
     { key: "condition", sortKey: "condition", label: "CON", className: "w-20" },
     { key: "sharpness", sortKey: "condition", label: "SHP", className: "w-20" },
     { key: "morale", sortKey: "morale", label: "MORALE", className: "w-28" },
@@ -235,7 +236,7 @@ function renderCell(player: TemplateSquadRow, key: ColumnKey) {
   }
 
   if (key === "number") return player.number;
-  if (key === "matchName") return <span className="font-medium text-app-text">{player.matchName}</span>;
+  if (key === "matchName") return <span className="font-medium text-app-text">{player.fullName || player.matchName}</span>;
   if (key === "age") return player.age;
   if (key === "nationality") return <CountryFlag code={player.nationality} className="text-sm leading-none" />;
   if (key === "condition" || key === "sharpness") return <FitnessValue value={player.condition} />;

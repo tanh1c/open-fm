@@ -1,4 +1,6 @@
-import { ChevronRight, CloudRain, MoreHorizontal, Shield } from "lucide-react";
+import { ChevronRight, CloudRain, MoreHorizontal } from "lucide-react";
+import type { TeamData } from "../../../store/gameStore";
+import TeamLogo from "../../common/TeamLogo";
 import { TemplateCard, TemplateCardHeader } from "../Card";
 
 interface TemplateUpcomingMatchProps {
@@ -8,6 +10,8 @@ interface TemplateUpcomingMatchProps {
   timeLabel?: string;
   homeTeamName: string;
   awayTeamName: string;
+  homeTeam?: TeamData;
+  awayTeam?: TeamData;
   homeSideLabel: string;
   awaySideLabel: string;
   homeForm: string[];
@@ -23,6 +27,8 @@ export function TemplateUpcomingMatch({
   timeLabel = "15:00",
   homeTeamName,
   awayTeamName,
+  homeTeam,
+  awayTeam,
   homeSideLabel,
   awaySideLabel,
   homeForm,
@@ -39,9 +45,13 @@ export function TemplateUpcomingMatch({
 
         <div className="flex items-center justify-between w-full mb-6 relative gap-2">
           <div className="flex flex-col items-center gap-2 z-10 shrink min-w-0">
-            <div className="w-14 h-14 bg-app-bg border border-app-border rounded-xl flex items-center justify-center">
-              <Shield className="w-8 h-8 text-primary-500" />
-            </div>
+            {homeTeam ? (
+              <TeamLogo team={homeTeam} className="h-14 w-14 rounded-xl border border-app-border" />
+            ) : (
+              <div className="w-14 h-14 bg-app-bg border border-app-border rounded-xl flex items-center justify-center text-sm font-bold text-app-text">
+                {homeTeamName.slice(0, 3).toUpperCase()}
+              </div>
+            )}
             <span className="text-xs font-bold uppercase tracking-wide truncate max-w-[80px] text-app-text">{homeTeamName}</span>
             <span className="text-[10px] text-app-text-muted">{homeSideLabel}</span>
           </div>
@@ -53,9 +63,13 @@ export function TemplateUpcomingMatch({
           </div>
 
           <div className="flex flex-col items-center gap-2 z-10 shrink min-w-0">
-            <div className="w-14 h-14 bg-app-bg border border-app-border rounded-xl flex items-center justify-center">
-              <Shield className="w-8 h-8 text-red-500" />
-            </div>
+            {awayTeam ? (
+              <TeamLogo team={awayTeam} className="h-14 w-14 rounded-xl border border-app-border" />
+            ) : (
+              <div className="w-14 h-14 bg-app-bg border border-app-border rounded-xl flex items-center justify-center text-sm font-bold text-app-text">
+                {awayTeamName.slice(0, 3).toUpperCase()}
+              </div>
+            )}
             <span className="text-xs font-bold uppercase tracking-wide truncate max-w-[80px] text-app-text">{awayTeamName}</span>
             <span className="text-[10px] text-app-text-muted">{awaySideLabel}</span>
           </div>

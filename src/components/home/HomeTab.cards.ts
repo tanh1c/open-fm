@@ -118,6 +118,7 @@ export function buildSquadOverviewRows(
     position: positionCode(p.natural_position || p.position),
     number: idx + 1,
     matchName: p.match_name,
+    fullName: p.full_name,
     age: calcAge(p.date_of_birth),
     nationality: p.nationality,
     condition: Math.round(p.condition),

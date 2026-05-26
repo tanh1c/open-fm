@@ -346,9 +346,9 @@ mod tests {
     #[test]
     fn test_generate_world_team_count() {
         let (teams, players, staff) = generate_world(None);
-        assert_eq!(teams.len(), 244);
-        assert_eq!(players.len(), 244 * 22);
-        assert_eq!(staff.len(), 244 * 4 + 12);
+        assert_eq!(teams.len(), 248);
+        assert_eq!(players.len(), 248 * 22);
+        assert_eq!(staff.len(), 248 * 4 + 12);
     }
 
     #[test]
@@ -598,7 +598,7 @@ mod tests {
     #[test]
     fn test_world_data_wrapper() {
         let world = generate_world_data(None);
-        assert_eq!(world.teams.len(), 244);
+        assert_eq!(world.teams.len(), 248);
         assert!(!world.name.is_empty());
         assert!(!world.description.is_empty());
     }

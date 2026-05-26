@@ -102,7 +102,7 @@ Controls the teams created during world generation.
 | `finance_range` | `[min, max]` | No | `[500000, 10000000]` | Random starting finance range |
 
 **Notes:**
-- The built-in fallback world contains 244 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium.
+- The built-in fallback world contains 248 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium.
 - `domestic_tier` is optional for custom definitions. It is required only when you want deterministic multi-division placement for countries configured with pyramid rules.
 - The number of teams in each scheduled league should be **even** and ≥ 2 for round-robin generation.
 - Each team gets 22 players (2 GK, 7 DEF, 7 MID, 6 FWD) and 4 staff (AssistantManager, Coach, Scout, Physio).

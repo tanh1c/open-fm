@@ -20,7 +20,7 @@ Deep dive into the match simulation engine (`engine` crate). Explains the 5-zone
 
 ### [GAME_SYSTEMS.md](GAME_SYSTEMS.md)
 
-All gameplay systems beyond match simulation. Includes turn processing flow, the training system (6 focus areas, 3 intensity levels, 3 weekly schedules, probabilistic attribute gains with age/staff modifiers, condition recovery, fitness warnings), staff system (4 roles, coaching bonuses, 7 specializations), player traits (20 traits with attribute requirements), domestic league/cup schedule generation, promotion/relegation, continental qualification, inbox messages, news articles, world generation (244-club European fallback plus custom definitions), finances, and the transfer market framework.
+All gameplay systems beyond match simulation. Includes turn processing flow, the training system (6 focus areas, 3 intensity levels, 3 weekly schedules, probabilistic attribute gains with age/staff modifiers, condition recovery, fitness warnings), staff system (4 roles, coaching bonuses, 7 specializations), player traits (20 traits with attribute requirements), domestic league/cup schedule generation, promotion/relegation, continental qualification, inbox messages, news articles, world generation (248-club European fallback plus custom definitions), finances, and the transfer market framework.
 
 ### [DEFINITIONS.md](DEFINITIONS.md)
 

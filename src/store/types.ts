@@ -70,6 +70,7 @@ export interface TeamData {
   name: string;
   short_name: string;
   country: string;
+  domestic_tier?: number | null;
   city: string;
   stadium_name: string;
   stadium_capacity: number;

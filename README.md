@@ -41,7 +41,7 @@ Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine c
 
 ### Football world simulation
 
-- Generate a playable European football world with 244 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium.
+- Generate a playable European football world with 248 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium.
 - Run domestic league pyramids, domestic cups, continental qualification, promotion/relegation, schedules, news, and inbox messages.
 - Advance time through daily and weekly simulation loops.
 - Follow league standings, cup fixtures, tournament progress, and club performance over time.

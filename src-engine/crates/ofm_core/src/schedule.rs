@@ -39,7 +39,7 @@ const ENGLAND_LEAGUE_TIERS: &[DomesticLeagueTierDefinition] = &[
     DomesticLeagueTierDefinition {
         name: "EFL Championship",
         tier: 2,
-        target_team_count: 20,
+        target_team_count: 24,
         promotion_count: 3,
         relegation_count: 0,
     },

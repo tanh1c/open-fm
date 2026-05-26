@@ -260,7 +260,7 @@ The active game keeps a legacy `game.league` copy for older UI flows, but the so
 - participating `team_ids`
 - fixtures, standings, and transfer log
 
-The default world now creates 244 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium. England, France, Germany, Italy, and Spain each have two domestic league tiers plus two domestic cups. Portugal, Netherlands, and Belgium each have one domestic league plus one domestic cup.
+The default world now creates 248 clubs across England, France, Germany, Italy, Spain, Portugal, Netherlands, and Belgium. England, France, Germany, Italy, and Spain each have two domestic league tiers plus two domestic cups. Portugal, Netherlands, and Belgium each have one domestic league plus one domestic cup.
 
 ### Schedule Generation
 
@@ -391,7 +391,7 @@ League roundup articles summarize all matchday results with scores, standings up
 
 World generation creates the initial game state: teams, players, staff, and domestic tier membership. See [DEFINITIONS.md](DEFINITIONS.md) for the file format.
 
-The compiled fallback world contains 244 real-world-inspired European clubs:
+The compiled fallback world contains 248 real-world-inspired European clubs:
 
 | Country | League structure | Cups |
 |---------|------------------|------|

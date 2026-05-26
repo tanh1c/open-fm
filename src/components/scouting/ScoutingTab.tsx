@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ClipboardList,
   Globe,
+  Maximize2,
   MoreHorizontal,
   PenTool,
   Save,
@@ -13,6 +14,7 @@ import {
   Star,
   TrendingUp,
   UserPlus,
+  X,
 } from "lucide-react";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from "recharts";
 
@@ -115,6 +117,7 @@ export default function ScoutingTab({
   const [savedSearchNotice, setSavedSearchNotice] = useState<string | null>(null);
   const [searchReady, setSearchReady] = useState(false);
   const [secondaryPanelsReady, setSecondaryPanelsReady] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const {
     bidTarget,
@@ -406,134 +409,56 @@ export default function ScoutingTab({
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col gap-4 h-full">
-          <ScoutingTemplateCard className="flex min-h-[140px] flex-col justify-between p-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wide text-app-green">PLAYER SEARCH</h2>
-                  <p className="mt-0.5 text-[11px] text-app-text-muted">Filter real transfer targets from the current game world.</p>
-                </div>
-                <span className="rounded-full border border-app-border bg-app-bg px-3 py-1 text-[11px] font-semibold text-app-text-muted">
-                  {allScoutable.length} players
-                </span>
-              </div>
+          <ScoutingSearchPanel
+            variant="inline"
+            searchQuery={searchQuery}
+            inputRef={searchInputRef}
+            posFilter={posFilter}
+            ageFilter={ageFilter}
+            nationalityFilter={nationalityFilter}
+            transferTypeFilter={transferTypeFilter}
+            contractStatusFilter={contractStatusFilter}
+            roleProfileFilter={roleProfileFilter}
+            totalCount={allScoutable.length}
+            assignmentHint={assignmentHint}
+            savedSearchNotice={savedSearchNotice}
+            onSearchQueryChange={(value) => { setSearchQuery(value); setPage(0); }}
+            onPosFilterChange={(value) => { setPosFilter(value); setPage(0); }}
+            onAgeFilterChange={(value) => { setAgeFilter(value as AgeFilter); setPage(0); }}
+            onNationalityFilterChange={(value) => { setNationalityFilter(value as NationalityFilter); setPage(0); }}
+            onTransferTypeFilterChange={(value) => { setTransferTypeFilter(value as TransferTypeFilter); setPage(0); }}
+            onContractStatusFilterChange={(value) => { setContractStatusFilter(value as ContractStatusFilter); setPage(0); }}
+            onRoleProfileFilterChange={(value) => { setRoleProfileFilter(value as RoleProfileFilter); setPage(0); }}
+            onSaveSearch={handleSaveSearchClick}
+            onFooterAction={handleFooterAction}
+            onExpand={() => setSearchExpanded(true)}
+            t={t}
+          />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                <div className="relative sm:col-span-2 xl:col-span-3 2xl:col-span-2">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-text-muted" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder={t("scouting.searchPlaceholder")}
-                    value={searchQuery}
-                    onChange={(event) => {
-                      setSearchQuery(event.target.value);
-                      setPage(0);
-                    }}
-                    className="h-full min-h-[34px] w-full rounded-lg border border-app-border bg-app-bg py-2 pl-9 pr-4 text-sm text-app-text placeholder:text-app-text-muted focus:border-app-green/50 focus:outline-none"
-                  />
-                </div>
-                <FilterSelect label="Position" value={posFilter} options={POSITION_FILTERS} onChange={(value) => { setPosFilter(value); setPage(0); }} />
-                <FilterSelect label="Age" value={ageFilter} options={["Any", "U21", "U23", "Prime 24-29", "30+"]} onChange={(value) => { setAgeFilter(value as AgeFilter); setPage(0); }} />
-                <FilterSelect label="Nationality" value={nationalityFilter} options={["All", "Domestic", "Foreign"]} onChange={(value) => { setNationalityFilter(value as NationalityFilter); setPage(0); }} />
-                <FilterSelect label="Transfer Type" value={transferTypeFilter} options={["Any", "Transfer Listed", "Loan Listed", "Free Agent"]} onChange={(value) => { setTransferTypeFilter(value as TransferTypeFilter); setPage(0); }} />
-                <FilterSelect label="Contract Status" value={contractStatusFilter} options={["Any", "Expiring 6 Months", "Expiring 12 Months", "No Contract"]} onChange={(value) => { setContractStatusFilter(value as ContractStatusFilter); setPage(0); }} />
-                <FilterSelect label="Role Profile" value={roleProfileFilter} options={["Any", "High Potential", "Ready Now", "Budget", "Wonderkid"]} onChange={(value) => { setRoleProfileFilter(value as RoleProfileFilter); setPage(0); }} />
-              </div>
-            </div>
-
-            {assignmentHint ? (
-              <div className="mt-4 rounded border border-app-green/30 bg-app-green/10 px-3 py-2 text-xs font-semibold text-app-green">
-                Choose a player in the results and use the Scout action to create a real scouting assignment with an available scout.
-              </div>
-            ) : null}
-            {savedSearchNotice ? (
-              <div className="mt-4 rounded border border-app-border bg-app-bg px-3 py-2 text-xs font-semibold text-app-text-muted">
-                {savedSearchNotice}
-              </div>
-            ) : null}
-
-            <div className="mt-6 flex items-center justify-between">
-              <div className="flex items-end gap-3">
-                <h2 className="text-sm font-bold uppercase tracking-wide text-app-green">PLAYER SEARCH RESULTS</h2>
-                <span className="pb-0.5 text-[11px] text-app-text-muted">{allScoutable.length} players found</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={handleSaveSearchClick} className="flex items-center gap-1.5 rounded border border-app-border px-3 py-1.5 text-xs text-app-text-muted transition-colors hover:bg-white/5">
-                  <Save className="h-3.5 w-3.5" /> Save Search
-                </button>
-                <button type="button" aria-label="Show shortlist targets" title="Show shortlist targets" onClick={() => handleFooterAction()} className="rounded border border-app-border p-1.5 transition-colors hover:bg-white/5">
-                  <MoreHorizontal className="h-3.5 w-3.5 text-app-text-muted" />
-                </button>
-              </div>
-            </div>
-          </ScoutingTemplateCard>
-
-
-          <ScoutingTemplateCard className="flex min-h-0 flex-1 flex-col bg-app-bg">
-            {playerSearchError ? (
-              <p role="alert" className="px-3 pt-3 text-xs font-bold uppercase tracking-wider text-app-red">
-                {playerSearchError}
-              </p>
-            ) : null}
-            <div className="min-h-0 flex-1 overflow-x-auto custom-scrollbar">
-              <table className="w-full min-w-[1180px] whitespace-nowrap text-left text-[11px]">
-                <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted shadow-sm">
-                  <tr>
-                    <th className="px-4 py-3">#</th>
-                    <SortableHeader label={t("scouting.player")} sortKey="player" activeSort={searchSort} onSort={handleSortChange} className="min-w-[190px] px-3 py-3" />
-                    <SortableHeader label={t("scouting.age")} sortKey="age" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-center" />
-                    <SortableHeader label="NAT" sortKey="nat" activeSort={searchSort} onSort={handleSortChange} className="min-w-[120px] px-3 py-3" />
-                    <SortableHeader label={t("scouting.team")} sortKey="team" activeSort={searchSort} onSort={handleSortChange} className="min-w-[120px] px-3 py-3" />
-                    <SortableHeader label={t("scouting.pos")} sortKey="pos" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3" />
-                    <SortableHeader label={t("scouting.value")} sortKey="value" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-right" />
-                    <SortableHeader label="WAGE" sortKey="wage" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-right" />
-                    <SortableHeader label="CA" sortKey="ca" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-center" />
-                    <SortableHeader label="PA" sortKey="pa" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-center" />
-                    <th className="px-3 py-3 text-center">REC</th>
-                    <SortableHeader label="KNOWLEDGE" sortKey="knowledge" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-center" />
-                    <SortableHeader label="INTEREST" sortKey="interest" activeSort={searchSort} onSort={handleSortChange} className="px-3 py-3 text-center" />
-                    <SortableHeader label="STATUS" sortKey="status" activeSort={searchSort} onSort={handleSortChange} className="px-4 py-3 text-center" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-app-border/30 text-app-text">
-                  {scoutablePlayers.map((player, index) => (
-                    <ScoutingPlayerRow
-                      key={player.id}
-                      index={safePage * SCOUTING_PAGE_SIZE + index + 1}
-                      player={player}
-                      meta={getPlayerMeta(playerMetaById, player)}
-                      teamById={teamById}
-                      locale={i18n.language}
-                      isActive={player.id === selectedReportPlayerKey}
-                      isScouting={alreadyScoutingIds.has(player.id)}
-                      sendingPlayerId={sending}
-                      availableScoutCount={availableScouts.length}
-                      onBidPlayer={openBidNegotiation}
-                      onSelectReportPlayer={handleReportPlayerSelect}
-                      onSelectPlayer={onSelectPlayer}
-                      onSelectTeam={onSelectTeam}
-                      onSendScout={handleSendScout}
-                      t={t}
-                    />
-                  ))}
-                </tbody>
-              </table>
-              {scoutablePlayers.length === 0 ? (
-                <p className="py-4 text-center text-sm text-app-text-muted">{t("scouting.noPlayersFound")}</p>
-              ) : null}
-            </div>
-            <div className="flex items-center justify-between border-t border-app-border/50 p-2.5 text-[11px] text-app-text-muted">
-              <span>{allScoutable.length} players</span>
-              <div className="flex items-center gap-1">
-                <button type="button" disabled={safePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} className="px-2 py-1 transition-colors hover:text-white disabled:opacity-30">&lt;</button>
-                <span className="flex h-6 min-w-6 items-center justify-center rounded bg-app-green px-2 font-bold text-app-bg">{safePage + 1}</span>
-                <span className="px-1">/</span>
-                <span className="px-1 font-mono text-app-text-muted">{totalPages}</span>
-                <button type="button" disabled={safePage >= totalPages - 1} onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))} className="px-2 py-1 transition-colors hover:text-white disabled:opacity-30">&gt;</button>
-              </div>
-            </div>
-          </ScoutingTemplateCard>
+          <ScoutingSearchResultsTable
+            variant="inline"
+            players={scoutablePlayers}
+            safePage={safePage}
+            totalPages={totalPages}
+            totalCount={allScoutable.length}
+            searchSort={searchSort}
+            playerSearchError={playerSearchError}
+            playerMetaById={playerMetaById}
+            teamById={teamById}
+            locale={i18n.language}
+            selectedReportPlayerKey={selectedReportPlayerKey}
+            alreadyScoutingIds={alreadyScoutingIds}
+            sendingPlayerId={sending}
+            availableScoutCount={availableScouts.length}
+            onSort={handleSortChange}
+            onPageChange={setPage}
+            onBidPlayer={openBidNegotiation}
+            onSelectReportPlayer={handleReportPlayerSelect}
+            onSelectPlayer={onSelectPlayer}
+            onSelectTeam={onSelectTeam}
+            onSendScout={handleSendScout}
+            t={t}
+          />
         </section>
 
         <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[420px]">
@@ -556,6 +481,51 @@ export default function ScoutingTab({
         {secondaryPanelsReady ? <MarketInsightsCard players={baseScoutable} teamById={teamById} playerMetaById={playerMetaById} /> : <SecondaryPanelShell title="MARKET INSIGHTS" compact />}
         {secondaryPanelsReady ? <ShortlistedPlayersCard players={listedTargets} teamById={teamById} playerMetaById={playerMetaById} mode={shortlistMode} onFooterClick={() => handleFooterAction()} onSelectPlayer={onSelectPlayer} /> : <SecondaryPanelShell title="SHORTLISTED PLAYERS" />}
       </div>
+
+      {searchExpanded ? (
+        <ScoutingSearchExpandedModal
+          searchQuery={searchQuery}
+          posFilter={posFilter}
+          ageFilter={ageFilter}
+          nationalityFilter={nationalityFilter}
+          transferTypeFilter={transferTypeFilter}
+          contractStatusFilter={contractStatusFilter}
+          roleProfileFilter={roleProfileFilter}
+          totalCount={allScoutable.length}
+          assignmentHint={assignmentHint}
+          savedSearchNotice={savedSearchNotice}
+          players={scoutablePlayers}
+          safePage={safePage}
+          totalPages={totalPages}
+          searchSort={searchSort}
+          playerSearchError={playerSearchError}
+          playerMetaById={playerMetaById}
+          teamById={teamById}
+          locale={i18n.language}
+          selectedReportPlayerKey={selectedReportPlayerKey}
+          alreadyScoutingIds={alreadyScoutingIds}
+          sendingPlayerId={sending}
+          availableScoutCount={availableScouts.length}
+          onSearchQueryChange={(value) => { setSearchQuery(value); setPage(0); }}
+          onPosFilterChange={(value) => { setPosFilter(value); setPage(0); }}
+          onAgeFilterChange={(value) => { setAgeFilter(value as AgeFilter); setPage(0); }}
+          onNationalityFilterChange={(value) => { setNationalityFilter(value as NationalityFilter); setPage(0); }}
+          onTransferTypeFilterChange={(value) => { setTransferTypeFilter(value as TransferTypeFilter); setPage(0); }}
+          onContractStatusFilterChange={(value) => { setContractStatusFilter(value as ContractStatusFilter); setPage(0); }}
+          onRoleProfileFilterChange={(value) => { setRoleProfileFilter(value as RoleProfileFilter); setPage(0); }}
+          onSaveSearch={handleSaveSearchClick}
+          onFooterAction={handleFooterAction}
+          onSort={handleSortChange}
+          onPageChange={setPage}
+          onBidPlayer={openBidNegotiation}
+          onSelectReportPlayer={handleReportPlayerSelect}
+          onSelectPlayer={onSelectPlayer}
+          onSelectTeam={onSelectTeam}
+          onSendScout={handleSendScout}
+          onClose={() => setSearchExpanded(false)}
+          t={t}
+        />
+      ) : null}
 
       {bidTarget && (
         <TransferBidModal
@@ -620,6 +590,288 @@ function HeaderSelect({ icon, label, value, options, onChange }: { icon: ReactNo
   );
 }
 
+interface ScoutingSearchPanelProps {
+  variant: "inline" | "expanded";
+  searchQuery: string;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  posFilter: string;
+  ageFilter: AgeFilter;
+  nationalityFilter: NationalityFilter;
+  transferTypeFilter: TransferTypeFilter;
+  contractStatusFilter: ContractStatusFilter;
+  roleProfileFilter: RoleProfileFilter;
+  totalCount: number;
+  assignmentHint: boolean;
+  savedSearchNotice: string | null;
+  onSearchQueryChange: (value: string) => void;
+  onPosFilterChange: (value: string) => void;
+  onAgeFilterChange: (value: string) => void;
+  onNationalityFilterChange: (value: string) => void;
+  onTransferTypeFilterChange: (value: string) => void;
+  onContractStatusFilterChange: (value: string) => void;
+  onRoleProfileFilterChange: (value: string) => void;
+  onSaveSearch: () => void;
+  onFooterAction: () => void;
+  onExpand?: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+function ScoutingSearchPanel({ variant, searchQuery, inputRef, posFilter, ageFilter, nationalityFilter, transferTypeFilter, contractStatusFilter, roleProfileFilter, totalCount, assignmentHint, savedSearchNotice, onSearchQueryChange, onPosFilterChange, onAgeFilterChange, onNationalityFilterChange, onTransferTypeFilterChange, onContractStatusFilterChange, onRoleProfileFilterChange, onSaveSearch, onFooterAction, onExpand, t }: ScoutingSearchPanelProps) {
+  const isExpanded = variant === "expanded";
+
+  return (
+    <ScoutingTemplateCard className={`flex flex-col justify-between p-4 ${isExpanded ? "shrink-0" : "min-h-[140px]"}`}>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-app-green">PLAYER SEARCH</h2>
+            <p className="mt-0.5 text-[11px] text-app-text-muted">Filter real transfer targets from the current game world.</p>
+          </div>
+          <span className="rounded-full border border-app-border bg-app-bg px-3 py-1 text-[11px] font-semibold text-app-text-muted">
+            {totalCount} players
+          </span>
+        </div>
+
+        <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${isExpanded ? "xl:grid-cols-4 2xl:grid-cols-7" : "xl:grid-cols-3 2xl:grid-cols-4"}`}>
+          <div className={`relative ${isExpanded ? "sm:col-span-2 xl:col-span-2" : "sm:col-span-2 xl:col-span-3 2xl:col-span-2"}`}>
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-text-muted" />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={t("scouting.searchPlaceholder")}
+              value={searchQuery}
+              onChange={(event) => onSearchQueryChange(event.target.value)}
+              className="h-full min-h-[34px] w-full rounded-lg border border-app-border bg-app-bg py-2 pl-9 pr-4 text-sm text-app-text placeholder:text-app-text-muted focus:border-app-green/50 focus:outline-none"
+            />
+          </div>
+          <FilterSelect label="Position" value={posFilter} options={POSITION_FILTERS} onChange={onPosFilterChange} />
+          <FilterSelect label="Age" value={ageFilter} options={["Any", "U21", "U23", "Prime 24-29", "30+"]} onChange={onAgeFilterChange} />
+          <FilterSelect label="Nationality" value={nationalityFilter} options={["All", "Domestic", "Foreign"]} onChange={onNationalityFilterChange} />
+          <FilterSelect label="Transfer Type" value={transferTypeFilter} options={["Any", "Transfer Listed", "Loan Listed", "Free Agent"]} onChange={onTransferTypeFilterChange} />
+          <FilterSelect label="Contract Status" value={contractStatusFilter} options={["Any", "Expiring 6 Months", "Expiring 12 Months", "No Contract"]} onChange={onContractStatusFilterChange} />
+          <FilterSelect label="Role Profile" value={roleProfileFilter} options={["Any", "High Potential", "Ready Now", "Budget", "Wonderkid"]} onChange={onRoleProfileFilterChange} />
+        </div>
+      </div>
+
+      {assignmentHint ? (
+        <div className="mt-4 rounded border border-app-green/30 bg-app-green/10 px-3 py-2 text-xs font-semibold text-app-green">
+          Choose a player in the results and use the Scout action to create a real scouting assignment with an available scout.
+        </div>
+      ) : null}
+      {savedSearchNotice ? (
+        <div className="mt-4 rounded border border-app-border bg-app-bg px-3 py-2 text-xs font-semibold text-app-text-muted">
+          {savedSearchNotice}
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex items-center justify-between">
+        <div className="flex items-end gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-app-green">PLAYER SEARCH RESULTS</h2>
+          <span className="pb-0.5 text-[11px] text-app-text-muted">{totalCount} players found</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onSaveSearch} className="flex items-center gap-1.5 rounded border border-app-border px-3 py-1.5 text-xs text-app-text-muted transition-colors hover:bg-white/5">
+            <Save className="h-3.5 w-3.5" /> Save Search
+          </button>
+          {onExpand ? (
+            <button type="button" onClick={onExpand} className="flex items-center gap-1.5 rounded border border-app-green/30 px-3 py-1.5 text-xs font-semibold text-app-green transition-colors hover:bg-app-green/10">
+              <Maximize2 className="h-3.5 w-3.5" /> Expand
+            </button>
+          ) : null}
+          <button type="button" aria-label="Show shortlist targets" title="Show shortlist targets" onClick={onFooterAction} className="rounded border border-app-border p-1.5 transition-colors hover:bg-white/5">
+            <MoreHorizontal className="h-3.5 w-3.5 text-app-text-muted" />
+          </button>
+        </div>
+      </div>
+    </ScoutingTemplateCard>
+  );
+}
+
+interface ScoutingSearchResultsTableProps {
+  variant: "inline" | "expanded";
+  players: PlayerData[];
+  safePage: number;
+  totalPages: number;
+  totalCount: number;
+  searchSort: { key: SearchSortKey; direction: SortDirection };
+  playerSearchError: string | null;
+  playerMetaById: Map<string, ScoutingPlayerMeta>;
+  teamById: Map<string, TeamData>;
+  locale: string;
+  selectedReportPlayerKey: string | null;
+  alreadyScoutingIds: Set<string>;
+  sendingPlayerId: string | null;
+  availableScoutCount: number;
+  onSort: (key: SearchSortKey) => void;
+  onPageChange: (value: React.SetStateAction<number>) => void;
+  onBidPlayer?: (player: PlayerData) => void;
+  onSelectReportPlayer: (id: string) => void;
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam?: (id: string) => void;
+  onSendScout: (playerId: string) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+function ScoutingSearchResultsTable({ variant, players, safePage, totalPages, totalCount, searchSort, playerSearchError, playerMetaById, teamById, locale, selectedReportPlayerKey, alreadyScoutingIds, sendingPlayerId, availableScoutCount, onSort, onPageChange, onBidPlayer, onSelectReportPlayer, onSelectPlayer, onSelectTeam, onSendScout, t }: ScoutingSearchResultsTableProps) {
+  const isExpanded = variant === "expanded";
+
+  return (
+    <ScoutingTemplateCard className={`flex min-h-0 flex-1 flex-col bg-app-bg ${isExpanded ? "h-[min(68vh,760px)]" : ""}`}>
+      {playerSearchError ? (
+        <p role="alert" className="px-3 pt-3 text-xs font-bold uppercase tracking-wider text-app-red">
+          {playerSearchError}
+        </p>
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-x-auto custom-scrollbar">
+        <table className={`w-full whitespace-nowrap text-left text-[11px] ${isExpanded ? "min-w-[1420px]" : "min-w-[1180px]"}`}>
+          <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted shadow-sm">
+            <tr>
+              <th className="px-4 py-3">#</th>
+              <SortableHeader label={t("scouting.player")} sortKey="player" activeSort={searchSort} onSort={onSort} className="min-w-[190px] px-3 py-3" />
+              <SortableHeader label={t("scouting.age")} sortKey="age" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-center" />
+              <SortableHeader label="NAT" sortKey="nat" activeSort={searchSort} onSort={onSort} className="min-w-[120px] px-3 py-3" />
+              <SortableHeader label={t("scouting.team")} sortKey="team" activeSort={searchSort} onSort={onSort} className="min-w-[120px] px-3 py-3" />
+              <SortableHeader label={t("scouting.pos")} sortKey="pos" activeSort={searchSort} onSort={onSort} className="px-3 py-3" />
+              <SortableHeader label={t("scouting.value")} sortKey="value" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-right" />
+              <SortableHeader label="WAGE" sortKey="wage" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-right" />
+              <SortableHeader label="CA" sortKey="ca" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-center" />
+              <SortableHeader label="PA" sortKey="pa" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-center" />
+              <th className="px-3 py-3 text-center">REC</th>
+              <SortableHeader label="KNOWLEDGE" sortKey="knowledge" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-center" />
+              <SortableHeader label="INTEREST" sortKey="interest" activeSort={searchSort} onSort={onSort} className="px-3 py-3 text-center" />
+              {isExpanded ? (
+                <>
+                  <th className="px-3 py-3 text-center">CON</th>
+                  <th className="px-3 py-3 text-center">MOR</th>
+                  <th className="px-3 py-3 text-center">LISTING</th>
+                  <th className="px-3 py-3 text-center">CONTRACT</th>
+                </>
+              ) : null}
+              <SortableHeader label="STATUS" sortKey="status" activeSort={searchSort} onSort={onSort} className="px-4 py-3 text-center" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-app-border/30 text-app-text">
+            {players.map((player, index) => (
+              <ScoutingPlayerRow
+                key={player.id}
+                variant={variant}
+                index={safePage * SCOUTING_PAGE_SIZE + index + 1}
+                player={player}
+                meta={getPlayerMeta(playerMetaById, player)}
+                teamById={teamById}
+                locale={locale}
+                isActive={player.id === selectedReportPlayerKey}
+                isScouting={alreadyScoutingIds.has(player.id)}
+                sendingPlayerId={sendingPlayerId}
+                availableScoutCount={availableScoutCount}
+                onBidPlayer={onBidPlayer}
+                onSelectReportPlayer={onSelectReportPlayer}
+                onSelectPlayer={onSelectPlayer}
+                onSelectTeam={onSelectTeam}
+                onSendScout={onSendScout}
+                t={t}
+              />
+            ))}
+          </tbody>
+        </table>
+        {players.length === 0 ? (
+          <p className="py-4 text-center text-sm text-app-text-muted">{t("scouting.noPlayersFound")}</p>
+        ) : null}
+      </div>
+      <div className="flex items-center justify-between border-t border-app-border/50 p-2.5 text-[11px] text-app-text-muted">
+        <span>{totalCount} players</span>
+        <div className="flex items-center gap-1">
+          <button type="button" disabled={safePage === 0} onClick={() => onPageChange((current) => Math.max(0, current - 1))} className="px-2 py-1 transition-colors hover:text-white disabled:opacity-30">&lt;</button>
+          <span className="flex h-6 min-w-6 items-center justify-center rounded bg-app-green px-2 font-bold text-app-bg">{safePage + 1}</span>
+          <span className="px-1">/</span>
+          <span className="px-1 font-mono text-app-text-muted">{totalPages}</span>
+          <button type="button" disabled={safePage >= totalPages - 1} onClick={() => onPageChange((current) => Math.min(totalPages - 1, current + 1))} className="px-2 py-1 transition-colors hover:text-white disabled:opacity-30">&gt;</button>
+        </div>
+      </div>
+    </ScoutingTemplateCard>
+  );
+}
+
+type ScoutingSearchExpandedModalProps = Omit<ScoutingSearchPanelProps, "variant" | "inputRef" | "onExpand"> & Omit<ScoutingSearchResultsTableProps, "variant"> & {
+  onClose: () => void;
+};
+
+function ScoutingSearchExpandedModal({ onClose, searchQuery, posFilter, ageFilter, nationalityFilter, transferTypeFilter, contractStatusFilter, roleProfileFilter, totalCount, assignmentHint, savedSearchNotice, players, safePage, totalPages, searchSort, playerSearchError, playerMetaById, teamById, locale, selectedReportPlayerKey, alreadyScoutingIds, sendingPlayerId, availableScoutCount, onSearchQueryChange, onPosFilterChange, onAgeFilterChange, onNationalityFilterChange, onTransferTypeFilterChange, onContractStatusFilterChange, onRoleProfileFilterChange, onSaveSearch, onFooterAction, onSort, onPageChange, onBidPlayer, onSelectReportPlayer, onSelectPlayer, onSelectTeam, onSendScout, t }: ScoutingSearchExpandedModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-[min(1600px,96vw)] flex-col gap-4 rounded-2xl border border-app-border bg-app-card p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-app-border/50 pb-3">
+          <div>
+            <h2 className="text-base font-bold uppercase tracking-wide text-app-green">PLAYER SEARCH EXPANDED</h2>
+            <p className="mt-0.5 text-xs text-app-text-muted">{totalCount} targets in the current scouting view.</p>
+          </div>
+          <button type="button" aria-label="Close expanded player search" onClick={onClose} className="rounded-lg border border-app-border bg-app-bg p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <ScoutingSearchPanel
+          variant="expanded"
+          searchQuery={searchQuery}
+          posFilter={posFilter}
+          ageFilter={ageFilter}
+          nationalityFilter={nationalityFilter}
+          transferTypeFilter={transferTypeFilter}
+          contractStatusFilter={contractStatusFilter}
+          roleProfileFilter={roleProfileFilter}
+          totalCount={totalCount}
+          assignmentHint={assignmentHint}
+          savedSearchNotice={savedSearchNotice}
+          onSearchQueryChange={onSearchQueryChange}
+          onPosFilterChange={onPosFilterChange}
+          onAgeFilterChange={onAgeFilterChange}
+          onNationalityFilterChange={onNationalityFilterChange}
+          onTransferTypeFilterChange={onTransferTypeFilterChange}
+          onContractStatusFilterChange={onContractStatusFilterChange}
+          onRoleProfileFilterChange={onRoleProfileFilterChange}
+          onSaveSearch={onSaveSearch}
+          onFooterAction={onFooterAction}
+          t={t}
+        />
+
+        <ScoutingSearchResultsTable
+          variant="expanded"
+          players={players}
+          safePage={safePage}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          searchSort={searchSort}
+          playerSearchError={playerSearchError}
+          playerMetaById={playerMetaById}
+          teamById={teamById}
+          locale={locale}
+          selectedReportPlayerKey={selectedReportPlayerKey}
+          alreadyScoutingIds={alreadyScoutingIds}
+          sendingPlayerId={sendingPlayerId}
+          availableScoutCount={availableScoutCount}
+          onSort={onSort}
+          onPageChange={onPageChange}
+          onBidPlayer={onBidPlayer}
+          onSelectReportPlayer={onSelectReportPlayer}
+          onSelectPlayer={onSelectPlayer}
+          onSelectTeam={onSelectTeam}
+          onSendScout={onSendScout}
+          t={t}
+        />
+      </div>
+    </div>
+  );
+}
+
 function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -665,6 +917,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 const ScoutingPlayerRow = memo(function ScoutingPlayerRow({
+  variant = "inline",
   index,
   player,
   meta,
@@ -681,6 +934,7 @@ const ScoutingPlayerRow = memo(function ScoutingPlayerRow({
   onSendScout,
   t,
 }: {
+  variant?: "inline" | "expanded";
   index: number;
   player: PlayerData;
   meta: ScoutingPlayerMeta;
@@ -700,6 +954,7 @@ const ScoutingPlayerRow = memo(function ScoutingPlayerRow({
   const team = player.team_id ? teamById.get(player.team_id) ?? null : null;
   const teamName = meta.teamName || team?.name || (player.team_id ? t("common.team") : t("common.freeAgent"));
   const status = getPlayerScoutStatus(meta.overall, isScouting);
+  const isExpanded = variant === "expanded";
   const scoutState = isScouting ? "already-assigned" : sendingPlayerId === player.id ? "busy" : availableScoutCount === 0 ? "unavailable" : "ready";
   const contextItems = [
     ...(onSelectPlayer ? [buildViewProfileMenuItem(t, () => onSelectPlayer(player.id))] : []),
@@ -748,6 +1003,20 @@ const ScoutingPlayerRow = memo(function ScoutingPlayerRow({
         </div>
       </td>
       <td className="px-3 py-3 text-center"><span className={status.interestClass}>{status.interest} <ArrowUpRight className="h-3 w-3" /></span></td>
+      {isExpanded ? (
+        <>
+          <td className="px-3 py-3 text-center font-mono text-[10px] text-app-text-muted">{Math.round(player.condition)}</td>
+          <td className="px-3 py-3 text-center font-mono text-[10px] text-app-text-muted">{Math.round(player.morale)}</td>
+          <td className="px-3 py-3 text-center">
+            <div className="flex justify-center gap-1">
+              {player.transfer_listed ? <span className="rounded bg-app-green/10 px-1.5 py-0.5 text-[9px] font-bold text-app-green">TL</span> : null}
+              {player.loan_listed ? <span className="rounded bg-indigo-400/10 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">LOAN</span> : null}
+              {!player.transfer_listed && !player.loan_listed ? <span className="text-[10px] text-app-text-muted">-</span> : null}
+            </div>
+          </td>
+          <td className="px-3 py-3 text-center text-[10px] text-app-text-muted">{player.contract_end ?? "-"}</td>
+        </>
+      ) : null}
       <td className="px-4 py-3 text-center">
         {isScouting ? (
           <span className="rounded border border-app-green/20 bg-app-green/10 px-2 py-0.5 text-[10px] font-bold text-app-green">{t("scouting.scoutingInProgress")}</span>

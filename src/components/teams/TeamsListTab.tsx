@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { GameStateData, TeamData } from "../../store/gameStore";
 import TeamLogo from "../common/TeamLogo";
 import { Building2, Crown, Shield, Trophy, Users } from "lucide-react";
@@ -19,6 +19,8 @@ type TeamRowData = {
   leaguePos: number;
   standing: NonNullable<GameStateData["league"]>["standings"][number] | undefined;
 };
+
+type SortKey = "position" | "team" | "location" | "squad" | "ovr" | "rep" | "value" | "points" | "identity";
 
 function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -55,9 +57,25 @@ function HeaderChip({ icon, label, value }: { icon: ReactNode; label: string; va
   );
 }
 
+function compareText(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { sensitivity: "base" });
+}
+
 export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabProps) {
   const { t, i18n } = useTranslation();
   const userTeamId = gameState.manager.team_id;
+  const [sortKey, setSortKey] = useState<SortKey>("position");
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortAsc((current) => !current);
+      return;
+    }
+
+    setSortKey(key);
+    setSortAsc(key === "team" || key === "location" || key === "identity");
+  };
 
   const allStandings = useMemo(
     () => gameState.league?.standings
@@ -74,12 +92,50 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
     const standing = allStandings.find((entry) => entry.team_id === team.id);
 
     return { team, rosterSize: roster.length, avgOvr, totalValue, leaguePos, standing };
-  }).sort((a, b) => {
-    if (a.leaguePos > 0 && b.leaguePos > 0) return a.leaguePos - b.leaguePos;
-    if (a.leaguePos > 0) return -1;
-    if (b.leaguePos > 0) return 1;
-    return b.avgOvr - a.avgOvr || b.totalValue - a.totalValue;
   }), [allStandings, gameState.players, gameState.teams]);
+
+  const sortedTeamsData = useMemo(() => [...teamsData].sort((a, b) => {
+    const fallback = () => {
+      if (a.leaguePos > 0 && b.leaguePos > 0) return a.leaguePos - b.leaguePos;
+      if (a.leaguePos > 0) return -1;
+      if (b.leaguePos > 0) return 1;
+      return b.avgOvr - a.avgOvr || b.totalValue - a.totalValue || compareText(a.team.name, b.team.name);
+    };
+
+    let result = 0;
+    switch (sortKey) {
+      case "position":
+        result = (a.leaguePos || Number.MAX_SAFE_INTEGER) - (b.leaguePos || Number.MAX_SAFE_INTEGER);
+        break;
+      case "team":
+        result = compareText(a.team.name, b.team.name);
+        break;
+      case "location":
+        result = compareText(`${a.team.country} ${a.team.city}`, `${b.team.country} ${b.team.city}`);
+        break;
+      case "squad":
+        result = a.rosterSize - b.rosterSize;
+        break;
+      case "ovr":
+        result = a.avgOvr - b.avgOvr;
+        break;
+      case "rep":
+        result = a.team.reputation - b.team.reputation;
+        break;
+      case "value":
+        result = a.totalValue - b.totalValue;
+        break;
+      case "points":
+        result = (a.standing?.points ?? -1) - (b.standing?.points ?? -1);
+        break;
+      case "identity":
+        result = compareText(`${a.team.formation} ${a.team.play_style}`, `${b.team.formation} ${b.team.play_style}`);
+        break;
+    }
+
+    if (result === 0) return fallback();
+    return sortAsc ? result : -result;
+  }), [sortAsc, sortKey, teamsData]);
 
   const userTeam = teamsData.find((entry) => entry.team.id === userTeamId) ?? null;
   const leagueLeader = teamsData.find((entry) => entry.leaguePos === 1) ?? teamsData[0] ?? null;
@@ -165,19 +221,19 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
               <table className="w-full min-w-[980px] text-left text-[11px] whitespace-nowrap">
                 <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card">
                   <tr className="text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
-                    <th className="w-12 px-4 py-3 text-center">#</th>
-                    <th className="px-4 py-3">{t("common.team")}</th>
-                    <th className="px-4 py-3">Location</th>
-                    <th className="px-4 py-3 text-center">{t("teams.squad")}</th>
-                    <th className="px-4 py-3 text-center">{t("teams.avgOvr")}</th>
-                    <th className="px-4 py-3 text-center">{t("teams.rep")}</th>
-                    <th className="px-4 py-3 text-right">{t("common.value")}</th>
-                    <th className="px-4 py-3 text-center">{t("common.pts")}</th>
-                    <th className="px-4 py-3">Identity</th>
+                    <SortHeader label="#" sortKey="position" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" className="w-12" />
+                    <SortHeader label={t("common.team")} sortKey="team" current={sortKey} asc={sortAsc} onClick={handleSort} />
+                    <SortHeader label="Location" sortKey="location" current={sortKey} asc={sortAsc} onClick={handleSort} />
+                    <SortHeader label={t("teams.squad")} sortKey="squad" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" />
+                    <SortHeader label={t("teams.avgOvr")} sortKey="ovr" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" />
+                    <SortHeader label={t("teams.rep")} sortKey="rep" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" />
+                    <SortHeader label={t("common.value")} sortKey="value" current={sortKey} asc={sortAsc} onClick={handleSort} align="right" />
+                    <SortHeader label={t("common.pts")} sortKey="points" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" />
+                    <SortHeader label="Identity" sortKey="identity" current={sortKey} asc={sortAsc} onClick={handleSort} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-app-border/30 text-app-text">
-                  {teamsData.map((entry) => {
+                  {sortedTeamsData.map((entry) => {
                     const { team, rosterSize, avgOvr, totalValue, leaguePos, standing } = entry;
                     const isUser = team.id === userTeamId;
                     const goalDifference = standing ? standing.goals_for - standing.goals_against : 0;
@@ -240,6 +296,40 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
         </aside>
       </div>
     </div>
+  );
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  current,
+  asc,
+  onClick,
+  align = "left",
+  className = "",
+}: {
+  label: string;
+  sortKey: SortKey;
+  current: SortKey;
+  asc: boolean;
+  onClick: (key: SortKey) => void;
+  align?: "left" | "center" | "right";
+  className?: string;
+}) {
+  const active = current === sortKey;
+  const alignClass = align === "right" ? "justify-end text-right" : align === "center" ? "justify-center text-center" : "justify-start text-left";
+
+  return (
+    <th className={cx("px-4 py-3", align === "right" && "text-right", align === "center" && "text-center", className)}>
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={cx("inline-flex items-center gap-1 transition-colors hover:text-app-green", alignClass, active && "text-app-green")}
+      >
+        <span>{label}</span>
+        <span className={cx("text-[8px]", active ? "opacity-100" : "opacity-30")}>{active ? (asc ? "▲" : "▼") : "↕"}</span>
+      </button>
+    </th>
   );
 }
 

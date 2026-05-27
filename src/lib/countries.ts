@@ -112,7 +112,16 @@ const ALIAS_TO_CODE = Object.values(FOOTBALL_IDENTITIES).reduce<Record<string, s
     return map;
   },
   {
+    belgium: "BE",
+    brazil: "BR",
     british: "GB",
+    england: "ENG",
+    france: "FR",
+    germany: "DE",
+    italy: "IT",
+    netherlands: "NL",
+    portugal: "PT",
+    spain: "ES",
     uk: "GB",
     "united kingdom": "GB",
     "great britain": "GB",

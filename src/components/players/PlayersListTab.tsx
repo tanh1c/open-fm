@@ -1,16 +1,21 @@
-import { useState, useMemo } from "react";
-import { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { GameStateData, PlayerData, PlayerSelectionOptions } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
-import { Card, CardBody, Badge, Select, CountryFlag } from "../ui";
+import { Badge, Select, CountryFlag } from "../ui";
 import ContextMenu from "../ContextMenu";
 import {
-  Search,
-  Filter,
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Filter,
+  Search,
+  ShieldCheck,
+  Star,
+  Target,
+  User,
+  Users,
 } from "lucide-react";
 import {
   getTeamName,
@@ -52,25 +57,63 @@ interface PlayersListTabProps {
 
 type SortKey = "name" | "position" | "age" | "ovr" | "value" | "team";
 
+type SortDirection = "asc" | "desc";
+
+const POSITIONS = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
+const PAGE_SIZE = 30;
+
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+function TemplateCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={cx("rounded-xl border border-app-border bg-app-card", className)}>{children}</div>;
+}
+
+function SectionTitle({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{title}</h3>
+      {action ? <span className="text-[10px] font-semibold text-app-green">{action}</span> : null}
+    </div>
+  );
+}
+
+function StatRow({ label, value, tone = "text-app-text" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs">
+      <span className="text-app-text-muted">{label}</span>
+      <span className={cx("font-bold", tone)}>{value}</span>
+    </div>
+  );
+}
+
+function HeaderChip({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+      <span className="text-app-green">{icon}</span>
+      {label}: <span className="font-bold text-app-text">{value}</span>
+    </div>
+  );
+}
+
 export default function PlayersListTab({
   gameState,
   onGameUpdate,
   onSelectPlayer,
   onSelectTeam,
 }: PlayersListTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n?.language ?? "en";
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("ovr");
   const [sortAsc, setSortAsc] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"all" | "transfer" | "loan">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<"all" | "transfer" | "loan">("all");
   const [page, setPage] = useState(1);
   const [sendingPlayerId, setSendingPlayerId] = useState<string | null>(null);
   const [scoutError, setScoutError] = useState<string | null>(null);
-  const pageSize = 30;
   const managerTeamId = gameState.manager.team_id ?? "";
   const {
     bidTarget,
@@ -88,13 +131,10 @@ export default function PlayersListTab({
     openBidNegotiation,
     closeBidNegotiation,
     handleMakeBid,
-  } = useTransferBidFlow({
-    gameState,
-    onGameUpdate,
-  });
+  } = useTransferBidFlow({ gameState, onGameUpdate });
+
   const scouts = gameState.staff.filter(
-    (staffMember) =>
-      staffMember.role === "Scout" && staffMember.team_id === managerTeamId,
+    (staffMember) => staffMember.role === "Scout" && staffMember.team_id === managerTeamId,
   );
   const scoutingAssignments = gameState.scouting_assignments || [];
   const allScoutingAssignments = [
@@ -134,431 +174,308 @@ export default function PlayersListTab({
     }
   };
 
-  // Reset page when filters change
-  const filterKey = `${search}|${posFilter}|${teamFilter}|${statusFilter}|${sortKey}|${sortAsc}`;
-  useMemo(() => setPage(1), [filterKey]);
+  const filtered = useMemo(() => {
+    const result = gameState.players.filter((player) => {
+      if (search.length >= 2) {
+        const q = search.toLowerCase();
+        if (
+          !player.full_name.toLowerCase().includes(q) &&
+          !player.match_name.toLowerCase().includes(q) &&
+          !player.nationality.toLowerCase().includes(q)
+        ) return false;
+      }
+      if (posFilter && normalisePosition(player.natural_position || player.position) !== posFilter) return false;
+      if (teamFilter && player.team_id !== teamFilter) return false;
+      if (statusFilter === "transfer" && !player.transfer_listed) return false;
+      if (statusFilter === "loan" && !player.loan_listed) return false;
+      return true;
+    });
 
-  let filtered = gameState.players.filter((p) => {
-    if (search.length >= 2) {
-      const q = search.toLowerCase();
-      if (
-        !p.full_name.toLowerCase().includes(q) &&
-        !p.match_name.toLowerCase().includes(q) &&
-        !p.nationality.toLowerCase().includes(q)
-      )
-        return false;
+    const posOrder: Record<string, number> = {
+      Goalkeeper: 1,
+      Defender: 2,
+      Midfielder: 3,
+      Forward: 4,
+    };
+
+    return result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "name":
+          cmp = a.full_name.localeCompare(b.full_name, locale);
+          break;
+        case "position":
+          cmp = (posOrder[normalisePosition(a.natural_position || a.position)] || 99) - (posOrder[normalisePosition(b.natural_position || b.position)] || 99);
+          break;
+        case "age":
+          cmp = calcAge(a.date_of_birth) - calcAge(b.date_of_birth);
+          break;
+        case "ovr":
+          cmp = getPlayerOvr(a) - getPlayerOvr(b);
+          break;
+        case "value":
+          cmp = (a.market_value || 0) - (b.market_value || 0);
+          break;
+        case "team":
+          cmp = getTeamName(gameState.teams, a.team_id).localeCompare(getTeamName(gameState.teams, b.team_id), locale);
+          break;
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+  }, [gameState.players, gameState.teams, locale, posFilter, search, sortAsc, sortKey, statusFilter, teamFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, posFilter, teamFilter, statusFilter, sortKey, sortAsc]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visiblePlayers = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const listedCount = gameState.players.filter((player) => player.transfer_listed).length;
+  const loanCount = gameState.players.filter((player) => player.loan_listed).length;
+  const injuredCount = gameState.players.filter((player) => player.injury).length;
+  const positionCounts = POSITIONS.map((position) => ({
+    position,
+    count: filtered.filter((player) => normalisePosition(player.natural_position || player.position) === position).length,
+  }));
+  const topOverallPlayers = filtered.slice(0, 5);
+  const topValuePlayers = [...filtered].sort((a, b) => b.market_value - a.market_value).slice(0, 5);
+  const sortDirection: SortDirection = sortAsc ? "asc" : "desc";
+
+  const renderPlayerRow = (player: PlayerData) => {
+    const ovr = getPlayerOvr(player);
+    const age = calcAge(player.date_of_birth);
+    const scoutState = alreadyScoutingIds.has(player.id)
+      ? "already-assigned"
+      : sendingPlayerId === player.id
+        ? "busy"
+        : availableScouts.length === 0
+          ? "unavailable"
+          : "ready";
+    const contextItems = [
+      buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)),
+      ...(player.team_id ? [buildViewTeamMenuItem(t, () => onSelectTeam(player.team_id!))] : []),
+    ];
+
+    if (player.team_id === managerTeamId) {
+      contextItems.push(buildDividerMenuItem());
+      contextItems.push(buildToggleTransferListMenuItem(t, player.transfer_listed, async () => {
+        try {
+          const updated = await toggleTransferList(player.id);
+          onGameUpdate?.(updated);
+        } catch {
+          return;
+        }
+      }));
+      contextItems.push(buildToggleLoanListMenuItem(t, player.loan_listed, async () => {
+        try {
+          const updated = await toggleLoanList(player.id);
+          onGameUpdate?.(updated);
+        } catch {
+          return;
+        }
+      }));
+    } else {
+      contextItems.push(buildDividerMenuItem());
+      if (player.team_id) contextItems.push(buildMakeTransferBidMenuItem(t, () => openBidNegotiation(player)));
+      contextItems.push(buildScoutPlayerMenuItem(t, scoutState, () => void handleScoutPlayer(player.id)));
     }
-    if (
-      posFilter &&
-      normalisePosition(p.natural_position || p.position) !== posFilter
-    )
-      return false;
-    if (teamFilter && p.team_id !== teamFilter) return false;
-    if (statusFilter === "transfer" && !p.transfer_listed) return false;
-    if (statusFilter === "loan" && !p.loan_listed) return false;
-    return true;
-  });
 
-  const posOrder: Record<string, number> = {
-    Goalkeeper: 1,
-    Defender: 2,
-    Midfielder: 3,
-    Forward: 4,
+    return (
+      <ContextMenu items={contextItems} key={player.id}>
+        <tr onClick={() => onSelectPlayer(player.id)} className="group cursor-pointer transition-colors hover:bg-white/5">
+          <td className="px-3 py-2.5">
+            <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">
+              {translatePositionAbbreviation(t, player.natural_position || player.position)}
+            </Badge>
+          </td>
+          <td className="px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-bg text-app-text-muted">
+                <User className="h-3.5 w-3.5" />
+              </span>
+              <span className="font-bold text-app-text transition-colors group-hover:text-app-green">{player.full_name}</span>
+            </div>
+          </td>
+          <td className="px-3 py-2.5 text-center tabular-nums text-app-text-muted">{age}</td>
+          <td className="px-3 py-2.5" title={player.nationality}>
+            <CountryFlag code={player.nationality} locale={locale} className="text-lg leading-none" />
+          </td>
+          <td className="px-3 py-2.5">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (player.team_id) onSelectTeam(player.team_id);
+              }}
+              className="max-w-40 truncate text-left text-app-text-muted transition-colors hover:text-app-green hover:underline"
+            >
+              {getTeamName(gameState.teams, player.team_id)}
+            </button>
+          </td>
+          <td className="px-3 py-2.5 text-right font-semibold text-app-text-muted">{formatVal(player.market_value)}</td>
+          <td className="px-3 py-2.5 text-center">
+            <span className={cx("font-heading text-sm font-bold tabular-nums", ovr >= 75 ? "text-app-green" : ovr >= 55 ? "text-amber-400" : "text-app-text-muted")}>{ovr}</span>
+          </td>
+          <td className="px-3 py-2.5">
+            <div className="flex flex-wrap justify-end gap-1">
+              {player.transfer_listed ? <Badge variant="accent" size="sm">{t("transfers.transfer")}</Badge> : null}
+              {player.loan_listed ? <Badge variant="primary" size="sm">{t("transfers.loan")}</Badge> : null}
+              {player.injury ? <Badge variant="danger" size="sm">{t("common.injured")}</Badge> : null}
+              {!player.transfer_listed && !player.loan_listed && !player.injury ? <span className="text-[10px] text-app-text-muted">—</span> : null}
+            </div>
+          </td>
+        </tr>
+      </ContextMenu>
+    );
   };
 
-  filtered.sort((a, b) => {
-    let cmp = 0;
-    switch (sortKey) {
-      case "name":
-        cmp = a.full_name.localeCompare(b.full_name);
-        break;
-      case "position":
-        cmp =
-          (posOrder[normalisePosition(a.natural_position || a.position)] ||
-            99) -
-          (posOrder[normalisePosition(b.natural_position || b.position)] || 99);
-        break;
-      case "age":
-        cmp = calcAge(a.date_of_birth) - calcAge(b.date_of_birth);
-        break;
-      case "ovr":
-        cmp = getPlayerOvr(a) - getPlayerOvr(b);
-        break;
-      case "value":
-        cmp = (a.market_value || 0) - (b.market_value || 0);
-        break;
-      case "team":
-        cmp = getTeamName(gameState.teams, a.team_id).localeCompare(
-          getTeamName(gameState.teams, b.team_id),
-        );
-        break;
-    }
-    return sortAsc ? cmp : -cmp;
-  });
-
-  const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
-
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input
-            type="text"
-            placeholder={t("players.searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-surface-800 border border-gray-200 dark:border-surface-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-          />
+    <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">PLAYERS</h1>
+          <p className="text-sm text-app-text-muted">
+            {filtered.length} / {gameState.players.length} players &bull; {t("common.page", "Page")} {safePage} / {totalPages} &bull; {sortKey.toUpperCase()} {sortDirection.toUpperCase()}
+          </p>
         </div>
-
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => setPosFilter(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!posFilter
-              ? "bg-primary-500 text-white shadow-sm"
-              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
-              }`}
-          >
-            {t("players.allPos")}
-          </button>
-          {positions.map((pos) => (
-            <button
-              key={pos}
-              onClick={() => setPosFilter(posFilter === pos ? null : pos)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${posFilter === pos
-                ? "bg-primary-500 text-white shadow-sm"
-                : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"
-                }`}
-            >
-              {t(`common.posAbbr.${pos}`)}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <HeaderChip icon={<Users className="h-4 w-4" />} label="Pool" value={String(gameState.players.length)} />
+          <HeaderChip icon={<Target className="h-4 w-4" />} label="Listed" value={String(listedCount)} />
+          <HeaderChip icon={<ShieldCheck className="h-4 w-4" />} label="Scouts" value={`${availableScouts.length}/${scouts.length}`} />
+          <div className="flex items-center gap-2 rounded-lg bg-app-green px-4 py-2 text-sm font-bold text-app-bg">
+            <Filter className="h-4 w-4" />
+            {filtered.length} Results
+          </div>
         </div>
-
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "all" ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
-          >
-            {t("common.all")}
-          </button>
-          <button
-            onClick={() => setStatusFilter("transfer")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "transfer" ? "bg-accent-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
-          >
-            {t("transfers.transfer")}
-          </button>
-          <button
-            onClick={() => setStatusFilter("loan")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${statusFilter === "loan" ? "bg-blue-500 text-white shadow-sm" : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-surface-600"}`}
-          >
-            {t("transfers.loan")}
-          </button>
-        </div>
-
-        <Select
-          value={teamFilter || ""}
-          onChange={(e) => setTeamFilter(e.target.value || null)}
-          selectSize="sm"
-          className="min-w-44 font-heading font-bold uppercase tracking-wider"
-        >
-          <option value="">{t("players.allTeams")}</option>
-          {gameState.teams.map((tm) => (
-            <option key={tm.id} value={tm.id}>
-              {tm.name}
-            </option>
-          ))}
-        </Select>
       </div>
 
-      <p className="text-xs text-gray-400 dark:text-gray-500 mb-3 font-heading uppercase tracking-wider">
-        <Filter className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
-        {t("players.nPlayersFound", { count: filtered.length })}
-      </p>
+      {scoutError ? <p role="alert" className="text-xs font-heading font-bold uppercase tracking-wider text-red-400">{scoutError}</p> : null}
 
-      {scoutError ? (
-        <p
-          role="alert"
-          className="mb-3 text-xs font-heading font-bold uppercase tracking-wider text-red-500"
-        >
-          {scoutError}
-        </p>
-      ) : null}
-
-      {/* Players table */}
-      <Card>
-        <CardBody className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
-                  <SortHeader
-                    label={t("common.position")}
-                    sortKey="position"
-                    current={sortKey}
-                    asc={sortAsc}
-                    onClick={handleSort}
-                  />
-                  <SortHeader
-                    label={t("common.name")}
-                    sortKey="name"
-                    current={sortKey}
-                    asc={sortAsc}
-                    onClick={handleSort}
-                  />
-                  <SortHeader
-                    label={t("common.age")}
-                    sortKey="age"
-                    current={sortKey}
-                    asc={sortAsc}
-                    onClick={handleSort}
-                  />
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    {t("common.nationality")}
-                  </th>
-                  <SortHeader
-                    label={t("common.team")}
-                    sortKey="team"
-                    current={sortKey}
-                    asc={sortAsc}
-                    onClick={handleSort}
-                  />
-                  <SortHeader
-                    label={t("common.value")}
-                    sortKey="value"
-                    current={sortKey}
-                    asc={sortAsc}
-                    onClick={handleSort}
-                  />
-                  <SortHeader
-                    label={t("common.ovr")}
-                    sortKey="ovr"
-                    current={sortKey}
-                    asc={sortAsc}
-                    onClick={handleSort}
-                  />
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    {t("common.status")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
-                {filtered
-                  .slice((page - 1) * pageSize, page * pageSize)
-                  .map((player) => {
-                    const ovr = getPlayerOvr(player);
-                    const age = calcAge(player.date_of_birth);
-                    const scoutState = alreadyScoutingIds.has(player.id)
-                      ? "already-assigned"
-                      : sendingPlayerId === player.id
-                        ? "busy"
-                        : availableScouts.length === 0
-                          ? "unavailable"
-                          : "ready";
-                    const contextItems = [
-                      buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)),
-                      ...(player.team_id
-                        ? [
-                          buildViewTeamMenuItem(t, () => {
-                            onSelectTeam(player.team_id!);
-                          }),
-                        ]
-                        : []),
-                    ];
-
-                    if (player.team_id === managerTeamId) {
-                      contextItems.push(buildDividerMenuItem());
-                      contextItems.push(
-                        buildToggleTransferListMenuItem(
-                          t,
-                          player.transfer_listed,
-                          async () => {
-                            try {
-                              const updated = await toggleTransferList(player.id);
-                              onGameUpdate?.(updated);
-                            } catch {
-                              return;
-                            }
-                          },
-                        ),
-                      );
-                      contextItems.push(
-                        buildToggleLoanListMenuItem(t, player.loan_listed, async () => {
-                          try {
-                            const updated = await toggleLoanList(player.id);
-                            onGameUpdate?.(updated);
-                          } catch {
-                            return;
-                          }
-                        }),
-                      );
-                    } else {
-                      contextItems.push(buildDividerMenuItem());
-                      if (player.team_id) {
-                        contextItems.push(
-                          buildMakeTransferBidMenuItem(t, () => {
-                            openBidNegotiation(player);
-                          }),
-                        );
-                      }
-                      contextItems.push(
-                        buildScoutPlayerMenuItem(t, scoutState, () => {
-                          void handleScoutPlayer(player.id);
-                        }),
-                      );
-                    }
-
-                    const row = (
-                      <tr
-                        key={player.id}
-                        onClick={() => onSelectPlayer(player.id)}
-                        className="hover:bg-gray-50 dark:hover:bg-surface-700/50 transition-colors cursor-pointer group"
-                      >
-                        <td className="py-2.5 px-4">
-                          <Badge
-                            variant={positionBadgeVariant(
-                              player.natural_position || player.position,
-                            )}
-                            size="sm"
-                          >
-                            {translatePositionAbbreviation(
-                              t,
-                              player.natural_position || player.position,
-                            )}
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                            {player.full_name}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                          {age}
-                        </td>
-                        <td
-                          className="py-2.5 px-4 text-sm text-gray-500 dark:text-gray-400"
-                          title={player.nationality}
-                        >
-                          <CountryFlag
-                            code={player.nationality}
-                            className="text-lg leading-none"
-                          />
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectTeam(player.team_id!);
-                            }}
-                            className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
-                          >
-                            {getTeamName(gameState.teams, player.team_id)}
-                          </button>
-                        </td>
-                        <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 font-medium">
-                          {formatVal(player.market_value)}
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span
-                            className={`font-heading font-bold text-base tabular-nums ${ovr >= 75
-                              ? "text-primary-500"
-                              : ovr >= 55
-                                ? "text-accent-500"
-                                : "text-gray-400"
-                              }`}
-                          >
-                            {ovr}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          {player.transfer_listed && (
-                            <Badge variant="accent" size="sm">
-                              {t("transfers.transfer")}
-                            </Badge>
-                          )}
-                          {player.loan_listed && (
-                            <Badge variant="primary" size="sm">
-                              {t("transfers.loan")}
-                            </Badge>
-                          )}
-                          {player.injury && (
-                            <Badge variant="danger" size="sm">
-                              {t("common.injured")}
-                            </Badge>
-                          )}
-                        </td>
-                      </tr>
-                    );
-
-                    return (
-                      <ContextMenu items={contextItems} key={player.id}>
-                        {row}
-                      </ContextMenu>
-                    );
-                  })}
-              </tbody>
-            </table>
-            {filtered.length === 0 && (
-              <div className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">
-                {t("players.noMatch")}
-              </div>
-            )}
+      <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
+          <div>
+            <SectionTitle title="PLAYER POOL" action={`${filtered.length} shown`} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <StatRow label="Total players" value={String(gameState.players.length)} />
+              <StatRow label="Filtered results" value={String(filtered.length)} tone="text-app-green" />
+              <StatRow label="Transfer listed" value={String(listedCount)} tone="text-app-green" />
+              <StatRow label="Loan listed" value={String(loanCount)} tone="text-blue-300" />
+              <StatRow label="Injured" value={String(injuredCount)} tone={injuredCount > 0 ? "text-red-400" : "text-app-text"} />
+            </TemplateCard>
           </div>
-          {/* Pagination */}
-          {filtered.length > pageSize &&
-            (() => {
-              const totalPages = Math.ceil(filtered.length / pageSize);
-              return (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-surface-600">
-                  <p className="text-xs text-gray-400 dark:text-gray-500 font-heading">
-                    {t("players.showingRange", {
-                      from: (page - 1) * pageSize + 1,
-                      to: Math.min(page * pageSize, filtered.length),
-                      total: filtered.length,
-                    })}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setPage(1)}
-                      disabled={page === 1}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                    >
-                      <ChevronsLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="px-3 py-1 text-xs font-heading font-bold text-gray-600 dark:text-gray-300">
-                      {page} / {totalPages}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={page === totalPages}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setPage(totalPages)}
-                      disabled={page === totalPages}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                    >
-                      <ChevronsRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-        </CardBody>
-      </Card>
+
+          <div>
+            <SectionTitle title="POSITION MIX" action={posFilter ?? "All"} />
+            <TemplateCard className="flex flex-col gap-2 p-4">
+              {positionCounts.map(({ position, count }) => (
+                <button key={position} type="button" onClick={() => setPosFilter(posFilter === position ? null : position)} className={cx("flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-colors", posFilter === position ? "border-app-green bg-app-green/10 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:text-app-text")}>
+                  <span className="font-bold">{translatePositionAbbreviation(t, position)}</span>
+                  <span>{count}</span>
+                </button>
+              ))}
+            </TemplateCard>
+          </div>
+
+          <div>
+            <SectionTitle title="MARKET STATUS" action={statusFilter.toUpperCase()} />
+            <TemplateCard className="flex flex-col gap-2 p-4">
+              <StatusButton active={statusFilter === "all"} label={t("common.all")} value={String(gameState.players.length)} onClick={() => setStatusFilter("all")} />
+              <StatusButton active={statusFilter === "transfer"} label={t("transfers.transfer")} value={String(listedCount)} onClick={() => setStatusFilter("transfer")} />
+              <StatusButton active={statusFilter === "loan"} label={t("transfers.loan")} value={String(loanCount)} onClick={() => setStatusFilter("loan")} />
+            </TemplateCard>
+          </div>
+        </aside>
+
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full">
+          <TemplateCard className="relative z-20 p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-green">PLAYER SEARCH</h2>
+              <span className="text-[10px] uppercase tracking-wider text-app-text-muted">{t("players.nPlayersFound", { count: filtered.length })}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[220px] flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-app-text-muted" />
+                <input
+                  type="text"
+                  placeholder={t("players.searchPlaceholder")}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="w-full rounded-lg border border-app-border bg-app-bg py-2 pl-8 pr-3 text-[11px] text-app-text placeholder:text-app-text-muted focus:border-app-green/60 focus:outline-none"
+                />
+              </div>
+              <button type="button" onClick={() => setPosFilter(null)} className={cx("rounded border px-3 py-1.5 text-xs font-semibold transition-colors", !posFilter ? "border-app-green bg-app-green/20 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:text-white")}>{t("players.allPos")}</button>
+              {POSITIONS.map((position) => (
+                <button key={position} type="button" onClick={() => setPosFilter(posFilter === position ? null : position)} className={cx("rounded border px-3 py-1.5 text-xs font-semibold transition-colors", posFilter === position ? "border-app-green bg-app-green/20 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:text-white")}>
+                  {t(`common.posAbbr.${position}`)}
+                </button>
+              ))}
+              <Select value={teamFilter || ""} onChange={(event) => setTeamFilter(event.target.value || null)} selectSize="sm" className="min-w-44 border-app-border bg-app-bg text-app-text focus:border-app-green">
+                <option value="">{t("players.allTeams")}</option>
+                {gameState.teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+              </Select>
+            </div>
+          </TemplateCard>
+
+          <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden bg-app-bg">
+            <div className="min-h-0 flex-1 overflow-x-auto custom-scrollbar">
+              <table className="w-full min-w-[920px] text-left text-[11px] whitespace-nowrap">
+                <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card">
+                  <tr className="text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+                    <SortHeader label={t("common.position")} sortKey="position" current={sortKey} asc={sortAsc} onClick={handleSort} />
+                    <SortHeader label={t("common.name")} sortKey="name" current={sortKey} asc={sortAsc} onClick={handleSort} />
+                    <SortHeader label={t("common.age")} sortKey="age" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" />
+                    <th className="px-3 py-3">NAT</th>
+                    <SortHeader label={t("common.team")} sortKey="team" current={sortKey} asc={sortAsc} onClick={handleSort} />
+                    <SortHeader label={t("common.value")} sortKey="value" current={sortKey} asc={sortAsc} onClick={handleSort} align="right" />
+                    <SortHeader label={t("common.ovr")} sortKey="ovr" current={sortKey} asc={sortAsc} onClick={handleSort} align="center" />
+                    <th className="px-3 py-3 text-right">{t("common.status")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-app-border/30 text-app-text">
+                  {visiblePlayers.length > 0 ? visiblePlayers.map(renderPlayerRow) : (
+                    <tr><td colSpan={8} className="py-12 text-center text-app-text-muted">{t("players.noMatch")}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between border-t border-app-border/50 px-4 py-3 text-[11px] text-app-text-muted">
+              <span>{t("players.showingRange", { from: filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1, to: Math.min(safePage * PAGE_SIZE, filtered.length), total: filtered.length })}</span>
+              <div className="flex items-center gap-1">
+                <PageButton disabled={safePage === 1} onClick={() => setPage(1)}><ChevronsLeft className="h-4 w-4" /></PageButton>
+                <PageButton disabled={safePage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ChevronLeft className="h-4 w-4" /></PageButton>
+                <span className="px-3 py-1 text-[10px] font-bold text-app-text">{safePage} / {totalPages}</span>
+                <PageButton disabled={safePage === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}><ChevronRight className="h-4 w-4" /></PageButton>
+                <PageButton disabled={safePage === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight className="h-4 w-4" /></PageButton>
+              </div>
+            </div>
+          </TemplateCard>
+        </section>
+
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[360px]">
+          <div>
+            <SectionTitle title="TOP RATED" action="Filtered" />
+            <TemplateCard className="overflow-hidden">
+              {topOverallPlayers.map((player) => <PlayerMiniRow key={player.id} player={player} teams={gameState.teams} onSelectPlayer={onSelectPlayer} />)}
+            </TemplateCard>
+          </div>
+          <div>
+            <SectionTitle title="HIGHEST VALUE" action="Market" />
+            <TemplateCard className="overflow-hidden">
+              {topValuePlayers.map((player) => <PlayerMiniRow key={player.id} player={player} teams={gameState.teams} valueMode onSelectPlayer={onSelectPlayer} />)}
+            </TemplateCard>
+          </div>
+          <div>
+            <SectionTitle title="ROW ACTIONS" action="Right click" />
+            <TemplateCard className="flex flex-col gap-3 p-4 text-xs text-app-text-muted">
+              <p>Use row context menus for profile, team, scouting, bid, and list actions.</p>
+              <StatRow label="Available scouts" value={`${availableScouts.length}/${scouts.length}`} tone="text-app-green" />
+              <StatRow label="Active scouting" value={String(alreadyScoutingIds.size)} tone="text-blue-300" />
+            </TemplateCard>
+          </div>
+        </aside>
+      </div>
+
       {bidTarget && (
         <TransferBidModal
           bidTarget={bidTarget}
@@ -582,30 +499,53 @@ export default function PlayersListTab({
   );
 }
 
+function StatusButton({ active, label, value, onClick }: { active: boolean; label: string; value: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={cx("flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-colors", active ? "border-app-green bg-app-green/10 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:text-app-text")}>
+      <span className="font-semibold">{label}</span>
+      <span>{value}</span>
+    </button>
+  );
+}
+
+function PageButton({ children, disabled, onClick }: { children: ReactNode; disabled: boolean; onClick: () => void }) {
+  return <button type="button" disabled={disabled} onClick={onClick} className="rounded-lg p-1.5 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:pointer-events-none disabled:opacity-30">{children}</button>;
+}
+
+function PlayerMiniRow({ player, teams, valueMode, onSelectPlayer }: { player: PlayerData; teams: GameStateData["teams"]; valueMode?: boolean; onSelectPlayer: (id: string) => void }) {
+  return (
+    <button type="button" onClick={() => onSelectPlayer(player.id)} className="flex w-full items-center gap-3 border-b border-app-border/30 px-4 py-3 text-left text-xs transition-colors last:border-b-0 hover:bg-white/5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-bg text-[10px] font-bold text-app-green">{valueMode ? formatVal(player.market_value).slice(0, 2) : getPlayerOvr(player)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-bold text-app-text">{valueMode ? formatVal(player.market_value) : `${getPlayerOvr(player)} OVR`}</span>
+        <span className="block truncate text-[10px] text-app-text-muted">{getTeamName(teams, player.team_id)}</span>
+      </span>
+      <Star className="h-3.5 w-3.5 text-app-text-muted" />
+    </button>
+  );
+}
+
 function SortHeader({
   label,
   sortKey,
   current,
   onClick,
+  align = "left",
 }: {
   label: string;
   sortKey: SortKey;
   current: SortKey;
   asc: boolean;
   onClick: (k: SortKey) => void;
+  align?: "left" | "center" | "right";
 }) {
   const isActive = current === sortKey;
   return (
-    <th
-      onClick={() => onClick(sortKey)}
-      className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors select-none"
-    >
-      <span className="flex items-center gap-1">
+    <th className={cx("px-3 py-3", align === "center" && "text-center", align === "right" && "text-right")}>
+      <button type="button" onClick={() => onClick(sortKey)} className={cx("inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider transition-colors hover:text-app-green", align === "center" && "justify-center", align === "right" && "justify-end", isActive ? "text-app-green" : "text-app-text-muted")}>
         {label}
-        <ArrowUpDown
-          className={`w-3 h-3 ${isActive ? "text-primary-500" : "text-gray-300 dark:text-surface-600"}`}
-        />
-      </span>
+        <ArrowUpDown className={cx("h-3 w-3", isActive ? "opacity-100" : "opacity-40")} />
+      </button>
     </th>
   );
 }

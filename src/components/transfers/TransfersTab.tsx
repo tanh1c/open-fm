@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type SetStateAction } from "react";
 import {
   GameStateData,
   PlayerData,
@@ -20,6 +20,7 @@ import {
   FileText,
   Filter,
   Gavel,
+  Maximize2,
   MoreHorizontal,
   Minus,
   PenTool,
@@ -178,6 +179,7 @@ export default function TransfersTab({
   const [sortKey, setSortKey] = useState<TransferSortKey>("index");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
+  const [resultsExpanded, setResultsExpanded] = useState(false);
   const pageSize = 10;
   const [counterTarget, setCounterTarget] = useState<CounterTarget | null>(null);
   const [counterAmount, setCounterAmount] = useState("");
@@ -319,6 +321,15 @@ export default function TransfersTab({
   });
   const paginatedTargets = paginateTransferPlayers(sortedList, page, pageSize);
   const visibleTransferTargets = paginatedTargets.items;
+  const emptyTransferResultsLabel = view === "market"
+    ? t("transfers.noTransferMarket")
+    : view === "loans"
+      ? t("transfers.noLoanMarket")
+      : view === "shortlist"
+        ? t("transfers.noShortlist", "No shortlisted players")
+        : view === "offers"
+          ? t("transfers.noOffers")
+          : t("transfers.noPlayersListed");
   const weeklyWageBudget = myTeam ? annualAmountToWeeklyCommitment(myTeam.wage_budget) : 0;
   const selectedPanelPlayer = selectedPanelPlayerId
     ? gameState.players.find((player) => player.id === selectedPanelPlayerId) ?? null
@@ -859,6 +870,19 @@ export default function TransfersTab({
           </Card>
 
           <Card className="flex flex-col flex-1 min-h-0 bg-app-bg border-app-border">
+            <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-4 py-3">
+              <div>
+                <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-green">TRANSFER RESULTS</h2>
+                <p className="mt-1 text-xs text-app-text-muted">Review targets, offers, lists, and expand the table for more room.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResultsExpanded(true)}
+                className="flex items-center gap-1.5 rounded border border-app-green/30 px-3 py-1.5 text-xs font-semibold text-app-green transition-colors hover:bg-app-green/10"
+              >
+                <Maximize2 className="h-3.5 w-3.5" /> Expand
+              </button>
+            </div>
             <div className="overflow-x-auto min-h-0 flex-1 custom-scrollbar">
               <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[1000px]">
                 <thead className="sticky top-0 bg-app-card z-10 shadow-sm border-b border-app-border/50">
@@ -878,7 +902,7 @@ export default function TransfersTab({
                 </thead>
                 <tbody className="text-app-text divide-y divide-app-border/30">
                   {visibleTransferTargets.length > 0 ? visibleTransferTargets.map((player, index) => renderPlayerContextRow(player, (paginatedTargets.page - 1) * pageSize + index)) : (
-                    <tr><td colSpan={11} className="py-12 text-center text-app-text-muted">{view === "market" ? t("transfers.noTransferMarket") : view === "loans" ? t("transfers.noLoanMarket") : view === "shortlist" ? t("transfers.noShortlist", "No shortlisted players") : view === "offers" ? t("transfers.noOffers") : t("transfers.noPlayersListed")}</td></tr>
+                    <tr><td colSpan={11} className="py-12 text-center text-app-text-muted">{emptyTransferResultsLabel}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -972,6 +996,43 @@ export default function TransfersTab({
         <ShortlistCardGroup players={myTransferList.slice(0, 5)} onSelectPlayer={onSelectPlayer} />
       </div>
 
+      {resultsExpanded ? (
+        <TransfersResultsExpandedModal
+          filteredCount={filteredList.length}
+          players={visibleTransferTargets}
+          page={paginatedTargets.page}
+          pageCount={paginatedTargets.pageCount}
+          pageSize={pageSize}
+          search={search}
+          onSearchChange={setSearch}
+          posFilter={posFilter}
+          onPosFilterChange={setPosFilter}
+          view={view}
+          onViewChange={(nextView) => {
+            setView(nextView);
+            const selectedTab = visualTabs.find((tab) => tab.view === nextView);
+            if (selectedTab) setVisualTab(selectedTab.id);
+          }}
+          positions={positions}
+          positionLabels={positions.map((position) => ({
+            value: position,
+            label: translatePositionAbbreviation(t, position),
+          }))}
+          advancedFiltersOpen={advancedFiltersOpen}
+          onAdvancedFiltersOpenChange={setAdvancedFiltersOpen}
+          advancedFilters={advancedFilters}
+          onAdvancedFiltersChange={setAdvancedFilters}
+          onNullableNumberFilterChange={setNullableNumberFilter}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSort={toggleSort}
+          onPageChange={setPage}
+          renderPlayerContextRow={renderPlayerContextRow}
+          emptyLabel={emptyTransferResultsLabel}
+          onClose={() => setResultsExpanded(false)}
+        />
+      ) : null}
+
       {loanTarget && (
         <SimpleTransferFormModal
           title={t("transfers.loanOffer", "Loan offer")}
@@ -1051,6 +1112,205 @@ export default function TransfersTab({
           }}
         />
       )}
+    </div>
+  );
+}
+
+function TransfersResultsExpandedModal({
+  filteredCount,
+  players,
+  page,
+  pageCount,
+  pageSize,
+  search,
+  onSearchChange,
+  posFilter,
+  onPosFilterChange,
+  view,
+  onViewChange,
+  positions,
+  positionLabels,
+  advancedFiltersOpen,
+  onAdvancedFiltersOpenChange,
+  advancedFilters,
+  onAdvancedFiltersChange,
+  onNullableNumberFilterChange,
+  sortKey,
+  sortDirection,
+  onSort,
+  onPageChange,
+  renderPlayerContextRow,
+  emptyLabel,
+  onClose,
+}: {
+  filteredCount: number;
+  players: PlayerData[];
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  search: string;
+  onSearchChange: (value: string) => void;
+  posFilter: string | null;
+  onPosFilterChange: (value: string | null) => void;
+  view: TransferTabView;
+  onViewChange: (value: TransferTabView) => void;
+  positions: string[];
+  positionLabels: Array<{ value: string; label: string }>;
+  advancedFiltersOpen: boolean;
+  onAdvancedFiltersOpenChange: (value: SetStateAction<boolean>) => void;
+  advancedFilters: TransferAdvancedFilters;
+  onAdvancedFiltersChange: (value: SetStateAction<TransferAdvancedFilters>) => void;
+  onNullableNumberFilterChange: (key: keyof Omit<TransferAdvancedFilters, "offerStatus">, value: string) => void;
+  sortKey: TransferSortKey;
+  sortDirection: SortDirection;
+  onSort: (key: TransferSortKey) => void;
+  onPageChange: (value: SetStateAction<number>) => void;
+  renderPlayerContextRow: (player: PlayerData, index: number) => ReactNode;
+  emptyLabel: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-[min(1600px,96vw)] flex-col gap-4 rounded-2xl border border-app-border bg-app-card p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-app-border/50 pb-3">
+          <div>
+            <h2 className="text-base font-bold uppercase tracking-wide text-app-green">TRANSFER RESULTS EXPANDED</h2>
+            <p className="mt-0.5 text-xs text-app-text-muted">{filteredCount} targets in the current transfer view.</p>
+          </div>
+          <button type="button" aria-label="Close expanded transfer results" onClick={onClose} className="rounded-lg border border-app-border bg-app-bg p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <Card className="shrink-0 border-app-border bg-app-bg p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => onPosFilterChange(null)} className={cn("px-3 py-1.5 border rounded text-xs font-semibold flex items-center gap-1", !posFilter ? "bg-app-green/20 border-app-green/50 text-app-green" : "bg-app-card border-app-border text-app-text-muted hover:text-white")}>
+              <Target className="w-3.5 h-3.5" /> All Targets
+            </button>
+            {positions.map((position) => (
+              <FilterBadge key={position} active={posFilter === position} onClick={() => onPosFilterChange(posFilter === position ? null : position)}>
+                {positionLabels.find((label) => label.value === position)?.label ?? position}
+              </FilterBadge>
+            ))}
+            <FilterDropdown
+              label="Position"
+              ariaLabel="Expanded position filter"
+              value={posFilter ?? ""}
+              className="w-[150px]"
+              onChange={(value) => onPosFilterChange(value || null)}
+              options={[{ value: "", label: "Any Position" }, ...positionLabels]}
+            />
+            <FilterDropdown
+              label="List View"
+              ariaLabel="Expanded transfer list view"
+              value={view}
+              className="w-[160px]"
+              onChange={(value) => onViewChange(value as TransferTabView)}
+              options={[
+                { value: "my_list", label: "Shortlists" },
+                { value: "market", label: "Transfer Market" },
+                { value: "loans", label: "Loan Market" },
+                { value: "offers", label: "Offers" },
+              ]}
+            />
+            <div className="relative ml-auto min-w-[220px] flex-1 max-w-sm">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+              <input type="text" placeholder="Search targets..." value={search} onChange={(event) => onSearchChange(event.target.value)} className="bg-app-card border border-app-border rounded-lg pl-8 pr-3 py-1.5 text-[11px] focus:outline-none focus:border-app-green/50 placeholder:text-app-text-muted w-full text-app-text" />
+            </div>
+            <button
+              type="button"
+              aria-expanded={advancedFiltersOpen}
+              onClick={() => onAdvancedFiltersOpenChange((open) => !open)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-app-card border border-app-border rounded-lg text-xs text-app-text-muted hover:text-white transition-colors"
+            >
+              <Filter className="w-3.5 h-3.5" /> Advanced filters
+            </button>
+          </div>
+          {advancedFiltersOpen ? (
+            <div className="mt-3 border-t border-app-border/40 pt-3">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+                <AdvancedFilterInput label="Minimum age" value={advancedFilters.minAge} onChange={(value) => onNullableNumberFilterChange("minAge", value)} />
+                <AdvancedFilterInput label="Maximum age" value={advancedFilters.maxAge} onChange={(value) => onNullableNumberFilterChange("maxAge", value)} />
+                <AdvancedFilterInput label="Maximum value" value={advancedFilters.maxValue} onChange={(value) => onNullableNumberFilterChange("maxValue", value)} />
+                <AdvancedFilterInput label="Maximum weekly wage" value={advancedFilters.maxWeeklyWage} onChange={(value) => onNullableNumberFilterChange("maxWeeklyWage", value)} />
+                <FilterDropdown
+                  label="Offer Status"
+                  ariaLabel="Expanded offer status"
+                  value={advancedFilters.offerStatus}
+                  className="min-w-0"
+                  onChange={(value) => onAdvancedFiltersChange((current) => ({
+                    ...current,
+                    offerStatus: value as TransferAdvancedFilters["offerStatus"],
+                  }))}
+                  options={(['Any', 'Pending', 'Accepted', 'Rejected', 'Withdrawn'] as const).map((status) => ({ value: status, label: status }))}
+                />
+              </div>
+            </div>
+          ) : null}
+        </Card>
+
+        <Card className="flex min-h-0 flex-1 flex-col bg-app-bg border-app-border">
+          <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
+            <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-[11px]">
+              <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted shadow-sm">
+                <tr>
+                  <SortableHeader label="#" sortKey="index" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5 px-3" />
+                  <SortableHeader label="PLAYER" sortKey="player" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5 pl-1" />
+                  <SortableHeader label="AGE" sortKey="age" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5 px-2" />
+                  <SortableHeader label="NAT" sortKey="nationality" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5" />
+                  <SortableHeader label="CLUB" sortKey="club" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5" />
+                  <SortableHeader label="POSITION" sortKey="position" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5" />
+                  <SortableHeader label="VALUE" sortKey="value" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5 px-2" align="right" />
+                  <SortableHeader label="WAGE" sortKey="wage" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5 px-2" align="right" />
+                  <SortableHeader label="INTEREST" sortKey="interest" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5" align="center" />
+                  <SortableHeader label="SCOUT RATING" sortKey="rating" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5" align="center" />
+                  <SortableHeader label="STATUS" sortKey="status" activeKey={sortKey} direction={sortDirection} onSort={onSort} className="py-2.5 pr-3" align="center" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border/30 text-app-text">
+                {players.length > 0 ? players.map((player, index) => renderPlayerContextRow(player, (page - 1) * pageSize + index)) : (
+                  <tr><td colSpan={11} className="py-12 text-center text-app-text-muted">{emptyLabel}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between border-t border-app-border/50 p-2.5 text-[11px] text-app-text-muted">
+            <span>{filteredCount} targets</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Previous transfer targets page"
+                disabled={page === 1}
+                onClick={() => onPageChange((current) => Math.max(1, current - 1))}
+                className="px-2 py-1 transition-colors hover:text-white disabled:opacity-40 disabled:hover:text-app-text-muted"
+              >
+                &lt;
+              </button>
+              <span className="px-2 py-1 text-[10px] font-bold text-app-text" aria-live="polite">
+                Page {page} of {pageCount}
+              </span>
+              <button
+                type="button"
+                aria-label="Next transfer targets page"
+                disabled={page === pageCount}
+                onClick={() => onPageChange((current) => Math.min(pageCount, current + 1))}
+                className="px-2 py-1 transition-colors hover:text-white disabled:opacity-40 disabled:hover:text-app-text-muted"
+              >
+                &gt;
+              </button>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

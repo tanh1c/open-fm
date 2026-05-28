@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode, type SetStateAction } from "react";
 import { GameStateData, PlayerData, PlayerSelectionOptions } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { Badge, Select, CountryFlag } from "../ui";
@@ -10,12 +10,14 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Filter,
+  Maximize2,
   Search,
   ShieldCheck,
   Star,
   Target,
   User,
   Users,
+  X,
 } from "lucide-react";
 import {
   getTeamName,
@@ -47,6 +49,7 @@ import {
 } from "../playerActions/playerContextMenuItems";
 import TransferBidModal from "../transfers/TransferBidModal";
 import { useTransferBidFlow } from "../transfers/useTransferBidFlow";
+import TeamLogo from "../common/TeamLogo";
 
 interface PlayersListTabProps {
   gameState: GameStateData;
@@ -112,6 +115,7 @@ export default function PlayersListTab({
   const [sortAsc, setSortAsc] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | "transfer" | "loan">("all");
   const [page, setPage] = useState(1);
+  const [resultsExpanded, setResultsExpanded] = useState(false);
   const [sendingPlayerId, setSendingPlayerId] = useState<string | null>(null);
   const [scoutError, setScoutError] = useState<string | null>(null);
   const managerTeamId = gameState.manager.team_id ?? "";
@@ -252,6 +256,7 @@ export default function PlayersListTab({
         : availableScouts.length === 0
           ? "unavailable"
           : "ready";
+    const team = player.team_id ? gameState.teams.find((candidate) => candidate.id === player.team_id) ?? null : null;
     const contextItems = [
       buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)),
       ...(player.team_id ? [buildViewTeamMenuItem(t, () => onSelectTeam(player.team_id!))] : []),
@@ -308,9 +313,11 @@ export default function PlayersListTab({
                 event.stopPropagation();
                 if (player.team_id) onSelectTeam(player.team_id);
               }}
-              className="max-w-40 truncate text-left text-app-text-muted transition-colors hover:text-app-green hover:underline"
+              aria-label={getTeamName(gameState.teams, player.team_id)}
+              className="flex max-w-44 items-center gap-2 text-left text-app-text-muted transition-colors hover:text-app-green"
             >
-              {getTeamName(gameState.teams, player.team_id)}
+              {team ? <TeamLogo team={team} size="sm" className="h-6 w-6 rounded-md border border-app-border bg-white/95 p-0.5" aria-hidden /> : <span className="h-6 w-6 shrink-0 rounded-md border border-app-border bg-app-card" />}
+              <span className="truncate hover:underline">{getTeamName(gameState.teams, player.team_id)}</span>
             </button>
           </td>
           <td className="px-3 py-2.5 text-right font-semibold text-app-text-muted">{formatVal(player.market_value)}</td>
@@ -418,6 +425,15 @@ export default function PlayersListTab({
           </TemplateCard>
 
           <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden bg-app-bg">
+            <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-4 py-3">
+              <div>
+                <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-green">PLAYER RESULTS</h2>
+                <p className="mt-1 text-xs text-app-text-muted">Click a player for profile, or expand the table for more room.</p>
+              </div>
+              <button type="button" onClick={() => setResultsExpanded(true)} className="flex items-center gap-1.5 rounded border border-app-green/30 px-3 py-1.5 text-xs font-semibold text-app-green transition-colors hover:bg-app-green/10">
+                <Maximize2 className="h-3.5 w-3.5" /> Expand
+              </button>
+            </div>
             <div className="min-h-0 flex-1 overflow-x-auto custom-scrollbar">
               <table className="w-full min-w-[920px] text-left text-[11px] whitespace-nowrap">
                 <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card">
@@ -476,6 +492,24 @@ export default function PlayersListTab({
         </aside>
       </div>
 
+      {resultsExpanded ? (
+        <PlayersResultsExpandedModal
+          filteredCount={filtered.length}
+          totalCount={gameState.players.length}
+          safePage={safePage}
+          totalPages={totalPages}
+          pageSize={PAGE_SIZE}
+          players={visiblePlayers}
+          sortKey={sortKey}
+          sortAsc={sortAsc}
+          onSort={handleSort}
+          onPageChange={setPage}
+          renderPlayerRow={renderPlayerRow}
+          t={t}
+          onClose={() => setResultsExpanded(false)}
+        />
+      ) : null}
+
       {bidTarget && (
         <TransferBidModal
           bidTarget={bidTarget}
@@ -495,6 +529,97 @@ export default function PlayersListTab({
           onClose={closeBidNegotiation}
         />
       )}
+    </div>
+  );
+}
+
+function PlayersResultsExpandedModal({
+  filteredCount,
+  totalCount,
+  safePage,
+  totalPages,
+  pageSize,
+  players,
+  sortKey,
+  sortAsc,
+  onSort,
+  onPageChange,
+  renderPlayerRow,
+  t,
+  onClose,
+}: {
+  filteredCount: number;
+  totalCount: number;
+  safePage: number;
+  totalPages: number;
+  pageSize: number;
+  players: PlayerData[];
+  sortKey: SortKey;
+  sortAsc: boolean;
+  onSort: (key: SortKey) => void;
+  onPageChange: (value: SetStateAction<number>) => void;
+  renderPlayerRow: (player: PlayerData) => ReactNode;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-[min(1500px,96vw)] flex-col gap-4 rounded-2xl border border-app-border bg-app-card p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-app-border/50 pb-3">
+          <div>
+            <h2 className="text-base font-bold uppercase tracking-wide text-app-green">PLAYER RESULTS EXPANDED</h2>
+            <p className="mt-0.5 text-xs text-app-text-muted">{filteredCount} / {totalCount} players in the current view.</p>
+          </div>
+          <button type="button" aria-label="Close expanded player results" onClick={onClose} className="rounded-lg border border-app-border bg-app-bg p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <TemplateCard className="flex min-h-0 flex-1 flex-col bg-app-bg">
+          <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
+            <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-[11px]">
+              <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted shadow-sm">
+                <tr>
+                  <SortHeader label={t("common.position")} sortKey="position" current={sortKey} asc={sortAsc} onClick={onSort} />
+                  <SortHeader label={t("common.name")} sortKey="name" current={sortKey} asc={sortAsc} onClick={onSort} />
+                  <SortHeader label={t("common.age")} sortKey="age" current={sortKey} asc={sortAsc} onClick={onSort} align="center" />
+                  <th className="px-3 py-3">NAT</th>
+                  <SortHeader label={t("common.team")} sortKey="team" current={sortKey} asc={sortAsc} onClick={onSort} />
+                  <SortHeader label={t("common.value")} sortKey="value" current={sortKey} asc={sortAsc} onClick={onSort} align="right" />
+                  <SortHeader label={t("common.ovr")} sortKey="ovr" current={sortKey} asc={sortAsc} onClick={onSort} align="center" />
+                  <th className="px-3 py-3 text-right">{t("common.status")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border/30 text-app-text">
+                {players.length > 0 ? players.map((player) => renderPlayerRow(player)) : (
+                  <tr><td colSpan={8} className="py-12 text-center text-app-text-muted">{t("players.noMatch")}</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between border-t border-app-border/50 p-2.5 text-[11px] text-app-text-muted">
+            <span>{t("players.showingRange", { from: filteredCount === 0 ? 0 : (safePage - 1) * pageSize + 1, to: Math.min(safePage * pageSize, filteredCount), total: filteredCount })}</span>
+            <div className="flex items-center gap-1">
+              <PageButton disabled={safePage === 1} onClick={() => onPageChange(1)}><ChevronsLeft className="h-4 w-4" /></PageButton>
+              <PageButton disabled={safePage === 1} onClick={() => onPageChange((current) => Math.max(1, current - 1))}><ChevronLeft className="h-4 w-4" /></PageButton>
+              <span className="flex h-6 min-w-6 items-center justify-center rounded bg-app-green px-2 font-bold text-app-bg">{safePage}</span>
+              <span className="px-1">/</span>
+              <span className="px-1 font-mono text-app-text-muted">{totalPages}</span>
+              <PageButton disabled={safePage === totalPages} onClick={() => onPageChange((current) => Math.min(totalPages, current + 1))}><ChevronRight className="h-4 w-4" /></PageButton>
+              <PageButton disabled={safePage === totalPages} onClick={() => onPageChange(totalPages)}><ChevronsRight className="h-4 w-4" /></PageButton>
+            </div>
+          </div>
+        </TemplateCard>
+      </div>
     </div>
   );
 }

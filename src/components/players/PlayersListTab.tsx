@@ -290,16 +290,18 @@ export default function PlayersListTab({
       <ContextMenu items={contextItems} key={player.id}>
         <tr onClick={() => onSelectPlayer(player.id)} className="group cursor-pointer transition-colors hover:bg-white/5">
           <td className="px-3 py-2.5">
-            <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">
-              {translatePositionAbbreviation(t, player.natural_position || player.position)}
-            </Badge>
+            <div className="flex min-w-0 justify-start">
+              <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">
+                {translatePositionAbbreviation(t, player.natural_position || player.position)}
+              </Badge>
+            </div>
           </td>
           <td className="px-3 py-2.5">
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-bg text-app-text-muted">
                 <User className="h-3.5 w-3.5" />
               </span>
-              <span className="font-bold text-app-text transition-colors group-hover:text-app-green">{player.full_name}</span>
+              <span className="min-w-0 truncate font-bold text-app-text transition-colors group-hover:text-app-green">{player.full_name}</span>
             </div>
           </td>
           <td className="px-3 py-2.5 text-center tabular-nums text-app-text-muted">{age}</td>
@@ -314,7 +316,7 @@ export default function PlayersListTab({
                 if (player.team_id) onSelectTeam(player.team_id);
               }}
               aria-label={getTeamName(gameState.teams, player.team_id)}
-              className="flex max-w-44 items-center gap-2 text-left text-app-text-muted transition-colors hover:text-app-green"
+              className="flex min-w-0 items-center gap-2 text-left text-app-text-muted transition-colors hover:text-app-green"
             >
               {team ? <TeamLogo team={team} size="sm" className="h-6 w-6 rounded-md border border-app-border bg-white/95 p-0.5" aria-hidden /> : <span className="h-6 w-6 shrink-0 rounded-md border border-app-border bg-app-card" />}
               <span className="truncate hover:underline">{getTeamName(gameState.teams, player.team_id)}</span>
@@ -435,7 +437,8 @@ export default function PlayersListTab({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-x-auto custom-scrollbar">
-              <table className="w-full min-w-[920px] text-left text-[11px] whitespace-nowrap">
+              <table className="w-full min-w-[1070px] table-fixed text-left text-[11px] whitespace-nowrap">
+                <PlayerResultsColGroup />
                 <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card">
                   <tr className="text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
                     <SortHeader label={t("common.position")} sortKey="position" current={sortKey} asc={sortAsc} onClick={handleSort} />
@@ -586,7 +589,8 @@ function PlayersResultsExpandedModal({
 
         <TemplateCard className="flex min-h-0 flex-1 flex-col bg-app-bg">
           <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-[11px]">
+            <table className="w-full min-w-[1120px] table-fixed whitespace-nowrap text-left text-[11px]">
+              <PlayerResultsColGroup />
               <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted shadow-sm">
                 <tr>
                   <SortHeader label={t("common.position")} sortKey="position" current={sortKey} asc={sortAsc} onClick={onSort} />
@@ -621,6 +625,21 @@ function PlayersResultsExpandedModal({
         </TemplateCard>
       </div>
     </div>
+  );
+}
+
+function PlayerResultsColGroup() {
+  return (
+    <colgroup>
+      <col className="w-[105px]" />
+      <col className="w-[260px]" />
+      <col className="w-[70px]" />
+      <col className="w-[70px]" />
+      <col className="w-[230px]" />
+      <col className="w-[130px]" />
+      <col className="w-[80px]" />
+      <col className="w-[125px]" />
+    </colgroup>
   );
 }
 

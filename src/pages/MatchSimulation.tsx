@@ -257,10 +257,10 @@ export default function MatchSimulation() {
   // Loading state
   if (!snapshot || !gameState) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-surface-900 flex items-center justify-center transition-colors duration-300">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-500 dark:text-surface-200 font-heading uppercase tracking-wider text-sm">
+      <div className="flex min-h-screen items-center justify-center bg-app-bg text-app-text">
+        <div className="rounded-2xl border border-app-border bg-app-card px-8 py-7 text-center shadow-xl shadow-black/20">
+          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-app-green border-t-transparent" />
+          <span className="mt-4 block font-heading text-sm font-bold uppercase tracking-[0.22em] text-app-text-muted">
             {t("dashboard.loading")}
           </span>
         </div>

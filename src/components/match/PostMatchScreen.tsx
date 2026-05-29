@@ -290,17 +290,17 @@ export default function PostMatchScreen({
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-surface-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="flex min-h-screen flex-col bg-app-bg text-app-text">
       {/* Result Header */}
       <header
-        className={`border-b border-gray-200 dark:border-surface-700 px-4 py-8 transition-colors duration-300 ${resultType === "win"
-            ? "bg-linear-to-r from-primary-100 via-white to-primary-100 dark:from-primary-900/50 dark:via-surface-900 dark:to-primary-900/50"
+        className={`border-b border-app-border px-4 py-8 shadow-lg shadow-black/20 ${resultType === "win"
+            ? "bg-app-card"
             : resultType === "loss"
-              ? "bg-linear-to-r from-red-100 via-white to-red-100 dark:from-red-900/30 dark:via-surface-900 dark:to-red-900/30"
-              : "bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800"
+              ? "bg-app-card"
+              : "bg-app-card"
           }`}
       >
-        <div className="max-w-5xl mx-auto text-center relative">
+        <div className="relative mx-auto max-w-[1700px] text-center">
           <ThemeToggle className="absolute right-0 top-0" />
           {/* Result badge */}
           {!isSpectator && userSide && (
@@ -308,7 +308,7 @@ export default function PostMatchScreen({
               {resultType === "win" && (
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary-100 dark:bg-primary-500/20 rounded-full transition-colors duration-300">
                   <Trophy className="w-4 h-4 text-accent-700 dark:text-accent-400" />
-                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-primary-700 dark:text-primary-400">
+                  <span className="font-heading text-sm font-bold uppercase tracking-widest text-app-green">
                     {t("match.victory")}
                   </span>
                 </div>
@@ -351,18 +351,18 @@ export default function PostMatchScreen({
             </div>
 
             <div className="flex items-center gap-5">
-              <span className="text-6xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
+              <span className="font-heading text-6xl font-black tabular-nums text-app-text">
                 {snapshot.home_score}
               </span>
               <div className="text-center">
-                <p className="text-xs font-heading uppercase tracking-widest text-accent-700 dark:text-accent-400">
+                <p className="font-heading text-xs font-bold uppercase tracking-widest text-app-green">
                   {t("match.fullTime")}
                 </p>
-                <p className="text-lg font-heading font-bold text-gray-500 dark:text-gray-500">
+                <p className="font-heading text-lg font-bold text-app-text-muted">
                   {t("match.ft")}
                 </p>
               </div>
-              <span className="text-6xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
+              <span className="font-heading text-6xl font-black tabular-nums text-app-text">
                 {snapshot.away_score}
               </span>
             </div>
@@ -387,12 +387,12 @@ export default function PostMatchScreen({
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-6">
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        <div className="mx-auto grid max-w-[1700px] grid-cols-3 gap-6 px-6 py-6">
           {/* Left: Match Events */}
           <div className="flex flex-col gap-4">
-            <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+            <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted mb-3">
                 {t("match.matchEvents")}
               </h3>
               {keyEvents.length === 0 ? (
@@ -428,10 +428,10 @@ export default function PostMatchScreen({
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
+            <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                   {t("match.quickStats")}
                 </h3>
               </div>
@@ -458,10 +458,10 @@ export default function PostMatchScreen({
               />
             </div>
 
-            <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
+            <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-accent-400" />
-                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                   {summaryTitle}
                 </h3>
               </div>
@@ -599,10 +599,10 @@ export default function PostMatchScreen({
 
           <div className="flex flex-col gap-4">
             {!isSpectator && userSide ? (
-              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
+              <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
                 <div className="flex items-center gap-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-accent-400" />
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                     {t("match.postMatchTeamTalk")}
                   </h3>
                 </div>
@@ -705,7 +705,7 @@ export default function PostMatchScreen({
                 )}
               </div>
             ) : (
-              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 flex flex-col items-center justify-center py-12 transition-colors duration-300">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-app-border bg-app-card p-4 py-12 shadow-lg shadow-black/10">
                 <p className="text-lg font-heading font-bold text-gray-500 dark:text-gray-400 mb-2">
                   {t("match.matchOver")}
                 </p>
@@ -729,8 +729,8 @@ export default function PostMatchScreen({
               />
             ))}
 
-            <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+            <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted mb-3">
                 {t("match.scorers")}
               </h3>
               {renderScorers(snapshot, importantEvents, "Home")}
@@ -745,8 +745,8 @@ export default function PostMatchScreen({
 
             {/* Substitutions made */}
             {snapshot.substitutions.length > 0 && (
-              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+              <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted mb-3">
                   {t("match.substitutions")}
                 </h3>
                 <div className="flex flex-col gap-2">
@@ -797,7 +797,7 @@ export default function PostMatchScreen({
 
             <div className="grid gap-5 p-5 md:grid-cols-[1.15fr_0.85fr]">
               <div className="rounded-xl border border-gray-200 dark:border-surface-700 bg-gray-50 dark:bg-surface-800 p-4 transition-colors duration-300">
-                <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                   {t("match.matchEvents")}
                 </h4>
                 {selectedOtherFixtureReport.events.length > 0 ? (
@@ -851,7 +851,7 @@ export default function PostMatchScreen({
 
               <div className="flex flex-col gap-4">
                 <div className="rounded-xl border border-gray-200 dark:border-surface-700 bg-gray-50 dark:bg-surface-800 p-4 transition-colors duration-300">
-                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                     {t("match.quickStats")}
                   </h4>
                   <QuickStat
@@ -890,7 +890,7 @@ export default function PostMatchScreen({
                 </div>
 
                 <div className="rounded-xl border border-gray-200 dark:border-surface-700 bg-gray-50 dark:bg-surface-800 p-4 transition-colors duration-300">
-                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <h4 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                     {t("match.scorers")}
                   </h4>
                   {formatOtherMatchScorers(selectedOtherFixture) ? (
@@ -910,15 +910,15 @@ export default function PostMatchScreen({
       )}
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-surface-800 border-t border-gray-200 dark:border-surface-700 px-6 py-4 transition-colors duration-300">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
+      <footer className="border-t border-app-border bg-app-card px-6 py-4 shadow-lg shadow-black/20">
+        <div className="mx-auto flex max-w-[1700px] items-center justify-between">
           <p className="text-xs text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider">
             {isSpectator ? t("match.matchComplete") : t("match.addressPress")}
           </p>
           <div className="flex items-center gap-3">
             <button
               onClick={onFinish}
-              className="flex items-center gap-2 px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-surface-700 dark:hover:bg-surface-600 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-gray-700 dark:text-gray-300 transition-colors"
+              className="flex items-center gap-2 rounded-xl border border-app-border bg-app-bg px-6 py-3 font-heading text-sm font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:border-app-green/40 hover:text-app-text"
             >
               {t("match.skip")}
               <ChevronRight className="w-4 h-4" />
@@ -926,7 +926,7 @@ export default function PostMatchScreen({
             {!isSpectator && (
               <button
                 onClick={onPressConference}
-                className="flex items-center gap-2 px-8 py-3 bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-app-green to-emerald-600 px-8 py-3 font-heading text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-app-green/20 transition-all hover:brightness-110"
               >
                 {t("match.pressConference")}
                 <ChevronRight className="w-4 h-4" />

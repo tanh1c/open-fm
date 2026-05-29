@@ -164,10 +164,10 @@ export default function HalfTimeBreak({
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-surface-900 dark:text-white flex flex-col transition-colors duration-300">
+    <div className="flex min-h-screen flex-col bg-app-bg text-app-text">
       {/* Header scoreboard */}
-      <header className="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800 border-b border-gray-200 dark:border-surface-700 px-4 py-4 transition-colors duration-300">
-        <div className="max-w-5xl mx-auto relative">
+      <header className="border-b border-app-border bg-app-card px-4 py-4 shadow-lg shadow-black/20">
+        <div className="relative mx-auto max-w-[1700px]">
           <ThemeToggle className="absolute right-0 top-0" />
           <div className="flex items-center justify-center gap-8">
             <div className="flex items-center gap-3">
@@ -181,30 +181,30 @@ export default function HalfTimeBreak({
               >
                 {snapshot.home_team.name.substring(0, 3).toUpperCase()}
               </div>
-              <p className="font-heading font-bold text-gray-800 dark:text-gray-200">
+              <p className="font-heading font-bold text-app-text">
                 {snapshot.home_team.name}
               </p>
             </div>
 
             <div className="flex items-center gap-4">
-              <span className="text-5xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
+              <span className="font-heading text-5xl font-black tabular-nums text-app-text">
                 {snapshot.home_score}
               </span>
               <div className="text-center">
-                <p className="text-xs font-heading uppercase tracking-widest text-accent-700 dark:text-accent-400">
+                <p className="font-heading text-xs font-bold uppercase tracking-widest text-app-green">
                   {t("match.halfTime")}
                 </p>
-                <p className="text-lg font-heading font-bold text-gray-500 dark:text-gray-500">
+                <p className="font-heading text-lg font-bold text-app-text-muted">
                   {t("match.ht")}
                 </p>
               </div>
-              <span className="text-5xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
+              <span className="font-heading text-5xl font-black tabular-nums text-app-text">
                 {snapshot.away_score}
               </span>
             </div>
 
             <div className="flex items-center gap-3">
-              <p className="font-heading font-bold text-gray-800 dark:text-gray-200">
+              <p className="font-heading font-bold text-app-text">
                 {snapshot.away_team.name}
               </p>
               <div
@@ -245,12 +245,12 @@ export default function HalfTimeBreak({
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-6">
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        <div className="mx-auto grid max-w-[1700px] grid-cols-3 gap-6 px-6 py-6">
           {/* Left: First Half Summary */}
           <div className="flex flex-col gap-4">
-            <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+            <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted mb-3">
                 {t("match.firstHalfEvents")}
               </h3>
               {firstHalfEvents.length === 0 ? (
@@ -291,10 +291,10 @@ export default function HalfTimeBreak({
           {/* Center: Team Talk (user only) */}
           <div className="flex flex-col gap-4">
             {!isSpectator ? (
-              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
+              <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
                 <div className="flex items-center gap-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-accent-400" />
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                     {t("match.teamTalk")}
                   </h3>
                 </div>
@@ -311,8 +311,8 @@ export default function HalfTimeBreak({
                           onClick={() => setSelectedTalk(opt.id)}
                           className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
                             selectedTalk === opt.id
-                              ? "bg-primary-500/20 ring-2 ring-primary-500/50"
-                              : "bg-gray-100 hover:bg-gray-200 dark:bg-surface-700/50 dark:hover:bg-surface-700"
+                              ? "border border-app-green/50 bg-app-green/15 ring-1 ring-app-green/40"
+                              : "border border-app-border bg-app-bg hover:border-app-green/40"
                           }`}
                         >
                           <span className="text-xl">
@@ -391,7 +391,7 @@ export default function HalfTimeBreak({
                 )}
               </div>
             ) : (
-              <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 flex flex-col items-center justify-center py-8 transition-colors duration-300">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-app-border bg-app-card p-4 py-8 shadow-lg shadow-black/10">
                 <p className="text-xs font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1">
                   {t("match.spectatorMode")}
                 </p>
@@ -407,8 +407,8 @@ export default function HalfTimeBreak({
             {!isSpectator && (
               <>
                 {/* Formation */}
-                <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+                <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted mb-3">
                     {t("match.formation")}
                   </h3>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -429,8 +429,8 @@ export default function HalfTimeBreak({
                 </div>
 
                 {/* Play Style */}
-                <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+                <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted mb-3">
                     {t("match.playStyle")}
                   </h3>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -452,9 +452,9 @@ export default function HalfTimeBreak({
                 </div>
 
                 {/* Substitutions */}
-                <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
+                <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                       {t("match.substitutions")}
                     </h3>
                     <Badge variant="neutral" size="sm">
@@ -480,7 +480,7 @@ export default function HalfTimeBreak({
       </div>
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-surface-800 border-t border-gray-200 dark:border-surface-700 px-6 py-4 transition-colors duration-300">
+      <footer className="border-t border-app-border bg-app-card px-6 py-4 shadow-lg shadow-black/20">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <p className="text-xs text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider">
             {isSpectator
@@ -489,7 +489,7 @@ export default function HalfTimeBreak({
           </p>
           <button
             onClick={onResume}
-            className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
+            className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-app-green to-emerald-600 px-8 py-3 font-heading text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-app-green/20 transition-all hover:brightness-110"
           >
             <Play className="w-4 h-4" />
             {t("match.resumeMatch")}

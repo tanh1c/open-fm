@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { GameStateData } from "../../store/gameStore";
-import { MatchSnapshot, MatchEvent, MinuteResult, SimSpeed, SPEED_MS } from "./types";
+import { GameStateData, TeamData } from "../../store/gameStore";
+import { EngineTeamData, MatchSnapshot, MatchEvent, MinuteResult, SimSpeed, SPEED_MS } from "./types";
 import { getEventDisplay, getPlayerName, phaseLabel } from "./helpers";
 import { Badge } from "../ui";
 import { useSettingsStore } from "../../store/settingsStore";
+import TeamLogo from "../common/TeamLogo";
 import { EventFeed, MatchStats, Lineups } from "./MatchPanels";
 import MatchScreenLayout from "./MatchScreenLayout";
 import { SubPanel } from "./SubPanel";
@@ -30,6 +31,57 @@ interface MatchLiveProps {
   onFullTime: () => void;
 }
 
+function LiveTeamBlock({
+  team,
+  teamData,
+  teamColor,
+  align,
+}: {
+  team: EngineTeamData;
+  teamData: TeamData | undefined;
+  teamColor: string;
+  align: "left" | "right";
+}) {
+  const isRight = align === "right";
+
+  return (
+    <div className={`flex min-w-0 items-center gap-3 ${isRight ? "justify-end text-right" : ""}`}>
+      {isRight && <LiveTeamBadge team={team} teamData={teamData} teamColor={teamColor} />}
+      <div className="min-w-0">
+        <p className="truncate font-heading text-sm font-black uppercase tracking-wide text-app-text">
+          {team.name}
+        </p>
+        <p className="text-xs font-semibold text-app-text-muted">{team.formation}</p>
+      </div>
+      {!isRight && <LiveTeamBadge team={team} teamData={teamData} teamColor={teamColor} />}
+    </div>
+  );
+}
+
+function LiveTeamBadge({
+  team,
+  teamData,
+  teamColor,
+}: {
+  team: EngineTeamData;
+  teamData: TeamData | undefined;
+  teamColor: string;
+}) {
+  return teamData ? (
+    <TeamLogo
+      team={teamData}
+      className="h-12 w-12 rounded-xl border border-app-border bg-white/95 p-1.5 shadow-lg shadow-black/25"
+    />
+  ) : (
+    <div
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 font-heading text-xs font-black text-app-text"
+      style={{ backgroundColor: `${teamColor}30`, borderColor: teamColor }}
+    >
+      {team.name.substring(0, 3).toUpperCase()}
+    </div>
+  );
+}
+
 export default function MatchLive({
   snapshot, gameState, userSide, isSpectator,
   importantEvents, onSnapshotUpdate, onImportantEvent,
@@ -47,8 +99,10 @@ export default function MatchLive({
   // Track phases we've already signaled to avoid double-firing
   const signaledRef = useRef<Set<string>>(new Set());
 
-  const homeTeamColor = gameState.teams.find(t => t.id === snapshot.home_team.id)?.colors?.primary || "#10b981";
-  const awayTeamColor = gameState.teams.find(t => t.id === snapshot.away_team.id)?.colors?.primary || "#6366f1";
+  const homeTeamData = gameState.teams.find(t => t.id === snapshot.home_team.id);
+  const awayTeamData = gameState.teams.find(t => t.id === snapshot.away_team.id);
+  const homeTeamColor = homeTeamData?.colors?.primary || "#10b981";
+  const awayTeamColor = awayTeamData?.colors?.primary || "#6366f1";
 
   const isFinished = snapshot.phase === "Finished";
 
@@ -171,99 +225,78 @@ export default function MatchLive({
 
   return (
     <MatchScreenLayout
-      headerClassName="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800"
-      headerContentClassName="max-w-7xl py-3"
+      headerClassName="bg-app-card"
+      headerContentClassName="py-3"
       contentClassName="overflow-hidden"
       header={
         <>
-          <div className="flex items-center justify-between gap-4">
-            {/* Live indicator */}
+          <div className="grid items-center gap-4 xl:grid-cols-[220px_minmax(0,1fr)_110px]">
             <div className="flex items-center gap-2">
               {isRunning && (
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
                 </span>
               )}
-              <span className="text-xs font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400">
+              <span className="font-heading text-xs font-bold uppercase tracking-widest text-app-text-muted">
                 {isRunning ? t('match.live') : t('match.paused')}
               </span>
             </div>
 
-            {/* Scoreboard */}
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">
-                    {snapshot.home_team.name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{snapshot.home_team.formation}</p>
-                </div>
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center font-heading font-bold text-sm"
-                  style={{ backgroundColor: homeTeamColor + "30", borderColor: homeTeamColor, borderWidth: 2 }}
-                >
-                  {snapshot.home_team.name.substring(0, 3).toUpperCase()}
-                </div>
-              </div>
+            <div className="rounded-2xl border border-app-green/20 bg-app-bg/80 px-4 py-3 shadow-inner shadow-black/20">
+              <div className="grid grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)] items-center gap-4">
+                <LiveTeamBlock
+                  team={snapshot.home_team}
+                  teamData={homeTeamData}
+                  teamColor={homeTeamColor}
+                  align="right"
+                />
 
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">{snapshot.home_score}</span>
-                <div className="flex flex-col items-center">
-                  <span className="text-xs font-heading uppercase tracking-widest text-accent-700 dark:text-accent-400">
-                    {phaseLabel(snapshot.phase, t)}
-                  </span>
-                  <span className="text-2xl font-heading font-bold text-gray-500 dark:text-gray-400">{snapshot.current_minute}'</span>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="font-heading text-5xl font-black tabular-nums text-app-text">{snapshot.home_score}</span>
+                  <div className="flex flex-col items-center rounded-xl border border-app-border bg-app-card px-4 py-2">
+                    <span className="font-heading text-[10px] font-bold uppercase tracking-widest text-app-green">
+                      {phaseLabel(snapshot.phase, t)}
+                    </span>
+                    <span className="font-heading text-2xl font-black tabular-nums text-app-text-muted">{snapshot.current_minute}'</span>
+                  </div>
+                  <span className="font-heading text-5xl font-black tabular-nums text-app-text">{snapshot.away_score}</span>
                 </div>
-                <span className="text-4xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">{snapshot.away_score}</span>
-              </div>
 
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center font-heading font-bold text-sm"
-                  style={{ backgroundColor: awayTeamColor + "30", borderColor: awayTeamColor, borderWidth: 2 }}
-                >
-                  {snapshot.away_team.name.substring(0, 3).toUpperCase()}
-                </div>
-                <div className="text-left">
-                  <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">
-                    {snapshot.away_team.name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{snapshot.away_team.formation}</p>
-                </div>
+                <LiveTeamBlock
+                  team={snapshot.away_team}
+                  teamData={awayTeamData}
+                  teamColor={awayTeamColor}
+                  align="left"
+                />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-sm font-heading text-gray-500 dark:text-gray-400 tabular-nums w-8">{snapshot.current_minute}'</span>
+            <div className="flex items-center justify-end gap-2 text-app-text-muted">
+              <Clock className="h-4 w-4" />
+              <span className="w-10 font-heading text-sm tabular-nums">{snapshot.current_minute}'</span>
             </div>
           </div>
 
-          {/* Possession bar */}
-          <div className="mt-2">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-heading font-bold text-primary-400 w-12 text-right">
-                {snapshot.home_possession_pct.toFixed(0)}%
-              </span>
-              <div className="flex-1 h-1.5 bg-gray-300 dark:bg-surface-700 rounded-full overflow-hidden flex transition-colors duration-300">
-                <div className="h-full bg-primary-500 transition-all duration-500" style={{ width: `${snapshot.home_possession_pct}%` }} />
-                <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${snapshot.away_possession_pct}%` }} />
-              </div>
-              <span className="font-heading font-bold text-indigo-400 w-12">
-                {snapshot.away_possession_pct.toFixed(0)}%
-              </span>
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <span className="w-12 text-right font-heading font-bold text-app-green">
+              {snapshot.home_possession_pct.toFixed(0)}%
+            </span>
+            <div className="flex h-1.5 flex-1 overflow-hidden rounded-full bg-app-bg">
+              <div className="h-full transition-all duration-500" style={{ width: `${snapshot.home_possession_pct}%`, backgroundColor: homeTeamColor }} />
+              <div className="h-full transition-all duration-500" style={{ width: `${snapshot.away_possession_pct}%`, backgroundColor: awayTeamColor }} />
             </div>
+            <span className="w-12 font-heading font-bold text-indigo-300">
+              {snapshot.away_possession_pct.toFixed(0)}%
+            </span>
           </div>
         </>
       }
     >
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Event Feed + Stats */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex bg-white dark:bg-surface-800 border-b border-gray-200 dark:border-surface-700 transition-colors duration-300">
+      <div className="flex h-full min-h-0 overflow-hidden bg-app-bg">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex border-b border-app-border bg-app-card">
             {([
               { id: "events" as ActivePanel, label: t('match.events'), icon: <MessageSquare className="w-4 h-4" /> },
               { id: "stats" as ActivePanel, label: t('match.stats'), icon: <BarChart3 className="w-4 h-4" /> },
@@ -272,9 +305,9 @@ export default function MatchLive({
               <button
                 key={tab.id}
                 onClick={() => setActivePanel(tab.id)}
-                className={`flex items-center gap-2 px-5 py-3 font-heading font-bold text-xs uppercase tracking-wider transition-colors border-b-2 ${activePanel === tab.id
-                    ? "text-primary-500 dark:text-primary-400 border-primary-500 bg-primary-50 dark:bg-surface-700/50"
-                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+                className={`flex items-center gap-2 border-b-2 px-5 py-3 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activePanel === tab.id
+                    ? "border-app-green bg-app-green/10 text-app-green"
+                    : "border-transparent text-app-text-muted hover:bg-app-bg hover:text-app-text"
                   }`}
               >
                 {tab.icon}
@@ -283,18 +316,16 @@ export default function MatchLive({
             ))}
           </div>
 
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-4 custom-scrollbar">
             {activePanel === "events" && <EventFeed events={importantEvents} snapshot={snapshot} feedRef={eventFeedRef} />}
             {activePanel === "stats" && <MatchStats snapshot={snapshot} />}
             {activePanel === "lineups" && <Lineups snapshot={snapshot} />}
           </div>
         </div>
 
-        {/* Right Panel: Controls */}
-        <aside className="w-72 bg-white dark:bg-surface-800 border-l border-gray-200 dark:border-surface-700 flex flex-col transition-colors duration-300">
-          {/* Speed Controls */}
-          <div className="p-4 border-b border-gray-200 dark:border-surface-700">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">{t('match.simSpeed')}</h3>
+        <aside className="flex w-80 flex-col border-l border-app-border bg-app-card">
+          <div className="border-b border-app-border p-4">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{t('match.simSpeed')}</h3>
             <div className="flex gap-1">
               {([
                 { id: "paused" as SimSpeed, icon: <Pause className="w-4 h-4" />, label: t('match.pause') },
@@ -306,7 +337,7 @@ export default function MatchLive({
                 <button
                   key={s.id}
                   onClick={() => { setSpeed(s.id); setIsRunning(s.id !== "paused"); }}
-                  className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-xs font-heading uppercase tracking-wider transition-all ${speed === s.id ? "bg-primary-500/20 text-primary-500 dark:text-primary-400 ring-1 ring-primary-500/50" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-surface-700"
+                  className={`flex flex-1 flex-col items-center gap-1 rounded-lg py-2 font-heading text-xs uppercase tracking-wider transition-all ${speed === s.id ? "bg-app-green/15 text-app-green ring-1 ring-app-green/40" : "text-app-text-muted hover:bg-app-bg hover:text-app-text"
                     }`}
                 >
                   {s.icon}
@@ -317,7 +348,7 @@ export default function MatchLive({
             {speed === "paused" && (
               <button
                 onClick={stepMatch}
-                className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-surface-700 dark:hover:bg-surface-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-700 dark:text-gray-300 transition-colors"
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-app-border bg-app-bg py-2 font-heading text-sm uppercase tracking-wider text-app-text-muted transition-colors hover:border-app-green/40 hover:text-app-text"
               >
                 <ChevronRight className="w-4 h-4" />
                 {t('match.step1Min')}
@@ -327,30 +358,30 @@ export default function MatchLive({
 
           {/* User Controls */}
           {!isSpectator && userSide && (
-            <div className="p-4 border-b border-gray-200 dark:border-surface-700 flex flex-col gap-2">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-1">{t('match.teamControls')}</h3>
+            <div className="flex flex-col gap-2 border-b border-app-border p-4">
+              <h3 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{t('match.teamControls')}</h3>
               <button
                 onClick={() => setShowSubPanel(!showSubPanel)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-surface-700 dark:hover:bg-surface-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-700 dark:text-gray-300 transition-colors"
+                className="flex items-center gap-2 rounded-lg border border-app-border bg-app-bg px-3 py-2 font-heading text-sm uppercase tracking-wider text-app-text-muted transition-colors hover:border-app-green/40 hover:text-app-text"
               >
                 <RefreshCw className="w-4 h-4" />
                 {t('match.subs')} ({userSide === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made}/{snapshot.max_subs})
               </button>
               <div>
-                <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1">{t('match.formation')}</p>
+                <p className="mb-1 font-heading text-[10px] uppercase tracking-widest text-app-text-muted">{t('match.formation')}</p>
                 <div className="flex flex-wrap gap-1">
                   {["4-4-2", "4-3-3", "3-5-2", "4-5-1", "4-2-3-1", "3-4-3"].map(f => {
                     const cur = userSide === "Home" ? snapshot.home_team.formation : snapshot.away_team.formation;
                     return (
                       <button key={f} onClick={() => handleFormationChange(f)}
-                        className={`px-2 py-1 rounded text-xs font-heading transition-colors ${cur === f ? "bg-primary-500/20 text-primary-500 dark:text-primary-400 ring-1 ring-primary-500/50" : "bg-gray-100 text-gray-600 hover:text-gray-900 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-300"}`}
+                        className={`rounded border px-2 py-1 font-heading text-xs transition-colors ${cur === f ? "border-app-green/50 bg-app-green/15 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"}`}
                       >{f}</button>
                     );
                   })}
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 mb-1">{t('match.playStyle')}</p>
+                <p className="mb-1 font-heading text-[10px] uppercase tracking-widest text-app-text-muted">{t('match.playStyle')}</p>
                 <div className="flex flex-wrap gap-1">
                   {[
                     { id: "Balanced", icon: <Target className="w-3 h-3" /> },
@@ -363,7 +394,7 @@ export default function MatchLive({
                     const cur = userSide === "Home" ? snapshot.home_team.play_style : snapshot.away_team.play_style;
                     return (
                       <button key={s.id} onClick={() => handlePlayStyleChange(s.id)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-heading transition-colors ${cur === s.id ? "bg-primary-500/20 text-primary-500 dark:text-primary-400 ring-1 ring-primary-500/50" : "bg-gray-100 text-gray-600 hover:text-gray-900 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-300"}`}
+                        className={`flex items-center gap-1 rounded border px-2 py-1 font-heading text-xs transition-colors ${cur === s.id ? "border-app-green/50 bg-app-green/15 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"}`}
                       >{s.icon}{t(`common.playStyles.${s.id}`, s.id)}</button>
                     );
                   })}
@@ -372,9 +403,8 @@ export default function MatchLive({
             </div>
           )}
 
-          {/* Key Events sidebar */}
-          <div className="p-4 flex-1 overflow-auto">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">{t('match.keyEvents')}</h3>
+          <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{t('match.keyEvents')}</h3>
             <div className="flex flex-col gap-1.5">
               {importantEvents
                 .filter(e => ["Goal", "PenaltyGoal", "YellowCard", "RedCard", "SecondYellow", "Substitution", "PenaltyMiss", "Injury"].includes(e.event_type))
@@ -382,8 +412,8 @@ export default function MatchLive({
                 .map((evt, i) => {
                   const display = getEventDisplay(evt);
                   return (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="text-gray-600 dark:text-gray-500 tabular-nums w-6 text-right font-heading">{evt.minute}'</span>
+                    <div key={i} className="rounded-lg border border-app-border/60 bg-app-bg/70 px-2 py-1.5 text-xs">
+                      <span className="mr-2 inline-block w-6 text-right font-heading tabular-nums text-app-text-muted">{evt.minute}'</span>
                       <span>{display.icon}</span>
                       <span className={`${display.color} font-medium truncate`}>{getPlayerName(snapshot, evt.player_id)}</span>
                       <Badge variant={evt.side === "Home" ? "primary" : "accent"} size="sm">
@@ -392,7 +422,7 @@ export default function MatchLive({
                     </div>
                   );
                 })}
-              {importantEvents.length === 0 && <p className="text-gray-600 dark:text-gray-500 text-xs">{t('match.noEventsYet')}</p>}
+              {importantEvents.length === 0 && <p className="text-xs text-app-text-muted">{t('match.noEventsYet')}</p>}
             </div>
           </div>
         </aside>

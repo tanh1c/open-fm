@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { FixtureData, GameStateData } from "../../store/gameStore";
+import { FixtureData, GameStateData, TeamData } from "../../store/gameStore";
 import { getFixtureDisplayLabel } from "../../lib/helpers";
-import { MatchSnapshot, FORMATIONS, PLAY_STYLES } from "./types";
+import { EngineTeamData, MatchSnapshot, FORMATIONS, PLAY_STYLES } from "./types";
 import PreMatchLineup, {
   parseFormationNeeds,
 } from "./PreMatchLineup";
+import TeamLogo from "../common/TeamLogo";
 import MatchScreenLayout from "./MatchScreenLayout";
 import SetPieceSelector from "./SetPieceSelector";
 import {
@@ -42,6 +43,74 @@ const PLAY_STYLE_ICONS: Record<string, React.ReactNode> = {
   HighPress: <Flag className="w-4 h-4" />,
 };
 
+function findTeamData(gameState: GameStateData, teamId: string) {
+  return gameState.teams.find((team) => team.id === teamId);
+}
+
+function PrematchTeamHeader({
+  label,
+  team,
+  teamData,
+  teamColor,
+  align,
+  playStyle,
+}: {
+  label: string;
+  team: EngineTeamData;
+  teamData: TeamData | undefined;
+  teamColor: string;
+  align: "left" | "right";
+  playStyle: string;
+}) {
+  const isRight = align === "right";
+
+  return (
+    <div className={`flex min-w-0 items-center gap-4 ${isRight ? "justify-end text-right" : ""}`}>
+      {!isRight && (
+        <TeamBadge team={team} teamData={teamData} teamColor={teamColor} />
+      )}
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-app-green">
+          {label}
+        </p>
+        <p className="truncate font-heading text-xl font-black tracking-tight text-app-text">
+          {team.name}
+        </p>
+        <p className="truncate text-xs font-semibold text-app-text-muted">
+          {team.formation} · {playStyle}
+        </p>
+      </div>
+      {isRight && (
+        <TeamBadge team={team} teamData={teamData} teamColor={teamColor} />
+      )}
+    </div>
+  );
+}
+
+function TeamBadge({
+  team,
+  teamData,
+  teamColor,
+}: {
+  team: EngineTeamData;
+  teamData: TeamData | undefined;
+  teamColor: string;
+}) {
+  return teamData ? (
+    <TeamLogo
+      team={teamData}
+      className="h-16 w-16 rounded-2xl border border-app-border bg-white/95 p-2 shadow-lg shadow-black/25"
+    />
+  ) : (
+    <div
+      className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 font-heading text-lg font-black text-app-text shadow-lg shadow-black/20"
+      style={{ backgroundColor: `${teamColor}30`, borderColor: teamColor }}
+    >
+      {team.name.substring(0, 3).toUpperCase()}
+    </div>
+  );
+}
+
 export default function PreMatchSetup({
   snapshot,
   gameState,
@@ -63,12 +132,10 @@ export default function PreMatchSetup({
   const userSetPieces =
     userSide === "Home" ? snapshot.home_set_pieces : snapshot.away_set_pieces;
 
-  const homeTeamColor =
-    gameState.teams.find((t) => t.id === snapshot.home_team.id)?.colors
-      ?.primary || "#10b981";
-  const awayTeamColor =
-    gameState.teams.find((t) => t.id === snapshot.away_team.id)?.colors
-      ?.primary || "#6366f1";
+  const homeTeamData = findTeamData(gameState, snapshot.home_team.id);
+  const awayTeamData = findTeamData(gameState, snapshot.away_team.id);
+  const homeTeamColor = homeTeamData?.colors?.primary || "#10b981";
+  const awayTeamColor = awayTeamData?.colors?.primary || "#6366f1";
   const userColor = userSide === "Home" ? homeTeamColor : awayTeamColor;
   const fixtureLabel = currentFixture
     ? getFixtureDisplayLabel(t, currentFixture)
@@ -219,84 +286,53 @@ export default function PreMatchSetup({
 
   return (
     <MatchScreenLayout
-      headerClassName="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-surface-800 dark:via-surface-900 dark:to-surface-800"
-      headerContentClassName="max-w-5xl py-6"
+      headerClassName="bg-app-card"
+      headerContentClassName="py-5"
       contentClassName="overflow-auto"
       header={
         <>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center font-heading font-bold text-lg"
-                style={{
-                  backgroundColor: homeTeamColor + "30",
-                  borderColor: homeTeamColor,
-                  borderWidth: 2,
-                }}
-              >
-                {snapshot.home_team.name.substring(0, 3).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-heading font-bold text-lg text-gray-900 dark:text-white">
-                  {snapshot.home_team.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("match.home")} · {snapshot.home_team.formation} ·{" "}
-                  {t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
-                </p>
-              </div>
-            </div>
+          <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)]">
+            <PrematchTeamHeader
+              label={t("match.home")}
+              team={snapshot.home_team}
+              teamData={homeTeamData}
+              teamColor={homeTeamColor}
+              align="left"
+              playStyle={t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
+            />
 
-            <div className="text-center">
-              <p className="text-xs font-heading uppercase tracking-widest text-accent-700 dark:text-accent-400 mb-1">
+            <div className="rounded-2xl border border-app-green/25 bg-app-bg/80 px-4 py-3 text-center shadow-inner shadow-black/20">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.24em] text-app-green">
                 {fixtureLabel}
               </p>
-              <p className="text-3xl font-heading font-bold text-gray-500 dark:text-gray-400">
+              <p className="font-heading text-3xl font-black tracking-wider text-app-text">
                 VS
               </p>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="font-heading font-bold text-lg text-gray-900 dark:text-white">
-                  {snapshot.away_team.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("match.away")} · {snapshot.away_team.formation} ·{" "}
-                  {t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
-                </p>
-              </div>
-              <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center font-heading font-bold text-lg"
-                style={{
-                  backgroundColor: awayTeamColor + "30",
-                  borderColor: awayTeamColor,
-                  borderWidth: 2,
-                }}
+              <button
+                onClick={onStart}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-app-green to-emerald-600 px-5 py-2.5 font-heading text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-app-green/20 transition-all hover:brightness-110 active:scale-[0.98]"
               >
-                {snapshot.away_team.name.substring(0, 3).toUpperCase()}
-              </div>
+                {t("match.startMatch")}
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
-          </div>
 
-          <div className="flex justify-center mt-2">
-            <button
-              onClick={onStart}
-              className="flex items-center gap-3 px-10 py-3.5 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {t("match.startMatch")}
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            <PrematchTeamHeader
+              label={t("match.away")}
+              team={snapshot.away_team}
+              teamData={awayTeamData}
+              teamColor={awayTeamColor}
+              align="right"
+              playStyle={t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
+            />
           </div>
         </>
       }
     >
-      <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col gap-6">
-        {/* Formation & Play Style */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Formation */}
-          <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+      <div className="mx-auto flex max-w-[1700px] flex-col gap-4 px-4 py-5 sm:px-6">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
               {t("match.formation")}
             </h3>
             <div className="grid grid-cols-3 gap-2">
@@ -304,9 +340,9 @@ export default function PreMatchSetup({
                 <button
                   key={f}
                   onClick={() => handleFormationChange(f)}
-                  className={`py-2.5 rounded-lg text-sm font-heading font-bold transition-all ${userTeam.formation === f
-                    ? "bg-primary-500/20 text-primary-400 ring-2 ring-primary-500/50"
-                    : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-surface-600"
+                  className={`rounded-lg py-2.5 font-heading text-sm font-bold transition-all ${userTeam.formation === f
+                    ? "border border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
+                    : "border border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
                     }`}
                 >
                   {f}
@@ -315,9 +351,8 @@ export default function PreMatchSetup({
             </div>
           </div>
 
-          {/* Play Style */}
-          <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
+          <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
               {t("match.playStyle")}
             </h3>
             <div className="grid grid-cols-2 gap-2">
@@ -325,9 +360,9 @@ export default function PreMatchSetup({
                 <button
                   key={style}
                   onClick={() => handlePlayStyleChange(style)}
-                  className={`flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm font-heading font-bold transition-all ${userTeam.play_style === style
-                    ? "bg-primary-500/20 text-primary-400 ring-2 ring-primary-500/50"
-                    : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-surface-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-surface-600"
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 font-heading text-sm font-bold transition-all ${userTeam.play_style === style
+                    ? "border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
+                    : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
                     }`}
                 >
                   {PLAY_STYLE_ICONS[style]}
@@ -338,22 +373,21 @@ export default function PreMatchSetup({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-200 dark:bg-surface-800 rounded-lg p-1 self-start transition-colors duration-300">
+        <div className="flex gap-1 self-start rounded-lg border border-app-border bg-app-card p-1 shadow-lg shadow-black/10">
           <button
             onClick={() => setActiveTab("lineup")}
-            className={`px-4 py-2 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-colors ${activeTab === "lineup"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-surface-600 dark:text-white"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            className={`rounded-md px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "lineup"
+                ? "bg-app-green text-white shadow-sm"
+                : "text-app-text-muted hover:bg-app-bg hover:text-app-text"
               }`}
           >
             {t("match.startingLineup")}
           </button>
           <button
             onClick={() => setActiveTab("setpieces")}
-            className={`px-4 py-2 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-colors ${activeTab === "setpieces"
-                ? "bg-white text-gray-900 shadow-sm dark:bg-surface-600 dark:text-white"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            className={`rounded-md px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "setpieces"
+                ? "bg-app-green text-white shadow-sm"
+                : "text-app-text-muted hover:bg-app-bg hover:text-app-text"
               }`}
           >
             {t("match.setPiecesCaptain")}
@@ -381,7 +415,7 @@ export default function PreMatchSetup({
 
         {/* Set Pieces Tab */}
         {activeTab === "setpieces" && (
-          <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
+          <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
             <button
               onClick={async () => {
                 try {
@@ -410,7 +444,7 @@ export default function PreMatchSetup({
                   console.error("Auto-select set pieces failed:", err);
                 }
               }}
-              className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-2.5 bg-accent-50 hover:bg-accent-100 text-accent-700 dark:bg-accent-500/10 dark:hover:bg-accent-500/20 dark:text-accent-400 rounded-lg font-heading font-bold text-xs uppercase tracking-wider transition-colors border border-accent-200 dark:border-accent-500/20"
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-app-green/30 bg-app-green/10 px-4 py-2.5 font-heading text-xs font-bold uppercase tracking-wider text-app-green transition-colors hover:bg-app-green/15"
             >
               <Wand2 className="w-3.5 h-3.5" />
               {t("match.autoSelectTakers")}

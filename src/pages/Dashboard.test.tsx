@@ -198,6 +198,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("../store/gameStore", () => ({
+  getPrimaryCompetition: (state: GameStateData) => state.competitions?.[0] ?? state.league ?? null,
   useGameStore: () => ({
     hasActiveGame: true,
     managerName: "Jane Doe",

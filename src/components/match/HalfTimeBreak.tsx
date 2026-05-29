@@ -13,9 +13,9 @@ import {
 import { getEventDisplay, getPlayerName } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
 import { SubPanel } from "./SubPanel";
-import { Badge, ThemeToggle } from "../ui";
+import { Badge } from "../ui";
+import MatchScreenLayout, { MatchPageAction } from "./MatchScreenLayout";
 import {
-  Play,
   RefreshCw,
   Shield,
   Zap,
@@ -31,6 +31,7 @@ interface HalfTimeBreakProps {
   userSide: "Home" | "Away";
   isSpectator: boolean;
   importantEvents: MatchEvent[];
+  onBackToDashboard: () => void;
   onResume: () => void;
   onUpdateSnapshot: (snap: MatchSnapshot) => void;
 }
@@ -50,6 +51,7 @@ export default function HalfTimeBreak({
   userSide,
   isSpectator,
   importantEvents,
+  onBackToDashboard,
   onResume,
   onUpdateSnapshot,
 }: HalfTimeBreakProps) {
@@ -164,12 +166,23 @@ export default function HalfTimeBreak({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-app-bg text-app-text">
-      {/* Header scoreboard */}
-      <header className="border-b border-app-border bg-app-card px-4 py-4 shadow-lg shadow-black/20">
-        <div className="relative mx-auto max-w-[1700px]">
-          <ThemeToggle className="absolute right-0 top-0" />
-          <div className="flex items-center justify-center gap-8">
+    <MatchScreenLayout
+      contentClassName="min-h-0"
+      pageTitle="HALF TIME"
+      pageSubtitle={`${snapshot.home_team.name} ${snapshot.home_score} - ${snapshot.away_score} ${snapshot.away_team.name}`}
+      pageActions={
+        <>
+          <MatchPageAction onClick={onBackToDashboard}>{t("common.back")}</MatchPageAction>
+          <MatchPageAction onClick={onResume} variant="primary">
+            {t("match.resumeMatch")}
+          </MatchPageAction>
+        </>
+      }
+    >
+      <div className="flex h-[800px] min-h-0 flex-col gap-4 xl:h-[750px]">
+        <header className="rounded-xl border border-app-border bg-app-card px-4 py-4 shadow-lg shadow-black/10">
+          <div className="mx-auto max-w-[1700px]">
+            <div className="flex items-center justify-center gap-8">
             <div className="flex items-center gap-3">
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center font-heading font-bold"
@@ -244,9 +257,8 @@ export default function HalfTimeBreak({
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <div className="mx-auto grid max-w-[1700px] grid-cols-3 gap-6 px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
+          <div className="grid min-h-full gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
           {/* Left: First Half Summary */}
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
@@ -478,26 +490,8 @@ export default function HalfTimeBreak({
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Footer */}
-      <footer className="border-t border-app-border bg-app-card px-6 py-4 shadow-lg shadow-black/20">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <p className="text-xs text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider">
-            {isSpectator
-              ? t("match.waitingSecondHalf")
-              : t("match.makeChanges")}
-          </p>
-          <button
-            onClick={onResume}
-            className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-app-green to-emerald-600 px-8 py-3 font-heading text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-app-green/20 transition-all hover:brightness-110"
-          >
-            <Play className="w-4 h-4" />
-            {t("match.resumeMatch")}
-          </button>
-        </div>
-      </footer>
-
-      {/* Substitution Modal — reuses the full SubPanel from MatchLive */}
       {showSubPanel && (
         <SubPanel
           snapshot={snapshot}
@@ -506,6 +500,6 @@ export default function HalfTimeBreak({
           onClose={() => setShowSubPanel(false)}
         />
       )}
-    </div>
+    </MatchScreenLayout>
   );
 }

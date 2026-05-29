@@ -235,6 +235,10 @@ export default function MatchSimulation() {
     }
   }, [finalizeMatch, navigate]);
 
+  const handleBackToDashboard = useCallback(() => {
+    navigate("/dashboard");
+  }, [navigate]);
+
   const handleSnapshotUpdate = useCallback((snap: MatchSnapshot) => {
     console.info("[MatchSimulation] handleSnapshotUpdate", {
       awayPlayers: snap.away_team.players.length,
@@ -283,6 +287,7 @@ export default function MatchSimulation() {
           gameState={gameState}
           currentFixture={currentFixture}
           userSide={userSide || "Home"}
+          onBackToDashboard={handleBackToDashboard}
           onStart={handleStartMatch}
           onUpdateSnapshot={handleSnapshotUpdate}
         />
@@ -298,6 +303,7 @@ export default function MatchSimulation() {
           userSide={userSide}
           isSpectator={isSpectator}
           importantEvents={importantEvents}
+          onBackToDashboard={handleBackToDashboard}
           onSnapshotUpdate={handleSnapshotUpdate}
           onImportantEvent={handleImportantEvent}
           onHalfTime={handleHalfTime}
@@ -313,6 +319,7 @@ export default function MatchSimulation() {
           userSide={userSide || "Home"}
           isSpectator={isSpectator}
           importantEvents={importantEvents}
+          onBackToDashboard={handleBackToDashboard}
           onResume={handleResumeFromHalfTime}
           onUpdateSnapshot={handleSnapshotUpdate}
         />
@@ -328,6 +335,7 @@ export default function MatchSimulation() {
           isSpectator={isSpectator}
           importantEvents={importantEvents}
           roundSummary={roundSummary}
+          onBackToDashboard={handleBackToDashboard}
           onPressConference={handlePressConference}
           onFinish={handleFinishMatch}
         />

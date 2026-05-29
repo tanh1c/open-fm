@@ -534,6 +534,7 @@ describe("PostMatchScreen", function (): void {
               },
             ],
           }}
+          onBackToDashboard={() => { }}
           onPressConference={() => { }}
           onFinish={() => { }}
         />
@@ -541,7 +542,7 @@ describe("PostMatchScreen", function (): void {
     );
 
     expect(screen.getByText("Matchday 4")).toBeInTheDocument();
-    expect(screen.getByText("Alpha FC 2 - 1 Beta FC")).toBeInTheDocument();
+    expect(screen.getAllByText("Alpha FC 2 - 1 Beta FC").length).toBeGreaterThan(0);
     expect(screen.getByText("Alice 12' • Bob 68'")).toBeInTheDocument();
     expect(screen.getByText("View details")).toBeInTheDocument();
     expect(screen.getByText("1. Alpha FC")).toBeInTheDocument();
@@ -595,6 +596,7 @@ describe("PostMatchScreen", function (): void {
             notable_upset: null,
             top_scorer_delta: [],
           }}
+          onBackToDashboard={() => { }}
           onPressConference={() => { }}
           onFinish={() => { }}
         />
@@ -632,6 +634,7 @@ describe("PostMatchScreen", function (): void {
           isSpectator={false}
           importantEvents={[]}
           roundSummary={null}
+          onBackToDashboard={() => { }}
           onPressConference={() => { }}
           onFinish={() => { }}
         />

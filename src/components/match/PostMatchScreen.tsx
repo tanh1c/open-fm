@@ -12,7 +12,8 @@ import {
 } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
-import { Badge, ThemeToggle } from "../ui";
+import { Badge } from "../ui";
+import MatchScreenLayout, { MatchPageAction } from "./MatchScreenLayout";
 import {
   QuickStat,
   renderScorers,
@@ -24,7 +25,6 @@ import {
   Minus,
   Star,
   MessageCircle,
-  ChevronRight,
   BarChart3,
 } from "lucide-react";
 
@@ -36,6 +36,7 @@ interface PostMatchScreenProps {
   isSpectator: boolean;
   importantEvents: MatchEvent[];
   roundSummary: RoundSummary | null;
+  onBackToDashboard: () => void;
   onPressConference: () => void;
   onFinish: () => void;
 }
@@ -48,6 +49,7 @@ export default function PostMatchScreen({
   isSpectator,
   importantEvents,
   roundSummary,
+  onBackToDashboard,
   onPressConference,
   onFinish,
 }: PostMatchScreenProps) {
@@ -290,19 +292,26 @@ export default function PostMatchScreen({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-app-bg text-app-text">
-      {/* Result Header */}
-      <header
-        className={`border-b border-app-border px-4 py-8 shadow-lg shadow-black/20 ${resultType === "win"
-            ? "bg-app-card"
-            : resultType === "loss"
-              ? "bg-app-card"
-              : "bg-app-card"
-          }`}
-      >
-        <div className="relative mx-auto max-w-[1700px] text-center">
-          <ThemeToggle className="absolute right-0 top-0" />
-          {/* Result badge */}
+    <MatchScreenLayout
+      contentClassName="min-h-0"
+      pageTitle="FULL TIME"
+      pageSubtitle={`${snapshot.home_team.name} ${snapshot.home_score} - ${snapshot.away_score} ${snapshot.away_team.name}`}
+      pageActions={
+        <>
+          <MatchPageAction onClick={onBackToDashboard}>{t("common.back")}</MatchPageAction>
+          <MatchPageAction onClick={onFinish}>{t("match.skip")}</MatchPageAction>
+          {!isSpectator && (
+            <MatchPageAction onClick={onPressConference} variant="primary">
+              {t("match.pressConference")}
+            </MatchPageAction>
+          )}
+        </>
+      }
+    >
+      <div className="flex h-[800px] min-h-0 flex-col gap-4 xl:h-[750px]">
+        <header className="rounded-xl border border-app-border bg-app-card px-4 py-6 shadow-lg shadow-black/10">
+          <div className="mx-auto max-w-[1700px] text-center">
+            {/* Result badge */}
           {!isSpectator && userSide && (
             <div className="mb-4">
               {resultType === "win" && (
@@ -386,9 +395,8 @@ export default function PostMatchScreen({
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <div className="mx-auto grid max-w-[1700px] grid-cols-3 gap-6 px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
+          <div className="grid min-h-full gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
           {/* Left: Match Events */}
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
@@ -908,33 +916,7 @@ export default function PostMatchScreen({
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="border-t border-app-border bg-app-card px-6 py-4 shadow-lg shadow-black/20">
-        <div className="mx-auto flex max-w-[1700px] items-center justify-between">
-          <p className="text-xs text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider">
-            {isSpectator ? t("match.matchComplete") : t("match.addressPress")}
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onFinish}
-              className="flex items-center gap-2 rounded-xl border border-app-border bg-app-bg px-6 py-3 font-heading text-sm font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:border-app-green/40 hover:text-app-text"
-            >
-              {t("match.skip")}
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            {!isSpectator && (
-              <button
-                onClick={onPressConference}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-app-green to-emerald-600 px-8 py-3 font-heading text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-app-green/20 transition-all hover:brightness-110"
-              >
-                {t("match.pressConference")}
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </MatchScreenLayout>
   );
 }

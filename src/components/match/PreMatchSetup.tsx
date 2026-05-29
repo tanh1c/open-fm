@@ -8,10 +8,9 @@ import PreMatchLineup, {
   parseFormationNeeds,
 } from "./PreMatchLineup";
 import TeamLogo from "../common/TeamLogo";
-import MatchScreenLayout from "./MatchScreenLayout";
+import MatchScreenLayout, { MatchPageAction } from "./MatchScreenLayout";
 import SetPieceSelector from "./SetPieceSelector";
 import {
-  ChevronRight,
   Shield,
   Zap,
   Target,
@@ -30,6 +29,7 @@ interface PreMatchSetupProps {
   gameState: GameStateData;
   currentFixture?: FixtureData | null;
   userSide: "Home" | "Away";
+  onBackToDashboard: () => void;
   onStart: () => void;
   onUpdateSnapshot: (snap: MatchSnapshot) => void;
 }
@@ -116,6 +116,7 @@ export default function PreMatchSetup({
   gameState,
   currentFixture,
   userSide,
+  onBackToDashboard,
   onStart,
   onUpdateSnapshot,
 }: PreMatchSetupProps) {
@@ -286,113 +287,105 @@ export default function PreMatchSetup({
 
   return (
     <MatchScreenLayout
-      headerClassName="bg-app-card"
-      headerContentClassName="py-5"
-      contentClassName="overflow-auto"
-      header={
+      contentClassName="min-h-0"
+      pageTitle="MATCHDAY"
+      pageSubtitle={`${fixtureLabel} · ${t("match.matchDay")}`}
+      pageActions={
         <>
-          <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)]">
-            <PrematchTeamHeader
-              label={t("match.home")}
-              team={snapshot.home_team}
-              teamData={homeTeamData}
-              teamColor={homeTeamColor}
-              align="left"
-              playStyle={t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
-            />
-
-            <div className="rounded-2xl border border-app-green/25 bg-app-bg/80 px-4 py-3 text-center shadow-inner shadow-black/20">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.24em] text-app-green">
-                {fixtureLabel}
-              </p>
-              <p className="font-heading text-3xl font-black tracking-wider text-app-text">
-                VS
-              </p>
-              <button
-                onClick={onStart}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-app-green to-emerald-600 px-5 py-2.5 font-heading text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-app-green/20 transition-all hover:brightness-110 active:scale-[0.98]"
-              >
-                {t("match.startMatch")}
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            <PrematchTeamHeader
-              label={t("match.away")}
-              team={snapshot.away_team}
-              teamData={awayTeamData}
-              teamColor={awayTeamColor}
-              align="right"
-              playStyle={t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
-            />
-          </div>
+          <MatchPageAction onClick={onBackToDashboard}>{t("common.back")}</MatchPageAction>
+          <MatchPageAction onClick={onStart} variant="primary">
+            {t("match.startMatch")}
+          </MatchPageAction>
         </>
       }
     >
-      <div className="mx-auto flex max-w-[1700px] flex-col gap-4 px-4 py-5 sm:px-6">
-        <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
+      <div className="grid h-[800px] min-h-0 gap-4 xl:h-[750px] xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+        <aside className="hidden min-h-0 flex-col gap-4 xl:flex">
+          <div className="rounded-xl border border-app-border bg-app-card p-4">
             <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-              {t("match.formation")}
+              {fixtureLabel}
             </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {FORMATIONS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => handleFormationChange(f)}
-                  className={`rounded-lg py-2.5 font-heading text-sm font-bold transition-all ${userTeam.formation === f
-                    ? "border border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
-                    : "border border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
-                    }`}
-                >
-                  {f}
-                </button>
-              ))}
+            <div className="space-y-3">
+              <PrematchTeamHeader
+                label={t("match.home")}
+                team={snapshot.home_team}
+                teamData={homeTeamData}
+                teamColor={homeTeamColor}
+                align="left"
+                playStyle={t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
+              />
+              <PrematchTeamHeader
+                label={t("match.away")}
+                team={snapshot.away_team}
+                teamData={awayTeamData}
+                teamColor={awayTeamColor}
+                align="left"
+                playStyle={t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
+              />
+            </div>
+          </div>
+          <div className="rounded-xl border border-app-border bg-app-card p-4">
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+              {t("match.matchDay")}
+            </h3>
+            <div className="space-y-2 text-xs text-app-text-muted">
+              <div className="flex justify-between gap-3"><span>{t("match.formation")}</span><span className="font-bold text-app-text">{userTeam.formation}</span></div>
+              <div className="flex justify-between gap-3"><span>{t("match.playStyle")}</span><span className="font-bold text-app-text">{t(`common.playStyles.${userTeam.play_style}`)}</span></div>
+              <div className="flex justify-between gap-3"><span>{t("match.subs")}</span><span className="font-bold text-app-text">{userBench.length}</span></div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="min-h-0 rounded-xl border border-app-border bg-app-card p-4">
+          <div className="mb-4 rounded-2xl border border-app-green/25 bg-app-bg/80 p-4 shadow-inner shadow-black/20">
+            <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)]">
+              <PrematchTeamHeader
+                label={t("match.home")}
+                team={snapshot.home_team}
+                teamData={homeTeamData}
+                teamColor={homeTeamColor}
+                align="left"
+                playStyle={t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
+              />
+              <div className="text-center">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.24em] text-app-green">
+                  {fixtureLabel}
+                </p>
+                <p className="font-heading text-4xl font-black tracking-wider text-app-text">VS</p>
+              </div>
+              <PrematchTeamHeader
+                label={t("match.away")}
+                team={snapshot.away_team}
+                teamData={awayTeamData}
+                teamColor={awayTeamColor}
+                align="right"
+                playStyle={t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
+              />
             </div>
           </div>
 
-          <div className="rounded-xl border border-app-border bg-app-card p-4 shadow-lg shadow-black/10">
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-              {t("match.playStyle")}
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {PLAY_STYLES.map((style) => (
-                <button
-                  key={style}
-                  onClick={() => handlePlayStyleChange(style)}
-                  className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 font-heading text-sm font-bold transition-all ${userTeam.play_style === style
-                    ? "border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
-                    : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
-                    }`}
-                >
-                  {PLAY_STYLE_ICONS[style]}
-                  {t(`common.playStyles.${style}`)}
-                </button>
-              ))}
-            </div>
+          <div className="mb-4 flex gap-1 rounded-lg border border-app-border bg-app-bg p-1">
+            <button
+              onClick={() => setActiveTab("lineup")}
+              className={`rounded-md px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "lineup"
+                  ? "bg-app-green text-white shadow-sm"
+                  : "text-app-text-muted hover:bg-white/5 hover:text-app-text"
+                }`}
+            >
+              {t("match.startingLineup")}
+            </button>
+            <button
+              onClick={() => setActiveTab("setpieces")}
+              className={`rounded-md px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "setpieces"
+                  ? "bg-app-green text-white shadow-sm"
+                  : "text-app-text-muted hover:bg-white/5 hover:text-app-text"
+                }`}
+            >
+              {t("match.setPiecesCaptain")}
+            </button>
           </div>
-        </div>
 
-        <div className="flex gap-1 self-start rounded-lg border border-app-border bg-app-card p-1 shadow-lg shadow-black/10">
-          <button
-            onClick={() => setActiveTab("lineup")}
-            className={`rounded-md px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "lineup"
-                ? "bg-app-green text-white shadow-sm"
-                : "text-app-text-muted hover:bg-app-bg hover:text-app-text"
-              }`}
-          >
-            {t("match.startingLineup")}
-          </button>
-          <button
-            onClick={() => setActiveTab("setpieces")}
-            className={`rounded-md px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === "setpieces"
-                ? "bg-app-green text-white shadow-sm"
-                : "text-app-text-muted hover:bg-app-bg hover:text-app-text"
-              }`}
-          >
-            {t("match.setPiecesCaptain")}
-          </button>
-        </div>
+          <div className="min-h-0 overflow-auto custom-scrollbar">
 
         {/* Lineup Tab */}
         {activeTab === "lineup" && (
@@ -487,6 +480,62 @@ export default function PreMatchSetup({
             />
           </div>
         )}
+          </div>
+        </section>
+
+        <aside className="min-h-0 overflow-auto rounded-xl border border-app-border bg-app-card p-4 custom-scrollbar">
+          <div className="space-y-4">
+            <div>
+              <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                {t("match.formation")}
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                {FORMATIONS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => handleFormationChange(f)}
+                    className={`rounded-lg border py-2.5 font-heading text-sm font-bold transition-all ${userTeam.formation === f
+                      ? "border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
+                      : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
+                      }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                {t("match.playStyle")}
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                {PLAY_STYLES.map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => handlePlayStyleChange(style)}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 font-heading text-sm font-bold transition-all ${userTeam.play_style === style
+                      ? "border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
+                      : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
+                      }`}
+                  >
+                    {PLAY_STYLE_ICONS[style]}
+                    {t(`common.playStyles.${style}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleAutoSelect}
+              disabled={isAutoSelecting}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-app-green/30 bg-app-green/10 px-4 py-3 font-heading text-xs font-bold uppercase tracking-wider text-app-green transition-colors hover:bg-app-green/15 disabled:opacity-60"
+            >
+              <Wand2 className="h-4 w-4" />
+              {isAutoSelecting ? t("common.loading") : t("match.autoSelect")}
+            </button>
+          </div>
+        </aside>
       </div>
     </MatchScreenLayout>
   );

@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
 import DivisionLogo from "../common/DivisionLogo";
 import TeamLogo from "../common/TeamLogo";
-import { Card, CardHeader, CardBody, Badge } from "../ui";
 import {
   Trophy,
   Calendar,
@@ -14,6 +13,7 @@ import {
   Shield,
   Users,
   Zap,
+  Crown,
 } from "lucide-react";
 import {
   getCompetitiveFixtures,
@@ -26,6 +26,41 @@ import {
   buildViewProfileMenuItem,
   buildViewTeamMenuItem,
 } from "../playerActions/playerContextMenuItems";
+
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+function TemplateCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={cx("rounded-xl border border-app-border bg-app-card", className)}>{children}</div>;
+}
+
+function SectionTitle({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{title}</h3>
+      {action ? <span className="text-[10px] font-semibold text-app-green">{action}</span> : null}
+    </div>
+  );
+}
+
+function StatRow({ label, value, tone = "text-app-text" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs">
+      <span className="text-app-text-muted">{label}</span>
+      <span className={cx("font-bold tabular-nums", tone)}>{value}</span>
+    </div>
+  );
+}
+
+function HeaderChip({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-medium text-app-text-muted">
+      <span className="text-app-green">{icon}</span>
+      {label}: <span className="font-bold text-app-text">{value}</span>
+    </div>
+  );
+}
 
 function competitionLogoMeta(competition: unknown): { country: string | null; tier: number | null } {
   if (!competition || typeof competition !== "object") return { country: null, tier: null };
@@ -51,6 +86,10 @@ interface SeasonAwards {
   most_appearances: AwardEntry[];
   young_player: AwardEntry[];
 }
+
+type TournamentView = "overview" | "fixtures" | "standings" | "awards";
+type StandingEntry = NonNullable<GameStateData["league"]>["standings"][number];
+type TopScorerEntry = { player: GameStateData["players"][number] | undefined; goals: number };
 
 interface TournamentsTabProps {
   gameState: GameStateData;
@@ -81,26 +120,20 @@ export default function TournamentsTab({
     competitionOptions[0] ??
     null;
   const domesticLeagueCompetitions = competitionOptions.filter(
-    (competition) => !('kind' in competition) || competition.kind === "DomesticLeague",
+    (competition) => !("kind" in competition) || competition.kind === "DomesticLeague",
   );
   const domesticCupCompetitions = competitionOptions.filter(
-    (competition) => 'kind' in competition && competition.kind === "DomesticCup",
+    (competition) => "kind" in competition && competition.kind === "DomesticCup",
   );
   const continentalCompetitions = competitionOptions.filter(
-    (competition) => 'kind' in competition && competition.kind === "ContinentalLeague",
+    (competition) => "kind" in competition && competition.kind === "ContinentalLeague",
   );
   const userTeamId = gameState.manager.team_id;
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
-  const [view, setView] = useState<
-    "overview" | "fixtures" | "standings" | "awards"
-  >("overview");
-  const [awardsBySeason, setAwardsBySeason] = useState<
-    Record<number, SeasonAwards>
-  >({});
-  const [awardsLoadState, setAwardsLoadState] = useState<
-    "idle" | "loading" | "error"
-  >("idle");
+  const [view, setView] = useState<TournamentView>("overview");
+  const [awardsBySeason, setAwardsBySeason] = useState<Record<number, SeasonAwards>>({});
+  const [awardsLoadState, setAwardsLoadState] = useState<"idle" | "loading" | "error">("idle");
   const [awardsRetryCount, setAwardsRetryCount] = useState(0);
   const currentSeason = selectedCompetition?.season ?? 0;
   const awards = awardsBySeason[currentSeason] ?? null;
@@ -151,11 +184,14 @@ export default function TournamentsTab({
 
   if (!selectedCompetition) {
     return (
-      <div className="max-w-4xl mx-auto text-center py-12">
-        <Trophy className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          {t("tournaments.noActive")}
-        </p>
+      <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+        <TemplateCard className="flex min-h-[360px] flex-col items-center justify-center gap-3 p-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-app-border bg-app-bg text-app-text-muted">
+            <Trophy className="h-6 w-6" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">TOURNAMENTS</h1>
+          <p className="text-sm text-app-text-muted">{t("tournaments.noActive")}</p>
+        </TemplateCard>
       </div>
     );
   }
@@ -164,7 +200,7 @@ export default function TournamentsTab({
   const competitionLabel = getCompetitionDisplayName(selectedCompetition);
   const { country: competitionCountry, tier: competitionTier } = competitionLogoMeta(selectedCompetition);
   const competitionTeamCount =
-    'team_ids' in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
+    "team_ids" in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
       ? selectedCompetition.team_ids.length
       : selectedCompetition.standings.length;
   const standings = [...selectedCompetition.standings].sort(
@@ -175,7 +211,7 @@ export default function TournamentsTab({
   );
 
   const getFixtureRoundLabel = (fixture: FixtureData): string => {
-    if ('kind' in selectedCompetition && selectedCompetition.kind === "DomesticCup") {
+    if ("kind" in selectedCompetition && selectedCompetition.kind === "DomesticCup") {
       return `${selectedCompetition.name} round ${fixture.matchday}`;
     }
 
@@ -183,46 +219,41 @@ export default function TournamentsTab({
   };
 
   const competitiveFixtures = getCompetitiveFixtures(selectedCompetition.fixtures);
-
   const matchdays = new Map<number, FixtureData[]>();
-  competitiveFixtures.forEach((f) => {
-    const list = matchdays.get(f.matchday) || [];
-    list.push(f);
-    matchdays.set(f.matchday, list);
+  competitiveFixtures.forEach((fixture) => {
+    const list = matchdays.get(fixture.matchday) || [];
+    list.push(fixture);
+    matchdays.set(fixture.matchday, list);
   });
-  const sortedMatchdays = Array.from(matchdays.entries()).sort(
-    (a, b) => a[0] - b[0],
-  );
-
+  const sortedMatchdays = Array.from(matchdays.entries()).sort((a, b) => a[0] - b[0]);
   const completedMatchdays = sortedMatchdays.filter(([, fixtures]) =>
-    fixtures.every((f) => f.status === "Completed"),
+    fixtures.every((fixture) => fixture.status === "Completed"),
   ).length;
   const totalMatchdays = sortedMatchdays.length;
+  const completedMatches = competitiveFixtures.filter((fixture) => fixture.status === "Completed").length;
   const totalGoals = competitiveFixtures
-    .filter((f) => f.result)
-    .reduce((s, f) => s + (f.result!.home_goals + f.result!.away_goals), 0);
-  const completedMatches = competitiveFixtures.filter(
-    (f) => f.status === "Completed",
-  ).length;
+    .filter((fixture) => fixture.result)
+    .reduce((sum, fixture) => sum + (fixture.result!.home_goals + fixture.result!.away_goals), 0);
+  const upcomingMatches = competitiveFixtures.length - completedMatches;
 
   const topScorers = (() => {
     const goals: Record<string, number> = {};
-    competitiveFixtures.forEach((f) => {
-      if (f.result) {
-        f.result.home_scorers.forEach((s) => {
-          goals[s.player_id] = (goals[s.player_id] || 0) + 1;
+    competitiveFixtures.forEach((fixture) => {
+      if (fixture.result) {
+        fixture.result.home_scorers.forEach((scorer) => {
+          goals[scorer.player_id] = (goals[scorer.player_id] || 0) + 1;
         });
-        f.result.away_scorers.forEach((s) => {
-          goals[s.player_id] = (goals[s.player_id] || 0) + 1;
+        fixture.result.away_scorers.forEach((scorer) => {
+          goals[scorer.player_id] = (goals[scorer.player_id] || 0) + 1;
         });
       }
     });
     return Object.entries(goals)
-      .map(([pid, g]) => ({
-        player: gameState.players.find((p) => p.id === pid),
-        goals: g,
+      .map(([playerId, goals]) => ({
+        player: gameState.players.find((player) => player.id === playerId),
+        goals,
       }))
-      .filter((e) => e.player)
+      .filter((entry) => entry.player)
       .sort((a, b) => b.goals - a.goals)
       .slice(0, 10);
   })();
@@ -256,603 +287,497 @@ export default function TournamentsTab({
     return items;
   };
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      {isPreseason && (
-        <Card accent="accent" className="mb-5">
-          <CardBody>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="accent" size="sm">
-                  {t(`season.phases.${seasonContext.phase}`)}
-                </Badge>
-                <span className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                  {seasonContext.season_start
-                    ? t("season.startsOn", {
-                      date: formatMatchDate(seasonContext.season_start),
-                    })
-                    : t("season.noOpener")}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t("season.tournamentsPreseasonHint")}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+  const leaderStanding = standings[0] ?? null;
+  const userStandingIndex = standings.findIndex((entry) => entry.team_id === userTeamId);
+  const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
+  const activeViewTitle = view === "overview"
+    ? t("tournaments.overview")
+    : view === "standings"
+      ? t("schedule.standings")
+      : view === "awards"
+        ? t("tournaments.awardsTab")
+        : t("schedule.fixtures");
 
-      {/* League header */}
-      <Card accent="primary" className="mb-5">
-        <div className="bg-gradient-to-r from-surface-700 to-surface-800 p-6 rounded-t-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-accent-500/20 flex items-center justify-center">
-              <Trophy className="w-7 h-7 text-accent-400" />
+  const renderStandingsState = (compact = false) => {
+    if (!hasStandings) {
+      return (
+        <EmptyPanel
+          icon={<Trophy className="h-8 w-8" />}
+          title="Knockout competition"
+          description="Use the fixtures tab to follow each cup round."
+          compact={compact}
+        />
+      );
+    }
+
+    if (isPreseason) {
+      return (
+        <EmptyPanel
+          icon={<Trophy className="h-8 w-8" />}
+          title={t("season.standingsLocked")}
+          description={t("season.tournamentsPreseasonHint")}
+          compact={compact}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
+      {isPreseason ? (
+        <TemplateCard className="border-app-green/30 bg-app-green/10 p-4">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-app-green px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg">
+                {t(`season.phases.${seasonContext.phase}`)}
+              </span>
+              <span className="text-sm font-bold text-app-text">
+                {seasonContext.season_start
+                  ? t("season.startsOn", { date: formatMatchDate(seasonContext.season_start) })
+                  : t("season.noOpener")}
+              </span>
             </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-heading font-bold text-white uppercase tracking-wide">
-                {competitionLabel}
-              </h2>
-              <p className="text-gray-400 text-sm mt-0.5">
-                {t("schedule.season", { number: selectedCompetition.season })} —{" "}
-                {t("tournaments.nTeams", { count: competitionTeamCount })}
-              </p>
-              {competitionOptions.length > 1 ? (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <select
-                    value={selectedCompetition.id}
-                    onChange={(event) => setSelectedCompetitionId(event.target.value)}
-                    className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm font-heading font-bold text-white outline-none transition-colors hover:bg-white/15 focus:border-accent-400 sm:max-w-xs"
-                    aria-label="Select competition"
-                  >
-                    {competitionOptions.map((competition) => (
-                      <option key={competition.id} value={competition.id} className="bg-surface-800 text-white">
-                        {getCompetitionDisplayName(competition)}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex flex-wrap gap-2 text-[10px] font-heading font-bold uppercase tracking-wider text-gray-300">
-                    <span className="rounded-full bg-white/10 px-2.5 py-1">
-                      Leagues {domesticLeagueCompetitions.length}
-                    </span>
-                    <span className="rounded-full bg-white/10 px-2.5 py-1">
-                      Cups {domesticCupCompetitions.length}
-                    </span>
-                    <span className="rounded-full bg-accent-500/20 px-2.5 py-1 text-accent-200">
-                      Continental {continentalCompetitions.length}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <p className="text-xs text-app-text-muted">{t("season.tournamentsPreseasonHint")}</p>
+          </div>
+        </TemplateCard>
+      ) : null}
+
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-app-border bg-app-card text-app-green">
             {competitionCountry && competitionTier ? (
               <DivisionLogo country={competitionCountry} leagueName={competitionLabel} />
             ) : (
-              <div className="hidden h-14 w-14 items-center justify-center rounded-xl bg-accent-500/20 md:flex">
-                <Trophy className="w-7 h-7 text-accent-400" />
-              </div>
+              <Trophy className="h-7 w-7" />
             )}
-            <div className="hidden md:flex gap-4">
-              <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
-                  {t("tournaments.progress")}
-                </p>
-                <p className="font-heading font-bold text-lg text-white">
-                  {completedMatchdays}/{totalMatchdays}
-                </p>
-              </div>
-              <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
-                  {t("tournaments.matches")}
-                </p>
-                <p className="font-heading font-bold text-lg text-white">
-                  {completedMatches}
-                </p>
-              </div>
-              <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
-                  {t("tournaments.goals")}
-                </p>
-                <p className="font-heading font-bold text-lg text-accent-400">
-                  {totalGoals}
-                </p>
-              </div>
-            </div>
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold tracking-tight text-app-text">TOURNAMENTS</h1>
+            <p className="text-sm text-app-text-muted">
+              {competitionLabel} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {t("tournaments.nTeams", { count: competitionTeamCount })}
+            </p>
+            {competitionOptions.length > 1 ? (
+              <select
+                value={selectedCompetition.id}
+                onChange={(event) => setSelectedCompetitionId(event.target.value)}
+                className="mt-3 w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-bold text-app-text outline-none transition-colors hover:border-app-green/50 focus:border-app-green sm:max-w-sm"
+                aria-label="Select competition"
+              >
+                {competitionOptions.map((competition) => (
+                  <option key={competition.id} value={competition.id} className="bg-app-bg text-app-text">
+                    {getCompetitionDisplayName(competition)}
+                  </option>
+                ))}
+              </select>
+            ) : null}
           </div>
         </div>
-      </Card>
+        <div className="flex flex-wrap items-center gap-3">
+          <HeaderChip icon={<Trophy className="h-4 w-4" />} label={t("tournaments.progress")} value={`${completedMatchdays}/${totalMatchdays}`} />
+          <HeaderChip icon={<Calendar className="h-4 w-4" />} label={t("tournaments.matches")} value={String(completedMatches)} />
+          <HeaderChip icon={<Zap className="h-4 w-4" />} label={t("tournaments.goals")} value={String(totalGoals)} />
+        </div>
+      </div>
 
-      {/* Tab switcher */}
-      <div className="flex gap-2 mb-5">
-        {(["overview", "standings", "fixtures", "awards"] as const).map((v) => (
+      <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
+        {(["overview", "standings", "fixtures", "awards"] as const).map((nextView) => (
           <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === v
-              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-              : "bg-white dark:bg-surface-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-surface-600"
-              }`}
-          >
-            {v === "overview" ? (
-              <>
-                <Trophy className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                {t("tournaments.overview")}
-              </>
-            ) : v === "standings" ? (
-              <>
-                <TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                {t("schedule.standings")}
-              </>
-            ) : v === "awards" ? (
-              <>
-                <Award className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                {t("tournaments.awardsTab")}
-              </>
-            ) : (
-              <>
-                <Calendar className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                {t("schedule.fixtures")}
-              </>
+            key={nextView}
+            type="button"
+            onClick={() => setView(nextView)}
+            className={cx(
+              "flex items-center gap-1.5 border-b-2 px-1 pb-3 text-xs font-bold uppercase tracking-wider transition-colors",
+              view === nextView
+                ? "border-app-green text-app-green"
+                : "border-transparent text-app-text-muted hover:text-app-text",
             )}
+          >
+            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "awards" ? t("tournaments.awardsTab") : t("schedule.fixtures")}
           </button>
         ))}
       </div>
 
-      {/* Overview */}
-      {view === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Mini standings */}
-          <Card className="lg:col-span-2">
-            <CardHeader>{t("tournaments.leagueTable")}</CardHeader>
-            <CardBody className="p-0">
-              {!hasStandings ? (
-                <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-                  <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
-                  <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                    Knockout competition
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-                    Use the fixtures tab to follow each cup round.
-                  </p>
-                </div>
-              ) : isPreseason ? (
-                <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-                  <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
-                  <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                    {t("season.standingsLocked")}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-                    {t("season.tournamentsPreseasonHint")}
-                  </p>
-                </div>
-              ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">
-                        #
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        {t("common.team")}
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                        {t("common.played")}
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                        {t("common.won")}
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                        {t("common.drawn")}
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                        {t("common.lost")}
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                        {t("common.gd")}
-                      </th>
-                      <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                        {t("common.pts")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
-                    {standings.map((entry, idx) => {
-                      const isUser = entry.team_id === userTeamId;
-                      const team = teamById.get(entry.team_id);
-                      const gd = entry.goals_for - entry.goals_against;
-                      return (
-                        <ContextMenu
-                          items={buildStandingMenuItems(entry.team_id)}
-                          key={entry.team_id}
-                        >
-                          <tr
-                            onClick={() => onSelectTeam(entry.team_id)}
-                            className={`cursor-pointer transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-surface-700/50"}`}
-                            data-testid={`tournaments-overview-standing-${entry.team_id}`}
-                          >
-                            <td className="py-2 px-3 font-heading font-bold text-sm text-gray-400">
-                              {idx + 1}
-                            </td>
-                            <td
-                              className={`py-2 px-3 font-semibold text-sm ${isUser ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                            >
-                              <span className="flex items-center gap-2">
-                                {team ? <TeamLogo team={team} size="sm" /> : null}
-                                <span>{team?.name ?? getTeamName(gameState.teams, entry.team_id)}</span>
-                              </span>
-                            </td>
-                            <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                              {entry.played}
-                            </td>
-                            <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                              {entry.won}
-                            </td>
-                            <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                              {entry.drawn}
-                            </td>
-                            <td className="py-2 px-3 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                              {entry.lost}
-                            </td>
-                            <td
-                              className={`py-2 px-3 text-center text-sm font-semibold tabular-nums ${gd > 0 ? "text-primary-500" : gd < 0 ? "text-red-500" : "text-gray-500"}`}
-                            >
-                              {gd > 0 ? `+${gd}` : gd}
-                            </td>
-                            <td className="py-2 px-3 text-center font-heading font-bold text-sm text-gray-800 dark:text-gray-100 tabular-nums">
-                              {entry.points}
-                            </td>
-                          </tr>
-                        </ContextMenu>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </CardBody>
-          </Card>
+      <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[280px]">
+          <div>
+            <SectionTitle title="COMPETITION" action={competitionLabel} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <StatRow label="Leagues" value={String(domesticLeagueCompetitions.length)} tone="text-app-green" />
+              <StatRow label="Cups" value={String(domesticCupCompetitions.length)} />
+              <StatRow label="Continental" value={String(continentalCompetitions.length)} />
+              <StatRow label="Teams" value={String(competitionTeamCount)} />
+            </TemplateCard>
+          </div>
+          <div>
+            <SectionTitle title="SEASON STATUS" action={seasonContext.phase} />
+            <TemplateCard className="flex flex-col gap-3 p-4">
+              <StatRow label="Current phase" value={t(`season.phases.${seasonContext.phase}`)} tone="text-app-green" />
+              <StatRow label="Completed rounds" value={`${completedMatchdays}/${totalMatchdays}`} />
+              <StatRow label="Completed matches" value={String(completedMatches)} />
+              <StatRow label="Upcoming matches" value={String(upcomingMatches)} />
+            </TemplateCard>
+          </div>
+          <div>
+            <SectionTitle title="FORMAT" action={hasStandings ? "Table" : "Knockout"} />
+            <TemplateCard className="flex flex-col gap-3 p-4 text-xs text-app-text-muted">
+              <p>{hasStandings ? "Track the full league table and matchday flow." : "Follow each cup round through the fixtures tab."}</p>
+              <StatRow label="Rounds" value={String(totalMatchdays)} tone="text-app-green" />
+              <StatRow label="Fixtures" value={String(competitiveFixtures.length)} />
+            </TemplateCard>
+          </div>
+        </aside>
 
-          {/* Top scorers */}
-          <Card>
-            <CardHeader>{t("tournaments.topScorers")}</CardHeader>
-            <CardBody className="p-0">
-              {topScorers.length === 0 ? (
-                <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-                  {t("tournaments.noGoals")}
-                </p>
-              ) : (
-                <div className="divide-y divide-gray-100 dark:divide-surface-600">
-                  {topScorers.map((entry, i) => (
-                    <ContextMenu
-                      items={buildPlayerMenuItems(
-                        entry.player!.id,
-                        entry.player!.team_id,
-                      )}
-                      key={entry.player!.id}
-                    >
-                      <div
-                        className="flex items-center px-4 py-2.5 gap-3"
-                        data-testid={`tournaments-top-scorer-${entry.player!.id}`}
-                      >
-                        <span className="font-heading font-bold text-sm text-gray-400 dark:text-gray-500 w-5 text-center">
-                          {i + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
-                            {entry.player!.full_name}
-                          </p>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
-                            {getTeamName(
-                              gameState.teams,
-                              entry.player!.team_id ?? "",
-                            )}
-                          </p>
-                        </div>
-                        <span className="font-heading font-bold text-lg text-accent-500 tabular-nums">
-                          {entry.goals}
-                        </span>
-                      </div>
-                    </ContextMenu>
-                  ))}
-                </div>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      )}
-
-      {/* Full standings */}
-      {view === "standings" &&
-        (!hasStandings ? (
-          <Card>
-            <CardBody>
-              <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
-                <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                  Knockout competition
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-                  Use the fixtures tab to follow each cup round.
-                </p>
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full">
+          <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden bg-app-bg">
+            <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-4 py-3">
+              <div>
+                <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-green">{activeViewTitle}</h2>
+                <p className="mt-1 text-xs text-app-text-muted">{competitionLabel}</p>
               </div>
-            </CardBody>
-          </Card>
-        ) : isPreseason ? (
-          <Card>
-            <CardBody>
-              <div className="flex flex-col items-center gap-2 py-6 text-center">
-                <Trophy className="w-8 h-8 text-gray-300 dark:text-surface-600" />
-                <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                  {t("season.standingsLocked")}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-                  {t("season.tournamentsPreseasonHint")}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-        ) : (
-          <Card>
-            <div className="p-5 border-b border-gray-100 dark:border-surface-600 bg-gradient-to-r from-surface-700 to-surface-800 rounded-t-xl">
-              <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
-                <Trophy className="text-accent-400 w-5 h-5" />
-                {selectedCompetition.name} —{" "}
+              <span className="rounded bg-app-green px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg">
                 {t("schedule.season", { number: selectedCompetition.season })}
-              </h3>
+              </span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">
-                      #
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("common.team")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.played")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.won")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.drawn")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.lost")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.gf")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.ga")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.gd")}
-                    </th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                      {t("common.pts")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
-                  {standings.map((entry, idx) => {
-                    const isUser = entry.team_id === userTeamId;
-                    const team = teamById.get(entry.team_id);
-                    const gd = entry.goals_for - entry.goals_against;
-                    return (
-                      <ContextMenu
-                        items={buildStandingMenuItems(entry.team_id)}
-                        key={entry.team_id}
-                      >
-                        <tr
-                          onClick={() => onSelectTeam(entry.team_id)}
-                          className={`cursor-pointer transition-colors ${isUser ? "bg-primary-50 dark:bg-primary-500/10" : "hover:bg-gray-50 dark:hover:bg-surface-700/50"}`}
-                          data-testid={`tournaments-standing-${entry.team_id}`}
-                        >
-                          <td className="py-3 px-4 font-heading font-bold text-sm text-gray-400">
-                            {idx + 1}
-                          </td>
-                          <td
-                            className={`py-3 px-4 font-semibold text-sm ${isUser ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                          >
-                            <span className="flex items-center gap-2">
-                              {team ? <TeamLogo team={team} size="sm" /> : null}
-                              <span>{team?.name ?? getTeamName(gameState.teams, entry.team_id)}</span>
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.played}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.won}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.drawn}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.lost}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.goals_for}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                            {entry.goals_against}
-                          </td>
-                          <td
-                            className={`py-3 px-4 text-center text-sm font-semibold tabular-nums ${gd > 0 ? "text-primary-500" : gd < 0 ? "text-red-500" : "text-gray-500"}`}
-                          >
-                            {gd > 0 ? `+${gd}` : gd}
-                          </td>
-                          <td className="py-3 px-4 text-center font-heading font-bold text-sm text-gray-800 dark:text-gray-100 tabular-nums">
-                            {entry.points}
-                          </td>
-                        </tr>
-                      </ContextMenu>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        ))}
-
-      {/* Fixtures */}
-      {view === "fixtures" && (
-        <div className="flex flex-col gap-4">
-          {sortedMatchdays.map(([md, fixtures]) => (
-            <Card key={md}>
-              <div className="px-5 py-3 border-b border-gray-100 dark:border-surface-600 bg-gray-50 dark:bg-surface-800 rounded-t-xl">
-                <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                  {getFixtureRoundLabel(fixtures[0])} — {formatMatchDate(fixtures[0].date)}
-                </h4>
-              </div>
-              <CardBody className="p-0">
-                <div className="divide-y divide-gray-100 dark:divide-surface-600">
-                  {fixtures.map((f) => {
-                    const isUserMatch =
-                      f.home_team_id === userTeamId ||
-                      f.away_team_id === userTeamId;
-                    const homeTeam = teamById.get(f.home_team_id);
-                    const awayTeam = teamById.get(f.away_team_id);
-                    const completed = f.status === "Completed";
-                    return (
-                      <ContextMenu items={buildFixtureMenuItems(f)} key={f.id}>
-                        <div
-                          className={`flex items-center px-5 py-3 transition-colors ${isUserMatch ? "bg-primary-50/50 dark:bg-primary-500/5" : ""}`}
-                          data-testid={`tournaments-fixture-${f.id}`}
-                        >
-                          <span
-                            onClick={() => onSelectTeam(f.home_team_id)}
-                            className={`flex-1 text-right font-semibold text-sm cursor-pointer hover:underline ${f.home_team_id === userTeamId ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                          >
-                            <span className="flex items-center justify-end gap-2">
-                              <span>{homeTeam?.name ?? getTeamName(gameState.teams, f.home_team_id)}</span>
-                              {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
-                            </span>
-                          </span>
-                          <div className="w-24 text-center mx-3">
-                            {completed && f.result ? (
-                              <span className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100">
-                                {f.result.home_goals} - {f.result.away_goals}
-                              </span>
-                            ) : (
-                              <Badge variant="neutral" size="sm">
-                                vs
-                              </Badge>
-                            )}
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 custom-scrollbar">
+              {view === "overview" ? (
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+                  <TemplateCard className="overflow-hidden xl:col-span-3">
+                    <PanelHeader title={t("tournaments.leagueTable")} action={hasStandings ? `${standings.length} clubs` : "Cup"} />
+                    {renderStandingsState(true) ?? (
+                      <StandingsTable
+                        standings={standings.slice(0, 8)}
+                        teamById={teamById}
+                        teams={gameState.teams}
+                        userTeamId={userTeamId}
+                        onSelectTeam={onSelectTeam}
+                        buildStandingMenuItems={buildStandingMenuItems}
+                        compact
+                        testIdPrefix="tournaments-overview-standing"
+                      />
+                    )}
+                  </TemplateCard>
+                  <TemplateCard className="overflow-hidden xl:col-span-2">
+                    <PanelHeader title="Latest rounds" action={String(sortedMatchdays.length)} />
+                    <div className="divide-y divide-app-border/30">
+                      {sortedMatchdays.slice(0, 5).map(([matchday, fixtures]) => (
+                        <div key={matchday} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-bold text-app-text">{getFixtureRoundLabel(fixtures[0])}</p>
+                            <p className="mt-0.5 text-app-text-muted">{formatMatchDate(fixtures[0].date)}</p>
                           </div>
-                          <span
-                            onClick={() => onSelectTeam(f.away_team_id)}
-                            className={`flex-1 text-left font-semibold text-sm cursor-pointer hover:underline ${f.away_team_id === userTeamId ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"}`}
-                          >
-                            <span className="flex items-center gap-2">
-                              {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
-                              <span>{awayTeam?.name ?? getTeamName(gameState.teams, f.away_team_id)}</span>
-                            </span>
-                          </span>
+                          <span className="rounded bg-app-bg px-2 py-1 text-[10px] font-bold text-app-green">{fixtures.length}</span>
                         </div>
-                      </ContextMenu>
-                    );
-                  })}
+                      ))}
+                    </div>
+                  </TemplateCard>
                 </div>
-              </CardBody>
-            </Card>
-          ))}
-        </div>
-      )}
-      {/* Awards */}
-      {view === "awards" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {awards ? (
-            <>
-              <AwardCard
-                icon={<Zap className="w-5 h-5 text-accent-500" />}
-                title={t("tournaments.awards.goldenBootTitle")}
-                subtitle={t("tournaments.awards.goldenBootSubtitle")}
-                entries={awards.golden_boot}
-                unit={t("tournaments.awards.units.goals")}
-                emptyText={t("tournaments.awards.noDataYet")}
-                onSelectPlayer={onSelectPlayer}
-                onSelectTeam={onSelectTeam}
-              />
-              <AwardCard
-                icon={<Star className="w-5 h-5 text-purple-500" />}
-                title={t("tournaments.awards.assistKingTitle")}
-                subtitle={t("tournaments.awards.assistKingSubtitle")}
-                entries={awards.assist_king}
-                unit={t("tournaments.awards.units.assists")}
-                emptyText={t("tournaments.awards.noDataYet")}
-                onSelectPlayer={onSelectPlayer}
-                onSelectTeam={onSelectTeam}
-              />
-              <AwardCard
-                icon={<Trophy className="w-5 h-5 text-primary-500" />}
-                title={t("tournaments.awards.playerOfYearTitle")}
-                subtitle={t("tournaments.awards.playerOfYearSubtitle")}
-                entries={awards.player_of_year}
-                unit={t("tournaments.awards.units.rating")}
-                emptyText={t("tournaments.awards.noDataYet")}
-                decimal
-                onSelectPlayer={onSelectPlayer}
-                onSelectTeam={onSelectTeam}
-              />
-              <AwardCard
-                icon={<Shield className="w-5 h-5 text-blue-500" />}
-                title={t("tournaments.awards.goldenGloveTitle")}
-                subtitle={t("tournaments.awards.goldenGloveSubtitle")}
-                entries={awards.clean_sheet_king}
-                unit={t("tournaments.awards.units.cleanSheets")}
-                emptyText={t("tournaments.awards.noDataYet")}
-                onSelectPlayer={onSelectPlayer}
-                onSelectTeam={onSelectTeam}
-              />
-              <AwardCard
-                icon={<Users className="w-5 h-5 text-green-500" />}
-                title={t("tournaments.awards.everPresentTitle")}
-                subtitle={t("tournaments.awards.everPresentSubtitle")}
-                entries={awards.most_appearances}
-                unit={t("tournaments.awards.units.apps")}
-                emptyText={t("tournaments.awards.noDataYet")}
-                onSelectPlayer={onSelectPlayer}
-                onSelectTeam={onSelectTeam}
-              />
-              <AwardCard
-                icon={<Star className="w-5 h-5 text-amber-500" />}
-                title={t("tournaments.awards.youngPlayerTitle")}
-                subtitle={t("tournaments.awards.youngPlayerSubtitle")}
-                entries={awards.young_player}
-                unit={t("tournaments.awards.units.rating")}
-                emptyText={t("tournaments.awards.noDataYet")}
-                decimal
-                onSelectPlayer={onSelectPlayer}
-                onSelectTeam={onSelectTeam}
-              />
-            </>
-          ) : awardsLoadState === "error" ? (
-            <div className="col-span-full text-center py-12">
-              <Award className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
-                {t("tournaments.awards.noDataYet")}
-              </p>
-              <button
-                onClick={() => setAwardsRetryCount((count) => count + 1)}
-                className="px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider bg-primary-500 text-white hover:bg-primary-600 transition-colors"
-              >
-                {t("common.retry")}
-              </button>
+              ) : null}
+
+              {view === "standings" ? (
+                renderStandingsState() ?? (
+                  <TemplateCard className="overflow-hidden">
+                    <StandingsTable
+                      standings={standings}
+                      teamById={teamById}
+                      teams={gameState.teams}
+                      userTeamId={userTeamId}
+                      onSelectTeam={onSelectTeam}
+                      buildStandingMenuItems={buildStandingMenuItems}
+                      testIdPrefix="tournaments-standing"
+                      showGoals
+                    />
+                  </TemplateCard>
+                )
+              ) : null}
+
+              {view === "fixtures" ? (
+                <FixturesList
+                  sortedMatchdays={sortedMatchdays}
+                  teamById={teamById}
+                  teams={gameState.teams}
+                  userTeamId={userTeamId}
+                  getFixtureRoundLabel={getFixtureRoundLabel}
+                  buildFixtureMenuItems={buildFixtureMenuItems}
+                  onSelectTeam={onSelectTeam}
+                />
+              ) : null}
+
+              {view === "awards" ? (
+                <AwardsPanel
+                  awards={awards}
+                  awardsLoadState={awardsLoadState}
+                  onRetry={() => setAwardsRetryCount((count) => count + 1)}
+                  onSelectPlayer={onSelectPlayer}
+                  onSelectTeam={onSelectTeam}
+                />
+              ) : null}
             </div>
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <Award className="w-12 h-12 text-gray-300 dark:text-surface-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                {t("tournaments.loadingAwards")}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+          </TemplateCard>
+        </section>
+
+        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[360px]">
+          <TopScorersCard
+            topScorers={topScorers}
+            teams={gameState.teams}
+            buildPlayerMenuItems={buildPlayerMenuItems}
+            title={t("tournaments.topScorers")}
+            emptyText={t("tournaments.noGoals")}
+            withTestIds
+          />
+          <SnapshotCard
+            leaderStanding={leaderStanding}
+            userStanding={userStanding}
+            userStandingIndex={userStandingIndex}
+            teamById={teamById}
+            teams={gameState.teams}
+            completedMatches={completedMatches}
+            totalGoals={totalGoals}
+          />
+        </aside>
+      </div>
     </div>
+  );
+}
+
+function PanelHeader({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-4 py-3">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{title}</h3>
+      {action ? <span className="text-[10px] font-semibold text-app-green">{action}</span> : null}
+    </div>
+  );
+}
+
+function EmptyPanel({ icon, title, description, compact = false }: { icon: ReactNode; title: string; description: string; compact?: boolean }) {
+  return (
+    <div className={cx("flex flex-col items-center justify-center gap-2 p-8 text-center", compact ? "min-h-[220px]" : "min-h-[280px]") }>
+      <span className="text-app-text-muted">{icon}</span>
+      <p className="text-sm font-bold text-app-text">{title}</p>
+      <p className="max-w-md text-xs text-app-text-muted">{description}</p>
+    </div>
+  );
+}
+
+function StandingsTable({
+  standings,
+  teamById,
+  teams,
+  userTeamId,
+  onSelectTeam,
+  buildStandingMenuItems,
+  compact = false,
+  testIdPrefix,
+  showGoals = false,
+}: {
+  standings: StandingEntry[];
+  teamById: Map<string, GameStateData["teams"][number]>;
+  teams: GameStateData["teams"];
+  userTeamId: string | null;
+  onSelectTeam: (id: string) => void;
+  buildStandingMenuItems: (teamId: string) => ReturnType<typeof buildViewTeamMenuItem>[];
+  compact?: boolean;
+  testIdPrefix: string;
+  showGoals?: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="overflow-x-auto custom-scrollbar">
+      <table className="w-full min-w-[760px] text-left text-[11px] whitespace-nowrap">
+        <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card">
+          <tr className="text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+            <th className="w-10 px-4 py-3">#</th>
+            <th className="px-4 py-3">{t("common.team")}</th>
+            <th className="px-4 py-3 text-center">{t("common.played")}</th>
+            <th className="px-4 py-3 text-center">{t("common.won")}</th>
+            <th className="px-4 py-3 text-center">{t("common.drawn")}</th>
+            <th className="px-4 py-3 text-center">{t("common.lost")}</th>
+            {showGoals ? <th className="px-4 py-3 text-center">{t("common.gf")}</th> : null}
+            {showGoals ? <th className="px-4 py-3 text-center">{t("common.ga")}</th> : null}
+            <th className="px-4 py-3 text-center">{t("common.gd")}</th>
+            <th className="px-4 py-3 text-center">{t("common.pts")}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-app-border/30 text-app-text">
+          {standings.map((entry, index) => {
+            const isUser = entry.team_id === userTeamId;
+            const team = teamById.get(entry.team_id);
+            const goalDifference = entry.goals_for - entry.goals_against;
+            return (
+              <ContextMenu items={buildStandingMenuItems(entry.team_id)} key={entry.team_id}>
+                <tr
+                  onClick={() => onSelectTeam(entry.team_id)}
+                  className={cx(
+                    "cursor-pointer transition-colors hover:bg-white/5",
+                    isUser && "bg-app-green/10 ring-1 ring-inset ring-app-green/30",
+                  )}
+                  data-testid={`${testIdPrefix}-${entry.team_id}`}
+                >
+                  <td className="px-4 py-3 font-heading text-sm font-bold text-app-text-muted">{index + 1}</td>
+                  <td className={cx("px-4 py-3 text-sm font-semibold", isUser ? "text-app-green" : "text-app-text")}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      {team ? <TeamLogo team={team} size="sm" /> : null}
+                      <span className="truncate">{team?.name ?? getTeamName(teams, entry.team_id)}</span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center tabular-nums text-app-text-muted">{entry.played}</td>
+                  <td className="px-4 py-3 text-center tabular-nums text-app-text-muted">{entry.won}</td>
+                  <td className="px-4 py-3 text-center tabular-nums text-app-text-muted">{entry.drawn}</td>
+                  <td className="px-4 py-3 text-center tabular-nums text-app-text-muted">{entry.lost}</td>
+                  {showGoals ? <td className="px-4 py-3 text-center tabular-nums text-app-text-muted">{entry.goals_for}</td> : null}
+                  {showGoals ? <td className="px-4 py-3 text-center tabular-nums text-app-text-muted">{entry.goals_against}</td> : null}
+                  <td className={cx("px-4 py-3 text-center font-semibold tabular-nums", goalDifference > 0 ? "text-app-green" : goalDifference < 0 ? "text-red-400" : "text-app-text-muted")}>
+                    {goalDifference > 0 ? `+${goalDifference}` : goalDifference}
+                  </td>
+                  <td className="px-4 py-3 text-center font-heading text-sm font-bold tabular-nums text-app-text">{entry.points}</td>
+                </tr>
+              </ContextMenu>
+            );
+          })}
+        </tbody>
+      </table>
+      {compact && standings.length === 0 ? <p className="p-4 text-center text-sm text-app-text-muted">No standings yet.</p> : null}
+    </div>
+  );
+}
+
+function FixturesList({
+  sortedMatchdays,
+  teamById,
+  teams,
+  userTeamId,
+  getFixtureRoundLabel,
+  buildFixtureMenuItems,
+  onSelectTeam,
+}: {
+  sortedMatchdays: Array<[number, FixtureData[]]>;
+  teamById: Map<string, GameStateData["teams"][number]>;
+  teams: GameStateData["teams"];
+  userTeamId: string | null;
+  getFixtureRoundLabel: (fixture: FixtureData) => string;
+  buildFixtureMenuItems: (fixture: FixtureData) => Array<ReturnType<typeof buildViewTeamMenuItem>>;
+  onSelectTeam: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {sortedMatchdays.map(([matchday, fixtures]) => (
+        <TemplateCard key={matchday} className="overflow-hidden">
+          <div className="border-b border-app-border/50 bg-app-card px-4 py-3">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+              {getFixtureRoundLabel(fixtures[0])} — {formatMatchDate(fixtures[0].date)}
+            </h4>
+          </div>
+          <div className="divide-y divide-app-border/30">
+            {fixtures.map((fixture) => {
+              const isUserMatch = fixture.home_team_id === userTeamId || fixture.away_team_id === userTeamId;
+              const homeTeam = teamById.get(fixture.home_team_id);
+              const awayTeam = teamById.get(fixture.away_team_id);
+              const completed = fixture.status === "Completed";
+              return (
+                <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
+                  <div
+                    className={cx(
+                      "flex items-center px-4 py-3 transition-colors hover:bg-white/5",
+                      isUserMatch && "bg-app-green/10",
+                    )}
+                    data-testid={`tournaments-fixture-${fixture.id}`}
+                  >
+                    <span
+                      onClick={() => onSelectTeam(fixture.home_team_id)}
+                      className={cx(
+                        "flex-1 cursor-pointer text-right text-sm font-semibold hover:underline",
+                        fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                      )}
+                    >
+                      <span className="flex items-center justify-end gap-2">
+                        <span className="truncate">{homeTeam?.name ?? getTeamName(teams, fixture.home_team_id)}</span>
+                        {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
+                      </span>
+                    </span>
+                    <div className="mx-3 w-24 text-center">
+                      {completed && fixture.result ? (
+                        <span className="font-heading text-lg font-bold text-app-text">
+                          {fixture.result.home_goals} - {fixture.result.away_goals}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-app-card px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">vs</span>
+                      )}
+                    </div>
+                    <span
+                      onClick={() => onSelectTeam(fixture.away_team_id)}
+                      className={cx(
+                        "flex-1 cursor-pointer text-left text-sm font-semibold hover:underline",
+                        fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
+                        <span className="truncate">{awayTeam?.name ?? getTeamName(teams, fixture.away_team_id)}</span>
+                      </span>
+                    </span>
+                  </div>
+                </ContextMenu>
+              );
+            })}
+          </div>
+        </TemplateCard>
+      ))}
+    </div>
+  );
+}
+
+function AwardsPanel({
+  awards,
+  awardsLoadState,
+  onRetry,
+  onSelectPlayer,
+  onSelectTeam,
+}: {
+  awards: SeasonAwards | null;
+  awardsLoadState: "idle" | "loading" | "error";
+  onRetry: () => void;
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  if (awards) {
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AwardCard icon={<Zap className="h-5 w-5 text-app-green" />} title={t("tournaments.awards.goldenBootTitle")} subtitle={t("tournaments.awards.goldenBootSubtitle")} entries={awards.golden_boot} unit={t("tournaments.awards.units.goals")} emptyText={t("tournaments.awards.noDataYet")} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <AwardCard icon={<Star className="h-5 w-5 text-purple-400" />} title={t("tournaments.awards.assistKingTitle")} subtitle={t("tournaments.awards.assistKingSubtitle")} entries={awards.assist_king} unit={t("tournaments.awards.units.assists")} emptyText={t("tournaments.awards.noDataYet")} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <AwardCard icon={<Trophy className="h-5 w-5 text-app-green" />} title={t("tournaments.awards.playerOfYearTitle")} subtitle={t("tournaments.awards.playerOfYearSubtitle")} entries={awards.player_of_year} unit={t("tournaments.awards.units.rating")} emptyText={t("tournaments.awards.noDataYet")} decimal onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <AwardCard icon={<Shield className="h-5 w-5 text-blue-400" />} title={t("tournaments.awards.goldenGloveTitle")} subtitle={t("tournaments.awards.goldenGloveSubtitle")} entries={awards.clean_sheet_king} unit={t("tournaments.awards.units.cleanSheets")} emptyText={t("tournaments.awards.noDataYet")} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <AwardCard icon={<Users className="h-5 w-5 text-app-green" />} title={t("tournaments.awards.everPresentTitle")} subtitle={t("tournaments.awards.everPresentSubtitle")} entries={awards.most_appearances} unit={t("tournaments.awards.units.apps")} emptyText={t("tournaments.awards.noDataYet")} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <AwardCard icon={<Star className="h-5 w-5 text-amber-400" />} title={t("tournaments.awards.youngPlayerTitle")} subtitle={t("tournaments.awards.youngPlayerSubtitle")} entries={awards.young_player} unit={t("tournaments.awards.units.rating")} emptyText={t("tournaments.awards.noDataYet")} decimal onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+      </div>
+    );
+  }
+
+  if (awardsLoadState === "error") {
+    return (
+      <TemplateCard className="flex min-h-[280px] flex-col items-center justify-center gap-3 p-8 text-center">
+        <Award className="h-10 w-10 text-app-text-muted" />
+        <p className="text-sm text-app-text-muted">{t("tournaments.awards.noDataYet")}</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-lg bg-app-green px-4 py-2 text-sm font-bold text-app-bg transition-colors hover:bg-app-green/90"
+        >
+          {t("common.retry")}
+        </button>
+      </TemplateCard>
+    );
+  }
+
+  return (
+    <TemplateCard className="flex min-h-[280px] flex-col items-center justify-center gap-3 p-8 text-center">
+      <Award className="h-10 w-10 text-app-text-muted" />
+      <p className="text-sm text-app-text-muted">{t("tournaments.loadingAwards")}</p>
+    </TemplateCard>
   );
 }
 
@@ -867,7 +792,7 @@ function AwardCard({
   onSelectPlayer,
   onSelectTeam,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   entries: AwardEntry[];
@@ -882,81 +807,133 @@ function AwardCard({
     const items = [buildViewTeamMenuItem(t, () => onSelectTeam(entry.team_id))];
 
     if (typeof onSelectPlayer === "function") {
-      items.unshift(
-        buildViewProfileMenuItem(t, () => onSelectPlayer(entry.player_id)),
-      );
+      items.unshift(buildViewProfileMenuItem(t, () => onSelectPlayer(entry.player_id)));
     }
 
     return items;
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <TemplateCard className="overflow-hidden">
+      <div className="border-b border-app-border/50 bg-app-card px-4 py-3">
         <div className="flex items-center gap-2">
           {icon}
-          <div>
-            <span>{title}</span>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-normal normal-case tracking-normal">
-              {subtitle}
-            </p>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-app-text">{title}</span>
+            <p className="truncate text-[10px] font-normal normal-case tracking-normal text-app-text-muted">{subtitle}</p>
           </div>
         </div>
-      </CardHeader>
-      <CardBody className="p-0">
-        {entries.length === 0 ? (
-          <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-            {emptyText}
-          </p>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-surface-600">
-            {entries.map((entry, i) => (
-              <ContextMenu
-                items={buildAwardMenuItems(entry)}
-                key={entry.player_id}
+      </div>
+      {entries.length === 0 ? (
+        <p className="p-4 text-center text-sm text-app-text-muted">{emptyText}</p>
+      ) : (
+        <div className="divide-y divide-app-border/30">
+          {entries.map((entry, index) => (
+            <ContextMenu items={buildAwardMenuItems(entry)} key={entry.player_id}>
+              <div
+                className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-white/5"
+                data-testid={`tournaments-award-entry-${entry.player_id}`}
               >
+                <span className={cx("w-5 text-center font-heading text-sm font-bold", index === 0 ? "text-app-green" : "text-app-text-muted")}>{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-app-text">{entry.player_name}</p>
+                  <p className="text-xs text-app-text-muted">{entry.team_name}</p>
+                </div>
+                <span className={cx("font-heading font-bold tabular-nums", index === 0 ? "text-lg text-app-green" : "text-sm text-app-text-muted")}>
+                  {decimal ? entry.value.toFixed(2) : entry.value}
+                </span>
+                <span className="w-12 text-[10px] text-app-text-muted">{unit}</span>
+              </div>
+            </ContextMenu>
+          ))}
+        </div>
+      )}
+    </TemplateCard>
+  );
+}
+
+function TopScorersCard({
+  topScorers,
+  teams,
+  buildPlayerMenuItems,
+  title,
+  emptyText,
+  withTestIds = false,
+}: {
+  topScorers: TopScorerEntry[];
+  teams: GameStateData["teams"];
+  buildPlayerMenuItems: (playerId: string, teamId?: string | null) => ReturnType<typeof buildViewTeamMenuItem>[];
+  title: string;
+  emptyText: string;
+  withTestIds?: boolean;
+}) {
+  return (
+    <div>
+      <SectionTitle title={title} action="Goals" />
+      <TemplateCard className="overflow-hidden">
+        {topScorers.length === 0 ? (
+          <p className="p-4 text-center text-sm text-app-text-muted">{emptyText}</p>
+        ) : (
+          <div className="divide-y divide-app-border/30">
+            {topScorers.map((entry, index) => (
+              <ContextMenu items={buildPlayerMenuItems(entry.player!.id, entry.player!.team_id)} key={entry.player!.id}>
                 <div
-                  className="flex items-center px-4 py-2.5 gap-3"
-                  data-testid={`tournaments-award-entry-${entry.player_id}`}
+                  className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-white/5"
+                  data-testid={withTestIds ? `tournaments-top-scorer-${entry.player!.id}` : undefined}
                 >
-                  <span
-                    className={`font-heading font-bold text-sm w-5 text-center ${i === 0
-                      ? "text-accent-500"
-                      : "text-gray-400 dark:text-gray-500"
-                      }`}
-                  >
-                    {i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-semibold truncate ${i === 0
-                        ? "text-gray-900 dark:text-gray-100"
-                        : "text-gray-700 dark:text-gray-300"
-                        }`}
-                    >
-                      {entry.player_name}
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {entry.team_name}
-                    </p>
+                  <span className={cx("w-5 text-center font-heading text-sm font-bold", index === 0 ? "text-app-green" : "text-app-text-muted")}>{index + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-app-text">{entry.player!.full_name}</p>
+                    <p className="text-xs text-app-text-muted">{getTeamName(teams, entry.player!.team_id ?? "")}</p>
                   </div>
-                  <span
-                    className={`font-heading font-bold tabular-nums ${i === 0
-                      ? "text-lg text-accent-500"
-                      : "text-sm text-gray-600 dark:text-gray-400"
-                      }`}
-                  >
-                    {decimal ? entry.value.toFixed(2) : entry.value}
-                  </span>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 w-12">
-                    {unit}
-                  </span>
+                  <span className="font-heading text-lg font-bold tabular-nums text-app-green">{entry.goals}</span>
                 </div>
               </ContextMenu>
             ))}
           </div>
         )}
-      </CardBody>
-    </Card>
+      </TemplateCard>
+    </div>
+  );
+}
+
+function SnapshotCard({
+  leaderStanding,
+  userStanding,
+  userStandingIndex,
+  teamById,
+  teams,
+  completedMatches,
+  totalGoals,
+}: {
+  leaderStanding: StandingEntry | null;
+  userStanding: StandingEntry | null;
+  userStandingIndex: number;
+  teamById: Map<string, GameStateData["teams"][number]>;
+  teams: GameStateData["teams"];
+  completedMatches: number;
+  totalGoals: number;
+}) {
+  const leaderTeamName = leaderStanding ? teamById.get(leaderStanding.team_id)?.name ?? getTeamName(teams, leaderStanding.team_id) : "—";
+  const userTeamName = userStanding ? teamById.get(userStanding.team_id)?.name ?? getTeamName(teams, userStanding.team_id) : "—";
+
+  return (
+    <div>
+      <SectionTitle title="TABLE SNAPSHOT" action="Live" />
+      <TemplateCard className="flex flex-col gap-4 p-4">
+        <div className="flex items-center gap-3 rounded-lg border border-app-border bg-app-bg p-3">
+          <Crown className="h-5 w-5 text-app-green" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-app-text-muted">Leader</p>
+            <p className="truncate text-sm font-bold text-app-text">{leaderTeamName}</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 border-t border-app-border/50 pt-3">
+          <StatRow label="Your club" value={userStanding ? `#${userStandingIndex + 1} ${userTeamName}` : "—"} tone="text-app-green" />
+          <StatRow label="Completed matches" value={String(completedMatches)} />
+          <StatRow label="Goals" value={String(totalGoals)} />
+        </div>
+      </TemplateCard>
+    </div>
   );
 }

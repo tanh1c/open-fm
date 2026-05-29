@@ -1,9 +1,15 @@
+import type { DragEvent } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MatchSnapshot, EnginePlayerData } from "./types";
-import { Badge } from "../ui";
-import { ArrowUpDown, AlertTriangle, Wand2 } from "lucide-react";
+import { ChevronDown, Grid, LayoutGrid, ShieldAlert, Target, Wand2 } from "lucide-react";
 import ContextMenu from "../ContextMenu";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
+import {
+  GRID_TACTIC_SLOTS,
+  mapGridSlotToPosition,
+  PRESET_GRID_SLOT_IDS,
+} from "../tactics/TacticsTab.helpers";
 
 export const POSITION_KEY_STATS: Record<
   string,
@@ -151,8 +157,56 @@ interface PreMatchLineupProps {
   selectedStarterId: string | null;
   isAutoSelecting: boolean;
   onSelectStarter: (id: string | null) => void;
-  onSwap: (benchPlayerId: string) => void;
+  onSwap: (benchPlayerId: string, starterPlayerId?: string) => void;
   onAutoSelect: () => void;
+}
+
+function getPitchPlayerButtonClassName(options: {
+  draggedBenchPlayerId: string | null;
+  hoveredSlotId: string | null;
+  isSelected: boolean;
+  player: EnginePlayerData;
+  slotId: string;
+  wrongPosition: boolean;
+}): string {
+  const { draggedBenchPlayerId, hoveredSlotId, isSelected, player, slotId, wrongPosition } = options;
+  let className = "group absolute flex w-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center justify-center border-0 bg-transparent p-0 text-center transition-all";
+
+  if (draggedBenchPlayerId === player.id) {
+    className = `${className} opacity-70`;
+  }
+
+  if (isSelected || hoveredSlotId === slotId) {
+    return `${className} scale-105`;
+  }
+
+  if (wrongPosition) {
+    return `${className} saturate-150`;
+  }
+
+  return className;
+}
+
+function getRoleTone(wrongPosition: boolean): string {
+  return wrongPosition ? "text-app-red" : "text-emerald-400";
+}
+
+function getBenchButtonClassName(options: {
+  draggedBenchPlayerId: string | null;
+  playerId: string;
+  selectedStarterId: string | null;
+}): string {
+  const { draggedBenchPlayerId, playerId, selectedStarterId } = options;
+  const isActive = draggedBenchPlayerId === playerId || selectedStarterId === playerId;
+
+  return `flex min-w-[56px] shrink-0 cursor-grab flex-1 flex-col items-center overflow-hidden rounded-lg border bg-[#1a202a] transition-colors active:cursor-grabbing ${
+    isActive ? "border-app-green/50 ring-1 ring-app-green/30" : "border-app-border hover:border-[#3b4c66]"
+  }`;
+}
+
+function getPlayerDisplayNumber(player: EnginePlayerData, index: number): number {
+  const raw = Number((player as EnginePlayerData & { squad_number?: number | string; shirt_number?: number | string }).squad_number ?? (player as EnginePlayerData & { shirt_number?: number | string }).shirt_number);
+  return Number.isFinite(raw) && raw > 0 ? raw : index + 1;
 }
 
 export default function PreMatchLineup({
@@ -171,279 +225,294 @@ export default function PreMatchLineup({
   onAutoSelect,
 }: PreMatchLineupProps) {
   const { t } = useTranslation();
-  const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
+  const [draggedBenchPlayerId, setDraggedBenchPlayerId] = useState<string | null>(null);
+  const [hoveredSlotId, setHoveredSlotId] = useState<string | null>(null);
+  const presetSlotIds = PRESET_GRID_SLOT_IDS[userTeam.formation] ?? PRESET_GRID_SLOT_IDS["4-4-2"];
+  const pitchSlots = presetSlotIds.map((slotId, index) => {
+    const slot = GRID_TACTIC_SLOTS.find((candidate) => candidate.id === slotId);
+    return {
+      index,
+      player: userTeam.players[index] ?? null,
+      position: mapGridSlotToPosition(slotId),
+      slotId,
+      label: slot?.label ?? slotId.toUpperCase(),
+      x: slot?.x ?? 50,
+      y: slot?.y ?? 50,
+    };
+  });
+  const outOfPositionCount = pitchSlots.filter((slot) => slot.player && slot.player.position !== slot.position).length;
+  const opponentColor = userSide === "Home" ? awayTeamColor : homeTeamColor;
+
+  const handleBenchDragStart = (event: DragEvent<HTMLElement>, playerId: string) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", playerId);
+    setDraggedBenchPlayerId(playerId);
+  };
+
+  const handleSlotDragOver = (event: DragEvent<HTMLElement>, slotId: string) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setHoveredSlotId(slotId);
+  };
+
+  const handleSlotDrop = (event: DragEvent<HTMLElement>, starterPlayerId: string | null) => {
+    event.preventDefault();
+    const benchPlayerId = event.dataTransfer.getData("text/plain") || draggedBenchPlayerId;
+    setHoveredSlotId(null);
+    setDraggedBenchPlayerId(null);
+
+    if (benchPlayerId && starterPlayerId) {
+      onSelectStarter(starterPlayerId);
+      onSwap(benchPlayerId, starterPlayerId);
+    }
+  };
+
+  const clearDragState = () => {
+    setDraggedBenchPlayerId(null);
+    setHoveredSlotId(null);
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Formation Balance Bar + Auto-Select */}
-      <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-3 flex items-center justify-between transition-colors duration-300">
-        <div className="flex items-center gap-4">
-          <span className="text-[10px] font-heading uppercase tracking-widest text-gray-700 dark:text-gray-500">
-            {t("match.formationFit")}
-          </span>
-          {(["Goalkeeper", "Defender", "Midfielder", "Forward"] as const).map(
-            (pos) => {
-              const needed = formationNeeds[pos] || 0;
-              const actual = userTeam.players.filter(
-                (p) => p.position === pos,
-              ).length;
-              const ok = actual === needed;
-              return (
-                <div key={pos} className="flex items-center gap-1">
-                  <span className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-400">
-                    {translatePositionAbbreviation(t, pos)}
-                  </span>
-                  <span
-                    className={`text-sm font-heading font-bold tabular-nums ${ok ? "text-primary-700 dark:text-primary-400" : "text-amber-600 dark:text-amber-400"}`}
-                  >
-                    {actual}/{needed}
-                  </span>
-                  {!ok && <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
-                </div>
-              );
-            },
-          )}
-        </div>
-        <button
-          onClick={onAutoSelect}
-          disabled={isAutoSelecting}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${isAutoSelecting
-            ? "bg-gray-200 dark:bg-surface-700 text-gray-600 dark:text-gray-400 cursor-wait"
-            : "bg-accent-100 text-accent-700 hover:bg-accent-200 dark:bg-accent-500/20 dark:text-accent-300 dark:hover:bg-accent-500/30"
-            }`}
-        >
-          <Wand2 className="w-3.5 h-3.5" />
-          {isAutoSelecting ? t("match.selecting") : t("match.autoSelectXI")}
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        {/* Starting XI */}
-        <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              {t("match.startingXI")}
-            </h3>
-            <div className="flex items-center gap-2">
-              {selectedStarterId && (
-                <button
-                  onClick={() => onSelectStarter(null)}
-                  className="text-[10px] text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 font-heading uppercase tracking-wider"
-                >
-                  {t("match.cancel")}
-                </button>
-              )}
-              <Badge variant="primary" size="sm">
-                {t("match.nPlayers", { count: userTeam.players.length })}
-              </Badge>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-app-border bg-app-card">
+        <div className="flex items-center justify-between border-b border-app-border/50 bg-white/[0.01] p-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded border border-app-border bg-app-bg px-3 py-1.5 text-[11px] font-bold uppercase text-app-text transition-colors hover:border-app-border/80 hover:bg-white/5"
+            >
+              <span>{userTeam.formation.toUpperCase()}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-app-text-muted" />
+            </button>
+            <div>
+              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-app-text-muted">
+                {t("match.startingXI")}
+              </h3>
+              <p className="mt-1 text-[10px] text-app-text-muted">
+                {selectedStarterId
+                  ? t("match.swapPrompt")
+                  : `${t("match.nPlayers", { count: userTeam.players.length })} · ${oppTeam.name}`}
+              </p>
             </div>
           </div>
-          {selectedStarterId && (
-            <p className="text-[10px] text-accent-400 font-heading uppercase tracking-wider mb-2">
-              {t("match.swapPrompt")}
-            </p>
-          )}
-          {positions.map((pos) => {
-            const players = userTeam.players.filter((p) => p.position === pos);
-            if (players.length === 0) return null;
-            const needed = formationNeeds[pos] || 0;
-            const balanced = players.length === needed;
-            const keyStats = POSITION_KEY_STATS[pos] || [];
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
+                {t("match.formationFit")}
+              </span>
+              <div className="group flex items-center gap-1.5 transition-colors hover:text-white">
+                <Target className="h-3.5 w-3.5 text-app-text-muted group-hover:text-white" />
+                <span className="text-xs font-semibold">{userTeam.play_style}</span>
+              </div>
+            </div>
+            <div className="hidden items-center gap-2 md:flex">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">TEAM SHAPE</span>
+              <div className="group flex items-center gap-1.5 transition-colors hover:text-white">
+                <LayoutGrid className="h-3.5 w-3.5 text-app-text-muted group-hover:text-white" />
+                <span className="text-xs font-semibold">{userTeam.formation}</span>
+              </div>
+            </div>
+            {selectedStarterId ? (
+              <button
+                type="button"
+                onClick={() => onSelectStarter(null)}
+                className="text-[10px] font-bold uppercase tracking-wider text-app-green hover:text-primary-400"
+              >
+                {t("match.cancel")}
+              </button>
+            ) : null}
+            <button type="button" className="rounded border border-transparent p-1.5 text-app-green transition-colors hover:border-app-green/20 hover:bg-app-green/10">
+              <Grid className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="relative flex flex-1 justify-center overflow-hidden border-b border-emerald-900/40 bg-[#1c2723] p-1 lg:p-2">
+          <svg
+            aria-hidden="true"
+            className="absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] rounded-xl sm:inset-2 sm:h-[calc(100%-1rem)] sm:w-[calc(100%-1rem)]"
+            viewBox="0 0 68 105"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <defs>
+              <linearGradient id="prematchPitchGrass" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#244c38" />
+                <stop offset="50%" stopColor="#1c3a2c" />
+                <stop offset="100%" stopColor="#173025" />
+              </linearGradient>
+              <pattern id="prematchPitchStripes" width="68" height="13.125" patternUnits="userSpaceOnUse">
+                <rect width="68" height="6.5625" fill="rgba(255,255,255,0.035)" />
+                <rect y="6.5625" width="68" height="6.5625" fill="rgba(0,0,0,0.035)" />
+              </pattern>
+            </defs>
+            <rect x="0" y="0" width="68" height="105" rx="1.5" fill="url(#prematchPitchGrass)" />
+            <rect x="0" y="0" width="68" height="105" rx="1.5" fill="url(#prematchPitchStripes)" />
+            <g fill="none" stroke="rgba(6,95,70,0.76)" strokeWidth="0.75">
+              <rect x="1.5" y="1.5" width="65" height="102" rx="1" />
+              <line x1="1.5" y1="52.5" x2="66.5" y2="52.5" />
+              <circle cx="34" cy="52.5" r="9.15" />
+              <circle cx="34" cy="52.5" r="0.55" fill="rgba(6,95,70,0.76)" stroke="none" />
+
+              <rect x="13.84" y="1.5" width="40.32" height="16.5" />
+              <rect x="24.84" y="1.5" width="18.32" height="5.5" />
+              <circle cx="34" cy="12.5" r="0.55" fill="rgba(6,95,70,0.76)" stroke="none" />
+              <path d="M26.8 18 A9.15 9.15 0 0 0 41.2 18" />
+              <rect x="29.84" y="0.2" width="8.32" height="1.3" />
+
+              <rect x="13.84" y="87" width="40.32" height="16.5" />
+              <rect x="24.84" y="98" width="18.32" height="5.5" />
+              <circle cx="34" cy="92.5" r="0.55" fill="rgba(6,95,70,0.76)" stroke="none" />
+              <path d="M26.8 87 A9.15 9.15 0 0 1 41.2 87" />
+              <rect x="29.84" y="103.5" width="8.32" height="1.3" />
+            </g>
+          </svg>
+
+          {pitchSlots.map((slot) => {
+            const player = slot.player;
+            const isSelected = selectedStarterId === player?.id;
+            const wrongPosition = player ? player.position !== slot.position : false;
+
             return (
-              <div key={pos} className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600">
-                      {t(`common.positionGroups.${pos}`)}
-                    </p>
-                    {!balanced && (
-                      <span className="flex items-center gap-0.5">
-                        <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
-                        <span className="text-[9px] font-heading text-amber-400">
-                          {players.length}/{needed}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  {/* Stat column headers */}
-                  <div className="flex items-center gap-0">
-                    <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 w-7 text-center">
-                      OVR
-                    </span>
-                    {keyStats.map((s) => (
-                      <span
-                        key={s.label}
-                        className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-7 text-center"
-                      >
-                        {s.label}
-                      </span>
-                    ))}
-                    <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-right">
-                      FIT
-                    </span>
-                  </div>
-                </div>
-                {players.map((p) => {
-                  const posOvr = p.ovr;
-                  const isSelected = selectedStarterId === p.id;
-                  const starterButton = (
+              <div
+                key={slot.slotId}
+                data-testid={`pre-match-slot-${slot.slotId}`}
+                className="absolute h-[54px] w-[68px] -translate-x-1/2 -translate-y-1/2"
+                style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+                onDragOver={(event) => handleSlotDragOver(event, slot.slotId)}
+                onDragLeave={() => setHoveredSlotId(null)}
+                onDrop={(event) => handleSlotDrop(event, player?.id ?? null)}
+              >
+                {player ? (
+                  <ContextMenu
+                    items={[
+                      {
+                        label: isSelected ? t("match.cancel") : t("match.selectForSwap"),
+                        onClick: () => onSelectStarter(isSelected ? null : player.id),
+                      },
+                    ]}
+                  >
                     <button
                       type="button"
-                      key={p.id}
-                      data-testid={`pre-match-starter-${p.id}`}
-                      onClick={() => onSelectStarter(isSelected ? null : p.id)}
-                      className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${isSelected
-                        ? "bg-primary-500/20 ring-1 ring-primary-500/50"
-                        : "hover:bg-gray-100 dark:hover:bg-surface-700/50"
-                        }`}
+                      data-testid={`pre-match-starter-${player.id}`}
+                      onClick={() => onSelectStarter(isSelected ? null : player.id)}
+                      className={getPitchPlayerButtonClassName({
+                        draggedBenchPlayerId,
+                        hoveredSlotId,
+                        isSelected,
+                        player,
+                        slotId: slot.slotId,
+                        wrongPosition,
+                      })}
+                      style={{ left: "50%", top: "50%" }}
                     >
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-heading font-bold flex-shrink-0"
-                        style={starterBadgeStyle(userColor)}
+                        className={`mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPosition ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"}`}
                       >
-                        {posOvr}
+                        {player.ovr}
                       </div>
-                      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium flex-1 truncate">
-                        {p.name}
-                      </span>
-                      {isSelected && (
-                        <ArrowUpDown className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />
-                      )}
-                      <div className="flex items-center gap-0">
-                        <span
-                          className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${starterOvrColor(posOvr)}`}
-                        >
-                          {posOvr}
+                      <div className="z-10 flex w-full flex-col items-center px-1 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
+                        <span className="w-full truncate whitespace-nowrap text-[9px] font-bold text-white">{player.name}</span>
+                        <span className={`text-[8px] font-medium leading-tight ${getRoleTone(wrongPosition)}`}>
+                          {translatePositionAbbreviation(t, slot.position)} · {Math.round(player.condition)}%
                         </span>
-                        {keyStats.map((s) => (
-                          <span
-                            key={s.label}
-                            className={`text-[10px] font-heading tabular-nums w-7 text-center ${statColor(getStatVal(p, s.key))}`}
-                          >
-                            {getStatVal(p, s.key)}
-                          </span>
-                        ))}
                       </div>
-                      <span
-                        className={`text-xs tabular-nums w-8 text-right ${condColor(p.condition)}`}
-                      >
-                        {Math.round(p.condition)}%
-                      </span>
                     </button>
-                  );
-
-                  return (
-                    <ContextMenu
-                      items={[
-                        {
-                          label: isSelected
-                            ? t("match.cancel")
-                            : t("match.selectForSwap"),
-                          onClick: () => onSelectStarter(isSelected ? null : p.id),
-                        },
-                      ]}
-                      key={p.id}
-                    >
-                      {starterButton}
-                    </ContextMenu>
-                  );
-                })}
+                  </ContextMenu>
+                ) : (
+                  <div className={`flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold ${hoveredSlotId === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}>
+                    {slot.label}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* Bench */}
-        <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 shadow-sm p-4 transition-colors duration-300">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              {t("match.substitutes")}
-            </h3>
-            <Badge variant="neutral" size="sm">
-              {t("match.nAvailable", { count: userBench.length })}
-            </Badge>
+        <div className="flex items-center justify-between bg-black/20 p-3">
+          <button type="button" className="flex items-center gap-2 rounded border border-app-border bg-app-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5">
+            <ShieldAlert className="h-3.5 w-3.5" />
+            Analysis
+          </button>
+          <div className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
+            {(["Goalkeeper", "Defender", "Midfielder", "Forward"] as const).map((pos) => {
+              const needed = formationNeeds[pos] || 0;
+              const actual = userTeam.players.filter((player) => player.position === pos).length;
+              const ok = actual === needed;
+              return (
+                <span key={pos} className={ok ? "text-app-text-muted" : "text-amber-400"}>
+                  {translatePositionAbbreviation(t, pos)} {actual}/{needed}
+                </span>
+              );
+            })}
+            <span>{outOfPositionCount} {t("squad.outOfPosition")}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onAutoSelect}
+            disabled={isAutoSelecting}
+            className="flex items-center gap-2 rounded border border-app-border bg-app-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5 disabled:opacity-60"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            {isAutoSelecting ? t("match.selecting") : t("match.autoSelectXI")}
+          </button>
+        </div>
+
+        <div className="border-t border-app-border/50 p-3 pb-2">
+          <div className="mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+            <span>{t("match.substitutes")}</span>
+            <span className="flex items-center gap-2">
+              <span>{t("match.opponent")}</span>
+              <span>{oppTeam.name}</span>
+              <span>{oppTeam.formation} · {t(`tactics.playStyles.${oppTeam.play_style}`, oppTeam.play_style)}</span>
+            </span>
           </div>
           {userBench.length === 0 ? (
-            <p className="text-xs text-gray-600 dark:text-gray-500">
-              {t("match.noBenchAvailable2")}
-            </p>
+            <p className="text-xs text-app-text-muted">{t("match.noBenchAvailable2")}</p>
           ) : (
-            <div className="flex flex-col gap-1">
-              {/* Bench column header */}
-              <div className="flex items-center gap-2 px-2 pb-1">
-                <span className="w-7" />
-                <span className="flex-1" />
-                <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 w-8 text-center">
-                  POS
-                </span>
-                <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-[84px] text-center">
-                  {t("match.keyStats")}
-                </span>
-                <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-right">
-                  FIT
-                </span>
-              </div>
-              {userBench.map((bp) => {
-                const posOvr = bp.ovr;
-                const keyStats = POSITION_KEY_STATS[bp.position] || [];
-                const canSwap = Boolean(selectedStarterId);
+            <div className="mb-3 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+              {userBench.map((player, index) => {
                 const benchButton = (
                   <button
+                    key={player.id}
                     type="button"
-                    key={bp.id}
-                    data-testid={`pre-match-bench-${bp.id}`}
-                    disabled={!canSwap}
-                    aria-disabled={!canSwap}
+                    draggable
+                    data-testid={`pre-match-bench-${player.id}`}
                     onClick={() => {
-                      if (canSwap) {
-                        onSwap(bp.id);
-                      }
+                      if (selectedStarterId) onSwap(player.id);
                     }}
-                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${canSwap
-                      ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
-                      : "opacity-60 cursor-not-allowed"
-                      }`}
+                    onDragStart={(event) => handleBenchDragStart(event, player.id)}
+                    onDragEnd={clearDragState}
+                    className={getBenchButtonClassName({ draggedBenchPlayerId, playerId: player.id, selectedStarterId })}
                   >
-                    <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-surface-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors duration-300">
-                      {posOvr}
+                    <div className="relative flex w-full justify-center pb-1 pt-2">
+                      <div className="absolute bottom-0 h-8 w-full bg-gradient-to-t from-red-500/20 to-transparent" />
+                      <div className="z-10 flex h-8 w-8 items-center justify-center rounded border border-red-500/50 bg-red-900/30 text-sm font-bold shadow-sm">
+                        <span className="text-white drop-shadow-md">{getPlayerDisplayNumber(player, index + 12)}</span>
+                      </div>
                     </div>
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium flex-1 truncate">
-                      {bp.name}
-                    </span>
-                    <Badge variant="neutral" size="sm">
-                      {translatePositionAbbreviation(t, bp.position)}
-                    </Badge>
-                    <div className="flex items-center gap-0">
-                      {keyStats.map((s) => (
-                        <span
-                          key={s.label}
-                          className={`text-[10px] font-heading tabular-nums w-7 text-center ${statColor(getStatVal(bp, s.key))}`}
-                        >
-                          {getStatVal(bp, s.key)}
-                        </span>
-                      ))}
+                    <div className="z-10 flex w-full flex-col items-center px-1 pb-1">
+                      <span className="w-full truncate text-center text-[9px] font-bold">{player.name}</span>
+                      <span className="w-full truncate text-center text-[8px] text-app-text-muted">
+                        {translatePositionAbbreviation(t, player.position)} · {Math.round(player.condition)}%
+                      </span>
                     </div>
-                    <span
-                      className={`text-xs tabular-nums w-8 text-right ${condColor(bp.condition)}`}
-                    >
-                      {Math.round(bp.condition)}%
-                    </span>
+                    <div className="flex w-full justify-center border-t border-app-border/50 bg-black/20">
+                      <span className="py-0.5 font-mono text-[9px] font-bold text-app-text-muted">{player.ovr}</span>
+                    </div>
                   </button>
                 );
 
-                if (!selectedStarterId) {
-                  return benchButton;
-                }
+                if (!selectedStarterId) return benchButton;
 
                 return (
                   <ContextMenu
+                    key={player.id}
                     items={[
                       {
                         label: t("match.swapWithSelectedStarter"),
-                        onClick: () => onSwap(bp.id),
+                        onClick: () => onSwap(player.id),
                       },
                     ]}
-                    key={bp.id}
                   >
                     {benchButton}
                   </ContextMenu>
@@ -451,32 +520,13 @@ export default function PreMatchLineup({
               })}
             </div>
           )}
-
-          {/* Opponent Info */}
-          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-surface-700">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
-              {t("match.opponent")}
-            </h3>
-            <div className="flex items-center gap-3 mb-2">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center font-heading font-bold text-sm"
-                style={{
-                  backgroundColor:
-                    (userSide === "Home" ? awayTeamColor : homeTeamColor) +
-                    "30",
-                }}
-              >
-                {oppTeam.name.substring(0, 3).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-200">
-                  {oppTeam.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {oppTeam.formation} · {t(`tactics.playStyles.${oppTeam.play_style}`, oppTeam.play_style)}
-                </p>
-              </div>
-            </div>
+          <div className="flex items-center justify-between text-[9px] text-app-text-muted">
+            <span><b>{userBench.length}</b> {t("preMatch.substitutes")}</span>
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: userColor }} />
+              {userTeam.name}
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: opponentColor }} />
+            </span>
           </div>
         </div>
       </div>

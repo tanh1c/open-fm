@@ -3,8 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { GameStateData, TeamData } from "../../store/gameStore";
 import { EngineTeamData, MatchSnapshot, MatchEvent, MinuteResult, SimSpeed, SPEED_MS } from "./types";
-import { getEventDisplay, getPlayerName, phaseLabel } from "./helpers";
-import { Badge } from "../ui";
+import { getEventDisplay, getEventTypeLabel, getPlayerName, phaseLabel } from "./helpers";
 import { useSettingsStore } from "../../store/settingsStore";
 import TeamLogo from "../common/TeamLogo";
 import { EventFeed, MatchStats, Lineups } from "./MatchPanels";
@@ -81,6 +80,182 @@ function LiveTeamBadge({
       {team.name.substring(0, 3).toUpperCase()}
     </div>
   );
+}
+
+function LiveEventCard({
+  event,
+  snapshot,
+  homeTeamData,
+  awayTeamData,
+  homeTeamColor,
+  awayTeamColor,
+}: {
+  event: MatchEvent;
+  snapshot: MatchSnapshot;
+  homeTeamData: TeamData | undefined;
+  awayTeamData: TeamData | undefined;
+  homeTeamColor: string;
+  awayTeamColor: string;
+}) {
+  const { t } = useTranslation();
+  const display = getEventDisplay(event);
+  const isHome = event.side === "Home";
+  const team = isHome ? snapshot.home_team : snapshot.away_team;
+  const teamData = isHome ? homeTeamData : awayTeamData;
+  const teamColor = isHome ? homeTeamColor : awayTeamColor;
+  const playerName = getPlayerName(snapshot, event.player_id);
+  const secondaryName = getPlayerName(snapshot, event.secondary_player_id);
+  const eventLabel = getEventTypeLabel(event.event_type, t).toUpperCase();
+  const isGoal = event.event_type === "Goal" || event.event_type === "PenaltyGoal";
+
+  return (
+    <div className={`relative overflow-hidden rounded-xl border px-3 py-3 shadow-lg shadow-black/10 ${isGoal ? "border-app-green/40 bg-app-green/10" : "border-app-border/70 bg-app-bg/75"}`}>
+      <div className="pointer-events-none absolute -right-4 -top-4 opacity-10 blur-[1px]">
+        {teamData ? (
+          <TeamLogo team={teamData} className="h-20 w-20 rounded-2xl bg-white/90 p-2" />
+        ) : (
+          <div className="h-20 w-20 rounded-2xl" style={{ backgroundColor: teamColor }} />
+        )}
+      </div>
+      <div className="relative flex items-start gap-3">
+        <div className="flex w-10 shrink-0 flex-col items-center rounded-lg border border-app-border bg-app-card py-1.5">
+          <span className="font-heading text-sm font-black tabular-nums text-app-text">{event.minute}'</span>
+          <span className="text-[8px] font-bold uppercase tracking-wider text-app-text-muted">MIN</span>
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-app-border bg-app-card">
+          <span className={display.color}>{display.icon}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center gap-2">
+            <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${isGoal ? "bg-app-green text-app-bg" : "bg-white/10 text-app-text"}`}>
+              {eventLabel}
+            </span>
+            <span className="truncate text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+              {team.name}
+            </span>
+          </div>
+          <p className="truncate font-heading text-sm font-bold text-app-text">
+            {playerName || team.name}
+          </p>
+          {secondaryName ? (
+            <p className="truncate text-[11px] text-app-text-muted">
+              {event.event_type === "Substitution"
+                ? t("match.subFor", { name: secondaryName })
+                : t("match.assist", { name: secondaryName })}
+            </p>
+          ) : null}
+        </div>
+        <LiveTeamBadge team={team} teamData={teamData} teamColor={teamColor} />
+      </div>
+    </div>
+  );
+}
+
+function MatchMomentumPanel({
+  snapshot,
+  events,
+  homeTeamColor,
+  awayTeamColor,
+}: {
+  snapshot: MatchSnapshot;
+  events: MatchEvent[];
+  homeTeamColor: string;
+  awayTeamColor: string;
+}) {
+  const recentEvents = events.filter((event) => event.minute >= Math.max(0, snapshot.current_minute - 15));
+  const homeThreat = calculateThreatScore(recentEvents, "Home", snapshot.home_possession_pct);
+  const awayThreat = calculateThreatScore(recentEvents, "Away", snapshot.away_possession_pct);
+  const totalThreat = Math.max(1, homeThreat + awayThreat);
+  const homeMomentum = Math.round((homeThreat / totalThreat) * 100);
+  const awayMomentum = 100 - homeMomentum;
+  const leader = homeMomentum === awayMomentum
+    ? "Balanced"
+    : homeMomentum > awayMomentum
+      ? snapshot.home_team.name
+      : snapshot.away_team.name;
+  const homeShots = countThreatEvents(events, "Home");
+  const awayShots = countThreatEvents(events, "Away");
+
+  return (
+    <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-app-border bg-app-card p-4">
+      <div className="mb-4 min-w-0">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">Match Momentum</h3>
+        <p className="mt-1 text-xs text-app-text-muted">Pressure over the last 15 minutes</p>
+      </div>
+
+      <div className="mb-4 rounded-lg border border-app-border bg-app-bg/70 p-3">
+        <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-app-text-muted">Current edge</p>
+        <p className="truncate font-heading text-sm font-black text-app-text">{leader}</p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <div className="mb-2 flex min-w-0 justify-between gap-2 text-[11px] font-heading font-bold uppercase tracking-wider">
+            <span className="min-w-0 truncate text-app-text">{snapshot.home_team.name}</span>
+            <span className="shrink-0 text-app-text-muted">{homeMomentum}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-app-bg">
+            <div className="h-full transition-all duration-500" style={{ width: `${homeMomentum}%`, backgroundColor: homeTeamColor }} />
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 flex min-w-0 justify-between gap-2 text-[11px] font-heading font-bold uppercase tracking-wider">
+            <span className="min-w-0 truncate text-app-text">{snapshot.away_team.name}</span>
+            <span className="shrink-0 text-app-text-muted">{awayMomentum}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-app-bg">
+            <div className="h-full transition-all duration-500" style={{ width: `${awayMomentum}%`, backgroundColor: awayTeamColor }} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2">
+          <MomentumMetric label="Possession" homeValue={`${snapshot.home_possession_pct.toFixed(0)}%`} awayValue={`${snapshot.away_possession_pct.toFixed(0)}%`} />
+          <MomentumMetric label="Threat actions" homeValue={String(homeShots)} awayValue={String(awayShots)} />
+          <MomentumMetric label="Ball zone" homeValue={snapshot.possession === "Home" ? formatZone(snapshot.ball_zone) : "—"} awayValue={snapshot.possession === "Away" ? formatZone(snapshot.ball_zone) : "—"} />
+          <MomentumMetric label="Initiative" homeValue={homeMomentum >= awayMomentum ? "Yes" : "—"} awayValue={awayMomentum > homeMomentum ? "Yes" : "—"} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MomentumMetric({ label, homeValue, awayValue }: { label: string; homeValue: string; awayValue: string }) {
+  return (
+    <div className="rounded-lg border border-app-border bg-app-bg/70 p-2.5">
+      <p className="mb-1.5 truncate text-[9px] font-bold uppercase tracking-wider text-app-text-muted">{label}</p>
+      <div className="grid grid-cols-[minmax(0,1fr)_12px_minmax(0,1fr)] items-center gap-2 font-heading text-xs font-bold text-app-text">
+        <span className="min-w-0 truncate">{homeValue}</span>
+        <span className="text-center text-app-text-muted">/</span>
+        <span className="min-w-0 truncate text-right">{awayValue}</span>
+      </div>
+    </div>
+  );
+}
+
+function formatZone(zone: string): string {
+  return zone
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/^./, (char) => char.toUpperCase());
+}
+
+function calculateThreatScore(events: MatchEvent[], side: "Home" | "Away", possessionPct: number): number {
+  return events.reduce((score, event) => {
+    if (event.side !== side) return score;
+    if (event.event_type === "Goal" || event.event_type === "PenaltyGoal") return score + 6;
+    if (event.event_type.includes("Shot") || event.event_type === "PenaltyMiss") return score + 3;
+    if (event.event_type === "Corner" || event.event_type === "FreeKick") return score + 2;
+    if (event.event_type === "YellowCard" || event.event_type === "RedCard" || event.event_type === "SecondYellow") return score - 1;
+    return score + 1;
+  }, Math.max(5, possessionPct / 10));
+}
+
+function countThreatEvents(events: MatchEvent[], side: "Home" | "Away"): number {
+  return events.filter((event) => (
+    event.side === side &&
+    (event.event_type.includes("Shot") || event.event_type.includes("Goal") || event.event_type === "PenaltyMiss")
+  )).length;
 }
 
 export default function MatchLive({
@@ -248,22 +423,12 @@ export default function MatchLive({
               <div className="flex justify-between"><span>{t('match.minute')}</span><span className="font-bold text-app-text">{snapshot.current_minute}'</span></div>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-app-border bg-app-card p-4 custom-scrollbar">
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{t('match.keyEvents')}</h3>
-            <div className="flex flex-col gap-1.5">
-              {importantEvents.slice(-10).reverse().map((evt, i) => {
-                const display = getEventDisplay(evt);
-                return (
-                  <div key={i} className="rounded-lg border border-app-border/60 bg-app-bg/70 px-2 py-1.5 text-xs">
-                    <span className="mr-2 inline-block w-6 text-right font-heading tabular-nums text-app-text-muted">{evt.minute}'</span>
-                    <span>{display.icon}</span>
-                    <span className={`${display.color} ml-2 font-medium`}>{getPlayerName(snapshot, evt.player_id)}</span>
-                  </div>
-                );
-              })}
-              {importantEvents.length === 0 && <p className="text-xs text-app-text-muted">{t('match.noEventsYet')}</p>}
-            </div>
-          </div>
+          <MatchMomentumPanel
+            snapshot={snapshot}
+            events={importantEvents}
+            homeTeamColor={homeTeamColor}
+            awayTeamColor={awayTeamColor}
+          />
         </aside>
 
         <section className="min-h-0 overflow-hidden rounded-xl border border-app-border bg-app-card">
@@ -405,19 +570,17 @@ export default function MatchLive({
               {importantEvents
                 .filter(e => ["Goal", "PenaltyGoal", "YellowCard", "RedCard", "SecondYellow", "Substitution", "PenaltyMiss", "Injury"].includes(e.event_type))
                 .slice(-12).reverse()
-                .map((evt, i) => {
-                  const display = getEventDisplay(evt);
-                  return (
-                    <div key={i} className="rounded-lg border border-app-border/60 bg-app-bg/70 px-2 py-1.5 text-xs">
-                      <span className="mr-2 inline-block w-6 text-right font-heading tabular-nums text-app-text-muted">{evt.minute}'</span>
-                      <span>{display.icon}</span>
-                      <span className={`${display.color} font-medium truncate`}>{getPlayerName(snapshot, evt.player_id)}</span>
-                      <Badge variant={evt.side === "Home" ? "primary" : "accent"} size="sm">
-                        {evt.side === "Home" ? snapshot.home_team.name.substring(0, 3) : snapshot.away_team.name.substring(0, 3)}
-                      </Badge>
-                    </div>
-                  );
-                })}
+                .map((evt, i) => (
+                  <LiveEventCard
+                    key={`${evt.minute}-${evt.event_type}-rail-${i}`}
+                    event={evt}
+                    snapshot={snapshot}
+                    homeTeamData={homeTeamData}
+                    awayTeamData={awayTeamData}
+                    homeTeamColor={homeTeamColor}
+                    awayTeamColor={awayTeamColor}
+                  />
+                ))}
               {importantEvents.length === 0 && <p className="text-xs text-app-text-muted">{t('match.noEventsYet')}</p>}
             </div>
           </div>

@@ -323,6 +323,33 @@ describe("PreMatchLineup component", () => {
     expect(onSwap).toHaveBeenCalledWith("b1");
   });
 
+  it("calls onSwap with the dropped bench player and target starter ids", () => {
+    const onSelectStarter = vi.fn();
+    const onSwap = vi.fn();
+
+    render(
+      <PreMatchLineup
+        {...defaultProps}
+        onSelectStarter={onSelectStarter}
+        onSwap={onSwap}
+      />,
+    );
+
+    const dataTransfer = {
+      dropEffect: "move",
+      effectAllowed: "move",
+      getData: vi.fn(() => "b1"),
+      setData: vi.fn(),
+    };
+
+    fireEvent.dragStart(screen.getByTestId("pre-match-bench-b1"), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId("pre-match-slot-lcb"), { dataTransfer });
+    fireEvent.drop(screen.getByTestId("pre-match-slot-lcb"), { dataTransfer });
+
+    expect(onSelectStarter).toHaveBeenCalledWith("m1");
+    expect(onSwap).toHaveBeenCalledWith("b1", "m1");
+  });
+
   it("offers a context menu action to swap in a bench player", () => {
     const onSwap = vi.fn();
 
@@ -358,8 +385,8 @@ describe("PreMatchLineup component", () => {
   it("renders player condition percentages", () => {
     render(<PreMatchLineup {...defaultProps} />);
     // All default players have condition=100, bench has 90
-    const pcts = screen.getAllByText("100%");
+    const pcts = screen.getAllByText(/100%/);
     expect(pcts.length).toBeGreaterThanOrEqual(4);
-    expect(screen.getByText("90%")).toBeInTheDocument();
+    expect(screen.getByText(/90%/)).toBeInTheDocument();
   });
 });

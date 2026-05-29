@@ -187,14 +187,14 @@ export default function PreMatchSetup({
     }
   };
 
-  const handleSwap = async (benchPlayerId: string) => {
-    if (!selectedStarterId) return;
+  const handleSwap = async (benchPlayerId: string, starterPlayerId = selectedStarterId) => {
+    if (!starterPlayerId) return;
     try {
       const snap = await invoke<MatchSnapshot>("apply_match_command", {
         command: {
           PreMatchSwap: {
             side: userSide,
-            player_off_id: selectedStarterId,
+            player_off_id: starterPlayerId,
             player_on_id: benchPlayerId,
           },
         },
@@ -299,7 +299,7 @@ export default function PreMatchSetup({
         </>
       }
     >
-      <div className="grid h-[800px] min-h-0 gap-4 xl:h-[750px] xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+      <div className="grid h-[980px] min-h-0 gap-4 xl:h-[940px] xl:grid-cols-[240px_minmax(760px,1fr)_320px] 2xl:h-[980px] 2xl:grid-cols-[260px_minmax(880px,1fr)_340px]">
         <aside className="hidden min-h-0 flex-col gap-4 xl:flex">
           <div className="rounded-xl border border-app-border bg-app-card p-4">
             <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
@@ -336,7 +336,7 @@ export default function PreMatchSetup({
           </div>
         </aside>
 
-        <section className="min-h-0 rounded-xl border border-app-border bg-app-card p-4">
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-app-border bg-app-card p-4">
           <div className="mb-4 rounded-2xl border border-app-green/25 bg-app-bg/80 p-4 shadow-inner shadow-black/20">
             <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)]">
               <PrematchTeamHeader
@@ -385,7 +385,7 @@ export default function PreMatchSetup({
             </button>
           </div>
 
-          <div className="min-h-0 overflow-auto custom-scrollbar">
+          <div className="min-h-0 flex-1 overflow-hidden">
 
         {/* Lineup Tab */}
         {activeTab === "lineup" && (

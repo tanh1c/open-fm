@@ -256,6 +256,10 @@ export default function Dashboard(): JSX.Element {
     setMatchMode,
     blockerModal,
     setBlockerModal,
+    showVacationPicker,
+    openVacationPicker,
+    closeVacationPicker,
+    handleVacation,
     handleContinue,
     handleConfirmMatch,
     handleSkipToMatchDay,
@@ -546,6 +550,7 @@ export default function Dashboard(): JSX.Element {
           onSave={handleSave}
           onSelectMatchMode={handleSelectMatchMode}
           onSkipToMatchDay={handleSkipToMatchDay}
+          onVacation={openVacationPicker}
           onToggleContinueMenu={handleToggleContinueMenu}
           saveFlash={saveFlash}
           seasonComplete={seasonComplete}
@@ -560,16 +565,22 @@ export default function Dashboard(): JSX.Element {
             seasonComplete: t("endOfSeason.seasonComplete"),
             skipToMatchDay: t("continueMenu.skipToMatchDay"),
             skipToMatchDayDesc: t("continueMenu.skipToMatchDayDesc"),
+            vacation: t("continueMenu.vacation", { defaultValue: "Vacation" }),
+            vacationDesc: t("continueMenu.vacationDesc", {
+              defaultValue: "Fast-forward to a date you choose",
+            }),
           }}
         />
 
         <DashboardOverlays
           blockerModal={blockerModal}
           currentModeMeta={currentModeMeta}
+          gameState={gameState}
           handleConfirmMatch={handleConfirmMatch}
           handleExitToMenu={handleExitToMenu}
           handleNavigate={handleNavigate}
           handleCloseQuit={handleCloseQuit}
+          handleVacation={handleVacation}
           isExitingToMenu={isExitingToMenu}
           matchMode={matchMode}
           setBlockerModal={setBlockerModal}
@@ -579,6 +590,8 @@ export default function Dashboard(): JSX.Element {
           showCloseConfirm={showCloseConfirm}
           showExitConfirm={showExitConfirm}
           showMatchConfirm={showMatchConfirm}
+          showVacationPicker={showVacationPicker}
+          closeVacationPicker={closeVacationPicker}
           teams={gameState.teams}
           todayMatchFixture={todayMatchFixture}
         />

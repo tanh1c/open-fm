@@ -6,6 +6,8 @@ import {
   CircleDot,
   Clock,
   Info,
+  LayoutGrid,
+  List,
   TableProperties,
   Trophy,
 } from "lucide-react";
@@ -14,10 +16,12 @@ import { useTranslation } from "react-i18next";
 import { FixtureData, GameStateData, getCompetitionDisplayName } from "../../store/gameStore";
 import { TeamData } from "../../store/types";
 import { getTeamName, formatMatchDate } from "../../lib/helpers";
+import { getCompetitionTag } from "../../lib/competitionTag";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import DivisionLogo from "../common/DivisionLogo";
 import TeamLogo from "../common/TeamLogo";
+import MonthCalendar, { type CalendarEvent } from "../common/MonthCalendar";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
@@ -85,6 +89,8 @@ export default function ScheduleTab({
   const [fixtureScope, setFixtureScope] = useState<"team" | "all">(
     gameState.manager.team_id ? "team" : "all",
   );
+  // My Club fixtures can be shown as a flat list or a month calendar grid.
+  const [fixtureLayout, setFixtureLayout] = useState<"list" | "calendar">("list");
   const competitionOptions = gameState.competitions?.length
     ? gameState.competitions
     : gameState.league
@@ -251,6 +257,46 @@ export default function ScheduleTab({
   const completedFixtureCount = selectedCompetition.fixtures.filter((fixture) => fixture.status === "Completed").length;
   const upcomingFixtureCount = selectedCompetition.fixtures.length - completedFixtureCount;
   const currentDate = formatMatchDate(gameState.clock.current_date.slice(0, 10));
+  const todayIso = gameState.clock.current_date.slice(0, 10);
+
+  // Calendar events for the My Club grid: each user fixture becomes a marker on
+  // its day, green for upcoming and muted for completed (with the score shown).
+  const userCalendarEvents: CalendarEvent[] = useMemo(
+    () =>
+      userFixtures.map((fixture) => {
+        const opponentId =
+          fixture.home_team_id === userTeamId ? fixture.away_team_id : fixture.home_team_id;
+        const opponent = getTeamName(gameState.teams, opponentId);
+        const completed = fixture.status === "Completed";
+        const tag = getCompetitionTag(t, fixture.competition);
+        return {
+          date: fixture.date,
+          tone: completed ? "bg-app-text-muted" : tag.dotTone,
+          competitionCode: tag.code,
+          competitionTone: tag.tone,
+          label:
+            completed && fixture.result
+              ? `${fixture.result.home_goals}-${fixture.result.away_goals}`
+              : `vs ${opponent.slice(0, 3).toUpperCase()}`,
+          title: `${tag.label}: ${getTeamName(gameState.teams, fixture.home_team_id)} vs ${getTeamName(gameState.teams, fixture.away_team_id)}`,
+        };
+      }),
+    [userFixtures, userTeamId, gameState.teams, t],
+  );
+
+  // Distinct competition tags present in the user's fixtures, for the calendar
+  // legend so colour codes are explained (League / Cup / Friendly / ...).
+  const calendarLegend = useMemo(() => {
+    const seen = new Set<string>();
+    const tags: ReturnType<typeof getCompetitionTag>[] = [];
+    for (const fixture of userFixtures) {
+      const tag = getCompetitionTag(t, fixture.competition);
+      if (seen.has(tag.code)) continue;
+      seen.add(tag.code);
+      tags.push(tag);
+    }
+    return tags;
+  }, [userFixtures, t]);
 
   const renderFixtureRow = (fixture: FixtureData) => {
     const homeTeam = teamById.get(fixture.home_team_id);
@@ -453,6 +499,32 @@ export default function ScheduleTab({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {fixtureScope === "team" ? (
+                    <div className="mr-1 flex items-center rounded-lg border border-app-border bg-app-card p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setFixtureLayout("list")}
+                        className={cx(
+                          "flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                          fixtureLayout === "list" ? "bg-app-green text-app-bg" : "text-app-text-muted hover:text-app-text",
+                        )}
+                        aria-label={t("schedule.listView", { defaultValue: "List" })}
+                      >
+                        <List className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFixtureLayout("calendar")}
+                        className={cx(
+                          "flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                          fixtureLayout === "calendar" ? "bg-app-green text-app-bg" : "text-app-text-muted hover:text-app-text",
+                        )}
+                        aria-label={t("schedule.calendarView", { defaultValue: "Calendar" })}
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
                   {userTeamId ? (
                     <div className="mr-1 flex items-center rounded-lg border border-app-border bg-app-card p-0.5">
                       <button
@@ -510,16 +582,41 @@ export default function ScheduleTab({
               <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar">
                 {fixtureScope === "team" ? (
                   userFixtures.length > 0 ? (
-                    <div className="flex flex-col gap-2">
-                      {userFixtures.map((fixture) => (
-                        <div key={fixture.id} className="flex flex-col gap-1">
-                          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
-                            {getFixtureGroupLabel(fixture)}
-                          </span>
-                          {renderFixtureRow(fixture)}
-                        </div>
-                      ))}
-                    </div>
+                    fixtureLayout === "calendar" ? (
+                      <div className="flex flex-col gap-3">
+                        <MonthCalendar
+                          value={null}
+                          events={userCalendarEvents}
+                          today={todayIso}
+                          initialMonth={nextUserFixture?.date ?? todayIso}
+                        />
+                        {calendarLegend.length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-app-border/50 pt-3">
+                            {calendarLegend.map((tag) => (
+                              <span key={tag.code} className="flex items-center gap-1.5">
+                                <span
+                                  className={`rounded border px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${tag.tone}`}
+                                >
+                                  {tag.code}
+                                </span>
+                                <span className="text-[11px] text-app-text-muted">{tag.label}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {userFixtures.map((fixture) => (
+                          <div key={fixture.id} className="flex flex-col gap-1">
+                            <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
+                              {getFixtureGroupLabel(fixture)}
+                            </span>
+                            {renderFixtureRow(fixture)}
+                          </div>
+                        ))}
+                      </div>
+                    )
                   ) : (
                     <p className="p-4 text-center text-xs text-app-text-muted">
                       {t("schedule.noTeamFixtures", { defaultValue: "No fixtures for your club in this competition." })}

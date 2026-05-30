@@ -1,4 +1,4 @@
-import type { FixtureData, TeamData } from "../../store/gameStore";
+import type { FixtureData, GameStateData, TeamData } from "../../store/gameStore";
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
 import type { BlockerModal } from "../../hooks/useAdvanceTime.helpers";
 import DashboardBlockerModal from "./DashboardBlockerModal";
@@ -7,14 +7,17 @@ import DashboardExitConfirmModal from "./DashboardExitConfirmModal";
 import DashboardExitSavingModal from "./DashboardExitSavingModal";
 import { type DashboardMatchModeMeta } from "./DashboardHeader";
 import DashboardMatchConfirmModal from "./DashboardMatchConfirmModal";
+import DashboardVacationModal from "./DashboardVacationModal";
 
 interface DashboardOverlaysProps {
   blockerModal: BlockerModal | null;
   currentModeMeta: DashboardMatchModeMeta;
+  gameState: GameStateData;
   handleConfirmMatch: () => void;
   handleExitToMenu: () => void | Promise<void>;
   handleNavigate: (tab: string) => void;
   handleCloseQuit: (save: boolean) => void | Promise<void>;
+  handleVacation: (targetDate: string) => void | Promise<void>;
   isExitingToMenu: boolean;
   matchMode: MatchModeType;
   setBlockerModal: (value: BlockerModal | null) => void;
@@ -24,6 +27,8 @@ interface DashboardOverlaysProps {
   showCloseConfirm: boolean;
   showExitConfirm: boolean;
   showMatchConfirm: boolean;
+  showVacationPicker: boolean;
+  closeVacationPicker: () => void;
   teams: TeamData[];
   todayMatchFixture: FixtureData | null;
 }
@@ -31,10 +36,12 @@ interface DashboardOverlaysProps {
 export default function DashboardOverlays({
   blockerModal,
   currentModeMeta,
+  gameState,
   handleConfirmMatch,
   handleExitToMenu,
   handleNavigate,
   handleCloseQuit,
+  handleVacation,
   isExitingToMenu,
   matchMode,
   setBlockerModal,
@@ -44,12 +51,22 @@ export default function DashboardOverlays({
   showCloseConfirm,
   showExitConfirm,
   showMatchConfirm,
+  showVacationPicker,
+  closeVacationPicker,
   teams,
   todayMatchFixture,
 }: DashboardOverlaysProps) {
   return (
     <>
       {isExitingToMenu ? <DashboardExitSavingModal /> : null}
+
+      {showVacationPicker ? (
+        <DashboardVacationModal
+          gameState={gameState}
+          onCancel={closeVacationPicker}
+          onConfirm={(targetDate) => void handleVacation(targetDate)}
+        />
+      ) : null}
 
       {showExitConfirm ? (
         <DashboardExitConfirmModal

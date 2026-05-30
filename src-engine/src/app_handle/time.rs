@@ -130,4 +130,90 @@ impl AppHandle {
             "days_skipped": days_skipped,
         }))
     }
+
+    /// Advance day-by-day until the in-game date reaches `target_date`
+    /// (inclusive lower bound: stops once `current_date >= target_date`).
+    ///
+    /// Like `skip_to_match_day`, the run is interrupted early — and never
+    /// auto-plays the user's own match — when one of these arises before the
+    /// target is reached:
+    ///   * a scheduled user fixture today → action "match_day"
+    ///   * the manager is fired           → action "fired"
+    ///   * a blocking action appears       → action "blocked"
+    /// Otherwise it returns action "arrived" at (or just past) the target.
+    #[wasm_bindgen(js_name = advanceToDate)]
+    pub fn advance_to_date(&self, target_date: String) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let user_team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| super::to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        // Hard cap so a far-future target can never spin indefinitely.
+        let max_days = 400u32;
+        let mut days_advanced = 0u32;
+
+        loop {
+            let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+            // ISO dates sort lexicographically, so string comparison is a valid
+            // chronological comparison here.
+            if today.as_str() >= target_date.as_str() || days_advanced >= max_days {
+                break;
+            }
+
+            let has_match = game.league.as_ref().is_some_and(|league| {
+                league.fixtures.iter().any(|fixture| {
+                    fixture.date == today
+                        && fixture.status == domain::league::FixtureStatus::Scheduled
+                        && (fixture.home_team_id == user_team_id
+                            || fixture.away_team_id == user_team_id)
+                })
+            });
+            if has_match {
+                self.state.set_game(game.clone());
+                return to_js_value(&serde_json::json!({
+                    "action": "match_day",
+                    "game": game,
+                    "days_advanced": days_advanced,
+                }));
+            }
+
+            let mut captures = Vec::new();
+            ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
+                captures.push(capture);
+            });
+            for capture in captures {
+                self.state.append_stats_state(capture);
+            }
+            days_advanced += 1;
+
+            if game.manager.team_id.is_none() {
+                self.state.set_game(game.clone());
+                return to_js_value(&serde_json::json!({
+                    "action": "fired",
+                    "game": game,
+                    "days_advanced": days_advanced,
+                }));
+            }
+
+            let blockers = compute_blocking_actions(&game);
+            if !blockers.is_empty() {
+                self.state.set_game(game.clone());
+                return to_js_value(&serde_json::json!({
+                    "action": "blocked",
+                    "game": game,
+                    "blockers": blockers,
+                    "days_advanced": days_advanced,
+                }));
+            }
+        }
+
+        self.state.set_game(game.clone());
+        to_js_value(&serde_json::json!({
+            "action": "arrived",
+            "game": game,
+            "days_advanced": days_advanced,
+        }))
+    }
 }

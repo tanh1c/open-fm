@@ -172,6 +172,109 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
     }))
 }
 
+/// Advance day-by-day until the in-game date reaches `target_date`
+/// (stops once `current_date >= target_date`). Interrupts early on a
+/// scheduled user fixture ("match_day"), a firing ("fired"), or a blocking
+/// action ("blocked"); otherwise returns "arrived".
+#[tauri::command]
+pub fn advance_to_date(
+    state: State<'_, StateManager>,
+    target_date: String,
+) -> Result<serde_json::Value, String> {
+    info!("[cmd] advance_to_date: target_date={}", target_date);
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("be.error.noActiveGameSession")?;
+
+    let user_team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned")?;
+
+    let max_days = 400u32;
+    let mut days_advanced = 0u32;
+
+    loop {
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        if today.as_str() >= target_date.as_str() || days_advanced >= max_days {
+            break;
+        }
+
+        let has_match = game.league.as_ref().is_some_and(|league| {
+            league.fixtures.iter().any(|fixture| {
+                fixture.date == today
+                    && fixture.status == domain::league::FixtureStatus::Scheduled
+                    && (fixture.home_team_id == user_team_id
+                        || fixture.away_team_id == user_team_id)
+            })
+        });
+        if has_match {
+            info!(
+                "[cmd] advance_to_date: match_day={}, days_advanced={}",
+                today, days_advanced
+            );
+            state.set_game(game.clone());
+            return Ok(serde_json::json!({
+                "action": "match_day",
+                "game": game,
+                "days_advanced": days_advanced
+            }));
+        }
+
+        let mut captures = Vec::new();
+        ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
+            captures.push(capture);
+        });
+        for capture in captures {
+            state.append_stats_state(capture);
+        }
+        days_advanced += 1;
+
+        if game.manager.team_id.is_none() {
+            info!(
+                "[cmd] advance_to_date: manager fired after {} days",
+                days_advanced
+            );
+            state.set_game(game.clone());
+            return Ok(serde_json::json!({
+                "action": "fired",
+                "game": game,
+                "days_advanced": days_advanced
+            }));
+        }
+
+        let blockers = compute_blocking_actions(&game);
+        if !blockers.is_empty() {
+            info!(
+                "[cmd] advance_to_date: blocked_after_days={}, date={}, blocker_count={}",
+                days_advanced,
+                game.clock.current_date.format("%Y-%m-%d"),
+                blockers.len()
+            );
+            state.set_game(game.clone());
+            return Ok(serde_json::json!({
+                "action": "blocked",
+                "game": game,
+                "blockers": blockers,
+                "days_advanced": days_advanced
+            }));
+        }
+    }
+
+    info!(
+        "[cmd] advance_to_date: arrived_after_days={}, final_date={}",
+        days_advanced,
+        game.clock.current_date.format("%Y-%m-%d")
+    );
+    state.set_game(game.clone());
+    Ok(serde_json::json!({
+        "action": "arrived",
+        "game": game,
+        "days_advanced": days_advanced
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{advance_time_with_mode_internal, compute_blocking_actions};

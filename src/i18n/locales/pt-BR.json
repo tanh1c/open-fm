@@ -33,7 +33,8 @@
     "searchNationalities": "Pesquisar nacionalidades...",
     "chooseWorld": "Escolher Mundo",
     "placeholderFirst": "ex: José",
-    "placeholderLast": "ex: Mourinho"
+    "placeholderLast": "ex: Mourinho",
+    "randomize": "Random"
   },
   "validation": {
     "required": "{{field}} é obrigatório",
@@ -108,7 +109,12 @@
     "skipToMatchDay": "Pular para o Dia de Jogo",
     "skipToMatchDayDesc": "Avançar até a próxima partida",
     "matchDayTitle": "Dia de Jogo",
-    "delegateWarning": "Seu assistente comandará a partida. Você não poderá intervir."
+    "delegateWarning": "Seu assistente comandará a partida. Você não poderá intervir.",
+    "vacation": "Vacation",
+    "vacationDesc": "Fast-forward to a date you choose",
+    "vacationModalDesc": "Pick a date to fast-forward to. Stops early for your matches.",
+    "vacationTarget": "Target",
+    "vacationGo": "Go on Vacation"
   },
   "closeConfirm": {
     "title": "Alterações não salvas",
@@ -922,7 +928,17 @@
     "fixtures": "Jogos",
     "standings": "Classificação",
     "matchday": "Rodada {{number}}",
-    "season": "Temporada {{number}}"
+    "season": "Temporada {{number}}",
+    "myClub": "My Club",
+    "allMatches": "All",
+    "noTeamFixtures": "No fixtures for your club in this competition.",
+    "listView": "List",
+    "calendarView": "Calendar",
+    "competition": {
+      "league": "League",
+      "domesticCup": "Domestic Cup",
+      "continental": "Continental"
+    }
   },
   "players": {
     "searchPlaceholder": "Buscar por nome ou nacionalidade...",
@@ -1189,7 +1205,12 @@
     "enterFullscreen": "Entrar",
     "exitFullscreen": "Sair",
     "switchToLightMode": "Mudar para o modo claro",
-    "switchToDarkMode": "Mudar para o modo escuro"
+    "switchToDarkMode": "Mudar para o modo escuro",
+    "autoSaveModes": {
+      "off": "Off",
+      "matchday": "Matchday",
+      "always": "Always"
+    }
   },
   "preMatch": {
     "formationFit": "Ajuste da Formação",

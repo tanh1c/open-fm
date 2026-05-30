@@ -1,4 +1,4 @@
-import { ArrowLeft, Bell, Calendar, ChevronDown, ChevronRight, HelpCircle, Loader2, Mail, Save, Search } from "lucide-react";
+import { ArrowLeft, Bell, Calendar, ChevronDown, ChevronRight, HelpCircle, Loader2, Mail, Plane, Save, Search } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
 import { getTeamName } from "../../lib/helpers";
@@ -46,6 +46,7 @@ interface TemplateHeaderProps {
   onSave: () => void;
   onSelectMatchMode: (mode: MatchModeType) => void;
   onSkipToMatchDay: () => void;
+  onVacation: () => void;
   onToggleContinueMenu: () => void;
   saveFlash: boolean;
   seasonComplete: boolean;
@@ -60,6 +61,8 @@ interface TemplateHeaderProps {
     seasonComplete: string;
     skipToMatchDay: string;
     skipToMatchDayDesc: string;
+    vacation: string;
+    vacationDesc: string;
   };
 }
 
@@ -96,6 +99,7 @@ export function TemplateHeader({
   onSave,
   onSelectMatchMode,
   onSkipToMatchDay,
+  onVacation,
   onToggleContinueMenu,
   saveFlash,
   seasonComplete,
@@ -243,6 +247,19 @@ export function TemplateHeader({
                 >
                   <span className="text-xs font-bold uppercase tracking-wide text-app-text">{labels.skipToMatchDay}</span>
                   <p className="mt-0.5 text-xs text-app-text-muted">{labels.skipToMatchDayDesc}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={onVacation}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                >
+                  <span className="text-app-text-muted">
+                    <Plane className="w-4 h-4" />
+                  </span>
+                  <div className="flex-1">
+                    <span className="text-xs font-bold uppercase tracking-wide text-app-text">{labels.vacation}</span>
+                    <p className="mt-0.5 text-xs text-app-text-muted">{labels.vacationDesc}</p>
+                  </div>
                 </button>
               </div>
             )}

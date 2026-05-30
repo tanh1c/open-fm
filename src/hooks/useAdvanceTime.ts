@@ -6,6 +6,7 @@ import type { AutoSaveMode } from "../store/settingsStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
   advanceTimeWithMode,
+  advanceToDate,
   autoSaveGame,
   checkBlockingActions,
   skipToMatchDay,
@@ -31,6 +32,7 @@ export function useAdvanceTime(
   const [showMatchConfirm, setShowMatchConfirm] = useState(false);
   const [matchMode, setMatchMode] = useState<MatchModeType>("live");
   const [blockerModal, setBlockerModal] = useState<BlockerModal | null>(null);
+  const [showVacationPicker, setShowVacationPicker] = useState(false);
 
   // Sync matchMode with settings when loaded
   useEffect(() => {
@@ -43,10 +45,12 @@ export function useAdvanceTime(
     showContinueMenu?: boolean;
     showMatchConfirm?: boolean;
     blockerModal?: BlockerModal | null;
+    showVacationPicker?: boolean;
   }): void {
     setShowContinueMenu(options?.showContinueMenu ?? false);
     setShowMatchConfirm(options?.showMatchConfirm ?? false);
     setBlockerModal(options?.blockerModal ?? null);
+    setShowVacationPicker(options?.showVacationPicker ?? false);
   }
 
   const doAdvance = async (effectiveMode: string) => {
@@ -122,6 +126,66 @@ export function useAdvanceTime(
     doAdvance(matchMode);
   };
 
+  const openVacationPicker = () => {
+    if (isAdvancing) return;
+    resetTransientUi({ showVacationPicker: true });
+  };
+
+  const closeVacationPicker = () => {
+    setShowVacationPicker(false);
+  };
+
+  const handleVacation = async (targetDate: string) => {
+    if (isAdvancing) return;
+    console.info("[useAdvanceTime] handleVacation:start", { targetDate });
+    const blockers = await checkBlockingActions("handleVacation");
+    if (blockers.length > 0) {
+      setBlockerModal({
+        blockers,
+        pendingAction: () => doVacation(targetDate),
+      });
+      return;
+    }
+    doVacation(targetDate);
+  };
+
+  const doVacation = async (targetDate: string) => {
+    console.info("[useAdvanceTime] doVacation:start", { targetDate });
+    setIsAdvancing(true);
+    resetTransientUi();
+    try {
+      const result = await advanceToDate(targetDate);
+      console.info("[useAdvanceTime] doVacation:result", {
+        action: result.action,
+        daysAdvanced: result.days_advanced,
+        blockerCount: result.blockers?.length ?? 0,
+        hasGame: !!result.game,
+      });
+      if (result.action === "fired") {
+        if (result.game) setGameState(result.game as GameStateData);
+        setShowFiredModal(true);
+        return;
+      }
+      if (result.game) setGameState(result.game as GameStateData);
+      if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
+        setBlockerModal({ blockers: result.blockers });
+      } else if (result.action === "match_day") {
+        // Vacation stopped on the user's fixture day — surface the match
+        // confirmation so they choose how to play it, just like a normal
+        // matchday Continue.
+        setShowMatchConfirm(true);
+      }
+      // Vacation advances multiple days in one backend call; save once here so
+      // the whole jump is persisted without writing per simulated day.
+      if (autoSaveOnAdvance && result.game) await autoSaveGame();
+    } catch (err) {
+      console.error("Failed to advance to date:", err);
+    } finally {
+      console.info("[useAdvanceTime] doVacation:complete");
+      setIsAdvancing(false);
+    }
+  };
+
   const handleSkipToMatchDay = async () => {
     if (isAdvancing) return;
     console.info("[useAdvanceTime] handleSkipToMatchDay:start");
@@ -171,6 +235,10 @@ export function useAdvanceTime(
     showMatchConfirm, setShowMatchConfirm,
     matchMode, setMatchMode,
     blockerModal, setBlockerModal,
+    showVacationPicker,
+    openVacationPicker,
+    closeVacationPicker,
+    handleVacation,
     handleContinue,
     handleConfirmMatch,
     handleSkipToMatchDay,

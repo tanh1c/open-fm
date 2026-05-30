@@ -13,6 +13,7 @@ export interface CommandSpec {
 export const ENGINE_COMMANDS: Readonly<Record<string, CommandSpec>> = Object.freeze({
   advance_time: { method: "advanceTime", args: [] as const },
   advance_time_with_mode: { method: "advanceTimeWithMode", args: ["mode"] as const },
+  advance_to_date: { method: "advanceToDate", args: ["targetDate"] as const },
   advance_to_next_season: { method: "advanceToNextSeason", args: [] as const },
   apply_for_job: { method: "applyForJob", args: ["teamId"] as const },
   apply_match_command: { method: "applyMatchCommand", args: ["command"] as const },

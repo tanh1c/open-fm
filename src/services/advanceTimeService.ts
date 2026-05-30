@@ -27,6 +27,14 @@ export interface SkipToMatchDayResponse {
   days_skipped?: number;
 }
 
+export interface AdvanceToDateResponse {
+  // "arrived" | "match_day" | "blocked" | "fired"
+  action: string;
+  game?: GameStateData;
+  blockers?: BlockerData[];
+  days_advanced?: number;
+}
+
 export async function advanceTimeWithMode(
   mode: string,
 ): Promise<AdvanceTimeWithModeResponse> {
@@ -53,6 +61,15 @@ export async function checkBlockingActions(
 
 export async function skipToMatchDay(): Promise<SkipToMatchDayResponse> {
   return invoke<SkipToMatchDayResponse>("skip_to_match_day");
+}
+
+// Advance day-by-day until the in-game date reaches targetDate (YYYY-MM-DD).
+// Stops early on a scheduled user fixture ("match_day"), a firing ("fired"),
+// or a blocking action ("blocked"); otherwise resolves "arrived".
+export async function advanceToDate(
+  targetDate: string,
+): Promise<AdvanceToDateResponse> {
+  return invoke<AdvanceToDateResponse>("advance_to_date", { targetDate });
 }
 
 // Persist the current in-memory game to its save slot. Called once per advance

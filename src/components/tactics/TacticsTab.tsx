@@ -539,6 +539,12 @@ export default function TacticsTab({
   const [pendingStartingXiIds, setPendingStartingXiIds] = useState<
     string[] | null
   >(null);
+  // Optimistic pitch layout applied instantly on drop so nodes move without
+  // waiting for the set_tactic_slots round-trip. Cleared once the committed
+  // game state catches up (matching signatures).
+  const [optimisticGridAssignments, setOptimisticGridAssignments] = useState<
+    GridTacticAssignment[] | null
+  >(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedPlayerSection, setSelectedPlayerSection] =
     useState<SquadSection | null>(null);
@@ -611,7 +617,7 @@ export default function TacticsTab({
     () => buildPitchSlotRows(pitchRows, startingXiIds, playersById),
     [pitchRows, playersById, startingXiIds],
   );
-  const gridAssignments = useMemo(() => {
+  const committedGridAssignments = useMemo(() => {
     const fallbackAssignments = buildGridAssignmentsFromFormation(
       formation,
       startingXiIds,
@@ -623,6 +629,21 @@ export default function TacticsTab({
       new Set(roster.map((player) => player.id)),
     );
   }, [formation, myTeam?.custom_tactic_slots, roster, startingXiIds]);
+  // Prefer the optimistic layout while the backend write is in flight so the
+  // dragged node moves immediately.
+  const gridAssignments = optimisticGridAssignments ?? committedGridAssignments;
+
+  // Drop the optimistic override once the committed state matches it (the
+  // set_tactic_slots round-trip landed) or drifts away (external change).
+  useEffect(() => {
+    if (!optimisticGridAssignments) return;
+    if (
+      getGridAssignmentSignature(optimisticGridAssignments) ===
+      getGridAssignmentSignature(committedGridAssignments)
+    ) {
+      setOptimisticGridAssignments(null);
+    }
+  }, [committedGridAssignments, optimisticGridAssignments]);
   const derivedFormationLabel = deriveFormationFromGridAssignments(gridAssignments);
   const presetSignature = getGridAssignmentSignature(
     buildGridAssignmentsFromFormation(formation, startingXiIds),
@@ -691,6 +712,9 @@ export default function TacticsTab({
   async function persistGridAssignments(nextGridAssignments: typeof gridAssignments): Promise<void> {
     const playerIds = getStartingXiIdsFromGridAssignments(nextGridAssignments);
     setPendingStartingXiIds(playerIds);
+    // Show the new layout immediately; the effect clears this once the backend
+    // write lands and the committed state matches.
+    setOptimisticGridAssignments(nextGridAssignments);
     try {
       const updated = await invoke<GameStateData>("set_tactic_slots", {
         slots: toBackendGridSlots(nextGridAssignments),
@@ -698,6 +722,7 @@ export default function TacticsTab({
       onGameUpdate(updated);
     } catch (error) {
       setPendingStartingXiIds(null);
+      setOptimisticGridAssignments(null);
       console.error("Failed to set tactic slots:", error);
     }
   }

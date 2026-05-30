@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
+import { useSettingsStore } from "../store/settingsStore";
+import { autoSaveGame } from "../services/advanceTimeService";
 import {
   MatchSnapshot,
   MatchEvent,
@@ -38,6 +40,7 @@ export default function MatchSimulation() {
   const routeState = (location.state as MatchRouteState | null) ?? null;
   const matchMode = routeState?.mode || "live";
   const { gameState, setGameState } = useGameStore();
+  const autoSave = useSettingsStore((s) => s.settings.auto_save);
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(
     routeState?.snapshot ?? null,
   );
@@ -205,12 +208,15 @@ export default function MatchSimulation() {
       setGameState(response.game);
       setRoundSummary(response.round_summary ?? null);
       setHasFinalizedMatch(true);
+      // Persist the completed matchday so a reload doesn't roll back to before
+      // the match (the day only advances once the match is finalized here).
+      if (autoSave) await autoSaveGame();
       return true;
     } catch (err) {
       console.error("Failed to finish match:", err);
       return false;
     }
-  }, [hasFinalizedMatch, setGameState]);
+  }, [hasFinalizedMatch, setGameState, autoSave]);
 
   const handleFullTime = useCallback(() => {
     console.info("[MatchSimulation] handleFullTime");

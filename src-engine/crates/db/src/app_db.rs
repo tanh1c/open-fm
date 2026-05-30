@@ -20,6 +20,7 @@ fn app_migrations() -> Migrations<'static> {
     Migrations::new(vec![
         M::up(include_str!("sql/app/v001_save_index.sql")),
         M::up(include_str!("sql/app/v002_app_kv.sql")),
+        M::up(include_str!("sql/app/v003_save_index_game_date.sql")),
     ])
 }
 
@@ -33,6 +34,10 @@ pub struct SaveEntry {
     pub db_filename: String,
     pub created_at: String,
     pub last_played_at: String,
+    /// In-game calendar date (YYYY-MM-DD) at the time of the last save. None for
+    /// legacy saves written before this column existed; backfilled on next save.
+    #[serde(default)]
+    pub game_date: Option<String>,
 }
 
 /// AppDatabase manages the save_index table. One instance per process.
@@ -71,7 +76,7 @@ impl AppDatabase {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT id, name, manager_name, db_filename, created_at, last_played_at
+                "SELECT id, name, manager_name, db_filename, created_at, last_played_at, game_date
                  FROM save_index ORDER BY last_played_at DESC, id ASC",
             )
             .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
@@ -89,7 +94,7 @@ impl AppDatabase {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT id, name, manager_name, db_filename, created_at, last_played_at
+                "SELECT id, name, manager_name, db_filename, created_at, last_played_at, game_date
                  FROM save_index WHERE id = ?1",
             )
             .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
@@ -105,8 +110,8 @@ impl AppDatabase {
     pub fn insert(&self, entry: &SaveEntry) -> Result<(), String> {
         self.conn
             .execute(
-                "INSERT INTO save_index (id, name, manager_name, db_filename, created_at, last_played_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO save_index (id, name, manager_name, db_filename, created_at, last_played_at, game_date)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     entry.id,
                     entry.name,
@@ -114,6 +119,7 @@ impl AppDatabase {
                     entry.db_filename,
                     entry.created_at,
                     entry.last_played_at,
+                    entry.game_date,
                 ],
             )
             .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
@@ -128,9 +134,16 @@ impl AppDatabase {
                 "UPDATE save_index
                     SET name = ?2,
                         manager_name = ?3,
-                        last_played_at = ?4
+                        last_played_at = ?4,
+                        game_date = ?5
                   WHERE id = ?1",
-                params![entry.id, entry.name, entry.manager_name, entry.last_played_at],
+                params![
+                    entry.id,
+                    entry.name,
+                    entry.manager_name,
+                    entry.last_played_at,
+                    entry.game_date,
+                ],
             )
             .map_err(|_| APP_DATABASE_QUERY_FAILED.to_string())?;
         if n == 0 {
@@ -192,6 +205,7 @@ fn row_to_save_entry(row: &rusqlite::Row) -> rusqlite::Result<SaveEntry> {
         db_filename: row.get(3)?,
         created_at: row.get(4)?,
         last_played_at: row.get(5)?,
+        game_date: row.get(6)?,
     })
 }
 
@@ -207,6 +221,7 @@ mod tests {
             db_filename: format!("{id}.db"),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             last_played_at: last_played.to_string(),
+            game_date: Some("2026-08-15".to_string()),
         }
     }
 

@@ -367,7 +367,7 @@ describe("MatchSimulation", function (): void {
     fireEvent.click(screen.getByTestId("match-live"));
 
     await waitFor(function (): void {
-      expect(mockedInvoke).toHaveBeenLastCalledWith("finish_live_match");
+      expect(mockedInvoke).toHaveBeenCalledWith("finish_live_match");
       expect(screen.getByTestId("postmatch-finish")).toBeInTheDocument();
     });
 
@@ -410,7 +410,7 @@ describe("MatchSimulation", function (): void {
     fireEvent.click(screen.getByTestId("match-live"));
 
     await waitFor(function (): void {
-      expect(mockedInvoke).toHaveBeenLastCalledWith("finish_live_match");
+      expect(mockedInvoke).toHaveBeenCalledWith("finish_live_match");
       expect(screen.getByTestId("postmatch-finish")).toBeInTheDocument();
     });
 

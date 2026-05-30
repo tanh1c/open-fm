@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { formatDate } from "../../lib/helpers";
-import { Play, Clock, Trash2, X, Loader2 } from "lucide-react";
+import { Play, Clock, CalendarDays, Trash2, X, Loader2 } from "lucide-react";
 
 interface SaveEntry {
   id: string;
@@ -10,6 +10,7 @@ interface SaveEntry {
   checksum: string;
   created_at: string;
   last_played_at: string;
+  game_date?: string | null;
 }
 
 interface SavesListProps {
@@ -79,9 +80,17 @@ export default function SavesList({ saves, isLoading, loadingSaveId, confirmDele
                     </div>
                     <div className="flex justify-between items-center w-full text-sm text-gray-500 dark:text-gray-400">
                       <span>{t('menu.manager', { name: save.manager_name })}</span>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{formatDate(save.last_played_at, i18n.language)}</span>
+                      <div className="flex items-center gap-3">
+                        {save.game_date ? (
+                          <div className="flex items-center gap-1" title={t('menu.inGameDate', { defaultValue: 'In-game date' })}>
+                            <CalendarDays className="w-3 h-3" />
+                            <span>{formatDate(save.game_date, i18n.language)}</span>
+                          </div>
+                        ) : null}
+                        <div className="flex items-center gap-1" title={t('menu.lastPlayed', { defaultValue: 'Last played' })}>
+                          <Clock className="w-3 h-3" />
+                          <span>{formatDate(save.last_played_at, i18n.language)}</span>
+                        </div>
                       </div>
                     </div>
                   </button>

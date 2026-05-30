@@ -54,3 +54,15 @@ export async function checkBlockingActions(
 export async function skipToMatchDay(): Promise<SkipToMatchDayResponse> {
   return invoke<SkipToMatchDayResponse>("skip_to_match_day");
 }
+
+// Persist the current in-memory game to its save slot. Called once per advance
+// action (never inside a multi-day skip loop) so it adds a single disk write per
+// user action without affecting simulation speed. Failures are swallowed so a
+// transient save error never blocks gameplay.
+export async function autoSaveGame(): Promise<void> {
+  try {
+    await invoke("save_game");
+  } catch (err) {
+    console.error("[advanceTime] auto-save failed:", err);
+  }
+}

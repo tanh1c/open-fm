@@ -30,6 +30,7 @@ interface SaveEntry {
   checksum: string;
   created_at: string;
   last_played_at: string;
+  game_date?: string | null;
 }
 
 /**

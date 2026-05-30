@@ -44,6 +44,11 @@ fn save_not_found_error(save_id: &str) -> String {
     backend_error_with_param("be.error.saveNotFound", "saveId", save_id)
 }
 
+/// The in-game calendar date (YYYY-MM-DD) shown on the load-game menu.
+fn game_calendar_date(game: &Game) -> String {
+    game.clock.current_date.format("%Y-%m-%d").to_string()
+}
+
 impl SaveManager {
     /// Initialize the SaveManager without blocking startup on a missing save index.
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
@@ -101,6 +106,7 @@ impl SaveManager {
             db_filename,
             created_at: now.clone(),
             last_played_at: now,
+            game_date: Some(game_calendar_date(game)),
         };
 
         self.save_index.record_new_save(entry)?;
@@ -136,6 +142,7 @@ impl SaveManager {
             db_filename: entry.db_filename.clone(),
             created_at: entry.created_at.clone(),
             last_played_at: now,
+            game_date: Some(game_calendar_date(game)),
         })?;
         Ok(())
     }
@@ -162,6 +169,7 @@ impl SaveManager {
             db_filename: entry.db_filename,
             created_at: entry.created_at,
             last_played_at: now,
+            game_date: entry.game_date,
         })?;
 
         Ok(())
@@ -275,6 +283,7 @@ impl SaveManager {
                 db_filename: entry.db_filename.clone(),
                 created_at: entry.created_at.clone(),
                 last_played_at: now,
+                game_date: Some(game_calendar_date(&game)),
             })?;
         }
 
@@ -916,6 +925,35 @@ mod tests {
         assert_eq!(saves.len(), 1);
         assert_eq!(saves[0].name, "John's Career");
         assert_eq!(saves[0].manager_name, "John Smith");
+    }
+
+    #[test]
+    fn test_save_records_in_game_date() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        // sample_game's clock current_date is 2026-08-15.
+        let game = sample_game();
+
+        let save_id = sm.create_save(&game, "Dated Career").unwrap();
+        let entry = sm
+            .list_saves()
+            .into_iter()
+            .find(|e| e.id == save_id)
+            .unwrap();
+        assert_eq!(entry.game_date.as_deref(), Some("2026-08-15"));
+
+        // Advancing and re-saving updates the recorded in-game date.
+        let mut advanced = game;
+        advanced.clock.advance_days(10);
+        sm.save_game(&advanced, &save_id).unwrap();
+        let updated = sm
+            .list_saves()
+            .into_iter()
+            .find(|e| e.id == save_id)
+            .unwrap();
+        assert_eq!(updated.game_date.as_deref(), Some("2026-08-25"));
     }
 
     #[test]

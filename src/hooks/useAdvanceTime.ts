@@ -5,6 +5,7 @@ import { useGameStore } from "../store/gameStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
   advanceTimeWithMode,
+  autoSaveGame,
   checkBlockingActions,
   skipToMatchDay,
 } from "../services/advanceTimeService";
@@ -17,6 +18,7 @@ export function useAdvanceTime(
   defaultMatchMode: MatchModeType | undefined,
   settingsLoaded: boolean,
   isUnemployed: boolean,
+  autoSave: boolean,
 ) {
   const navigate = useNavigate();
   const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
@@ -73,6 +75,7 @@ export function useAdvanceTime(
         });
       } else if (result.action === "advanced" && result.game) {
         setGameState(result.game as GameStateData);
+        if (autoSave) await autoSaveGame();
       }
     } catch (err) {
       console.error("Failed to advance time:", err);
@@ -147,6 +150,9 @@ export function useAdvanceTime(
       if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
         setBlockerModal({ blockers: result.blockers });
       }
+      // Skip advances multiple days in one backend call; save once here so the
+      // whole skip is persisted without writing per simulated day.
+      if (autoSave && result.game) await autoSaveGame();
     } catch (err) {
       console.error("Failed to skip to match day:", err);
     } finally {

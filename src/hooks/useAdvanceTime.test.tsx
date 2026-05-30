@@ -21,6 +21,7 @@ const mockedInvoke = vi.mocked(invoke);
 function HookHarness(props: {
   defaultMatchMode?: "live" | "spectator" | "delegate";
   hasMatchToday: boolean;
+  autoSave?: boolean;
 }): JSX.Element {
   const [, setGameState] = useState<GameStateData | null>(null);
   const {
@@ -36,6 +37,7 @@ function HookHarness(props: {
       props.defaultMatchMode,
       true,
       false,
+      props.autoSave ?? false,
     );
 
   return (
@@ -160,6 +162,53 @@ describe("useAdvanceTime", function (): void {
     });
 
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("auto-saves after a normal advance when autoSave is enabled", async function (): Promise<void> {
+    const advancedGame = {
+      clock: {
+        current_date: "2026-07-02",
+        start_date: "2026-07-01",
+      },
+    } as GameStateData;
+
+    mockedInvoke
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ action: "advanced", game: advancedGame })
+      .mockResolvedValueOnce(undefined);
+
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" autoSave />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenNthCalledWith(3, "save_game");
+    });
+  });
+
+  it("does not auto-save after advancing when autoSave is disabled", async function (): Promise<void> {
+    const advancedGame = {
+      clock: {
+        current_date: "2026-07-02",
+        start_date: "2026-07-01",
+      },
+    } as GameStateData;
+
+    mockedInvoke
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ action: "advanced", game: advancedGame });
+
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenCalledWith("advance_time_with_mode", {
+        mode: "live",
+      });
+    });
+
+    expect(mockedInvoke).not.toHaveBeenCalledWith("save_game");
   });
 
   it("checks blocking actions before skipping to match day and stops when blockers exist", async function (): Promise<void> {

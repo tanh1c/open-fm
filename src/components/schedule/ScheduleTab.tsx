@@ -79,6 +79,12 @@ export default function ScheduleTab({
   const { t } = useTranslation();
   const [view, setView] = useState<"fixtures" | "standings">("fixtures");
   const [activeFixtureGroupIndex, setActiveFixtureGroupIndex] = useState(0);
+  // Default the fixtures view to the user's own club so they can see their past
+  // results and upcoming matches at a glance, rather than the whole league's
+  // matchday 1. Falls back to the full competition view when unemployed.
+  const [fixtureScope, setFixtureScope] = useState<"team" | "all">(
+    gameState.manager.team_id ? "team" : "all",
+  );
   const competitionOptions = gameState.competitions?.length
     ? gameState.competitions
     : gameState.league
@@ -421,39 +427,88 @@ export default function ScheduleTab({
                   <h4 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
                     {t("schedule.fixtures")}
                   </h4>
-                  <p className="mt-1 text-sm font-bold text-app-text">{activeFixtureGroupLabel}</p>
+                  <p className="mt-1 text-sm font-bold text-app-text">
+                    {fixtureScope === "team" ? userTeamName : activeFixtureGroupLabel}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveFixtureGroupIndex((current) => Math.max(current - 1, 0))}
-                    disabled={activeFixtureGroupSafeIndex === 0}
-                    className="rounded-lg border border-app-border bg-app-card p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Previous fixture date"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="min-w-20 text-center text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-                    {sortedMatchdays.length > 0 ? `${activeFixtureGroupSafeIndex + 1} / ${sortedMatchdays.length}` : "0 / 0"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveFixtureGroupIndex((current) => Math.min(current + 1, Math.max(sortedMatchdays.length - 1, 0)))}
-                    disabled={activeFixtureGroupSafeIndex >= sortedMatchdays.length - 1}
-                    className="rounded-lg border border-app-border bg-app-card p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Next fixture date"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                  {userTeamId ? (
+                    <div className="mr-1 flex items-center rounded-lg border border-app-border bg-app-card p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setFixtureScope("team")}
+                        className={cx(
+                          "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                          fixtureScope === "team" ? "bg-app-green text-app-bg" : "text-app-text-muted hover:text-app-text",
+                        )}
+                      >
+                        {t("schedule.myClub", { defaultValue: "My Club" })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFixtureScope("all")}
+                        className={cx(
+                          "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                          fixtureScope === "all" ? "bg-app-green text-app-bg" : "text-app-text-muted hover:text-app-text",
+                        )}
+                      >
+                        {t("schedule.allMatches", { defaultValue: "All" })}
+                      </button>
+                    </div>
+                  ) : null}
+                  {fixtureScope === "all" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFixtureGroupIndex((current) => Math.max(current - 1, 0))}
+                        disabled={activeFixtureGroupSafeIndex === 0}
+                        className="rounded-lg border border-app-border bg-app-card p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous fixture date"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-20 text-center text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+                        {sortedMatchdays.length > 0 ? `${activeFixtureGroupSafeIndex + 1} / ${sortedMatchdays.length}` : "0 / 0"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFixtureGroupIndex((current) => Math.min(current + 1, Math.max(sortedMatchdays.length - 1, 0)))}
+                        disabled={activeFixtureGroupSafeIndex >= sortedMatchdays.length - 1}
+                        className="rounded-lg border border-app-border bg-app-card p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next fixture date"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : null}
                   <span className="rounded bg-app-green px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg">
-                    {activeFixtureGroupFixtures.length} Matches
+                    {(fixtureScope === "team" ? userFixtures.length : activeFixtureGroupFixtures.length)} Matches
                   </span>
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar">
-                <div className="flex flex-col gap-2">
-                  {activeFixtureGroupFixtures.map(renderFixtureRow)}
-                </div>
+                {fixtureScope === "team" ? (
+                  userFixtures.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {userFixtures.map((fixture) => (
+                        <div key={fixture.id} className="flex flex-col gap-1">
+                          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
+                            {getFixtureGroupLabel(fixture)}
+                          </span>
+                          {renderFixtureRow(fixture)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="p-4 text-center text-xs text-app-text-muted">
+                      {t("schedule.noTeamFixtures", { defaultValue: "No fixtures for your club in this competition." })}
+                    </p>
+                  )
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {activeFixtureGroupFixtures.map(renderFixtureRow)}
+                  </div>
+                )}
               </div>
             </TemplateCard>
           ) : isPreseason ? (

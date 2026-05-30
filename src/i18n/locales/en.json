@@ -923,7 +923,10 @@
     "fixtures": "Fixtures",
     "standings": "Standings",
     "matchday": "Matchday {{number}}",
-    "season": "Season {{number}}"
+    "season": "Season {{number}}",
+    "myClub": "My Club",
+    "allMatches": "All",
+    "noTeamFixtures": "No fixtures for your club in this competition."
   },
   "players": {
     "searchPlaceholder": "Search by name or nationality...",

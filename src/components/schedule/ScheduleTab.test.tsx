@@ -29,6 +29,8 @@ vi.mock("react-i18next", () => ({
       if (key === "common.pts") return "Pts";
       if (key === "schedule.season") return `Season ${params?.number}`;
       if (key === "schedule.matchday") return `Matchday ${params?.number}`;
+      if (key === "schedule.myClub") return "My Club";
+      if (key === "schedule.allMatches") return "All";
       return key;
     },
   }),
@@ -179,5 +181,36 @@ describe("ScheduleTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "View team: Beta FC" }));
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-2");
+  });
+
+  it("defaults the fixtures view to the user's club and only lists their matches", () => {
+    const gameState = createGameState(true);
+    // A second fixture not involving the user's club (team-1).
+    gameState.league!.fixtures = [
+      createFixture(),
+      createFixture({
+        id: "fixture-2",
+        matchday: 2,
+        date: "2026-08-08",
+        home_team_id: "team-2",
+        away_team_id: "team-3",
+        status: "Scheduled",
+        result: null,
+      }),
+    ];
+    gameState.teams = [
+      ...gameState.teams,
+      createTeam({ id: "team-3", name: "Gamma FC", short_name: "GAM" }),
+    ];
+
+    render(<ScheduleTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    // User's fixture is shown; the non-user fixture is hidden by default.
+    expect(screen.getByTestId("schedule-fixture-fixture-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("schedule-fixture-fixture-2")).not.toBeInTheDocument();
+
+    // Switching to "All" reveals every fixture in the active matchday group.
+    fireEvent.click(screen.getByRole("button", { name: /^All$/i }));
+    expect(screen.getByTestId("schedule-fixture-fixture-1")).toBeInTheDocument();
   });
 });

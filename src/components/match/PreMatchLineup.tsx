@@ -1,6 +1,7 @@
 import type { DragEvent } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { CustomTacticSlotData } from "../../store/gameStore";
 import { MatchSnapshot, EnginePlayerData } from "./types";
 import { ChevronDown, Grid, LayoutGrid, ShieldAlert, Target, Wand2 } from "lucide-react";
 import ContextMenu from "../ContextMenu";
@@ -123,6 +124,22 @@ export function getStatVal(p: EnginePlayerData, key: string): number {
   return (p as unknown as Record<string, number>)[key] ?? 0;
 }
 
+const BENCH_POSITION_ORDER: Record<string, number> = {
+  Forward: 0,
+  Midfielder: 1,
+  Defender: 2,
+  Goalkeeper: 3,
+};
+
+export function sortBenchByPosition(bench: EnginePlayerData[]): EnginePlayerData[] {
+  return [...bench].sort((left, right) => {
+    const leftOrder = BENCH_POSITION_ORDER[left.position] ?? 99;
+    const rightOrder = BENCH_POSITION_ORDER[right.position] ?? 99;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return right.ovr - left.ovr;
+  });
+}
+
 export function parseFormationNeeds(formation: string): Record<string, number> {
   const parts = formation
     .split("-")
@@ -154,6 +171,7 @@ interface PreMatchLineupProps {
   awayTeamColor: string;
   userSide: "Home" | "Away";
   formationNeeds: Record<string, number>;
+  customSlots?: CustomTacticSlotData[];
   selectedStarterId: string | null;
   isAutoSelecting: boolean;
   onSelectStarter: (id: string | null) => void;
@@ -161,18 +179,59 @@ interface PreMatchLineupProps {
   onAutoSelect: () => void;
 }
 
+// Resolve which canonical grid slots are occupied for the starting XI. Prefer
+// the team's custom tactic shape (the same slot layout the user arranged in
+// /tactics, e.g. a hand-built 4-1-5) so the match pitch matches Tactics and the
+// dashboard. Falls back to the formation preset when no custom shape exists.
+export function resolveStarterSlotIds(
+  formation: string,
+  customSlots: CustomTacticSlotData[] | undefined,
+): string[] {
+  const occupiedCustomSlotIds = (customSlots ?? [])
+    .filter((slot) => slot.player_id)
+    .map((slot) => slot.slot_id)
+    .filter((slotId) => GRID_TACTIC_SLOTS.some((candidate) => candidate.id === slotId));
+
+  if (occupiedCustomSlotIds.length === 11) {
+    // Keep canonical grid order so it lines up with the backend, which builds
+    // the match starting XI by iterating custom_tactic_slots in this order.
+    return GRID_TACTIC_SLOTS.filter((slot) => occupiedCustomSlotIds.includes(slot.id)).map(
+      (slot) => slot.id,
+    );
+  }
+
+  return PRESET_GRID_SLOT_IDS[formation] ?? PRESET_GRID_SLOT_IDS["4-4-2"];
+}
+
+// Build the initial slotId -> playerId mapping for the pitch from the resolved
+// starter slot ids and the current starting XI order. Backend builds the XI by
+// iterating the same canonical slot order, so players[i] lines up with slot i.
+export function buildSlotPlayerMap(
+  starterSlotIds: string[],
+  starterPlayerIds: string[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  starterSlotIds.forEach((slotId, index) => {
+    const playerId = starterPlayerIds[index];
+    if (playerId) {
+      map[slotId] = playerId;
+    }
+  });
+  return map;
+}
+
 function getPitchPlayerButtonClassName(options: {
-  draggedBenchPlayerId: string | null;
+  draggedPlayerId: string | null;
   hoveredSlotId: string | null;
   isSelected: boolean;
   player: EnginePlayerData;
   slotId: string;
   wrongPosition: boolean;
 }): string {
-  const { draggedBenchPlayerId, hoveredSlotId, isSelected, player, slotId, wrongPosition } = options;
-  let className = "group absolute flex w-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center justify-center border-0 bg-transparent p-0 text-center transition-all";
+  const { draggedPlayerId, hoveredSlotId, isSelected, player, slotId, wrongPosition } = options;
+  let className = "pointer-events-auto group absolute flex w-20 -translate-x-1/2 -translate-y-1/2 cursor-grab flex-col items-center justify-center border-0 bg-transparent p-0 text-center transition-all active:cursor-grabbing";
 
-  if (draggedBenchPlayerId === player.id) {
+  if (draggedPlayerId === player.id) {
     className = `${className} opacity-70`;
   }
 
@@ -218,6 +277,7 @@ export default function PreMatchLineup({
   awayTeamColor,
   userSide,
   formationNeeds,
+  customSlots,
   selectedStarterId,
   isAutoSelecting,
   onSelectStarter,
@@ -225,28 +285,86 @@ export default function PreMatchLineup({
   onAutoSelect,
 }: PreMatchLineupProps) {
   const { t } = useTranslation();
+  const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [draggedBenchPlayerId, setDraggedBenchPlayerId] = useState<string | null>(null);
   const [hoveredSlotId, setHoveredSlotId] = useState<string | null>(null);
-  const presetSlotIds = PRESET_GRID_SLOT_IDS[userTeam.formation] ?? PRESET_GRID_SLOT_IDS["4-4-2"];
-  const pitchSlots = presetSlotIds.map((slotId, index) => {
-    const slot = GRID_TACTIC_SLOTS.find((candidate) => candidate.id === slotId);
+  const dragPreviewRef = useRef<HTMLDivElement>(null);
+  const starterIdsKey = userTeam.players.map((player) => player.id).join(",");
+  const starterSlotIds = resolveStarterSlotIds(userTeam.formation, customSlots);
+  const starterSlotIdsKey = starterSlotIds.join(",");
+
+  // Local pitch layout: slotId -> playerId. Starters can be freely repositioned
+  // by dragging between slots (this stays local and is NOT persisted — only the
+  // bench<->XI PreMatchSwap goes to the backend). The shape the user saves lives
+  // in /tactics; here it is just a matchday arrangement.
+  const [slotPlayerMap, setSlotPlayerMap] = useState<Record<string, string>>(() =>
+    buildSlotPlayerMap(starterSlotIds, userTeam.players.map((player) => player.id)),
+  );
+
+  // Reconcile the local layout whenever the starting XI or shape changes (after
+  // a swap or formation change). Keep starters that are still in the XI in their
+  // current slots, fill freed slots with incoming players, and re-seed entirely
+  // if the layout drifts out of sync with the actual starting XI.
+  useEffect(() => {
+    const starterIds = userTeam.players.map((player) => player.id);
+    setSlotPlayerMap((previous) => {
+      const starterSet = new Set(starterIds);
+      const keptEntries = Object.entries(previous).filter(
+        ([slotId, playerId]) => starterSlotIds.includes(slotId) && starterSet.has(playerId),
+      );
+      const kept: Record<string, string> = Object.fromEntries(keptEntries);
+      const placedPlayers = new Set(Object.values(kept));
+      const newcomers = starterIds.filter((id) => !placedPlayers.has(id));
+      const freeSlots = starterSlotIds.filter((slotId) => !(slotId in kept));
+
+      let newcomerIndex = 0;
+      for (const slotId of freeSlots) {
+        const playerId = newcomers[newcomerIndex];
+        if (!playerId) break;
+        kept[slotId] = playerId;
+        newcomerIndex += 1;
+      }
+
+      const placedCount = Object.keys(kept).length;
+      if (placedCount !== starterIds.length) {
+        return buildSlotPlayerMap(starterSlotIds, starterIds);
+      }
+      return kept;
+    });
+  }, [starterIdsKey, starterSlotIdsKey]);
+
+  const playersById = new Map(userTeam.players.map((player) => [player.id, player]));
+  // Render the full canonical grid like /tactics: every slot is shown, occupied
+  // ones carry a player node and the rest are dashed empty placeholders.
+  const pitchSlots = GRID_TACTIC_SLOTS.map((slot, index) => {
+    const playerId = slotPlayerMap[slot.id] ?? null;
+    const player = playerId ? playersById.get(playerId) ?? null : null;
     return {
       index,
-      player: userTeam.players[index] ?? null,
-      position: mapGridSlotToPosition(slotId),
-      slotId,
-      label: slot?.label ?? slotId.toUpperCase(),
-      x: slot?.x ?? 50,
-      y: slot?.y ?? 50,
+      player,
+      position: mapGridSlotToPosition(slot.id),
+      slotId: slot.id,
+      label: slot.label,
+      x: slot.x,
+      y: slot.y,
     };
   });
   const outOfPositionCount = pitchSlots.filter((slot) => slot.player && slot.player.position !== slot.position).length;
   const opponentColor = userSide === "Home" ? awayTeamColor : homeTeamColor;
+  const sortedBench = sortBenchByPosition(userBench);
 
-  const handleBenchDragStart = (event: DragEvent<HTMLElement>, playerId: string) => {
+  const applyLightweightDragPreview = (event: DragEvent<HTMLElement>) => {
+    if (!dragPreviewRef.current) return;
+    if (typeof event.dataTransfer.setDragImage !== "function") return;
+    event.dataTransfer.setDragImage(dragPreviewRef.current, 16, 16);
+  };
+
+  const handlePlayerDragStart = (event: DragEvent<HTMLElement>, playerId: string, fromBench: boolean) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", playerId);
-    setDraggedBenchPlayerId(playerId);
+    applyLightweightDragPreview(event);
+    setDraggedPlayerId(playerId);
+    setDraggedBenchPlayerId(fromBench ? playerId : null);
   };
 
   const handleSlotDragOver = (event: DragEvent<HTMLElement>, slotId: string) => {
@@ -255,25 +373,70 @@ export default function PreMatchLineup({
     setHoveredSlotId(slotId);
   };
 
-  const handleSlotDrop = (event: DragEvent<HTMLElement>, starterPlayerId: string | null) => {
+  const handleSlotDrop = (event: DragEvent<HTMLElement>, targetSlotId: string) => {
     event.preventDefault();
-    const benchPlayerId = event.dataTransfer.getData("text/plain") || draggedBenchPlayerId;
+    const benchPlayerId = draggedBenchPlayerId;
+    const movedStarterId = draggedPlayerId;
+    const targetPlayerId = slotPlayerMap[targetSlotId] ?? null;
     setHoveredSlotId(null);
+    setDraggedPlayerId(null);
     setDraggedBenchPlayerId(null);
 
-    if (benchPlayerId && starterPlayerId) {
-      onSelectStarter(starterPlayerId);
-      onSwap(benchPlayerId, starterPlayerId);
+    // Bench player dropped onto an occupied slot -> persisted PreMatchSwap.
+    if (benchPlayerId) {
+      if (targetPlayerId && benchPlayerId !== targetPlayerId) {
+        onSelectStarter(targetPlayerId);
+        onSwap(benchPlayerId, targetPlayerId);
+      }
+      return;
+    }
+
+    // Starter dragged between slots -> local-only reposition (not persisted).
+    // The matchday arrangement lives only on this screen; saved shapes are set
+    // in /tactics. Move into an empty slot, or swap places with the occupant.
+    if (movedStarterId) {
+      setSlotPlayerMap((previous) => {
+        const sourceSlotId = Object.keys(previous).find(
+          (slotId) => previous[slotId] === movedStarterId,
+        );
+        if (!sourceSlotId || sourceSlotId === targetSlotId) return previous;
+
+        const next = { ...previous };
+        if (targetPlayerId) {
+          next[sourceSlotId] = targetPlayerId;
+        } else {
+          delete next[sourceSlotId];
+        }
+        next[targetSlotId] = movedStarterId;
+        return next;
+      });
     }
   };
 
   const clearDragState = () => {
+    setDraggedPlayerId(null);
     setDraggedBenchPlayerId(null);
     setHoveredSlotId(null);
   };
 
+  useEffect(() => {
+    const clearWindowDragState = () => clearDragState();
+    window.addEventListener("dragend", clearWindowDragState);
+    window.addEventListener("drop", clearWindowDragState);
+
+    return () => {
+      window.removeEventListener("dragend", clearWindowDragState);
+      window.removeEventListener("drop", clearWindowDragState);
+    };
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div
+        ref={dragPreviewRef}
+        aria-hidden="true"
+        className="pointer-events-none fixed -left-20 top-0 h-8 w-8 rounded-full border border-white/15 bg-surface-900/90 shadow-lg"
+      />
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-app-border bg-app-card">
         <div className="flex items-center justify-between border-b border-app-border/50 bg-white/[0.01] p-3">
           <div className="flex items-center gap-3">
@@ -376,11 +539,11 @@ export default function PreMatchLineup({
               <div
                 key={slot.slotId}
                 data-testid={`pre-match-slot-${slot.slotId}`}
-                className="absolute h-[54px] w-[68px] -translate-x-1/2 -translate-y-1/2"
+                className="pointer-events-none absolute h-[54px] w-[68px] -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
                 onDragOver={(event) => handleSlotDragOver(event, slot.slotId)}
                 onDragLeave={() => setHoveredSlotId(null)}
-                onDrop={(event) => handleSlotDrop(event, player?.id ?? null)}
+                onDrop={(event) => handleSlotDrop(event, slot.slotId)}
               >
                 {player ? (
                   <ContextMenu
@@ -393,10 +556,16 @@ export default function PreMatchLineup({
                   >
                     <button
                       type="button"
+                      draggable
                       data-testid={`pre-match-starter-${player.id}`}
                       onClick={() => onSelectStarter(isSelected ? null : player.id)}
+                      onDragStart={(event) => handlePlayerDragStart(event, player.id, false)}
+                      onDragEnd={clearDragState}
+                      onDragOver={(event) => handleSlotDragOver(event, slot.slotId)}
+                      onDragLeave={() => setHoveredSlotId(null)}
+                      onDrop={(event) => handleSlotDrop(event, slot.slotId)}
                       className={getPitchPlayerButtonClassName({
-                        draggedBenchPlayerId,
+                        draggedPlayerId,
                         hoveredSlotId,
                         isSelected,
                         player,
@@ -413,13 +582,18 @@ export default function PreMatchLineup({
                       <div className="z-10 flex w-full flex-col items-center px-1 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
                         <span className="w-full truncate whitespace-nowrap text-[9px] font-bold text-white">{player.name}</span>
                         <span className={`text-[8px] font-medium leading-tight ${getRoleTone(wrongPosition)}`}>
-                          {translatePositionAbbreviation(t, slot.position)} · {Math.round(player.condition)}%
+                          {slot.label} · {Math.round(player.condition)}%
                         </span>
                       </div>
                     </button>
                   </ContextMenu>
                 ) : (
-                  <div className={`flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold ${hoveredSlotId === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}>
+                  <div
+                    className={`pointer-events-auto flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold ${hoveredSlotId === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}
+                    onDragOver={(event) => handleSlotDragOver(event, slot.slotId)}
+                    onDragLeave={() => setHoveredSlotId(null)}
+                    onDrop={(event) => handleSlotDrop(event, slot.slotId)}
+                  >
                     {slot.label}
                   </div>
                 )}
@@ -470,7 +644,7 @@ export default function PreMatchLineup({
             <p className="text-xs text-app-text-muted">{t("match.noBenchAvailable2")}</p>
           ) : (
             <div className="mb-3 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {userBench.map((player, index) => {
+              {sortedBench.map((player, index) => {
                 const benchButton = (
                   <button
                     key={player.id}
@@ -480,9 +654,9 @@ export default function PreMatchLineup({
                     onClick={() => {
                       if (selectedStarterId) onSwap(player.id);
                     }}
-                    onDragStart={(event) => handleBenchDragStart(event, player.id)}
+                    onDragStart={(event) => handlePlayerDragStart(event, player.id, true)}
                     onDragEnd={clearDragState}
-                    className={getBenchButtonClassName({ draggedBenchPlayerId, playerId: player.id, selectedStarterId })}
+                    className={getBenchButtonClassName({ draggedBenchPlayerId: draggedPlayerId, playerId: player.id, selectedStarterId })}
                   >
                     <div className="relative flex w-full justify-center pb-1 pt-2">
                       <div className="absolute bottom-0 h-8 w-full bg-gradient-to-t from-red-500/20 to-transparent" />

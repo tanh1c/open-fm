@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { parseFormationNeeds, condColor, statColor, starterOvrColor, starterBadgeStyle, getStatVal, POSITION_KEY_STATS } from "./PreMatchLineup";
+import { parseFormationNeeds, condColor, statColor, starterOvrColor, starterBadgeStyle, getStatVal, sortBenchByPosition, resolveStarterSlotIds, POSITION_KEY_STATS } from "./PreMatchLineup";
 import PreMatchLineup from "./PreMatchLineup";
 import type { EnginePlayerData, EngineTeamData } from "./types";
 
@@ -177,6 +177,52 @@ describe("getStatVal", () => {
 });
 
 // ---------------------------------------------------------------------------
+// sortBenchByPosition
+// ---------------------------------------------------------------------------
+
+describe("sortBenchByPosition", () => {
+  it("orders bench left-to-right Forward, Midfielder, Defender, Goalkeeper", () => {
+    const bench = [
+      makePlayer({ id: "gk", position: "Goalkeeper", ovr: 70 }),
+      makePlayer({ id: "def", position: "Defender", ovr: 70 }),
+      makePlayer({ id: "fwd", position: "Forward", ovr: 70 }),
+      makePlayer({ id: "mid", position: "Midfielder", ovr: 70 }),
+    ];
+
+    expect(sortBenchByPosition(bench).map((player) => player.id)).toEqual([
+      "fwd",
+      "mid",
+      "def",
+      "gk",
+    ]);
+  });
+
+  it("breaks ties within a position by descending OVR", () => {
+    const bench = [
+      makePlayer({ id: "mid-low", position: "Midfielder", ovr: 60 }),
+      makePlayer({ id: "mid-high", position: "Midfielder", ovr: 80 }),
+    ];
+
+    expect(sortBenchByPosition(bench).map((player) => player.id)).toEqual([
+      "mid-high",
+      "mid-low",
+    ]);
+  });
+
+  it("does not mutate the input array", () => {
+    const bench = [
+      makePlayer({ id: "gk", position: "Goalkeeper" }),
+      makePlayer({ id: "fwd", position: "Forward" }),
+    ];
+    const original = bench.map((player) => player.id);
+
+    sortBenchByPosition(bench);
+
+    expect(bench.map((player) => player.id)).toEqual(original);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POSITION_KEY_STATS
 // ---------------------------------------------------------------------------
 
@@ -193,6 +239,51 @@ describe("POSITION_KEY_STATS", () => {
         expect(stat).toHaveProperty("key");
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveStarterSlotIds
+// ---------------------------------------------------------------------------
+
+describe("resolveStarterSlotIds", () => {
+  it("falls back to the formation preset when no custom slots exist", () => {
+    expect(resolveStarterSlotIds("4-4-2", undefined)).toEqual([
+      "gk", "lb", "lcb", "rcb", "rb", "lm", "lcm", "rcm", "rm", "ls", "rs",
+    ]);
+  });
+
+  it("uses the custom tactic shape when all 11 slots are occupied", () => {
+    const customSlots = [
+      { slot_id: "gk", player_id: "p1", role: "GK" as const, x: 50, y: 91 },
+      { slot_id: "lb", player_id: "p2", role: "DEF" as const, x: 18, y: 72 },
+      { slot_id: "lcb", player_id: "p3", role: "DEF" as const, x: 34, y: 72 },
+      { slot_id: "rcb", player_id: "p4", role: "DEF" as const, x: 66, y: 72 },
+      { slot_id: "rb", player_id: "p5", role: "DEF" as const, x: 82, y: 72 },
+      { slot_id: "dm", player_id: "p6", role: "DM" as const, x: 50, y: 59 },
+      { slot_id: "lw", player_id: "p7", role: "FWD" as const, x: 18, y: 28 },
+      { slot_id: "lam", player_id: "p8", role: "AM" as const, x: 36, y: 31 },
+      { slot_id: "am", player_id: "p9", role: "AM" as const, x: 50, y: 30 },
+      { slot_id: "ram", player_id: "p10", role: "AM" as const, x: 64, y: 31 },
+      { slot_id: "rw", player_id: "p11", role: "FWD" as const, x: 82, y: 28 },
+    ];
+
+    // A hand-built 4-1-5 shape — must be returned in canonical grid order, not
+    // the formation preset.
+    expect(resolveStarterSlotIds("4-4-2", customSlots)).toEqual([
+      "gk", "lb", "lcb", "rcb", "rb", "dm", "lw", "lam", "am", "ram", "rw",
+    ]);
+  });
+
+  it("ignores incomplete custom slots and uses the formation preset", () => {
+    const customSlots = [
+      { slot_id: "gk", player_id: "p1", role: "GK" as const, x: 50, y: 91 },
+      { slot_id: "lb", player_id: null, role: "DEF" as const, x: 18, y: 72 },
+    ];
+
+    expect(resolveStarterSlotIds("4-3-3", customSlots)).toEqual(
+      resolveStarterSlotIds("4-3-3", undefined),
+    );
   });
 });
 
@@ -348,6 +439,173 @@ describe("PreMatchLineup component", () => {
 
     expect(onSelectStarter).toHaveBeenCalledWith("m1");
     expect(onSwap).toHaveBeenCalledWith("b1", "m1");
+  });
+
+  it("keeps the drop target tied to the exact player in the hovered same-row slot", () => {
+    const onSelectStarter = vi.fn();
+    const onSwap = vi.fn();
+    const twoForwardTeam = makeTeam({
+      players: [
+        makePlayer({ id: "gk1", name: "GK One", position: "Goalkeeper" }),
+        makePlayer({ id: "d1", name: "Def One", position: "Defender" }),
+        makePlayer({ id: "d2", name: "Def Two", position: "Defender" }),
+        makePlayer({ id: "d3", name: "Def Three", position: "Defender" }),
+        makePlayer({ id: "d4", name: "Def Four", position: "Defender" }),
+        makePlayer({ id: "m1", name: "Mid One", position: "Midfielder" }),
+        makePlayer({ id: "m2", name: "Mid Two", position: "Midfielder" }),
+        makePlayer({ id: "m3", name: "Mid Three", position: "Midfielder" }),
+        makePlayer({ id: "m4", name: "Mid Four", position: "Midfielder" }),
+        makePlayer({ id: "f-left", name: "Left Striker", position: "Forward" }),
+        makePlayer({ id: "f-right", name: "Right Striker", position: "Forward" }),
+      ],
+    });
+
+    render(
+      <PreMatchLineup
+        {...defaultProps}
+        userTeam={twoForwardTeam}
+        onSelectStarter={onSelectStarter}
+        onSwap={onSwap}
+      />,
+    );
+
+    const dataTransfer = {
+      dropEffect: "move",
+      effectAllowed: "move",
+      getData: vi.fn(() => "b1"),
+      setData: vi.fn(),
+    };
+
+    fireEvent.dragStart(screen.getByTestId("pre-match-bench-b1"), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId("pre-match-starter-f-left"), { dataTransfer });
+    fireEvent.drop(screen.getByTestId("pre-match-starter-f-left"), { dataTransfer });
+
+    expect(onSelectStarter).toHaveBeenCalledWith("f-left");
+    expect(onSwap).toHaveBeenCalledWith("b1", "f-left");
+  });
+
+  it("does not treat a dragged starter as a bench swap", () => {
+    const onSelectStarter = vi.fn();
+    const onSwap = vi.fn();
+
+    render(
+      <PreMatchLineup
+        {...defaultProps}
+        onSelectStarter={onSelectStarter}
+        onSwap={onSwap}
+      />,
+    );
+
+    const dataTransfer = {
+      dropEffect: "move",
+      effectAllowed: "move",
+      getData: vi.fn(() => "m1"),
+      setData: vi.fn(),
+    };
+
+    fireEvent.dragStart(screen.getByTestId("pre-match-starter-m1"), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId("pre-match-starter-d1"), { dataTransfer });
+    fireEvent.drop(screen.getByTestId("pre-match-starter-d1"), { dataTransfer });
+
+    expect(onSelectStarter).not.toHaveBeenCalled();
+    expect(onSwap).not.toHaveBeenCalled();
+  });
+
+  it("lets a starter be dragged into an empty grid slot locally without calling the backend", () => {
+    const onSwap = vi.fn();
+
+    render(<PreMatchLineup {...defaultProps} onSwap={onSwap} />);
+
+    // The 4-4-2 preset leaves the "st" slot empty; dragging a starter there
+    // should move them locally (no PreMatchSwap to the backend).
+    expect(screen.queryByTestId("pre-match-starter-f1")).toBeInTheDocument();
+
+    const dataTransfer = {
+      dropEffect: "move",
+      effectAllowed: "move",
+      getData: vi.fn(() => "f1"),
+      setData: vi.fn(),
+    };
+
+    fireEvent.dragStart(screen.getByTestId("pre-match-starter-f1"), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId("pre-match-slot-st"), { dataTransfer });
+    fireEvent.drop(screen.getByTestId("pre-match-slot-st"), { dataTransfer });
+
+    // No backend swap; the move stayed local.
+    expect(onSwap).not.toHaveBeenCalled();
+    // Player still rendered, now occupying the target slot.
+    expect(screen.getByTestId("pre-match-starter-f1")).toBeInTheDocument();
+  });
+
+  it("keeps unswapped starters in their original pitch slots after a swap reorders the array", () => {
+    const startingTeam = makeTeam({
+      players: [
+        makePlayer({ id: "gk1", name: "Keeper", position: "Goalkeeper" }),
+        makePlayer({ id: "d1", name: "Back One", position: "Defender" }),
+        makePlayer({ id: "d2", name: "Back Two", position: "Defender" }),
+        makePlayer({ id: "d3", name: "Back Three", position: "Defender" }),
+        makePlayer({ id: "d4", name: "Back Four", position: "Defender" }),
+        makePlayer({ id: "m1", name: "Mid One", position: "Midfielder" }),
+        makePlayer({ id: "m2", name: "Mid Two", position: "Midfielder" }),
+        makePlayer({ id: "m3", name: "Mid Three", position: "Midfielder" }),
+        makePlayer({ id: "m4", name: "Mid Four", position: "Midfielder" }),
+        makePlayer({ id: "f1", name: "Striker One", position: "Forward" }),
+        makePlayer({ id: "f2", name: "Striker Two", position: "Forward" }),
+      ],
+    });
+
+    const slotOrderBefore = () =>
+      screen
+        .getAllByTestId(/^pre-match-starter-/)
+        .map((node) => node.getAttribute("data-testid"));
+
+    const { rerender } = render(
+      <PreMatchLineup
+        {...defaultProps}
+        userTeam={startingTeam}
+        userBench={[makePlayer({ id: "sub1", name: "Sub One", position: "Defender" })]}
+      />,
+    );
+
+    const before = slotOrderBefore();
+
+    // Backend pre-match swap removes the swapped-out starter and appends the
+    // incoming player to the END of the players array, shifting later indices.
+    const swappedTeam = makeTeam({
+      players: [
+        makePlayer({ id: "gk1", name: "Keeper", position: "Goalkeeper" }),
+        makePlayer({ id: "d2", name: "Back Two", position: "Defender" }),
+        makePlayer({ id: "d3", name: "Back Three", position: "Defender" }),
+        makePlayer({ id: "d4", name: "Back Four", position: "Defender" }),
+        makePlayer({ id: "m1", name: "Mid One", position: "Midfielder" }),
+        makePlayer({ id: "m2", name: "Mid Two", position: "Midfielder" }),
+        makePlayer({ id: "m3", name: "Mid Three", position: "Midfielder" }),
+        makePlayer({ id: "m4", name: "Mid Four", position: "Midfielder" }),
+        makePlayer({ id: "f1", name: "Striker One", position: "Forward" }),
+        makePlayer({ id: "f2", name: "Striker Two", position: "Forward" }),
+        makePlayer({ id: "sub1", name: "Sub One", position: "Defender" }),
+      ],
+    });
+
+    rerender(
+      <PreMatchLineup
+        {...defaultProps}
+        userTeam={swappedTeam}
+        userBench={[makePlayer({ id: "d1", name: "Back One", position: "Defender" })]}
+      />,
+    );
+
+    const after = slotOrderBefore();
+
+    // The incoming sub takes the exact slot the swapped-out starter vacated;
+    // every other slot keeps its original occupant.
+    const swappedOutIndex = before.indexOf("pre-match-starter-d1");
+    expect(after[swappedOutIndex]).toBe("pre-match-starter-sub1");
+
+    before.forEach((slot, index) => {
+      if (index === swappedOutIndex) return;
+      expect(after[index]).toBe(slot);
+    });
   });
 
   it("offers a context menu action to swap in a bench player", () => {

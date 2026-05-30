@@ -135,6 +135,7 @@ export default function PreMatchSetup({
 
   const homeTeamData = findTeamData(gameState, snapshot.home_team.id);
   const awayTeamData = findTeamData(gameState, snapshot.away_team.id);
+  const userTeamData = userSide === "Home" ? homeTeamData : awayTeamData;
   const homeTeamColor = homeTeamData?.colors?.primary || "#10b981";
   const awayTeamColor = awayTeamData?.colors?.primary || "#6366f1";
   const userColor = userSide === "Home" ? homeTeamColor : awayTeamColor;
@@ -398,6 +399,7 @@ export default function PreMatchSetup({
             awayTeamColor={awayTeamColor}
             userSide={userSide}
             formationNeeds={formationNeeds}
+            customSlots={userTeamData?.custom_tactic_slots}
             selectedStarterId={selectedStarterId}
             isAutoSelecting={isAutoSelecting}
             onSelectStarter={setSelectedStarterId}

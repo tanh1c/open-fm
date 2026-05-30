@@ -26,6 +26,13 @@ impl GameDatabase {
             GAME_DATABASE_OPEN_FAILED.to_string()
         })?;
 
+        // Write-performance pragmas. WAL + synchronous=NORMAL make the large
+        // full-world save writes (thousands of player rows) markedly faster
+        // while staying crash-safe for a single-process game save.
+        let _ = conn.pragma_update(None, "journal_mode", "WAL");
+        let _ = conn.pragma_update(None, "synchronous", "NORMAL");
+        let _ = conn.pragma_update(None, "temp_store", "MEMORY");
+
         let migrations = all_migrations();
         migrations.to_latest(&mut conn).map_err(|e| {
             error!("[game_db] migration failed for {:?}: {}", path, e);

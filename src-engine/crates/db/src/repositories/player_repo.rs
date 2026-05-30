@@ -7,6 +7,25 @@ const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed
 
 /// Insert or replace a player row.
 pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare_cached(UPSERT_PLAYER_SQL)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    upsert_player_with_stmt(&mut stmt, p)
+}
+
+const UPSERT_PLAYER_SQL: &str = "INSERT OR REPLACE INTO players
+         (id, match_name, full_name, date_of_birth, nationality, football_nation, birth_country, position,
+          attributes, condition, morale, injury, team_id, traits,
+          contract_end, wage, market_value, stats, career,
+          transfer_listed, loan_listed, transfer_offers, alternate_positions,
+          natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
+          ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36)";
+
+/// Bind a player to an already-prepared upsert statement and execute it.
+/// Reusing one prepared statement across the whole roster avoids re-parsing the
+/// SQL for every player, which dominates full-world save time (~5k+ rows).
+fn upsert_player_with_stmt(stmt: &mut rusqlite::CachedStatement, p: &Player) -> Result<(), String> {
     let attrs_json = serde_json::to_string(&p.attributes)
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let injury_json = p
@@ -30,15 +49,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
     let footedness_str = format!("{:?}", p.footedness);
     let training_focus_str: Option<String> = p.training_focus.as_ref().map(|f| format!("{:?}", f));
 
-    conn.execute(
-        "INSERT OR REPLACE INTO players
-         (id, match_name, full_name, date_of_birth, nationality, football_nation, birth_country, position,
-          attributes, condition, morale, injury, team_id, traits,
-          contract_end, wage, market_value, stats, career,
-          transfer_listed, loan_listed, transfer_offers, alternate_positions,
-          natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
-          ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36)",
+    stmt.execute(
         params![
             p.id,
             p.match_name,
@@ -82,10 +93,13 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
     Ok(())
 }
 
-/// Insert or replace multiple players.
+/// Insert or replace multiple players, reusing a single cached statement.
 pub fn upsert_players(conn: &Connection, players: &[Player]) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare_cached(UPSERT_PLAYER_SQL)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     for p in players {
-        upsert_player(conn, p)?;
+        upsert_player_with_stmt(&mut stmt, p)?;
     }
     Ok(())
 }

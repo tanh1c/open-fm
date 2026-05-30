@@ -6,9 +6,11 @@ import { useTranslation } from "react-i18next";
 import { getPlayerOvr } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import {
+  getSlotFitTone,
   isPlayerOutOfPosition,
   translatePositionAbbreviation,
   type DragState,
+  type SlotFitTone,
   type SquadSection,
 } from "../squad/SquadTab.helpers";
 import {
@@ -104,6 +106,29 @@ function getRoleTone(wrongPos: boolean): string {
   return wrongPos ? "text-app-red" : "text-emerald-400";
 }
 
+// Colour hint for how well the dragged player suits a slot's position.
+function fitRingClassName(tone: SlotFitTone): string {
+  switch (tone) {
+    case "good":
+      return "ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.65)]";
+    case "ok":
+      return "ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]";
+    default:
+      return "ring-2 ring-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)]";
+  }
+}
+
+function fitEmptySlotClassName(tone: SlotFitTone): string {
+  switch (tone) {
+    case "good":
+      return "border-emerald-400 bg-emerald-400/15 text-emerald-300";
+    case "ok":
+      return "border-amber-400 bg-amber-400/15 text-amber-300";
+    default:
+      return "border-red-500 bg-red-500/15 text-red-300";
+  }
+}
+
 export default function TacticsPitch({
   benchPlayers,
   dragState,
@@ -129,6 +154,11 @@ export default function TacticsPitch({
 }: TacticsPitchProps): JSX.Element {
   const { t } = useTranslation();
   const [showFormationPopover, setShowFormationPopover] = useState(false);
+  // The player currently being dragged (from the pitch or the bench), used to
+  // colour every slot by how well that player fits the position.
+  const draggedPlayer = dragState?.playerId
+    ? playersById?.get(dragState.playerId) ?? null
+    : null;
   const assignedGridSlots = gridAssignments && playersById
     ? GRID_TACTIC_SLOTS.map((slot, index) => {
         const assignment = gridAssignments.find((candidate) => candidate.slotId === slot.id);
@@ -251,6 +281,12 @@ export default function TacticsPitch({
         {assignedGridSlots.map((slot) => {
           const player = slot.player;
           const wrongPos = player ? isPlayerOutOfPosition(player, slot.position) : false;
+          // While dragging, rate this slot for the dragged player (skip the
+          // node being dragged itself).
+          const fitTone =
+            draggedPlayer && draggedPlayer.id !== player?.id
+              ? getSlotFitTone(draggedPlayer, slot.position)
+              : null;
 
           return (
             <div
@@ -281,7 +317,7 @@ export default function TacticsPitch({
                   })}
                   style={{ left: "50%", top: "50%" }}
                 >
-                  <div className={`mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPos ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"}`}>
+                  <div className={`mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPos ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"} ${fitTone ? fitRingClassName(fitTone) : ""}`}>
                     {getPlayerOvr(player)}
                   </div>
                   <div className="z-10 flex w-full flex-col items-center px-1 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
@@ -292,7 +328,7 @@ export default function TacticsPitch({
                   </div>
                 </button>
               ) : (
-                <div className={`flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold ${hoveredSlot === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}>
+                <div className={`flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold transition-colors ${fitTone ? fitEmptySlotClassName(fitTone) : hoveredSlot === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}>
                   {slot.label}
                 </div>
               )}

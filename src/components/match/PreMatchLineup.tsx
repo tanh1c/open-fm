@@ -5,7 +5,7 @@ import type { CustomTacticSlotData } from "../../store/gameStore";
 import { MatchSnapshot, EnginePlayerData } from "./types";
 import { ChevronDown, Grid, LayoutGrid, ShieldAlert, Target, Wand2 } from "lucide-react";
 import ContextMenu from "../ContextMenu";
-import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
+import { getSlotFitToneFromPositions, translatePositionAbbreviation, type SlotFitTone } from "../squad/SquadTab.helpers";
 import {
   GRID_TACTIC_SLOTS,
   mapGridSlotToPosition,
@@ -250,6 +250,29 @@ function getRoleTone(wrongPosition: boolean): string {
   return wrongPosition ? "text-app-red" : "text-emerald-400";
 }
 
+// Colour hint for how well the dragged player suits a slot's position.
+function fitRingClassName(tone: SlotFitTone): string {
+  switch (tone) {
+    case "good":
+      return "ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.65)]";
+    case "ok":
+      return "ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]";
+    default:
+      return "ring-2 ring-red-500 shadow-[0_0_12px_rgba(239,68,68,0.6)]";
+  }
+}
+
+function fitEmptySlotClassName(tone: SlotFitTone): string {
+  switch (tone) {
+    case "good":
+      return "border-emerald-400 bg-emerald-400/15 text-emerald-300";
+    case "ok":
+      return "border-amber-400 bg-amber-400/15 text-amber-300";
+    default:
+      return "border-red-500 bg-red-500/15 text-red-300";
+  }
+}
+
 function getBenchButtonClassName(options: {
   draggedBenchPlayerId: string | null;
   playerId: string;
@@ -352,6 +375,13 @@ export default function PreMatchLineup({
   const outOfPositionCount = pitchSlots.filter((slot) => slot.player && slot.player.position !== slot.position).length;
   const opponentColor = userSide === "Home" ? awayTeamColor : homeTeamColor;
   const sortedBench = sortBenchByPosition(userBench);
+  // The player currently being dragged (from the pitch or the bench), used to
+  // colour every slot by how well that player fits the position.
+  const draggedPlayer = draggedPlayerId
+    ? playersById.get(draggedPlayerId) ??
+      userBench.find((player) => player.id === draggedPlayerId) ??
+      null
+    : null;
 
   const applyLightweightDragPreview = (event: DragEvent<HTMLElement>) => {
     if (!dragPreviewRef.current) return;
@@ -534,6 +564,12 @@ export default function PreMatchLineup({
             const player = slot.player;
             const isSelected = selectedStarterId === player?.id;
             const wrongPosition = player ? player.position !== slot.position : false;
+            // While dragging, rate this slot for the dragged player (skip the
+            // node being dragged itself).
+            const fitTone =
+              draggedPlayer && draggedPlayer.id !== player?.id
+                ? getSlotFitToneFromPositions([draggedPlayer.position], slot.position)
+                : null;
 
             return (
               <div
@@ -575,7 +611,7 @@ export default function PreMatchLineup({
                       style={{ left: "50%", top: "50%" }}
                     >
                       <div
-                        className={`mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPosition ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"}`}
+                        className={`mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPosition ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"} ${fitTone ? fitRingClassName(fitTone) : ""}`}
                       >
                         {player.ovr}
                       </div>
@@ -589,7 +625,7 @@ export default function PreMatchLineup({
                   </ContextMenu>
                 ) : (
                   <div
-                    className={`pointer-events-auto flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold ${hoveredSlotId === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}
+                    className={`pointer-events-auto flex h-full w-full items-center justify-center rounded-lg border border-dashed text-center text-[9px] font-bold transition-colors ${fitTone ? fitEmptySlotClassName(fitTone) : hoveredSlotId === slot.slotId ? "border-app-green bg-app-green/10 text-app-green" : "border-emerald-800/50 bg-black/10 text-white/50"}`}
                     onDragOver={(event) => handleSlotDragOver(event, slot.slotId)}
                     onDragLeave={() => setHoveredSlotId(null)}
                     onDrop={(event) => handleSlotDrop(event, slot.slotId)}

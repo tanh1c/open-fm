@@ -445,6 +445,51 @@ export function isPlayerExactForSlot(
   return canonicalPosition(player.natural_position || player.position) === canonicalPosition(currentPos);
 }
 
+export type SlotFitTone = "good" | "ok" | "bad";
+
+const POSITION_LINE_INDEX: Record<string, number> = {
+  Goalkeeper: 0,
+  Defender: 1,
+  Midfielder: 2,
+  Forward: 3,
+};
+
+// Rate how well a set of preferred positions suits a slot for the drag-to-
+// position colour hints: green = natural line, amber = one line away, red =
+// two+ lines away or a goalkeeper/outfield mismatch. Keeps the best fit.
+export function getSlotFitToneFromPositions(
+  preferredPositions: string[],
+  slotPosition: string,
+): SlotFitTone {
+  const slotGroup = normalisePosition(slotPosition);
+  const slotLine = POSITION_LINE_INDEX[slotGroup];
+  if (slotLine === undefined) return "bad";
+
+  let best: SlotFitTone = "bad";
+  for (const position of preferredPositions) {
+    const group = normalisePosition(position);
+    const line = POSITION_LINE_INDEX[group];
+    if (line === undefined) continue;
+    // A goalkeeper can only fit the goalkeeper slot, and vice versa.
+    if ((group === "Goalkeeper") !== (slotGroup === "Goalkeeper")) continue;
+
+    const distance = Math.abs(line - slotLine);
+    if (distance === 0) return "good";
+    if (distance === 1) best = "ok";
+  }
+  return best;
+}
+
+// Rate how well a player suits a pitch slot. Considers every preferred position
+// (natural + alternates) and keeps the best fit.
+export function getSlotFitTone(player: PlayerData, slotPosition: string): SlotFitTone {
+  const preferredPositions = getPreferredPositions(player);
+  if (preferredPositions.length === 0) {
+    preferredPositions.push(player.natural_position || player.position);
+  }
+  return getSlotFitToneFromPositions(preferredPositions, slotPosition);
+}
+
 export function applyLineupDrop(
   currentXiIds: string[],
   dragState: DragState,

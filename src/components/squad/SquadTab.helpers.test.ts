@@ -9,6 +9,7 @@ import {
   buildStartingXIIds,
   getPitchSlotWidth,
   getPreferredPositions,
+  getSlotFitTone,
   isPlayerOutOfPosition,
   normalisePosition,
   parseFormationSlots,
@@ -401,5 +402,44 @@ describe("SquadTab helpers", () => {
     expect(translatePositionAbbreviation(translate, "Striker")).toBe(
       "common.posAbbr.Striker",
     );
+  });
+
+  describe("getSlotFitTone", () => {
+    it("returns good for a player's natural line", () => {
+      const striker = makePlayer("st", "Striker");
+      expect(getSlotFitTone(striker, "Striker")).toBe("good");
+      expect(getSlotFitTone(striker, "Left Winger")).toBe("good");
+    });
+
+    it("returns ok for an adjacent line", () => {
+      const striker = makePlayer("st", "Striker");
+      // Forward -> Midfielder is one line away.
+      expect(getSlotFitTone(striker, "Central Midfielder")).toBe("ok");
+    });
+
+    it("returns bad for a far line", () => {
+      const striker = makePlayer("st", "Striker");
+      // Forward -> Defender is two lines away.
+      expect(getSlotFitTone(striker, "Center Back")).toBe("bad");
+    });
+
+    it("treats goalkeepers and outfielders as mutually exclusive", () => {
+      const keeper = makePlayer("gk", "Goalkeeper");
+      const striker = makePlayer("st", "Striker");
+      expect(getSlotFitTone(keeper, "Goalkeeper")).toBe("good");
+      expect(getSlotFitTone(keeper, "Center Back")).toBe("bad");
+      expect(getSlotFitTone(striker, "Goalkeeper")).toBe("bad");
+    });
+
+    it("uses the best fit across preferred positions", () => {
+      const utility = makePlayer("util", "Center Back", {
+        natural_position: "Center Back",
+        alternate_positions: ["Defensive Midfielder"],
+      });
+      // Natural CB is bad for a striker slot, but the helper keeps the best
+      // available tone — DM (Midfielder) is one line from Forward.
+      expect(getSlotFitTone(utility, "Striker")).toBe("ok");
+      expect(getSlotFitTone(utility, "Center Back")).toBe("good");
+    });
   });
 });

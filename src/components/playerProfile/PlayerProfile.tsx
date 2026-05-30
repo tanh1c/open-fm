@@ -585,16 +585,23 @@ export default function PlayerProfile({
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <button
-        onClick={onClose}
-        className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="font-heading font-bold uppercase tracking-wider">
+    <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">{player.full_name.toUpperCase()}</h1>
+          <p className="text-sm text-app-text-muted">
+            {t(`common.posAbbr.${primaryPosition}`, { defaultValue: primaryPosition })} &bull; {teamName} &bull; OVR {ovr}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex w-fit items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text"
+        >
+          <ArrowLeft className="h-4 w-4" />
           {t("common.back")}
-        </span>
-      </button>
+        </button>
+      </div>
 
       <PlayerProfileHeroCard
         player={player}
@@ -642,52 +649,54 @@ export default function PlayerProfile({
         <PlayerProfileInjuryBanner injury={player.injury} t={t} />
       ) : null}
 
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <PlayerProfileContractCard
-          dateOfBirth={player.date_of_birth}
-          contractEnd={player.contract_end}
-          currentDate={gameState.clock.current_date}
-          condition={player.condition}
-          morale={player.morale}
-          marketValue={player.market_value}
-          wage={player.wage}
-          weeklySuffix={weeklySuffix}
-          language={i18n.language}
-          contractRiskLevel={contractRiskLevel}
-          contractRiskLabel={contractRiskLabel}
-          isOwnClub={isOwnClub}
-          hasLetExpireIntent={hasLetExpireIntent}
-          actionSubmitting={contractActionSubmitting}
-          onOpenRenewal={openRenewalModal}
-          onMarkLetExpire={() => void handleMarkLetExpire()}
-          onClearLetExpire={() => void handleClearLetExpire()}
-          onOpenTermination={() => void openTerminationModal()}
-          t={t}
-        />
+      {contractActionError ? (
+        <div className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm text-app-red">
+          {contractActionError}
+        </div>
+      ) : null}
 
-        {contractActionError ? (
-          <div className="lg:col-span-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            {contractActionError}
-          </div>
-        ) : null}
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[320px]">
+          <PlayerProfileContractCard
+            dateOfBirth={player.date_of_birth}
+            contractEnd={player.contract_end}
+            currentDate={gameState.clock.current_date}
+            condition={player.condition}
+            morale={player.morale}
+            marketValue={player.market_value}
+            wage={player.wage}
+            weeklySuffix={weeklySuffix}
+            language={i18n.language}
+            contractRiskLevel={contractRiskLevel}
+            contractRiskLabel={contractRiskLabel}
+            isOwnClub={isOwnClub}
+            hasLetExpireIntent={hasLetExpireIntent}
+            actionSubmitting={contractActionSubmitting}
+            onOpenRenewal={openRenewalModal}
+            onMarkLetExpire={() => void handleMarkLetExpire()}
+            onClearLetExpire={() => void handleClearLetExpire()}
+            onOpenTermination={() => void openTerminationModal()}
+            t={t}
+          />
+          <PlayerProfileSeasonStatsCard stats={player.stats} t={t} />
+        </aside>
 
-        <PlayerProfileAttributesCard
-          attrGroups={attrGroups}
-          isOwnClub={isOwnClub}
-          title={t("playerProfile.attributes")}
-          averageLabel={t("common.average")}
-          hiddenTitle={t("playerProfile.attributesHidden")}
-          hiddenBody={t("playerProfile.scoutToView")}
-        />
+        <section className="flex min-w-0 flex-1 flex-col gap-4">
+          <PlayerProfileAttributesCard
+            attrGroups={attrGroups}
+            isOwnClub={isOwnClub}
+            title={t("playerProfile.attributes")}
+            averageLabel={t("common.average")}
+            hiddenTitle={t("playerProfile.attributesHidden")}
+            hiddenBody={t("playerProfile.scoutToView")}
+          />
+          <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
+        </section>
 
-        <PlayerProfileSeasonStatsCard stats={player.stats} t={t} />
-
-        <PlayerProfileAdvancedStatsCard summary={advancedStats} t={t} />
-
-        <PlayerProfileCareerHistoryCard career={player.career} t={t} />
-
-        <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
+        <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
+          <PlayerProfileAdvancedStatsCard summary={advancedStats} t={t} />
+          <PlayerProfileCareerHistoryCard career={player.career} t={t} />
+        </aside>
       </div>
 
       <PlayerProfileRenewalModal

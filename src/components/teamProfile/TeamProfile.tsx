@@ -26,16 +26,24 @@ export default function TeamProfile({
   const { teamStatsOverview, recentMatches } = useTeamProfileStats(team.id);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <button
-        onClick={onClose}
-        className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mb-4"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="font-heading font-bold uppercase tracking-wider">
+    <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">{team.name.toUpperCase()}</h1>
+          <p className="text-sm text-app-text-muted">
+            {team.city} &bull; {t("teams.est")} {team.founded_year}
+            {viewModel.leaguePos > 0 ? ` • #${viewModel.leaguePos}` : ""}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex w-fit items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text"
+        >
+          <ArrowLeft className="h-4 w-4" />
           {t("common.back")}
-        </span>
-      </button>
+        </button>
+      </div>
 
       <TeamProfileHeroCard
         team={team}
@@ -44,31 +52,36 @@ export default function TeamProfile({
         t={t}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <TeamProfileClubDetailsCard team={team} t={t} />
-        <TeamProfileSummaryCard
-          team={team}
-          isOwnTeam={isOwnTeam}
-          viewModel={viewModel}
-          weeklySuffix={weeklySuffix}
-          t={t}
-        />
-        <TeamProfileLeagueStandingCard standings={viewModel.standings} t={t} />
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[300px]">
+          <TeamProfileClubDetailsCard team={team} t={t} />
+          <TeamProfileSummaryCard
+            team={team}
+            isOwnTeam={isOwnTeam}
+            viewModel={viewModel}
+            weeklySuffix={weeklySuffix}
+            t={t}
+          />
+          <TeamProfileLeagueStandingCard standings={viewModel.standings} t={t} />
+        </aside>
 
-        {teamStatsOverview && (
-          <TeamProfileAdvancedStatsCard overview={teamStatsOverview} t={t} />
-        )}
+        <section className="flex min-w-0 flex-1 flex-col gap-4">
+          <TeamProfileRosterCard
+            roster={viewModel.roster}
+            isOwnTeam={isOwnTeam}
+            locale={i18n.language}
+            t={t}
+            onSelectPlayer={onSelectPlayer}
+          />
+          <TeamProfileRecentMatchesCard matches={recentMatches} t={t} />
+        </section>
 
-        <TeamProfileRecentMatchesCard matches={recentMatches} t={t} />
-
-        <TeamProfileRosterCard
-          roster={viewModel.roster}
-          isOwnTeam={isOwnTeam}
-          locale={i18n.language}
-          t={t}
-          onSelectPlayer={onSelectPlayer}
-        />
-        <TeamProfileHistoryCard history={team.history} t={t} />
+        <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
+          {teamStatsOverview && (
+            <TeamProfileAdvancedStatsCard overview={teamStatsOverview} t={t} />
+          )}
+          <TeamProfileHistoryCard history={team.history} t={t} />
+        </aside>
       </div>
     </div>
   );

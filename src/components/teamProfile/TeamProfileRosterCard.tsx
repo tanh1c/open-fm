@@ -28,41 +28,41 @@ export default function TeamProfileRosterCard({
   onSelectPlayer,
 }: TeamProfileRosterCardProps) {
   return (
-    <Card className="lg:col-span-3">
+    <Card>
       <CardHeader>
         {t("teams.squad")} ({roster.length})
       </CardHeader>
       <CardBody className="p-0">
-        <div className="overflow-x-auto">
+        <div className="max-h-[460px] overflow-y-auto overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-surface-800 border-b border-gray-200 dark:border-surface-600 text-xs">
-                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-app-bg border-b border-app-border text-[10px]">
+                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("common.position")}
                 </th>
-                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("common.name")}
                 </th>
-                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("common.age")}
                 </th>
-                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("common.nationality")}
                 </th>
-                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("common.value")}
                 </th>
                 {isOwnTeam && (
-                  <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t("common.condition")}
                   </th>
                 )}
-                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-app-text-muted">
                   {t("common.ovr")}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-surface-600">
+            <tbody className="divide-y divide-app-border/30">
               {roster.map((player) => {
                 const ovr = getPlayerOvr(player);
                 const age = calcAge(player.date_of_birth);
@@ -75,11 +75,11 @@ export default function TeamProfileRosterCard({
                     data-testid={`team-profile-roster-${player.id}`}
                     onClick={() => onSelectPlayer?.(player.id)}
                     className={`group transition-colors ${onSelectPlayer
-                      ? "hover:bg-gray-50 dark:hover:bg-surface-700/50 cursor-pointer"
+                      ? "hover:bg-white/5 cursor-pointer"
                       : ""
                       }`}
                   >
-                    <td className="py-3 px-5">
+                    <td className="py-2.5 px-4">
                       <Badge
                         variant={positionBadgeVariant(
                           player.natural_position || player.position,
@@ -91,15 +91,15 @@ export default function TeamProfileRosterCard({
                         )}
                       </Badge>
                     </td>
-                    <td className="py-3 px-5">
-                      <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                    <td className="py-2.5 px-4">
+                      <span className="font-semibold text-sm text-app-text group-hover:text-app-green transition-colors">
                         {player.full_name}
                       </span>
                     </td>
-                    <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
+                    <td className="py-2.5 px-4 text-sm text-app-text-muted tabular-nums">
                       {age}
                     </td>
-                    <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">
+                    <td className="py-2.5 px-4 text-sm text-app-text-muted">
                       <div className="flex items-center gap-1">
                         <CountryFlag
                           code={player.nationality}
@@ -109,11 +109,11 @@ export default function TeamProfileRosterCard({
                         <span>{countryName(player.nationality, locale)}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400">
+                    <td className="py-2.5 px-4 text-sm text-app-text-muted tabular-nums">
                       {formatVal(player.market_value)}
                     </td>
                     {isOwnTeam && (
-                      <td className="py-3 px-5">
+                      <td className="py-2.5 px-4">
                         <ProgressBar
                           value={player.condition}
                           variant="auto"
@@ -123,15 +123,15 @@ export default function TeamProfileRosterCard({
                         />
                       </td>
                     )}
-                    <td className="py-3 px-5">
+                    <td className="py-2.5 px-4">
                       <span
                         className={`font-heading font-bold text-lg tabular-nums ${isOwnTeam
                           ? ovr >= 75
-                            ? "text-primary-500"
+                            ? "text-app-green"
                             : ovr >= 55
                               ? "text-accent-500"
-                              : "text-gray-400"
-                          : "text-gray-400"
+                              : "text-app-text-muted"
+                          : "text-app-text-muted"
                           }`}
                       >
                         {isOwnTeam ? ovr : "??"}

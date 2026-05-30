@@ -67,30 +67,30 @@ function AdvancedStatRow({
     t: TranslateFn;
 }) {
     return (
-        <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 items-center rounded-lg bg-gray-50 dark:bg-surface-700 px-3 py-2.5">
-            <div>
-                <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.85fr)_minmax(0,0.85fr)] gap-2 items-center rounded-lg bg-app-bg px-3 py-2.5">
+            <div className="min-w-0">
+                <p className="font-heading font-bold text-[11px] uppercase tracking-wider text-app-text-muted truncate">
                     {label}
                 </p>
-                <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100 tabular-nums">
+                <p className="font-heading font-bold text-base text-app-text tabular-nums truncate">
                     {primaryValue}
                 </p>
             </div>
 
-            <div className="text-center">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            <div className="min-w-0 text-center">
+                <p className="text-[10px] uppercase tracking-wider text-app-text-muted truncate">
                     {secondaryLabel}
                 </p>
-                <p className="font-heading font-bold text-base text-gray-700 dark:text-gray-200 tabular-nums">
+                <p className="font-heading font-bold text-sm text-app-text tabular-nums truncate">
                     {secondaryValue}
                 </p>
             </div>
 
-            <div className="text-center">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            <div className="min-w-0 text-center">
+                <p className="text-[10px] uppercase tracking-wider text-app-text-muted truncate">
                     {t("playerProfile.percentile")}
                 </p>
-                <p className="font-heading font-bold text-base text-gray-700 dark:text-gray-200 tabular-nums">
+                <p className="font-heading font-bold text-sm text-app-text tabular-nums truncate">
                     {formatOrdinal(
                         percentile,
                         t("playerProfile.percentileUnavailable"),
@@ -140,7 +140,7 @@ export default function PlayerProfileAdvancedStatsCard({
     };
 
     return (
-        <Card className="lg:col-span-2">
+        <Card>
             <CardHeader>{labels.title}</CardHeader>
             <CardBody>
                 <div className="space-y-3">

@@ -71,11 +71,11 @@ export default function TeamProfileHeroCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-surface-600 md:hidden">
+      <div className="grid grid-cols-4 gap-px bg-app-border md:hidden">
         <QuickStat
           label={t("teams.avgOvr")}
           value={String(viewModel.avgOvr)}
-          color="text-primary-500"
+          color="text-app-green"
         />
         <QuickStat
           label={t("teams.rep")}
@@ -85,12 +85,12 @@ export default function TeamProfileHeroCard({
         <QuickStat
           label={t("common.position")}
           value={viewModel.leaguePos > 0 ? `#${viewModel.leaguePos}` : "—"}
-          color="text-gray-700 dark:text-gray-200"
+          color="text-app-text"
         />
         <QuickStat
           label={t("teams.squad")}
           value={String(viewModel.roster.length)}
-          color="text-gray-700 dark:text-gray-200"
+          color="text-app-text"
         />
       </div>
     </Card>

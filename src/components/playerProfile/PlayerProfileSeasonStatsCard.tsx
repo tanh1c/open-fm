@@ -13,10 +13,10 @@ export default function PlayerProfileSeasonStatsCard({
     t,
 }: PlayerProfileSeasonStatsCardProps) {
     return (
-        <Card className="lg:col-span-2">
+        <Card>
             <CardHeader>{t("playerProfile.seasonStats")}</CardHeader>
             <CardBody>
-                <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                     <StatBox label={t("playerProfile.apps")} value={stats.appearances} />
                     <StatBox label={t("playerProfile.goals")} value={stats.goals} />
                     <StatBox label={t("playerProfile.assists")} value={stats.assists} />
@@ -42,11 +42,11 @@ export default function PlayerProfileSeasonStatsCard({
 
 function StatBox({ label, value }: { label: string; value: number | string }) {
     return (
-        <div className="text-center p-2.5 bg-gray-50 dark:bg-surface-700 rounded-lg">
-            <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100 tabular-nums">
+        <div className="min-w-0 text-center p-2.5 bg-app-bg rounded-lg">
+            <p className="font-heading font-bold text-base text-app-text tabular-nums truncate">
                 {value}
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
+            <p className="text-[10px] text-app-text-muted font-heading uppercase tracking-wider truncate">
                 {label}
             </p>
         </div>

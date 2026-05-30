@@ -34,11 +34,11 @@ function formatPercentage(value: number | null): string {
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-gray-50 dark:bg-surface-700 px-3 py-2.5 text-center">
-      <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
+    <div className="min-w-0 rounded-lg bg-app-bg px-3 py-2.5 text-center">
+      <p className="text-[10px] uppercase tracking-wider text-app-text-muted truncate">
         {label}
       </p>
-      <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100 tabular-nums">
+      <p className="font-heading font-bold text-base text-app-text tabular-nums truncate">
         {value}
       </p>
     </div>
@@ -57,21 +57,21 @@ function MetricRow({
   secondaryValue: string;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)] gap-3 items-center rounded-lg bg-gray-50 dark:bg-surface-700 px-3 py-2.5">
-      <div>
-        <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400">
+    <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-3 items-center rounded-lg bg-app-bg px-3 py-2.5">
+      <div className="min-w-0">
+        <p className="font-heading font-bold text-[11px] uppercase tracking-wider text-app-text-muted truncate">
           {label}
         </p>
-        <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-100 tabular-nums">
+        <p className="font-heading font-bold text-base text-app-text tabular-nums truncate">
           {primaryValue}
         </p>
       </div>
 
-      <div className="text-center">
-        <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500">
+      <div className="min-w-0 text-right">
+        <p className="text-[10px] uppercase tracking-wider text-app-text-muted truncate">
           {secondaryLabel}
         </p>
-        <p className="font-heading font-bold text-base text-gray-700 dark:text-gray-200 tabular-nums">
+        <p className="font-heading font-bold text-sm text-app-text tabular-nums truncate">
           {secondaryValue}
         </p>
       </div>
@@ -120,10 +120,10 @@ export default function TeamProfileAdvancedStatsCard({
   };
 
   return (
-    <Card className="lg:col-span-3">
+    <Card>
       <CardHeader>{labels.title}</CardHeader>
       <CardBody>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-2 mb-4">
           <SummaryStat label={labels.matchesPlayed} value={String(overview.matchesPlayed)} />
           <SummaryStat label={labels.goalsFor} value={String(overview.goalsFor)} />
           <SummaryStat

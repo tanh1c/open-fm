@@ -219,9 +219,30 @@ export default function ScheduleTab({
   const userStandingIndex = standings.findIndex((entry) => entry.team_id === userTeamId);
   const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
   const userGoalDifference = userStanding ? userStanding.goals_for - userStanding.goals_against : 0;
-  const userFixtures = selectedCompetition.fixtures
-    .filter((fixture) => fixtureIncludesTeam(fixture, userTeamId))
-    .sort((left, right) => left.date.localeCompare(right.date) || left.matchday - right.matchday);
+  // Aggregate the user's fixtures from every source — all competitions plus the
+  // standalone league — so the "My Club" view also surfaces friendlies, cups and
+  // continental matches that don't live in the currently selected competition.
+  // (Preseason friendlies are appended to game.league, not game.competitions.)
+  const userFixtures = useMemo(() => {
+    if (!userTeamId) return [] as FixtureData[];
+    const sources: FixtureData[][] = [];
+    (gameState.competitions ?? []).forEach((competition) => sources.push(competition.fixtures));
+    if (gameState.league) sources.push(gameState.league.fixtures);
+
+    const seen = new Set<string>();
+    const collected: FixtureData[] = [];
+    for (const fixtures of sources) {
+      for (const fixture of fixtures) {
+        if (seen.has(fixture.id)) continue;
+        if (!fixtureIncludesTeam(fixture, userTeamId)) continue;
+        seen.add(fixture.id);
+        collected.push(fixture);
+      }
+    }
+    return collected.sort(
+      (left, right) => left.date.localeCompare(right.date) || left.matchday - right.matchday,
+    );
+  }, [gameState.competitions, gameState.league, userTeamId]);
   const nextUserFixture = userFixtures.find((fixture) => fixture.status !== "Completed") ?? null;
   const recentUserFixtures = [...userFixtures]
     .filter((fixture) => fixture.status === "Completed")

@@ -213,4 +213,54 @@ describe("ScheduleTab", () => {
     fireEvent.click(screen.getByRole("button", { name: /^All$/i }));
     expect(screen.getByTestId("schedule-fixture-fixture-1")).toBeInTheDocument();
   });
+
+  it("includes the user's friendlies that live on the league when a competition is selected", () => {
+    const gameState = createGameState(true);
+    // Simulate a multi-competition world: the selected competition is a cup that
+    // has no user fixture, while a preseason friendly is appended to game.league.
+    gameState.competitions = [
+      {
+        id: "comp-cup",
+        name: "Domestic Cup",
+        season: 1,
+        kind: "DomesticCup",
+        format: "Knockout",
+        country: "GB",
+        tier: 1,
+        team_ids: ["team-1", "team-2"],
+        fixtures: [
+          createFixture({
+            id: "cup-1",
+            competition: "DomesticCup",
+            home_team_id: "team-2",
+            away_team_id: "team-1",
+            status: "Scheduled",
+            result: null,
+          }),
+        ],
+        standings: [],
+      },
+    ];
+    gameState.league = {
+      id: "league-1",
+      name: "Premier League",
+      season: 1,
+      fixtures: [
+        createFixture({
+          id: "friendly-1",
+          competition: "Friendly",
+          date: "2026-07-20",
+          status: "Completed",
+        }),
+      ],
+      standings: [],
+    };
+
+    render(<ScheduleTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    // My Club aggregates across sources: both the cup fixture and the
+    // league-only friendly involving the user's club are shown.
+    expect(screen.getByTestId("schedule-fixture-cup-1")).toBeInTheDocument();
+    expect(screen.getByTestId("schedule-fixture-friendly-1")).toBeInTheDocument();
+  });
 });

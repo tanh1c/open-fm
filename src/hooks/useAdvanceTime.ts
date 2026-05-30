@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GameStateData } from "../store/gameStore";
 import { useGameStore } from "../store/gameStore";
+import type { AutoSaveMode } from "../store/settingsStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
   advanceTimeWithMode,
@@ -18,9 +19,12 @@ export function useAdvanceTime(
   defaultMatchMode: MatchModeType | undefined,
   settingsLoaded: boolean,
   isUnemployed: boolean,
-  autoSave: boolean,
+  autoSaveMode: AutoSaveMode,
 ) {
   const navigate = useNavigate();
+  // Day-advance and skip only persist when auto-save is set to "always".
+  // The "matchday" mode saves after a match finishes (handled in MatchSimulation).
+  const autoSaveOnAdvance = autoSaveMode === "always";
   const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showContinueMenu, setShowContinueMenu] = useState(false);
@@ -75,7 +79,7 @@ export function useAdvanceTime(
         });
       } else if (result.action === "advanced" && result.game) {
         setGameState(result.game as GameStateData);
-        if (autoSave) await autoSaveGame();
+        if (autoSaveOnAdvance) await autoSaveGame();
       }
     } catch (err) {
       console.error("Failed to advance time:", err);
@@ -152,7 +156,7 @@ export function useAdvanceTime(
       }
       // Skip advances multiple days in one backend call; save once here so the
       // whole skip is persisted without writing per simulated day.
-      if (autoSave && result.game) await autoSaveGame();
+      if (autoSaveOnAdvance && result.game) await autoSaveGame();
     } catch (err) {
       console.error("Failed to skip to match day:", err);
     } finally {

@@ -40,7 +40,9 @@ export default function MatchSimulation() {
   const routeState = (location.state as MatchRouteState | null) ?? null;
   const matchMode = routeState?.mode || "live";
   const { gameState, setGameState } = useGameStore();
-  const autoSave = useSettingsStore((s) => s.settings.auto_save);
+  // Auto-save after a finished match unless the user turned auto-save off.
+  // "matchday" and "always" both persist the completed match; "off" does not.
+  const autoSave = useSettingsStore((s) => s.settings.auto_save_mode) !== "off";
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(
     routeState?.snapshot ?? null,
   );

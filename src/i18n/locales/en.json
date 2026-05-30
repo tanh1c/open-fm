@@ -1161,7 +1161,12 @@
     "confirmAdvanceDesc": "Ask for confirmation before advancing a day",
     "savesData": "Saves & Data",
     "autoSave": "Auto-Save",
-    "autoSaveDesc": "Automatically save your game after each day",
+    "autoSaveDesc": "Off: never auto-save. Matchday: save after each match. Always: also save on every day advance.",
+    "autoSaveModes": {
+      "off": "Off",
+      "matchday": "Matchday",
+      "always": "Always"
+    },
     "exportWorld": "Export World Database",
     "exportWorldDesc": "Save the current world data as a shareable JSON file",
     "export": "Export",

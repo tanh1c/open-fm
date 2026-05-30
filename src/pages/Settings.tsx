@@ -208,7 +208,7 @@ export default function Settings({ embedded = false }: SettingsProps) {
             rows={[
               [t("settings.defaultMatchMode"), t(`settings.matchModes.${settings.default_match_mode}`)],
               [t("settings.matchSpeed"), t(`settings.speeds.${settings.match_speed}`)],
-              [t("settings.autoSave"), settings.auto_save ? t("common.yes", { defaultValue: "On" }) : t("common.no", { defaultValue: "Off" })],
+              [t("settings.autoSave"), t(`settings.autoSaveModes.${settings.auto_save_mode}`, { defaultValue: settings.auto_save_mode })],
             ]}
           />
           <SummaryCard
@@ -336,7 +336,15 @@ export default function Settings({ embedded = false }: SettingsProps) {
           {activeTab === "Saves & Data" ? (
           <Section title={t("settings.savesData")} icon={<Save className="h-5 w-5" />}>
             <SettingRow label={t("settings.autoSave")} description={t("settings.autoSaveDesc")}>
-              <Toggle checked={settings.auto_save} onChange={(v) => handleUpdate({ auto_save: v })} />
+              <SegmentedControl
+                options={[
+                  { value: "off", label: t("settings.autoSaveModes.off", { defaultValue: "Off" }) },
+                  { value: "matchday", label: t("settings.autoSaveModes.matchday", { defaultValue: "Matchday" }) },
+                  { value: "always", label: t("settings.autoSaveModes.always", { defaultValue: "Always" }) },
+                ]}
+                value={settings.auto_save_mode}
+                onChange={(v) => handleUpdate({ auto_save_mode: v as AppSettings["auto_save_mode"] })}
+              />
             </SettingRow>
 
             <SettingRow label={t("settings.exportWorld")} description={t("settings.exportWorldDesc")}>

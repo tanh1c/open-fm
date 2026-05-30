@@ -265,7 +265,7 @@ export default function Dashboard(): JSX.Element {
     settings.default_match_mode,
     settingsLoaded,
     isUnemployed ?? false,
-    settings.auto_save,
+    settings.auto_save_mode,
   );
 
   const handleSave = useCallback(async () => {

@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
   currency: "EUR",
   default_match_mode: "live",
   auto_save: true,
+  auto_save_mode: "matchday",
   match_speed: "normal",
   show_match_commentary: true,
   confirm_advance: false,

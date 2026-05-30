@@ -20,6 +20,8 @@ pub struct AppSettings {
     pub currency: String,
     pub default_match_mode: String,
     pub auto_save: bool,
+    #[serde(default = "default_auto_save_mode")]
+    pub auto_save_mode: String,
     pub match_speed: String,
     pub show_match_commentary: bool,
     pub confirm_advance: bool,
@@ -37,6 +39,10 @@ fn default_ui_scale() -> String {
     "normal".to_string()
 }
 
+fn default_auto_save_mode() -> String {
+    "matchday".to_string()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -45,6 +51,7 @@ impl Default for AppSettings {
             currency: "EUR".to_string(),
             default_match_mode: "live".to_string(),
             auto_save: true,
+            auto_save_mode: "matchday".to_string(),
             match_speed: "normal".to_string(),
             show_match_commentary: true,
             confirm_advance: false,

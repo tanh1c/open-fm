@@ -37,7 +37,9 @@ function HookHarness(props: {
       props.defaultMatchMode,
       true,
       false,
-      props.autoSave ?? false,
+      // The old boolean autoSave prop maps to "always" (save on every advance);
+      // "off" otherwise so existing non-autosave tests stay unchanged.
+      props.autoSave ? "always" : "off",
     );
 
   return (

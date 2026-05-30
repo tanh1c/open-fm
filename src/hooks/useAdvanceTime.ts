@@ -169,11 +169,6 @@ export function useAdvanceTime(
       if (result.game) setGameState(result.game as GameStateData);
       if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
         setBlockerModal({ blockers: result.blockers });
-      } else if (result.action === "match_day") {
-        // Vacation stopped on the user's fixture day — surface the match
-        // confirmation so they choose how to play it, just like a normal
-        // matchday Continue.
-        setShowMatchConfirm(true);
       }
       // Vacation advances multiple days in one backend call; save once here so
       // the whole jump is persisted without writing per simulated day.

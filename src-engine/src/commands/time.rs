@@ -173,9 +173,10 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
 }
 
 /// Advance day-by-day until the in-game date reaches `target_date`
-/// (stops once `current_date >= target_date`). Interrupts early on a
-/// scheduled user fixture ("match_day"), a firing ("fired"), or a blocking
-/// action ("blocked"); otherwise returns "arrived".
+/// (stops once `current_date >= target_date`). Vacation = FM-style holiday:
+/// the assistant auto-plays every match (including the user's own, instantly),
+/// so it never pauses on a matchday. Interrupts early only on a firing
+/// ("fired") or a blocking action ("blocked"); otherwise returns "arrived".
 #[tauri::command]
 pub fn advance_to_date(
     state: State<'_, StateManager>,
@@ -186,7 +187,8 @@ pub fn advance_to_date(
         .get_game(|g| g.clone())
         .ok_or("be.error.noActiveGameSession")?;
 
-    let user_team_id = game
+    // Vacation is only offered to employed managers; bail otherwise.
+    let _user_team_id = game
         .manager
         .team_id
         .clone()
@@ -201,27 +203,8 @@ pub fn advance_to_date(
             break;
         }
 
-        let has_match = game.league.as_ref().is_some_and(|league| {
-            league.fixtures.iter().any(|fixture| {
-                fixture.date == today
-                    && fixture.status == domain::league::FixtureStatus::Scheduled
-                    && (fixture.home_team_id == user_team_id
-                        || fixture.away_team_id == user_team_id)
-            })
-        });
-        if has_match {
-            info!(
-                "[cmd] advance_to_date: match_day={}, days_advanced={}",
-                today, days_advanced
-            );
-            state.set_game(game.clone());
-            return Ok(serde_json::json!({
-                "action": "match_day",
-                "game": game,
-                "days_advanced": days_advanced
-            }));
-        }
-
+        // process_day simulates every fixture scheduled today — including the
+        // user's match (instant, assistant-managed) — then advances the clock.
         let mut captures = Vec::new();
         ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
             captures.push(capture);

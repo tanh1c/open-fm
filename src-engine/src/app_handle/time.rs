@@ -134,17 +134,19 @@ impl AppHandle {
     /// Advance day-by-day until the in-game date reaches `target_date`
     /// (inclusive lower bound: stops once `current_date >= target_date`).
     ///
-    /// Like `skip_to_match_day`, the run is interrupted early — and never
-    /// auto-plays the user's own match — when one of these arises before the
+    /// Vacation = FM-style holiday: the assistant takes charge and auto-plays
+    /// every match (including the user's own fixtures, simulated instantly), so
+    /// the run never pauses to open the matchday menu. It is still interrupted
+    /// early — without further simulation — when one of these arises before the
     /// target is reached:
-    ///   * a scheduled user fixture today → action "match_day"
-    ///   * the manager is fired           → action "fired"
-    ///   * a blocking action appears       → action "blocked"
+    ///   * the manager is fired       → action "fired"
+    ///   * a blocking action appears  → action "blocked"
     /// Otherwise it returns action "arrived" at (or just past) the target.
     #[wasm_bindgen(js_name = advanceToDate)]
     pub fn advance_to_date(&self, target_date: String) -> Result<JsValue, JsValue> {
         let mut game = self.snapshot_game()?;
-        let user_team_id = game
+        // Vacation is only offered to employed managers; bail otherwise.
+        let _user_team_id = game
             .manager
             .team_id
             .clone()
@@ -162,23 +164,8 @@ impl AppHandle {
                 break;
             }
 
-            let has_match = game.league.as_ref().is_some_and(|league| {
-                league.fixtures.iter().any(|fixture| {
-                    fixture.date == today
-                        && fixture.status == domain::league::FixtureStatus::Scheduled
-                        && (fixture.home_team_id == user_team_id
-                            || fixture.away_team_id == user_team_id)
-                })
-            });
-            if has_match {
-                self.state.set_game(game.clone());
-                return to_js_value(&serde_json::json!({
-                    "action": "match_day",
-                    "game": game,
-                    "days_advanced": days_advanced,
-                }));
-            }
-
+            // process_day simulates every fixture scheduled today — including the
+            // user's match (instant, assistant-managed) — then advances the clock.
             let mut captures = Vec::new();
             ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
                 captures.push(capture);

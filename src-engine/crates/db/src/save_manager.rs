@@ -285,6 +285,20 @@ impl SaveManager {
                 last_played_at: now,
                 game_date: Some(game_calendar_date(&game)),
             })?;
+        } else if entry.game_date.is_none() {
+            // Backfill the in-game date for saves written before the game_date
+            // column existed, without rewriting the whole game blob. This is a
+            // cheap index-only update so the load menu shows the right date on
+            // the first load after upgrading.
+            self.save_index.update_save(SaveEntry {
+                id: save_id.to_string(),
+                name: save_name,
+                manager_name: entry.manager_name.clone(),
+                db_filename: entry.db_filename.clone(),
+                created_at: entry.created_at.clone(),
+                last_played_at: entry.last_played_at.clone(),
+                game_date: Some(game_calendar_date(&game)),
+            })?;
         }
 
         Ok(game)

@@ -71,9 +71,42 @@ pub struct GameRecords {
     pub record_transfer_fee: Option<TransferRecord>,
     pub highest_points_in_season: Option<TeamRecord>,
     pub most_goals_team_in_season: Option<TeamRecord>,
+    /// Working state (not a display record): the current in-progress unbeaten
+    /// run per team id, updated after every match. Used to detect when a new
+    /// `longest_unbeaten_run` is set. Persisted so a streak survives save/reload.
+    pub current_unbeaten_runs: std::collections::HashMap<String, u32>,
 }
 
 impl GameRecords {
+    /// Update a team's running unbeaten streak after a match and promote it into
+    /// `longest_unbeaten_run` when it sets a new high. `lost` resets the streak.
+    pub fn record_match_for_unbeaten_run(
+        &mut self,
+        team_id: &str,
+        team_name: &str,
+        lost: bool,
+        season: u32,
+    ) {
+        if lost {
+            self.current_unbeaten_runs.insert(team_id.to_string(), 0);
+            return;
+        }
+        let streak = self
+            .current_unbeaten_runs
+            .entry(team_id.to_string())
+            .or_insert(0);
+        *streak += 1;
+        let current = *streak;
+        Self::promote_team_record(
+            &mut self.longest_unbeaten_run,
+            TeamRecord {
+                team_id: team_id.to_string(),
+                team_name: team_name.to_string(),
+                value: current,
+                season,
+            },
+        );
+    }
     /// Replace `slot` with `candidate` when the candidate's value is strictly
     /// higher than the current holder (or there is no holder yet).
     pub fn promote_player_record(slot: &mut Option<PlayerRecord>, candidate: PlayerRecord) {
@@ -176,5 +209,33 @@ mod tests {
             },
         );
         assert!(slot.is_none());
+    }
+
+    #[test]
+    fn unbeaten_run_tracks_peak_and_resets_on_loss() {
+        let mut records = GameRecords::default();
+        // W, D, W -> streak 3
+        records.record_match_for_unbeaten_run("t1", "Team One", false, 2026);
+        records.record_match_for_unbeaten_run("t1", "Team One", false, 2026);
+        records.record_match_for_unbeaten_run("t1", "Team One", false, 2026);
+        assert_eq!(records.longest_unbeaten_run.as_ref().unwrap().value, 3);
+
+        // Loss resets the running streak but the all-time peak stays at 3.
+        records.record_match_for_unbeaten_run("t1", "Team One", true, 2026);
+        assert_eq!(records.current_unbeaten_runs.get("t1").copied(), Some(0));
+        assert_eq!(records.longest_unbeaten_run.as_ref().unwrap().value, 3);
+
+        // A shorter later run does not lower the record.
+        records.record_match_for_unbeaten_run("t1", "Team One", false, 2027);
+        records.record_match_for_unbeaten_run("t1", "Team One", false, 2027);
+        assert_eq!(records.longest_unbeaten_run.as_ref().unwrap().value, 3);
+
+        // Another team can take the record with a longer run.
+        for _ in 0..4 {
+            records.record_match_for_unbeaten_run("t2", "Team Two", false, 2027);
+        }
+        let record = records.longest_unbeaten_run.as_ref().unwrap();
+        assert_eq!(record.team_id, "t2");
+        assert_eq!(record.value, 4);
     }
 }

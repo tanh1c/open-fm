@@ -617,6 +617,28 @@ fn update_team_form(
         }
     }
 
+    // Track the all-time longest unbeaten run. Uses the game clock year as the
+    // season stamp; the running streak per team lives in GameRecords so it
+    // survives the 5-match `form` window and save/reload.
+    {
+        use chrono::Datelike;
+        let season = game.clock.current_date.year() as u32;
+        for (team_id_str, result) in [(home_team_id, home_result), (away_team_id, away_result)] {
+            let team_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == team_id_str)
+                .map(|t| t.name.clone())
+                .unwrap_or_default();
+            game.records.record_match_for_unbeaten_run(
+                team_id_str,
+                &team_name,
+                result == "L",
+                season,
+            );
+        }
+    }
+
     // Apply streak-based morale bonus/penalty
     for team_id_str in [home_team_id, away_team_id] {
         let form = game

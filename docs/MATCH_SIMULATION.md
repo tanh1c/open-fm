@@ -14,22 +14,33 @@ The current implementation simplifies this to a **5-zone, action-based** model. 
 
 ## Architecture
 
-The simulation lives in the `engine` crate (`src-tauri/crates/engine/`), which is deliberately **decoupled from the domain crate**. It defines its own mirror types (`Position`, `PlayStyle`, `PlayerData`, `TeamData`) so that the engine can be tested and evolved independently.
+The simulation lives in the `engine` crate (`src-engine/crates/engine/`), which is deliberately **decoupled from the domain crate** (its `Cargo.toml` has no `domain` dependency). It defines its own mirror types (`Position`, `PlayStyle`, `PlayerData`, `TeamData`) so that the engine can be tested and evolved independently.
 
 ```
 engine/
-├── types.rs      — PlayerData, TeamData, MatchConfig, Zone, Side, PlayStyle
-├── event.rs      — MatchEvent struct + EventType enum (22 event variants)
-├── engine.rs     — Core instant simulation (simulate / simulate_with_rng)
-├── report.rs     — MatchReport, TeamStats, PlayerMatchStats, GoalDetail
-├── live_match.rs — LiveMatchState for step-by-step simulation
-├── ai.rs         — AI manager decision engine
-└── lib.rs        — Re-exports
+├── types.rs            — PlayerData, TeamData, MatchConfig, Zone, Side, PlayStyle
+├── event.rs            — MatchEvent struct + EventType enum (29 event variants)
+├── engine/             — Core instant simulation
+│   ├── mod.rs          — simulate / simulate_with_rng entry points
+│   ├── resolution.rs   — zone-by-zone action resolution
+│   └── fouls.rs        — foul, card, injury resolution
+├── report.rs           — MatchReport, TeamStats, PlayerMatchStats, GoalDetail
+├── live_match/         — Step-by-step LiveMatchState
+│   ├── mod.rs          — LiveMatchState + phase management
+│   ├── simulation.rs   — per-minute stepping
+│   ├── zone_resolution.rs — live zone resolution
+│   ├── penalty.rs      — penalty shootout
+│   ├── substitution.rs — substitution handling
+│   ├── snapshot.rs     — MatchSnapshot serialization
+│   └── helpers.rs      — shared helpers
+├── ai.rs               — AI manager decision engine
+├── shared.rs           — shared rating/skill helpers
+└── lib.rs              — Re-exports
 ```
 
 The `ofm_core` crate bridges domain ↔ engine:
-- `turn.rs` — converts domain types to engine types, runs simulations, applies results back
-- `live_match_manager.rs` — wraps `LiveMatchState` with session management, RNG, AI profiles
+- `turn/mod.rs` — converts domain types to engine types, runs simulations, applies results back
+- `live_match_manager.rs` (and the `live_match_manager/` module) — wraps `LiveMatchState` with session management, RNG, AI profiles
 
 ---
 
@@ -181,7 +192,7 @@ All probabilities and multipliers are tuneable via `MatchConfig`:
 | `home_advantage` | 1.08 | Multiplier for home team ratings |
 | `shot_accuracy_base` | 0.45 | Base chance a shot is on target |
 | `goal_conversion_base` | 0.30 | Base chance an on-target shot scores |
-| `fatigue_per_minute` | 0.15 | Condition loss per minute (live mode) |
+| `fatigue_per_minute` | 0.20 | Condition loss per minute (live mode) |
 | `foul_probability` | 0.12 | Base chance a tackle results in a foul |
 | `yellow_card_probability` | 0.30 | Chance a foul produces a yellow |
 | `red_card_probability` | 0.04 | Chance a card is direct red |
@@ -204,7 +215,7 @@ After simulation, a `MatchReport` is generated from the raw event list:
 
 ## Live Match System
 
-The live match system (`live_match.rs`) wraps the core zone-based resolution into a **step-by-step** simulation with:
+The live match system (the `live_match/` module) wraps the core zone-based resolution into a **step-by-step** simulation with:
 
 ### Match Phases
 
@@ -270,7 +281,7 @@ The experience factor scales how early and aggressively the AI makes decisions.
 
 ## Integration: Domain ↔ Engine
 
-The `turn.rs` module in `ofm_core` handles the conversion:
+The `turn/mod.rs` module in `ofm_core` handles the conversion:
 
 1. **`build_engine_team()`** — converts domain `Player`/`Team` objects into engine `PlayerData`/`TeamData`, mapping positions, play styles, and all 18 attributes + traits.
 2. **`simulate_matchday()`** — for each fixture on a match day, builds engine teams and calls `engine::simulate()`.
@@ -285,9 +296,9 @@ For live matches, `live_match_manager.rs` provides:
 
 ## Test Coverage
 
-The simulation has **69 dedicated tests**:
+The simulation has **107 dedicated tests**:
 
-**Instant simulation** (`tests/simulation_tests.rs` — 36 tests):
+**Instant simulation** (`tests/simulation_tests.rs` — 49 tests):
 - Types: overall rating, condition effect, position counts, rating scaling
 - Zones: attacking box, attacking third, defensive third, zone advancement
 - Events: builder pattern, goal detection, chronological ordering
@@ -298,7 +309,7 @@ The simulation has **69 dedicated tests**:
 - Edge cases: zero stoppage time, high foul probability, JSON serialization
 - Realism: average goals per game in 0.5–8.0 range
 
-**Live match** (`tests/live_match_tests.rs` — 33 tests):
+**Live match** (`tests/live_match_tests.rs` — 58 tests):
 - Lifecycle, phase transitions, halftime/fulltime events
 - Extra time triggering, penalty shootout resolution
 - Substitution mechanics (replace, max enforced, invalid player, recorded in events)

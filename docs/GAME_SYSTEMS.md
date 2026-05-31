@@ -21,21 +21,31 @@ This document describes the major gameplay systems in Open Futball Manager beyon
 
 ## Turn Processing
 
-The game advances one day at a time via `process_day()` in `ofm_core/turn.rs`. Each day follows this sequence:
+The game advances one day at a time via `process_day()` in `ofm_core/turn/mod.rs` (the `turn` module is split across `mod.rs`, `news.rs`, `post_match.rs`, and `round_summary.rs`). `process_day()` delegates to `process_day_with_capture()`, which runs the full daily pipeline. Each day follows this sequence:
 
 ```
-process_day(game)
-├── Is there a match today?
-│   ├── YES → simulate_matchday()
+process_day_with_capture(game, on_capture)
+├── Is there a match today? (legacy league + competitions, indexed by date)
+│   ├── YES → simulate_matchday_with_capture()
 │   │         ├── For each fixture: build engine teams, simulate, apply results
 │   │         ├── Update standings (points, goal difference)
 │   │         ├── Update player season stats (goals, assists, cards, rating)
 │   │         └── Generate match result news articles
 │   └── NO  → process_training(game, weekday)
 │             └── check_squad_fitness_warnings(game)
-├── generate_pre_match_messages(game)
-└── clock.advance_days(1)
+├── process_contract_expiries(game) + process_loan_expiries(game)
+├── process_weekly_finances(game)            # wages, matchday income, sponsor, warnings
+├── board_objectives: generate + update progress
+├── player_events, injury recovery, random_events, scouting
+├── process_transfer_market_tick(game)       # cadence-limited AI market
+├── ai_hiring: update AI manager satisfaction
+├── news: weekly digest, pre-match messages, prune old
+├── firing check, vacant AI club hiring, job offers
+├── clock.advance_days(1)
+└── sync_primary_competition_from_legacy_league() + refresh_game_context()
 ```
+
+> **Performance note:** Before simulating, `build_day_simulation_indexes()` groups scheduled fixtures into a `HashMap<date → indices>` (for both the legacy `league` and `competitions`), and `build_players_by_team()` builds a `HashMap<team_id → players>` once per day. This avoids repeated linear scans across the 248-club world.
 
 ### Match Day Processing
 
@@ -309,21 +319,24 @@ The inbox system provides contextual communication from in-game characters. Mess
 
 ### Message Categories
 
+The `MessageCategory` enum currently defines 15 categories: `Welcome`, `LeagueInfo`, `MatchPreview`, `MatchResult`, `Transfer`, `BoardDirective`, `PlayerMorale`, `Injury`, `Training`, `Finance`, `Contract`, `ScoutReport`, `Media`, `System`, `JobOffer`.
+
 | Category | Sender | Trigger |
 |----------|--------|---------|
 | Welcome | Board of Directors | Game start (team selection) |
 | LeagueInfo | League Office | League setup |
 | MatchPreview | Scout / Asst. Manager | Day before a fixture |
 | MatchResult | Asst. Manager | After each fixture |
-| Training | Physio / Asst. Manager | Fitness warnings (daily) |
+| Transfer | Director of Football / Asst. Manager | Incoming/outgoing offers, completed deals |
 | BoardDirective | Chairman | Board objectives, warnings, dismissal, and hiring welcome messages |
+| PlayerMorale | Asst. Manager / Player | Squad unrest, unhappy players, conversations |
+| Injury | Physio | Player injury reports |
+| Training | Physio / Asst. Manager | Fitness warnings (daily) |
+| Finance | Board / Finance Director | Sponsorship and budget updates |
+| Contract | Agent / Asst. Manager | Contract negotiations and renewal decisions |
 | JobOffer | Board of Directors | Vacancy-driven approaches and application replies for unemployed managers |
-| Finance | (Future) | Budget updates |
-| Transfer | (Future) | Transfer offers |
-| Injury | (Future) | Injury reports |
-| Contract | (Future) | Contract negotiations |
-| ScoutReport | (Future) | Player scouting |
-| Media | (Future) | Press stories |
+| ScoutReport | Scout | Player scouting reports |
+| Media | Press / Media | Press stories from random events |
 | System | System | Technical messages |
 
 ### Message Structure
@@ -441,7 +454,7 @@ generate_world(data_dir)
 ### Definition Files
 
 Two external JSON files can customize generation:
-- `default_names.json` — Name pools keyed by ISO alpha-2 country code
+- `default_names.json` — Name pools keyed by short uppercase nationality code (mostly ISO 3166-1 alpha-2, plus football codes such as `ENG`/`SCO`/`WAL`/`NIR`)
 - `default_teams.json` — Team templates with name, city, country, optional `domestic_tier`, colors, play style, reputation/finance ranges
 
 If files are not found or have parse errors, the generator silently falls back to hardcoded defaults compiled into the binary.
@@ -461,16 +474,16 @@ Each team tracks financial state:
 | `season_expenses` | Cumulative expenses this season |
 
 ### Income Sources
-- Match day revenue (future)
+- **Matchday revenue** — computed weekly from recent home matches via `calc_matchday(stadium_capacity, home_match_count, attendance_pct, avg_ticket)` (default 76% attendance, €20 average ticket)
+- **Sponsorship** — each club can hold a `Sponsorship` deal with a weekly `base_value` plus performance bonuses (league position, form) evaluated each week. Managers can pitch for new deals via the sponsor pitch flow.
 - Prize money (future)
-- Sponsorship (future)
 
 ### Expenses
-- Staff wages (recorded on hire)
-- Player wages (weekly)
-- Transfer fees (future)
+- Player wages (weekly, billed via `process_weekly_finances`)
+- Staff wages (weekly)
+- Transfer fees (applied through `execute_transfer` when deals complete)
 
-The `FinancesTab` displays an overview with cards for balance, wage budget, transfer budget, and a payroll table.
+`process_weekly_finances()` runs each Monday: it bills wages, credits matchday and sponsor income, and emits finance warnings/messages when the projected balance runs low. The `FinancesTab` displays an overview with cards for balance, wage budget, transfer budget, sponsorship, and a payroll table.
 
 ---
 
@@ -495,4 +508,13 @@ The `TransfersTab` provides 4 views:
 
 ### Transfer Mechanics
 
-(Transfer resolution logic is planned for future development. The current system provides the UI framework and data structures.)
+The transfer system is implemented in `ofm_core/transfers.rs` and exposed through WASM/`invoke` commands. Core flows:
+
+- **AI market** — `process_transfer_market_tick()` runs on a cadence during day advancement (gated by `should_evaluate_transfer_market`, plus deadline-day handling). It generates incoming offers for user players and completes AI-to-AI transfers within budget. `generate_incoming_transfer_offers()` / `evaluate_transfer_market()` perform the same evaluation immediately (used by tests and direct triggers, bypassing the cadence gate).
+- **Outgoing bids** — `make_transfer_bid()` creates a bid for another club's player; `project_transfer_bid_financial_impact()` previews affordability before committing.
+- **Negotiation** — `respond_to_offer()` accepts/rejects an incoming offer, `counter_offer()` proposes a new fee, and `propose_transfer_contract()` agrees personal terms. Accepted deals are finalized through `execute_transfer`, which is the single authoritative move path (also used by the vacation assistant).
+- **Free agents** — `approach_free_agent()` signs an unattached player on agreed terms.
+- **Loans** — `make_loan_offer()` creates loan deals; `process_loan_expiries()` returns loanees when their spell ends.
+- **Shortlist** — `toggle_shortlist()` adds/removes players from the manager's shortlist.
+
+Transfer windows gate when activity is allowed; `season_context` tracks the current window status (including deadline day).

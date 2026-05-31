@@ -2,36 +2,42 @@
 
 ## Overview
 
-Replace the current single `saves.db` (JSON blob per save) with a proper relational
+> **Status: implemented.** This document was originally written as a redesign proposal. The relational, one-database-per-save model described below now ships in the `db` crate. Two things diverge from the original proposal and are corrected throughout this document:
+> 1. The game runs **WASM-only in the browser**, so persistence lives in **OPFS** (Origin Private File System) via an `sqlite-wasm` sahpool VFS — not a native `~/.local/share` path.
+> 2. The save manifest is stored in a small SQLite database (`app.db`), not a `save_index.json` file.
+
+The design replaces a single `saves.db` (JSON blob per save) with a proper relational
 database per save session. Each save is its own SQLite file with a well-defined schema
 managed through migrations.
 
-## Current State (to be replaced)
+## Legacy State (replaced)
 
-- `db` crate: `DbManager` opens a single `saves.db`, stores entire `Game` struct as a
+- Old `db` crate: `DbManager` opened a single `saves.db`, storing the entire `Game` struct as a
   JSON TEXT column.
-- All game state is serialized/deserialized as one monolithic blob.
+- All game state was serialized/deserialized as one monolithic blob.
 - No schema validation, no checksums, no migration support.
 
-## Target Architecture
+## Architecture
 
 ### 1. One Database Per Save
 
+Storage lives under the OPFS root mounted by the sahpool VFS (`install_opfs_sahpool()`,
+which must run inside the engine Web Worker because `FileSystemSyncAccessHandle` would
+block the main thread):
+
 ```
-~/.local/share/com.openfootmanager/
+<OPFS root>/
+├── app.db                   # App-level DB: save index/manifest + app settings
 ├── saves/
-│   ├── <uuid1>.db          # Save session 1
-│   ├── <uuid2>.db          # Save session 2
+│   ├── <uuid1>.db           # Save session 1
+│   ├── <uuid2>.db           # Save session 2
 │   └── ...
-├── save_index.json          # Manifest of all saves
-├── settings.json            # App settings (unchanged)
-├── databases/               # User-imported world databases (unchanged)
-└── saves.db.migrated        # Renamed legacy file (if existed)
+└── databases/               # User-imported world databases
 ```
 
 ### 2. Database Schema (per save `.db` file)
 
-Managed by `rusqlite_migration`. The initial schema starts at V1, and the current save schema also includes later additive migrations such as V14 for football identity fields.
+Managed by `rusqlite_migration`. The schema starts at V1 and currently includes 27 additive migrations (latest **V27**); earlier milestones include V14 for football identity fields.
 
 ```sql
 -- Game clock / session metadata
@@ -214,37 +220,40 @@ CREATE TABLE scouting_assignments (
 - Load-time migration fills missing `football_nation` and `birth_country` values conservatively and auto-resaves upgraded saves.
 - Ambiguous legacy `GB` values are not blanket-rewritten. Deterministic cases, such as known bundled English clubs, can be upgraded to `ENG` via migration heuristics.
 
-### 3. Save Index (`save_index.json`)
+### 3. Save Index (`app.db`)
 
-```json
+The save manifest is persisted as a table in `app.db` (a small app-level SQLite database
+managed by `save_index_manager.rs` / `app_db.rs`), rather than a JSON file. Each entry
+records the same metadata originally proposed for `save_index.json`:
+
+```jsonc
+// One row per save (conceptual shape)
 {
-  "version": 1,
-  "saves": [
-    {
-      "id": "uuid-1",
-      "name": "John's Career",
-      "manager_name": "John Smith",
-      "db_filename": "uuid-1.db",
-      "checksum": "sha256hex...",
-      "created_at": "2026-03-05T18:00:00Z",
-      "last_played_at": "2026-03-05T19:30:00Z"
-    }
-  ]
+  "id": "uuid-1",
+  "name": "John's Career",
+  "manager_name": "John Smith",
+  "db_filename": "uuid-1.db",
+  "checksum": "sha256hex...",
+  "created_at": "2026-03-05T18:00:00Z",
+  "last_played_at": "2026-03-05T19:30:00Z"
 }
 ```
 
-- **On save**: compute SHA-256 of the `.db` file, update index.
-- **On load (list)**: read `save_index.json` — no DB opens needed.
-- **If index missing**: scan `saves/` directory, open each `.db`, validate schema
-  via migration version check, rebuild index.
+- **On save**: compute SHA-256 of the `.db` file, upsert the index row.
+- **On load (list)**: read the index table from `app.db` — no per-save DB opens needed.
+- **If index missing/stale**: scan the `saves/` directory, open each `.db`, validate schema
+  via migration version check, rebuild the index.
 - **If DB invalid**: mark as corrupted in UI, do not crash.
 
 ### 4. Crate Boundaries
 
 ```
 db crate (persistence layer):
-├── migrations.rs       — Migration definitions (rusqlite_migration)
-├── game_database.rs    — GameDatabase struct (open, apply migrations, close)
+├── migrations.rs          — Migration definitions (rusqlite_migration)
+├── game_database.rs       — GameDatabase struct (open, apply migrations, close)
+├── game_persistence.rs    — Game ↔ storage record (de)serialization
+├── app_db.rs              — App-level DB (save index + settings)
+├── opfs.rs                — OPFS sahpool VFS bootstrap (wasm32 only)
 ├── repositories/
 │   ├── mod.rs
 │   ├── team_repo.rs
@@ -255,12 +264,16 @@ db crate (persistence layer):
 │   ├── message_repo.rs
 │   ├── news_repo.rs
 │   ├── meta_repo.rs
-│   └── objective_repo.rs
-├── save_index.rs       — SaveIndex read/write/rebuild
-├── save_manager.rs     — High-level orchestration (create/load/save/delete)
-├── legacy.rs           — Legacy saves.db migration
+│   ├── objective_repo.rs
+│   ├── scouting_repo.rs
+│   └── stats_repo.rs
+├── save_index.rs          — SaveIndex record types
+├── save_index_manager.rs  — Save index read/write/rebuild (backed by app.db)
+├── save_manager.rs        — High-level orchestration (create/load/save/delete)
 └── lib.rs
 ```
+
+> The original proposal also listed a `legacy.rs` for migrating an old monolithic `saves.db`. The codebase now ships the relational model directly; consult the crate source for the current legacy-handling status.
 
 ### 5. Data Flow
 
@@ -271,10 +284,10 @@ db crate (persistence layer):
    - Creates `saves/<uuid>.db` if new
    - Applies migrations
    - Writes all entities from `Game` to tables
-   - Computes checksum, updates `save_index.json`
+   - Computes checksum, updates the save index in `app.db`
 
 **Load Game:**
-1. `get_saves` → reads `save_index.json` → returns metadata list
+1. `get_saves` → reads the save index from `app.db` → returns metadata list
 2. `load_game(id)` → `SaveManager::load(id)`:
    - Opens `saves/<id>.db`
    - Validates schema version
@@ -289,24 +302,24 @@ db crate (persistence layer):
 4. Reset game_meta with new save info
 
 **Legacy Migration:**
-1. On startup, check for `saves.db`
+1. On startup, check for an old monolithic `saves.db`
 2. Open it, read all JSON blobs
 3. For each: create new individual DB, write entities
-4. Build `save_index.json`
+4. Populate the save index in `app.db`
 5. Rename `saves.db` → `saves.db.migrated`
 
 ### 6. Definition File Validation
 
-Current behavior (silent fallback) changes to:
-- **Built-in definitions**: hardcoded in `data.rs` (unchanged)
-- **Custom definition files**: if provided, MUST be valid. Missing required fields
+- **Built-in definitions**: hardcoded in the generator's `data.rs` (always available)
+- **Custom definition files**: if provided, must be valid; missing required fields
   cause an explicit error returned to the caller.
 - **Regeneration**: if shipped definition files are deleted, regenerate from hardcoded
   data with identical content.
-- **Pre-populated DB**: ship a `default_world.db` that can be used as a starting
-  database instead of generating from scratch.
+- **Pre-populated DB**: a starting `default_world.db` can be used instead of generating
+  from scratch.
 
-### 7. Implementation Phases
+### 7. Implementation Status
 
-See TODO list in active session. Follow strict TDD (Red→Green→Refactor) with atomic
-commits using Conventional Commits 1.0.0.
+The relational save system described above is implemented. Earlier phases were built with
+TDD (Red→Green→Refactor) and atomic Conventional Commits; the schema has since advanced to
+migration V27.

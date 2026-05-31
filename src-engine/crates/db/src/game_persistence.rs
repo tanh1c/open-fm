@@ -251,6 +251,10 @@ impl GamePersistenceReader {
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
         };
         game.sync_competitions_from_legacy_league();
+        // Repair saves written before per-day sync existed: the legacy league
+        // holds the real simulated results, so push them into the mirrored
+        // primary competition the frontend reads from.
+        game.sync_primary_competition_from_legacy_league();
         ofm_core::season_context::refresh_game_context(&mut game);
 
         Ok(game)

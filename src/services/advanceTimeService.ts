@@ -27,12 +27,64 @@ export interface SkipToMatchDayResponse {
   days_skipped?: number;
 }
 
+export interface VacationMatchResult {
+  fixtureId: string;
+  date: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  homeGoals: number;
+  awayGoals: number;
+}
+
+export interface VacationAssistantTransferAction {
+  playerId: string;
+  playerName: string;
+  offerId: string;
+  action: string;
+  fee: number;
+}
+
+export interface VacationReport {
+  startedAt: string;
+  endedAt: string;
+  daysAdvanced: number;
+  stopReason: string;
+  matchResults: VacationMatchResult[];
+  transferOfferIds: string[];
+  jobOfferMessageIds: string[];
+  urgentMessageIds: string[];
+  blockerIds: string[];
+  delegatedRenewalReports?: unknown[];
+  assistantTransferActions?: VacationAssistantTransferAction[];
+}
+
 export interface AdvanceToDateResponse {
-  // "arrived" | "match_day" | "blocked" | "fired"
   action: string;
   game?: GameStateData;
   blockers?: BlockerData[];
   days_advanced?: number;
+  report?: VacationReport;
+}
+
+export interface VacationSettings {
+  handleMatches: boolean;
+  handleTraining: boolean;
+  handleTransfers: boolean;
+  handleContracts: boolean;
+  handleScouting: boolean;
+  ignoreSoftBlockers: boolean;
+  returnForUserMatch: boolean;
+  returnForJobOffer: boolean;
+  returnForTransferOffer: boolean;
+  returnForContractDecision: boolean;
+  returnForInjuryCrisis: boolean;
+  returnForUrgentMessage: boolean;
+  contractMaxWageIncreasePct: number;
+  contractMaxYears: number;
+  transferMinimumValuePct: number;
+  allowAssistantToSellKeyPlayers: boolean;
+  applyForJobsWhileAway: boolean;
+  jobMinimumReputation?: number | null;
 }
 
 export async function advanceTimeWithMode(
@@ -68,8 +120,9 @@ export async function skipToMatchDay(): Promise<SkipToMatchDayResponse> {
 // or a blocking action ("blocked"); otherwise resolves "arrived".
 export async function advanceToDate(
   targetDate: string,
+  settings: VacationSettings,
 ): Promise<AdvanceToDateResponse> {
-  return invoke<AdvanceToDateResponse>("advance_to_date", { targetDate });
+  return invoke<AdvanceToDateResponse>("advance_to_date", { targetDate, settings });
 }
 
 // Persist the current in-memory game to its save slot. Called once per advance

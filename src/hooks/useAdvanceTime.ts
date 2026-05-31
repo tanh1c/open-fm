@@ -10,6 +10,8 @@ import {
   autoSaveGame,
   checkBlockingActions,
   skipToMatchDay,
+  type VacationReport,
+  type VacationSettings,
 } from "../services/advanceTimeService";
 
 export type MatchModeType = "live" | "spectator" | "delegate";
@@ -33,6 +35,7 @@ export function useAdvanceTime(
   const [matchMode, setMatchMode] = useState<MatchModeType>("live");
   const [blockerModal, setBlockerModal] = useState<BlockerModal | null>(null);
   const [showVacationPicker, setShowVacationPicker] = useState(false);
+  const [vacationReport, setVacationReport] = useState<VacationReport | null>(null);
 
   // Sync matchMode with settings when loaded
   useEffect(() => {
@@ -135,41 +138,35 @@ export function useAdvanceTime(
     setShowVacationPicker(false);
   };
 
-  const handleVacation = async (targetDate: string) => {
+  const handleVacation = async (targetDate: string, settings: VacationSettings) => {
     if (isAdvancing) return;
-    console.info("[useAdvanceTime] handleVacation:start", { targetDate });
-    const blockers = await checkBlockingActions("handleVacation");
-    if (blockers.length > 0) {
-      setBlockerModal({
-        blockers,
-        pendingAction: () => doVacation(targetDate),
-      });
-      return;
-    }
-    doVacation(targetDate);
+    console.info("[useAdvanceTime] handleVacation:start", { targetDate, settings });
+    // Vacation is explicit full delegation, so unlike Continue/Skip it does NOT
+    // gate on blocking actions — the user has chosen to hand the reins to the
+    // assistant until the target date, and stopping for soft warnings would
+    // nag on every simulated day.
+    doVacation(targetDate, settings);
   };
 
-  const doVacation = async (targetDate: string) => {
-    console.info("[useAdvanceTime] doVacation:start", { targetDate });
+  const doVacation = async (targetDate: string, settings: VacationSettings) => {
+    console.info("[useAdvanceTime] doVacation:start", { targetDate, settings });
     setIsAdvancing(true);
     resetTransientUi();
     try {
-      const result = await advanceToDate(targetDate);
+      const result = await advanceToDate(targetDate, settings);
       console.info("[useAdvanceTime] doVacation:result", {
         action: result.action,
         daysAdvanced: result.days_advanced,
-        blockerCount: result.blockers?.length ?? 0,
         hasGame: !!result.game,
+        hasReport: !!result.report,
       });
+      if (result.report) setVacationReport(result.report);
       if (result.action === "fired") {
         if (result.game) setGameState(result.game as GameStateData);
         setShowFiredModal(true);
         return;
       }
       if (result.game) setGameState(result.game as GameStateData);
-      if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
-        setBlockerModal({ blockers: result.blockers });
-      }
       // Vacation advances multiple days in one backend call; save once here so
       // the whole jump is persisted without writing per simulated day.
       if (autoSaveOnAdvance && result.game) await autoSaveGame();
@@ -231,6 +228,8 @@ export function useAdvanceTime(
     matchMode, setMatchMode,
     blockerModal, setBlockerModal,
     showVacationPicker,
+    vacationReport,
+    setVacationReport,
     openVacationPicker,
     closeVacationPicker,
     handleVacation,

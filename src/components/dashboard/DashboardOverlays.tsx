@@ -1,5 +1,6 @@
 import type { FixtureData, GameStateData, TeamData } from "../../store/gameStore";
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
+import type { VacationReport, VacationSettings } from "../../services/advanceTimeService";
 import type { BlockerModal } from "../../hooks/useAdvanceTime.helpers";
 import DashboardBlockerModal from "./DashboardBlockerModal";
 import DashboardCloseConfirmModal from "./DashboardCloseConfirmModal";
@@ -8,6 +9,7 @@ import DashboardExitSavingModal from "./DashboardExitSavingModal";
 import { type DashboardMatchModeMeta } from "./DashboardHeader";
 import DashboardMatchConfirmModal from "./DashboardMatchConfirmModal";
 import DashboardVacationModal from "./DashboardVacationModal";
+import DashboardVacationReportModal from "./DashboardVacationReportModal";
 
 interface DashboardOverlaysProps {
   blockerModal: BlockerModal | null;
@@ -17,7 +19,7 @@ interface DashboardOverlaysProps {
   handleExitToMenu: () => void | Promise<void>;
   handleNavigate: (tab: string) => void;
   handleCloseQuit: (save: boolean) => void | Promise<void>;
-  handleVacation: (targetDate: string) => void | Promise<void>;
+  handleVacation: (targetDate: string, settings: VacationSettings) => void | Promise<void>;
   isExitingToMenu: boolean;
   matchMode: MatchModeType;
   setBlockerModal: (value: BlockerModal | null) => void;
@@ -28,7 +30,9 @@ interface DashboardOverlaysProps {
   showExitConfirm: boolean;
   showMatchConfirm: boolean;
   showVacationPicker: boolean;
+  vacationReport: VacationReport | null;
   closeVacationPicker: () => void;
+  closeVacationReport: () => void;
   teams: TeamData[];
   todayMatchFixture: FixtureData | null;
 }
@@ -52,7 +56,9 @@ export default function DashboardOverlays({
   showExitConfirm,
   showMatchConfirm,
   showVacationPicker,
+  vacationReport,
   closeVacationPicker,
+  closeVacationReport,
   teams,
   todayMatchFixture,
 }: DashboardOverlaysProps) {
@@ -64,7 +70,19 @@ export default function DashboardOverlays({
         <DashboardVacationModal
           gameState={gameState}
           onCancel={closeVacationPicker}
-          onConfirm={(targetDate) => void handleVacation(targetDate)}
+          onConfirm={(targetDate, settings) => void handleVacation(targetDate, settings)}
+        />
+      ) : null}
+
+      {vacationReport ? (
+        <DashboardVacationReportModal
+          gameState={gameState}
+          report={vacationReport}
+          onClose={closeVacationReport}
+          onNavigate={(tab) => {
+            closeVacationReport();
+            handleNavigate(tab);
+          }}
         />
       ) : null}
 

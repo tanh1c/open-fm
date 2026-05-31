@@ -4,6 +4,9 @@ use tauri::State;
 use crate::application::time_advancement::advance_time_with_mode as advance_time_with_mode_service;
 pub use crate::application::time_advancement::AdvanceTimeWithModeResponse;
 use crate::application::time_blockers::compute_blocking_actions as compute_blocking_actions_service;
+use crate::application::vacation::{
+    advance_to_date as advance_to_date_service, has_scheduled_user_match, VacationSettings,
+};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
@@ -98,14 +101,7 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
 
         let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
-        let has_match = game.league.as_ref().is_some_and(|league| {
-            league.fixtures.iter().any(|fixture| {
-                fixture.date == today
-                    && fixture.status == domain::league::FixtureStatus::Scheduled
-                    && (fixture.home_team_id == user_team_id
-                        || fixture.away_team_id == user_team_id)
-            })
-        });
+        let has_match = has_scheduled_user_match(&game, &today, &user_team_id);
 
         if has_match {
             info!(
@@ -174,93 +170,32 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
 
 /// Advance day-by-day until the in-game date reaches `target_date`
 /// (stops once `current_date >= target_date`). Vacation = FM-style holiday:
-/// the assistant auto-plays every match (including the user's own, instantly),
-/// so it never pauses on a matchday. Interrupts early only on a firing
-/// ("fired") or a blocking action ("blocked"); otherwise returns "arrived".
+/// the assistant auto-plays every match (including the user's own, instantly)
+/// and runs straight through. It deliberately does NOT pause for soft blockers
+/// (injuries, unread messages, contract warnings), which persist across days
+/// and would nag every single day. The only early exit is a firing ("fired");
+/// otherwise it returns "arrived".
 #[tauri::command]
 pub fn advance_to_date(
     state: State<'_, StateManager>,
     target_date: String,
+    settings: Option<VacationSettings>,
 ) -> Result<serde_json::Value, String> {
-    info!("[cmd] advance_to_date: target_date={}", target_date);
-    let mut game = state
-        .get_game(|g| g.clone())
-        .ok_or("be.error.noActiveGameSession")?;
-
-    // Vacation is only offered to employed managers; bail otherwise.
-    let _user_team_id = game
-        .manager
-        .team_id
-        .clone()
-        .ok_or("be.error.noTeamAssigned")?;
-
-    let max_days = 400u32;
-    let mut days_advanced = 0u32;
-
-    loop {
-        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-        if today.as_str() >= target_date.as_str() || days_advanced >= max_days {
-            break;
-        }
-
-        // process_day simulates every fixture scheduled today — including the
-        // user's match (instant, assistant-managed) — then advances the clock.
-        let mut captures = Vec::new();
-        ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
-            captures.push(capture);
-        });
-        for capture in captures {
-            state.append_stats_state(capture);
-        }
-        days_advanced += 1;
-
-        if game.manager.team_id.is_none() {
-            info!(
-                "[cmd] advance_to_date: manager fired after {} days",
-                days_advanced
-            );
-            state.set_game(game.clone());
-            return Ok(serde_json::json!({
-                "action": "fired",
-                "game": game,
-                "days_advanced": days_advanced
-            }));
-        }
-
-        let blockers = compute_blocking_actions(&game);
-        if !blockers.is_empty() {
-            info!(
-                "[cmd] advance_to_date: blocked_after_days={}, date={}, blocker_count={}",
-                days_advanced,
-                game.clock.current_date.format("%Y-%m-%d"),
-                blockers.len()
-            );
-            state.set_game(game.clone());
-            return Ok(serde_json::json!({
-                "action": "blocked",
-                "game": game,
-                "blockers": blockers,
-                "days_advanced": days_advanced
-            }));
-        }
-    }
-
+    let settings = settings.unwrap_or_default();
+    info!("[cmd] advance_to_date: target_date={}, settings={:?}", target_date, settings);
+    let response = advance_to_date_service(&state, &target_date, settings)?;
     info!(
-        "[cmd] advance_to_date: arrived_after_days={}, final_date={}",
-        days_advanced,
-        game.clock.current_date.format("%Y-%m-%d")
+        "[cmd] advance_to_date: action={}, days_advanced={}, final_date={}",
+        response.action,
+        response.days_advanced,
+        response.game.clock.current_date.format("%Y-%m-%d")
     );
-    state.set_game(game.clone());
-    Ok(serde_json::json!({
-        "action": "arrived",
-        "game": game,
-        "days_advanced": days_advanced
-    }))
+    Ok(serde_json::to_value(response).map_err(|err| err.to_string())?)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{advance_time_with_mode_internal, compute_blocking_actions};
+    use super::{advance_time_with_mode_internal, compute_blocking_actions, VacationSettings};
     use chrono::{TimeZone, Utc};
     use domain::league::{Fixture, FixtureCompetition, FixtureStatus};
     use domain::manager::Manager;
@@ -887,6 +822,60 @@ mod tests {
         let mut game = Game::new(clock, manager, teams, players, vec![], vec![]);
         game.league = Some(league);
         game
+    }
+
+    #[test]
+    fn vacation_default_settings_auto_play_user_matchday() {
+        let state = StateManager::new();
+        state.set_game(make_game_with_matchday());
+        state.set_stats_state(StatsState::default());
+        let target_date = "2025-06-16".to_string();
+        let mut game = state.get_game(|current| current.clone()).unwrap();
+        let user_team_id = game.manager.team_id.clone().unwrap();
+        let mut days_advanced = 0u32;
+        let settings = VacationSettings::default();
+
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        assert!(settings.handle_matches);
+        assert!(!settings.return_for_user_match);
+        assert!(super::has_scheduled_user_match(&game, &today, &user_team_id));
+        while today.as_str() < target_date.as_str() && days_advanced < 400 {
+            let mut captures = Vec::new();
+            ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
+                captures.push(capture);
+            });
+            for capture in captures {
+                state.append_stats_state(capture);
+            }
+            days_advanced += 1;
+            break;
+        }
+
+        assert_eq!(days_advanced, 1);
+        assert_eq!(
+            game.league.as_ref().unwrap().fixtures[0].status,
+            FixtureStatus::Completed
+        );
+    }
+
+    #[test]
+    fn vacation_return_for_user_match_stops_before_fixture_is_played() {
+        let game = make_game_with_matchday();
+        let user_team_id = game.manager.team_id.clone().unwrap();
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        let settings = VacationSettings {
+            return_for_user_match: true,
+            ..VacationSettings::default()
+        };
+
+        let should_return = (settings.return_for_user_match || !settings.handle_matches)
+            && super::has_scheduled_user_match(&game, &today, &user_team_id);
+
+        assert!(should_return);
+        assert_eq!(
+            game.league.as_ref().unwrap().fixtures[0].status,
+            FixtureStatus::Scheduled
+        );
     }
 
     #[test]

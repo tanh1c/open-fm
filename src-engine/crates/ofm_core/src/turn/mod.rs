@@ -74,7 +74,7 @@ where
     progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
-    transfers::generate_incoming_transfer_offers(game);
+    transfers::process_transfer_market_tick(game);
     crate::ai_hiring::update_ai_manager_satisfaction(game);
 
     news::generate_weekly_digest_news(game, &today);
@@ -87,6 +87,10 @@ where
 
     debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
+    // Keep the mirrored primary competition in step with the legacy league the
+    // simulation just mutated, so the frontend (which prefers competitions)
+    // sees fresh results/standings instead of a stale scheduled copy.
+    game.sync_primary_competition_from_legacy_league();
     crate::season_context::refresh_game_context(game);
 }
 
@@ -107,7 +111,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
-    transfers::generate_incoming_transfer_offers(game);
+    transfers::process_transfer_market_tick(game);
     crate::ai_hiring::update_ai_manager_satisfaction(game);
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
@@ -118,6 +122,9 @@ pub fn finish_live_match_day(game: &mut Game) {
     crate::job_offers::check_job_offers(game);
 
     game.clock.advance_days(1);
+    // Mirror the just-played user match (and any same-day results) from the
+    // legacy league into the primary competition the frontend reads from.
+    game.sync_primary_competition_from_legacy_league();
     crate::season_context::refresh_game_context(game);
 }
 

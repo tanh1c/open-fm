@@ -389,9 +389,21 @@ fn should_evaluate_transfer_market(game: &Game) -> bool {
 }
 
 pub fn evaluate_transfer_market(game: &mut Game) {
+    evaluate_transfer_market_internal(game, false);
+}
+
+pub fn generate_incoming_transfer_offers(game: &mut Game) {
+    evaluate_transfer_market_internal(game, false);
+}
+
+pub fn process_transfer_market_tick(game: &mut Game) {
+    evaluate_transfer_market_internal(game, true);
+}
+
+fn evaluate_transfer_market_internal(game: &mut Game, use_cadence: bool) {
     expire_stale_transfer_offers(game);
 
-    if !transfer_window_is_open(game) || !should_evaluate_transfer_market(game) {
+    if !transfer_window_is_open(game) || (use_cadence && !should_evaluate_transfer_market(game)) {
         return;
     }
 
@@ -490,10 +502,6 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             completed_ai_transfers += 1;
         }
     }
-}
-
-pub fn generate_incoming_transfer_offers(game: &mut Game) {
-    evaluate_transfer_market(game);
 }
 
 fn create_incoming_user_offer(

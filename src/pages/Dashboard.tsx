@@ -257,6 +257,8 @@ export default function Dashboard(): JSX.Element {
     blockerModal,
     setBlockerModal,
     showVacationPicker,
+    vacationReport,
+    setVacationReport,
     openVacationPicker,
     closeVacationPicker,
     handleVacation,
@@ -591,7 +593,9 @@ export default function Dashboard(): JSX.Element {
           showExitConfirm={showExitConfirm}
           showMatchConfirm={showMatchConfirm}
           showVacationPicker={showVacationPicker}
+          vacationReport={vacationReport}
           closeVacationPicker={closeVacationPicker}
+          closeVacationReport={() => setVacationReport(null)}
           teams={gameState.teams}
           todayMatchFixture={todayMatchFixture}
         />

@@ -144,7 +144,25 @@
     "vacationDesc": "Fast-forward to a date you choose",
     "vacationModalDesc": "Pick a date to fast-forward to. Stops early for your matches.",
     "vacationTarget": "Target",
-    "vacationGo": "Go on Vacation"
+    "vacationGo": "Go on Vacation",
+
+    "vacationAssistantTitle": "Assistant responsibilities",
+    "vacationAssistantDesc": "Choose what your assistant oversees while you are on holiday. Departments continue through the normal daily simulation.",
+    "vacationHandleMatches": "Manage matches",
+    "vacationHandleMatchesDesc": "Assistant takes charge of fixtures while you are away.",
+    "vacationHandleTraining": "Run training",
+    "vacationHandleTrainingDesc": "Training, recovery and fitness checks continue each day.",
+    "vacationHandleTransfers": "Handle transfers",
+    "vacationHandleTransfersDesc": "Transfer offers and loan admin keep processing during holiday.",
+    "vacationHandleContracts": "Handle contracts",
+    "vacationHandleContractsDesc": "Contract expiries and renewal admin keep moving in the background.",
+    "vacationHandleScouting": "Continue scouting",
+    "vacationHandleScoutingDesc": "Senior and youth scouting assignments keep progressing.",
+    "vacationIgnoreSoftBlockers": "Skip routine interruptions",
+    "vacationIgnoreSoftBlockersDesc": "Inbox, injury and finance warnings wait until you return.",
+    "vacationReturnForMatch": "Return for user matches",
+    "vacationReturnForMatchDesc": "Stop vacation on the next match day instead of letting the assistant auto-play it.",
+    "vacationAlwaysOnHint": "Training, contracts, transfers, scouting and routine warnings currently stay under assistant oversight during vacation."
   },
   "closeConfirm": {
     "title": "Cambios sin guardar",

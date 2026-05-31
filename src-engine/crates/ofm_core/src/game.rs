@@ -213,4 +213,155 @@ impl Game {
 
         self.competitions.get_mut(competition_index)
     }
+
+    /// Propagate the legacy `league` fixtures/standings back into the mirrored
+    /// competition that shares its id. Day simulation mutates only the legacy
+    /// `game.league`, so without this the competition copy — which the frontend
+    /// prefers when both exist — goes stale (e.g. friendlies never show a
+    /// result, "next fixture" stays on a match already played). No-op when
+    /// there is no legacy league or no competition mirrors it.
+    pub fn sync_primary_competition_from_legacy_league(&mut self) {
+        let Some(league) = self.league.as_ref() else {
+            return;
+        };
+        let league_id = league.id.clone();
+        let league_season = league.season;
+        let synced_fixtures: Vec<_> = league
+            .fixtures
+            .iter()
+            .cloned()
+            .map(|mut fixture| {
+                fixture.competition_id = Some(league_id.clone());
+                fixture.season = Some(league_season);
+                fixture
+            })
+            .collect();
+        let synced_standings = league.standings.clone();
+        let synced_transfer_log = league.transfer_log.clone();
+
+        let Some(competition) = self
+            .competitions
+            .iter_mut()
+            .find(|competition| competition.id == league_id)
+        else {
+            return;
+        };
+        competition.fixtures = synced_fixtures;
+        competition.standings = synced_standings;
+        competition.transfer_log = synced_transfer_log;
+    }
+}
+
+#[cfg(test)]
+mod sync_tests {
+    use super::*;
+    use domain::league::{
+        Fixture, FixtureCompetition, FixtureStatus, MatchResult, StandingEntry,
+    };
+
+    fn scheduled_fixture(id: &str, home: &str, away: &str) -> Fixture {
+        Fixture {
+            id: id.to_string(),
+            matchday: 1,
+            date: "2026-07-03".to_string(),
+            home_team_id: home.to_string(),
+            away_team_id: away.to_string(),
+            competition_id: Some("league-1".to_string()),
+            season: Some(2026),
+            competition: FixtureCompetition::Friendly,
+            status: FixtureStatus::Scheduled,
+            result: None,
+        }
+    }
+
+    fn make_competition(fixtures: Vec<Fixture>) -> Competition {
+        Competition {
+            id: "league-1".to_string(),
+            name: "League".to_string(),
+            season: 2026,
+            kind: CompetitionKind::DomesticLeague,
+            format: CompetitionFormat::RoundRobin,
+            country: None,
+            tier: Some(1),
+            team_ids: vec!["t1".to_string(), "t2".to_string()],
+            fixtures,
+            standings: vec![
+                StandingEntry::new("t1".to_string()),
+                StandingEntry::new("t2".to_string()),
+            ],
+            transfer_log: vec![],
+        }
+    }
+
+    fn make_game(league: League, competitions: Vec<Competition>) -> Game {
+        let clock = GameClock::new(chrono::Utc::now());
+        let manager = Manager::new(
+            "m1".to_string(),
+            "Alex".to_string(),
+            "Boss".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let mut game = Game::new(clock, manager, vec![], vec![], vec![], vec![]);
+        game.league = Some(league);
+        game.competitions = competitions;
+        game
+    }
+
+    #[test]
+    fn sync_copies_legacy_results_into_mirrored_competition() {
+        let mut played = scheduled_fixture("fx-1", "t1", "t2");
+        played.status = FixtureStatus::Completed;
+        played.result = Some(MatchResult {
+            home_goals: 2,
+            away_goals: 1,
+            home_scorers: vec![],
+            away_scorers: vec![],
+            report: None,
+        });
+
+        let league = League {
+            id: "league-1".to_string(),
+            name: "League".to_string(),
+            season: 2026,
+            fixtures: vec![played],
+            standings: vec![
+                StandingEntry::new("t1".to_string()),
+                StandingEntry::new("t2".to_string()),
+            ],
+            transfer_log: vec![],
+        };
+        // Competition mirror still holds the stale scheduled copy.
+        let competitions = vec![make_competition(vec![scheduled_fixture("fx-1", "t1", "t2")])];
+
+        let mut game = make_game(league, competitions);
+        game.sync_primary_competition_from_legacy_league();
+
+        let mirrored = &game.competitions[0].fixtures[0];
+        assert_eq!(mirrored.status, FixtureStatus::Completed);
+        let result = mirrored.result.as_ref().expect("result synced");
+        assert_eq!(result.home_goals, 2);
+        assert_eq!(result.away_goals, 1);
+    }
+
+    #[test]
+    fn sync_is_noop_without_a_matching_competition() {
+        let league = League {
+            id: "league-1".to_string(),
+            name: "League".to_string(),
+            season: 2026,
+            fixtures: vec![scheduled_fixture("fx-1", "t1", "t2")],
+            standings: vec![],
+            transfer_log: vec![],
+        };
+        // A different competition id — must be left untouched.
+        let mut other = make_competition(vec![scheduled_fixture("fx-1", "t1", "t2")]);
+        other.id = "cup-1".to_string();
+
+        let mut game = make_game(league, vec![other]);
+        game.sync_primary_competition_from_legacy_league();
+
+        assert_eq!(game.competitions[0].id, "cup-1");
+        assert_eq!(game.competitions[0].fixtures[0].status, FixtureStatus::Scheduled);
+    }
 }

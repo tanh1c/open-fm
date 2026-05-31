@@ -10,6 +10,9 @@ use crate::application::time_advancement::{
     advance_time_with_mode as advance_time_with_mode_service, AdvanceTimeWithModeResponse,
 };
 use crate::application::time_blockers::compute_blocking_actions as compute_blocking_actions_service;
+use crate::application::vacation::{
+    advance_to_date as advance_to_date_service, has_scheduled_user_match, VacationSettings,
+};
 
 use super::{to_js_value, AppHandle};
 
@@ -81,14 +84,7 @@ impl AppHandle {
             }
 
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-            let has_match = game.league.as_ref().is_some_and(|league| {
-                league.fixtures.iter().any(|fixture| {
-                    fixture.date == today
-                        && fixture.status == domain::league::FixtureStatus::Scheduled
-                        && (fixture.home_team_id == user_team_id
-                            || fixture.away_team_id == user_team_id)
-                })
-            });
+            let has_match = has_scheduled_user_match(&game, &today, &user_team_id);
             if has_match {
                 break;
             }
@@ -134,73 +130,18 @@ impl AppHandle {
     /// Advance day-by-day until the in-game date reaches `target_date`
     /// (inclusive lower bound: stops once `current_date >= target_date`).
     ///
-    /// Vacation = FM-style holiday: the assistant takes charge and auto-plays
-    /// every match (including the user's own fixtures, simulated instantly), so
-    /// the run never pauses to open the matchday menu. It is still interrupted
-    /// early — without further simulation — when one of these arises before the
-    /// target is reached:
-    ///   * the manager is fired       → action "fired"
-    ///   * a blocking action appears  → action "blocked"
-    /// Otherwise it returns action "arrived" at (or just past) the target.
+    /// Vacation = FM-style holiday: the assistant takes full charge and
+    /// auto-plays every match (the user's own fixtures are simulated instantly)
+    /// while running straight through to the target date. It deliberately does
+    /// NOT pause for soft blockers (injuries, unread messages, contract
+    /// warnings) — those persist across days and would otherwise nag on every
+    /// single day of the holiday. The only early exit is the manager being
+    /// fired (action "fired"), which ends employment; otherwise it returns
+    /// action "arrived" at (or just past) the target.
     #[wasm_bindgen(js_name = advanceToDate)]
-    pub fn advance_to_date(&self, target_date: String) -> Result<JsValue, JsValue> {
-        let mut game = self.snapshot_game()?;
-        // Vacation is only offered to employed managers; bail otherwise.
-        let _user_team_id = game
-            .manager
-            .team_id
-            .clone()
-            .ok_or_else(|| super::to_js(NO_TEAM_ASSIGNED.to_string()))?;
-
-        // Hard cap so a far-future target can never spin indefinitely.
-        let max_days = 400u32;
-        let mut days_advanced = 0u32;
-
-        loop {
-            let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-            // ISO dates sort lexicographically, so string comparison is a valid
-            // chronological comparison here.
-            if today.as_str() >= target_date.as_str() || days_advanced >= max_days {
-                break;
-            }
-
-            // process_day simulates every fixture scheduled today — including the
-            // user's match (instant, assistant-managed) — then advances the clock.
-            let mut captures = Vec::new();
-            ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
-                captures.push(capture);
-            });
-            for capture in captures {
-                self.state.append_stats_state(capture);
-            }
-            days_advanced += 1;
-
-            if game.manager.team_id.is_none() {
-                self.state.set_game(game.clone());
-                return to_js_value(&serde_json::json!({
-                    "action": "fired",
-                    "game": game,
-                    "days_advanced": days_advanced,
-                }));
-            }
-
-            let blockers = compute_blocking_actions(&game);
-            if !blockers.is_empty() {
-                self.state.set_game(game.clone());
-                return to_js_value(&serde_json::json!({
-                    "action": "blocked",
-                    "game": game,
-                    "blockers": blockers,
-                    "days_advanced": days_advanced,
-                }));
-            }
-        }
-
-        self.state.set_game(game.clone());
-        to_js_value(&serde_json::json!({
-            "action": "arrived",
-            "game": game,
-            "days_advanced": days_advanced,
-        }))
+    pub fn advance_to_date(&self, target_date: String, settings: JsValue) -> Result<JsValue, JsValue> {
+        let settings: VacationSettings = serde_wasm_bindgen::from_value(settings).unwrap_or_default();
+        let response = advance_to_date_service(&self.state, &target_date, settings).map_err(super::to_js)?;
+        to_js_value(&response)
     }
 }

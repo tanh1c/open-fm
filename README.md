@@ -45,6 +45,7 @@ Built with **React**, **TypeScript**, **Vite**, and a **Rust simulation engine c
 - Run domestic league pyramids, domestic cups, continental qualification, promotion/relegation, schedules, news, and inbox messages.
 - Advance time through daily and weekly simulation loops.
 - Follow league standings, cup fixtures, tournament progress, and club performance over time.
+- Track season honours and all-time records — champions, top scorers, player and team records, longest unbeaten runs, and record transfer fees — preserved across seasons for FM-style history.
 
 ### Match day
 
@@ -198,7 +199,7 @@ Open Futball Manager is still evolving. Areas that are natural candidates for fu
 - expanded transfer negotiation depth
 - more exact real-world cup formats and continental football structures
 - long-term youth development and academy pipelines
-- richer club history, records, and analytics
+- deeper club analytics and richer historical leaderboards
 - improved save compatibility and modding tools
 
 ---

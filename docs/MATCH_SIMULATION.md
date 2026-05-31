@@ -6,7 +6,7 @@ Both modes share the same core resolution logic, but the live system adds intera
 
 ## Historical Context
 
-The original OFM simulation (documented in `docs/legacy/simulation.rst`) used a detailed event model with 15 pitch zones, transition matrices, and event chains (pass → intercept → foul → free kick). That system tracked possession through a fine-grained state machine.
+The original OFM simulation used a detailed event model with 15 pitch zones, transition matrices, and event chains (pass → intercept → foul → free kick). That system tracked possession through a fine-grained state machine.
 
 The current implementation simplifies this to a **5-zone, action-based** model. Rather than modelling individual ball movements across 15 regions with transition matrices, the engine resolves 1–3 **actions per minute** in the current zone, with zone progression driven by action outcomes. This keeps the simulation fast enough for instant mode (a full match in ~2ms) while still producing realistic statistics and event feeds.
 

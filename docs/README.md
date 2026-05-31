@@ -25,11 +25,3 @@ All gameplay systems beyond match simulation. Includes turn processing flow, the
 ### [DEFINITIONS.md](DEFINITIONS.md)
 
 Schema documentation for external definition files used by the world generator. Describes the JSON format for `default_names.json` (nationality-keyed name pools with ISO alpha-2 country codes) and `default_teams.json` (team templates with name, city, country, colors, play style, reputation and finance ranges). Includes a country codes reference table, the world database export format, and tips for creating custom definition files.
-
----
-
-## Legacy
-
-The `legacy/` directory contains earlier design documents from previous implementations:
-
-- **`legacy/simulation.rst`** — Original simulation design with 15-zone transition matrices and detailed event chains. Kept for historical reference; the current engine uses a simplified 5-zone model documented in [MATCH_SIMULATION.md](MATCH_SIMULATION.md).

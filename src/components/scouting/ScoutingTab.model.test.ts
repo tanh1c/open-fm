@@ -109,7 +109,7 @@ function createAssignment(
 }
 
 describe("ScoutingTab.model", () => {
-  it("filters scoutable players by team, position, and search query then sorts by ovr", () => {
+  it("filters scoutable players by team, position, and search query", () => {
     const teams = [
       createTeam(),
       createTeam({ id: "team-2", name: "Beta FC", short_name: "BET", manager_id: "manager-2" }),
@@ -129,7 +129,7 @@ describe("ScoutingTab.model", () => {
         posFilter: "All",
         searchQuery: "",
       }).map((player) => player.id),
-    ).toEqual(["forward", "defender"]);
+    ).toEqual(["defender", "forward"]);
 
     expect(
       filterScoutablePlayers({

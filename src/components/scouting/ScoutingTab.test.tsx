@@ -298,7 +298,7 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Scout/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Scout/i }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("send_scout", {
@@ -321,7 +321,7 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Scout/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Scout/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(
@@ -347,10 +347,10 @@ describe("ScoutingTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Youth" }));
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Role" }));
-    fireEvent.click(screen.getByRole("option", { name: "DEF" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Youth target" }));
+    fireEvent.click(screen.getByRole("option", { name: "Defender" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start youth search" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("start_youth_scouting", {
@@ -447,7 +447,7 @@ describe("ScoutingTab", () => {
     expect(screen.getByRole("button", { name: "Move" })).toBeDisabled();
   });
 
-  it("keeps unscouted player reports locked", () => {
+  it("keeps unscouted player reports locked", async () => {
     render(
       <ScoutingTab
         gameState={createGameState({ scouts: [createScout()] })}
@@ -455,13 +455,13 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    expect(screen.getByText("Report locked")).toBeInTheDocument();
+    expect(await screen.findByText("Report locked")).toBeInTheDocument();
     expect(screen.getByText(/Send a scout to unlock the backend scout report/)).toBeInTheDocument();
     expect(screen.queryByText("ATTRIBUTE SNAPSHOT")).not.toBeInTheDocument();
     expect(screen.queryByText("Preferred Foot")).not.toBeInTheDocument();
   });
 
-  it("shows completed backend scout reports without raw player attributes", () => {
+  it("shows completed backend scout reports without raw player attributes", async () => {
     render(
       <ScoutingTab
         gameState={{
@@ -511,7 +511,7 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    expect(screen.getByText("B Report")).toBeInTheDocument();
+    expect(await screen.findByText("B Report")).toBeInTheDocument();
     expect(screen.getByText("SCOUTED ATTRIBUTES")).toBeInTheDocument();
     expect(screen.getAllByText("Good rating with Excellent potential.").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
@@ -519,7 +519,7 @@ describe("ScoutingTab", () => {
     expect(screen.queryByText("Preferred Foot")).not.toBeInTheDocument();
   });
 
-  it("shows active scouting assignments as reports in progress", () => {
+  it("shows active scouting assignments as reports in progress", async () => {
     render(
       <ScoutingTab
         gameState={createGameState({
@@ -537,7 +537,7 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    expect(screen.getByText("In Progress")).toBeInTheDocument();
+    expect(await screen.findByText("In Progress")).toBeInTheDocument();
     expect(screen.getAllByText("3 days left").length).toBeGreaterThan(0);
     expect(screen.queryByText("ATTRIBUTE SNAPSHOT")).not.toBeInTheDocument();
   });
@@ -593,7 +593,7 @@ describe("ScoutingTab", () => {
       />,
     );
 
-    const playerRow = screen.getByText("John Smith").closest("tr");
+    const playerRow = (await screen.findByText("John Smith")).closest("tr");
     expect(playerRow).not.toBeNull();
 
     fireEvent.contextMenu(playerRow as HTMLTableRowElement);

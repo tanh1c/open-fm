@@ -57,6 +57,10 @@ fn write_game_rows(
         let now = Utc::now().to_rfc3339();
         let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
             .map_err(|_| game_persistence_write_error())?;
+        let season_honours_json = serde_json::to_string(&game.season_honours)
+            .map_err(|_| game_persistence_write_error())?;
+        let records_json = serde_json::to_string(&game.records)
+            .map_err(|_| game_persistence_write_error())?;
         let manager_id = if game.manager_id.is_empty() {
             game.manager.id.clone()
         } else {
@@ -80,6 +84,8 @@ fn write_game_rows(
                 created_at: now.clone(),
                 last_played_at: now,
                 vacant_team_days_json,
+                season_honours_json,
+                records_json,
             },
         )?;
 
@@ -273,6 +279,8 @@ impl GamePersistenceReader {
             season_context: domain::season::SeasonContext::default(),
             days_since_last_job_offer: None,
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
+            season_honours: serde_json::from_str(&meta.season_honours_json).unwrap_or_default(),
+            records: serde_json::from_str(&meta.records_json).unwrap_or_default(),
         };
         game.sync_competitions_from_legacy_league();
         // Repair saves written before per-day sync existed: the legacy league
@@ -305,6 +313,8 @@ mod tests {
             created_at: "2026-07-01T00:00:00+00:00".to_string(),
             last_played_at: "2026-07-01T00:00:00+00:00".to_string(),
             vacant_team_days_json: "{}".to_string(),
+            season_honours_json: "[]".to_string(),
+            records_json: "{}".to_string(),
         }
     }
 

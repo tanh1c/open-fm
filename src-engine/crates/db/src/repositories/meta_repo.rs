@@ -16,17 +16,29 @@ pub struct GameMeta {
     pub last_played_at: String,
     #[serde(default = "default_vacant_team_days_json")]
     pub vacant_team_days_json: String,
+    #[serde(default = "default_season_honours_json")]
+    pub season_honours_json: String,
+    #[serde(default = "default_records_json")]
+    pub records_json: String,
 }
 
 fn default_vacant_team_days_json() -> String {
     "{}".to_string()
 }
 
+fn default_season_honours_json() -> String {
+    "[]".to_string()
+}
+
+fn default_records_json() -> String {
+    "{}".to_string()
+}
+
 /// Insert or replace the singleton game_meta row.
 pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
     conn.execute(
-        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json)
-         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, season_honours_json, records_json)
+         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             meta.save_id,
             meta.save_name,
@@ -36,6 +48,8 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
             meta.created_at,
             meta.last_played_at,
             meta.vacant_team_days_json,
+            meta.season_honours_json,
+            meta.records_json,
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -46,7 +60,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
 pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json
+            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, season_honours_json, records_json
              FROM game_meta WHERE id = 'singleton'",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -62,6 +76,8 @@ pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
                 created_at: row.get(5)?,
                 last_played_at: row.get(6)?,
                 vacant_team_days_json: row.get(7)?,
+                season_honours_json: row.get(8)?,
+                records_json: row.get(9)?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -94,6 +110,8 @@ mod tests {
             created_at: "2026-03-05T18:00:00Z".to_string(),
             last_played_at: "2026-03-05T19:00:00Z".to_string(),
             vacant_team_days_json: "{}".to_string(),
+            season_honours_json: "[]".to_string(),
+            records_json: "{}".to_string(),
         };
 
         upsert_meta(db.conn(), &meta).unwrap();
@@ -124,6 +142,8 @@ mod tests {
             created_at: "2026-03-05T18:00:00Z".to_string(),
             last_played_at: "2026-03-05T19:00:00Z".to_string(),
             vacant_team_days_json: "{}".to_string(),
+            season_honours_json: "[]".to_string(),
+            records_json: "{}".to_string(),
         };
         upsert_meta(db.conn(), &meta1).unwrap();
 
@@ -136,6 +156,8 @@ mod tests {
             created_at: "2026-03-05T18:00:00Z".to_string(),
             last_played_at: "2026-03-06T10:00:00Z".to_string(),
             vacant_team_days_json: "{}".to_string(),
+            season_honours_json: "[]".to_string(),
+            records_json: "{}".to_string(),
         };
         upsert_meta(db.conn(), &meta2).unwrap();
 
@@ -156,6 +178,8 @@ mod tests {
             created_at: "2026-03-05T18:00:00Z".to_string(),
             last_played_at: "2026-03-05T19:00:00Z".to_string(),
             vacant_team_days_json: "{}".to_string(),
+            season_honours_json: "[]".to_string(),
+            records_json: "{}".to_string(),
         };
 
         let result = upsert_meta(&conn, &meta);

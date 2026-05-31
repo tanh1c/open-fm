@@ -92,6 +92,13 @@ pub struct Game {
     pub days_since_last_job_offer: Option<u32>,
     #[serde(default)]
     pub vacant_team_days: HashMap<String, u32>,
+    /// Permanent end-of-season honours (champions + award standings), one entry
+    /// per season. Small and kept for the whole career.
+    #[serde(default)]
+    pub season_honours: Vec<crate::honours::SeasonHonours>,
+    /// All-time "best ever" records for the save.
+    #[serde(default)]
+    pub records: crate::honours::GameRecords,
 }
 
 impl Game {
@@ -123,6 +130,8 @@ impl Game {
             season_context: SeasonContext::default(),
             days_since_last_job_offer: None,
             vacant_team_days: HashMap::new(),
+            season_honours: vec![],
+            records: crate::honours::GameRecords::default(),
         };
         crate::football_identity::upgrade_game_football_identities(&mut game);
         crate::season_context::refresh_game_context(&mut game);

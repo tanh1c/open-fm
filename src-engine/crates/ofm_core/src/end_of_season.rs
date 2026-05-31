@@ -434,6 +434,10 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         player.stats = PlayerSeasonStats::default();
     }
 
+    // 5b. Record permanent honours (champions + awards) and update all-time
+    // records. Done before season regeneration wipes competition standings.
+    record_season_honours_and_records(game, season, &awards);
+
     // 6. Update manager career stats
     if let Some(standing) = &user_standing {
         let total_matches = standing.won + standing.drawn + standing.lost;
@@ -681,6 +685,201 @@ pub struct EndOfSeasonSummary {
     pub total_teams: u32,
 }
 
+/// Record permanent end-of-season honours and update all-time records.
+///
+/// Reads from competition standings, player career history (just pushed) and
+/// team history, all of which still describe the season that just finished.
+/// Everything stored here is a small per-season summary kept for the whole
+/// career, independent of per-match stat pruning.
+fn record_season_honours_and_records(
+    game: &mut Game,
+    season: u32,
+    awards: &crate::season_awards::SeasonAwards,
+) {
+    use crate::honours::{
+        CompetitionChampion, GameRecords, PlayerRecord, SeasonHonours, TeamRecord, TransferRecord,
+    };
+
+    let team_name = |game: &Game, team_id: &str| {
+        game.teams
+            .iter()
+            .find(|team| team.id == team_id)
+            .map(|team| team.name.clone())
+            .unwrap_or_default()
+    };
+
+    // Champions: winner (top of sorted standings) of each league competition.
+    let mut champions: Vec<CompetitionChampion> = Vec::new();
+    if game.competitions.is_empty() {
+        if let Some(league) = &game.league {
+            if let Some(top) = league.sorted_standings().first() {
+                champions.push(CompetitionChampion {
+                    competition_id: league.id.clone(),
+                    competition_name: league.name.clone(),
+                    team_id: top.team_id.clone(),
+                    team_name: team_name(game, &top.team_id),
+                });
+            }
+        }
+    } else {
+        for competition in &game.competitions {
+            if competition.kind != CompetitionKind::DomesticLeague {
+                continue;
+            }
+            if let Some(top) = sorted_competition_standings(competition).first() {
+                champions.push(CompetitionChampion {
+                    competition_id: competition.id.clone(),
+                    competition_name: competition.name.clone(),
+                    team_id: top.team_id.clone(),
+                    team_name: team_name(game, &top.team_id),
+                });
+            }
+        }
+    }
+
+    game.season_honours.push(SeasonHonours {
+        season,
+        champions,
+        awards: awards.clone(),
+    });
+
+    // All-time records from this season's freshly-pushed career entries.
+    // Take records out so it can be mutated while `game` is read immutably,
+    // then put the updated value back.
+    let mut records = std::mem::take(&mut game.records);
+    for player in &game.players {
+        let Some(entry) = player.career.iter().find(|entry| entry.season == season) else {
+            continue;
+        };
+        GameRecords::promote_player_record(
+            &mut records.most_goals_in_season,
+            PlayerRecord {
+                player_id: player.id.clone(),
+                player_name: player.full_name.clone(),
+                team_name: entry.team_name.clone(),
+                value: entry.goals,
+                season,
+            },
+        );
+        GameRecords::promote_player_record(
+            &mut records.most_assists_in_season,
+            PlayerRecord {
+                player_id: player.id.clone(),
+                player_name: player.full_name.clone(),
+                team_name: entry.team_name.clone(),
+                value: entry.assists,
+                season,
+            },
+        );
+        GameRecords::promote_player_record(
+            &mut records.most_clean_sheets_in_season,
+            PlayerRecord {
+                player_id: player.id.clone(),
+                player_name: player.full_name.clone(),
+                team_name: entry.team_name.clone(),
+                value: entry.clean_sheets,
+                season,
+            },
+        );
+
+        // Career totals across all recorded seasons.
+        let career_goals: u32 = player.career.iter().map(|entry| entry.goals).sum();
+        let career_assists: u32 = player.career.iter().map(|entry| entry.assists).sum();
+        let career_clean_sheets: u32 = player.career.iter().map(|entry| entry.clean_sheets).sum();
+        let latest_team = player
+            .career
+            .last()
+            .map(|entry| entry.team_name.clone())
+            .unwrap_or_default();
+        GameRecords::promote_player_record(
+            &mut records.most_career_goals,
+            PlayerRecord {
+                player_id: player.id.clone(),
+                player_name: player.full_name.clone(),
+                team_name: latest_team.clone(),
+                value: career_goals,
+                season,
+            },
+        );
+        GameRecords::promote_player_record(
+            &mut records.most_career_assists,
+            PlayerRecord {
+                player_id: player.id.clone(),
+                player_name: player.full_name.clone(),
+                team_name: latest_team.clone(),
+                value: career_assists,
+                season,
+            },
+        );
+        GameRecords::promote_player_record(
+            &mut records.most_career_clean_sheets,
+            PlayerRecord {
+                player_id: player.id.clone(),
+                player_name: player.full_name.clone(),
+                team_name: latest_team,
+                value: career_clean_sheets,
+                season,
+            },
+        );
+    }
+
+    // Team records from this season's history entry.
+    for team in &game.teams {
+        let Some(record) = team.history.iter().find(|record| record.season == season) else {
+            continue;
+        };
+        let points = record.won * 3 + record.drawn;
+        GameRecords::promote_team_record(
+            &mut records.highest_points_in_season,
+            TeamRecord {
+                team_id: team.id.clone(),
+                team_name: team.name.clone(),
+                value: points,
+                season,
+            },
+        );
+        GameRecords::promote_team_record(
+            &mut records.most_goals_team_in_season,
+            TeamRecord {
+                team_id: team.id.clone(),
+                team_name: team.name.clone(),
+                value: record.goals_for,
+                season,
+            },
+        );
+    }
+
+    // Record transfer fee from this season's completed transfers.
+    let mut transfer_logs: Vec<&domain::league::CompletedTransfer> = Vec::new();
+    if let Some(league) = &game.league {
+        transfer_logs.extend(league.transfer_log.iter());
+    }
+    for competition in &game.competitions {
+        transfer_logs.extend(competition.transfer_log.iter());
+    }
+    if let Some(top_transfer) = transfer_logs.iter().max_by_key(|transfer| transfer.fee) {
+        let player_name = game
+            .players
+            .iter()
+            .find(|player| player.id == top_transfer.player_id)
+            .map(|player| player.full_name.clone())
+            .unwrap_or_default();
+        GameRecords::promote_transfer_record(
+            &mut records.record_transfer_fee,
+            TransferRecord {
+                player_id: top_transfer.player_id.clone(),
+                player_name,
+                from_team_name: team_name(game, &top_transfer.from_team_id),
+                to_team_name: team_name(game, &top_transfer.to_team_id),
+                fee: top_transfer.fee,
+                season,
+            },
+        );
+    }
+
+    game.records = records;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -817,5 +1016,25 @@ mod tests {
             .fixtures
             .iter()
             .any(|fixture| fixture.competition == domain::league::FixtureCompetition::Friendly));
+    }
+
+    #[test]
+    fn process_end_of_season_records_honours_and_champion() {
+        let mut game = completed_multi_competition_game("eng-3");
+
+        process_end_of_season(&mut game);
+
+        // One honours entry for the season that just finished (2026).
+        let honours = game
+            .season_honours
+            .iter()
+            .find(|entry| entry.season == 2026)
+            .expect("season honours recorded for completed season");
+        // The user's domestic league (EFL Championship) should have a champion.
+        assert!(honours
+            .champions
+            .iter()
+            .any(|champion| champion.competition_name == "EFL Championship"
+                && !champion.team_id.is_empty()));
     }
 }

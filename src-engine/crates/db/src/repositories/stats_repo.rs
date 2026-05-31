@@ -126,6 +126,22 @@ pub fn upsert_stats_state(conn: &Connection, stats: &StatsState) -> Result<(), S
         }
     }
 
+    // Mirror the in-memory retention window on disk: drop per-match rows older
+    // than the kept seasons so the DB cannot grow without bound across a long
+    // career. Long-term summaries live in other tables and are unaffected.
+    if let Some(min_season) = stats.retained_min_season() {
+        conn.execute(
+            "DELETE FROM player_match_stats WHERE season < ?1",
+            params![min_season],
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        conn.execute(
+            "DELETE FROM team_match_stats WHERE season < ?1",
+            params![min_season],
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    }
+
     Ok(())
 }
 
@@ -357,5 +373,46 @@ mod tests {
             .player_matches
             .iter()
             .any(|record| record.fixture_id == "fixture-002"));
+    }
+
+    #[test]
+    fn test_save_prunes_match_rows_older_than_retention_window() {
+        let db = test_db();
+
+        // Build a state spanning 8 seasons (one fixture each). The in-memory
+        // prune keeps the most recent MAX_RETAINED_STAT_SEASONS; the DB write
+        // must mirror that so old rows do not accumulate on disk.
+        let mut state = StatsState::default();
+        for season in 2020..=2027u32 {
+            let mut player = sample_stats_state().player_matches[0].clone();
+            player.fixture_id = format!("fix-{season}");
+            player.season = season;
+            let mut team = sample_stats_state().team_matches[0].clone();
+            team.fixture_id = format!("fix-{season}");
+            team.season = season;
+            state.player_matches.push(player);
+            state.team_matches.push(team);
+        }
+
+        upsert_stats_state(db.conn(), &state).unwrap();
+
+        let player_count: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM player_match_stats", [], |row| row.get(0))
+            .unwrap();
+        let oldest: u32 = db
+            .conn()
+            .query_row("SELECT MIN(season) FROM player_match_stats", [], |row| row.get(0))
+            .unwrap();
+
+        // The post-insert DELETE trims to retained_min_season() = 2027 - 4 = 2023,
+        // so only the most recent 5 seasons survive on disk.
+        assert_eq!(player_count, 5);
+        assert_eq!(oldest, 2023);
+        let team_count: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM team_match_stats", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(team_count, 5);
     }
 }

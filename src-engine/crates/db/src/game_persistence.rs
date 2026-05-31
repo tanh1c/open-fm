@@ -27,7 +27,33 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
+        db.with_write_transaction(|conn| write_game_rows(conn, game, save_id, save_name))
+    }
+
+    /// Write the full game snapshot and the match-stats history in a single
+    /// transaction. Lets callers open the save database once per save instead
+    /// of opening (and re-running migrations on) it separately for game and
+    /// stats, which halves the per-save file-open + migration cost.
+    pub fn write_game_and_stats(
+        db: &GameDatabase,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        save_name: &str,
+    ) -> Result<(), String> {
         db.with_write_transaction(|conn| {
+            write_game_rows(conn, game, save_id, save_name)?;
+            stats_repo::upsert_stats_state(conn, stats)
+        })
+    }
+}
+
+fn write_game_rows(
+    conn: &rusqlite::Connection,
+    game: &Game,
+    save_id: &str,
+    save_name: &str,
+) -> Result<(), String> {
         let now = Utc::now().to_rfc3339();
         let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
             .map_err(|_| game_persistence_write_error())?;
@@ -114,8 +140,6 @@ impl GamePersistenceWriter {
         scouting_repo::upsert_youth_scouting_list(conn, &youth_scouting_rows)?;
 
         Ok(())
-        })
-    }
 }
 
 impl GamePersistenceWriter {

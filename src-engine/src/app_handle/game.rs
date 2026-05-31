@@ -311,12 +311,12 @@ impl AppHandle {
             .save_manager
             .lock()
             .map_err(|_| to_js(SAVE_MANAGER_LOCK_ERROR.to_string()))?;
-        sm.save_game(&game, &save_id).map_err(to_js)?;
         let stats_state = self
             .state
             .get_stats_state(|stats| stats.clone())
             .unwrap_or_default();
-        sm.save_stats_state(&stats_state, &save_id).map_err(to_js)?;
+        sm.save_game_with_stats(&game, &stats_state, &save_id)
+            .map_err(to_js)?;
         Ok(JsValue::NULL)
     }
 
@@ -328,12 +328,12 @@ impl AppHandle {
                 .save_manager
                 .lock()
                 .map_err(|_| to_js(SAVE_MANAGER_LOCK_ERROR.to_string()))?;
-            sm.save_game(&game, &save_id).map_err(to_js)?;
             let stats_state = self
                 .state
                 .get_stats_state(|stats| stats.clone())
                 .unwrap_or_default();
-            sm.save_stats_state(&stats_state, &save_id).map_err(to_js)?;
+            sm.save_game_with_stats(&game, &stats_state, &save_id)
+                .map_err(to_js)?;
         }
         self.state.clear_game();
         self.state.clear_save_id();

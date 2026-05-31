@@ -147,6 +147,56 @@ impl SaveManager {
         Ok(())
     }
 
+    /// Save the current Game state and match-stats history together, opening
+    /// the save database only once. Prefer this over calling `save_game` and
+    /// `save_stats_state` separately on the autosave path — it avoids a second
+    /// file open + migration check per save.
+    pub fn save_game_with_stats(
+        &mut self,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+    ) -> Result<(), String> {
+        self.ensure_save_index_ready()?;
+
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?;
+
+        let db_path = self.saves_dir.join(&entry.db_filename);
+        let save_name = entry.name.clone();
+        let db_filename = entry.db_filename.clone();
+        let created_at = entry.created_at.clone();
+        let mut persisted_game = game.clone();
+
+        canonicalize_game_starting_xi_ids(&mut persisted_game);
+
+        let db = GameDatabase::open(&db_path)?;
+        GamePersistenceWriter::write_game_and_stats(
+            &db,
+            &persisted_game,
+            stats,
+            save_id,
+            &save_name,
+        )?;
+        drop(db);
+
+        let now = Utc::now().to_rfc3339();
+        let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
+
+        self.save_index.update_save(SaveEntry {
+            id: save_id.to_string(),
+            name: save_name,
+            manager_name,
+            db_filename,
+            created_at,
+            last_played_at: now,
+            game_date: Some(game_calendar_date(game)),
+        })?;
+        Ok(())
+    }
+
     pub fn save_stats_state(&mut self, stats: &StatsState, save_id: &str) -> Result<(), String> {
         self.ensure_save_index_ready()?;
 

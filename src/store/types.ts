@@ -124,6 +124,15 @@ export interface CareerEntry {
   appearances: number;
   goals: number;
   assists: number;
+  clean_sheets?: number;
+  avg_rating?: number;
+  yellow_cards?: number;
+  red_cards?: number;
+  minutes_played?: number;
+  shots?: number;
+  shots_on_target?: number;
+  tackles_won?: number;
+  interceptions?: number;
 }
 
 export interface ContractExitIntentData {

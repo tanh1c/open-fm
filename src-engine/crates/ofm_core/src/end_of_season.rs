@@ -419,6 +419,15 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 appearances: player.stats.appearances,
                 goals: player.stats.goals,
                 assists: player.stats.assists,
+                clean_sheets: player.stats.clean_sheets,
+                avg_rating: player.stats.avg_rating,
+                yellow_cards: player.stats.yellow_cards,
+                red_cards: player.stats.red_cards,
+                minutes_played: player.stats.minutes_played,
+                shots: player.stats.shots,
+                shots_on_target: player.stats.shots_on_target,
+                tackles_won: player.stats.tackles_won,
+                interceptions: player.stats.interceptions,
             });
         }
         // Reset stats for next season

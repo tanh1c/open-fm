@@ -385,6 +385,26 @@ pub struct CareerEntry {
     pub appearances: u32,
     pub goals: u32,
     pub assists: u32,
+    // Extended per-season totals for leaderboards / honours. Defaulted so
+    // career entries written before these fields load cleanly.
+    #[serde(default)]
+    pub clean_sheets: u32,
+    #[serde(default)]
+    pub avg_rating: f32,
+    #[serde(default)]
+    pub yellow_cards: u32,
+    #[serde(default)]
+    pub red_cards: u32,
+    #[serde(default)]
+    pub minutes_played: u32,
+    #[serde(default)]
+    pub shots: u32,
+    #[serde(default)]
+    pub shots_on_target: u32,
+    #[serde(default)]
+    pub tackles_won: u32,
+    #[serde(default)]
+    pub interceptions: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

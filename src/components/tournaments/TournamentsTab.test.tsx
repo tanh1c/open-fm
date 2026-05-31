@@ -269,4 +269,69 @@ describe("TournamentsTab", () => {
 
     expect(onSelectPlayer).toHaveBeenCalledWith("player-1");
   });
+
+  it("shows recorded champions on the honours tab", () => {
+    const gameState = createGameState(true);
+    gameState.season_honours = [
+      {
+        season: 1,
+        champions: [
+          {
+            competition_id: "league-1",
+            competition_name: "Premier League",
+            team_id: "team-1",
+            team_name: "Alpha FC",
+          },
+        ],
+        awards: {
+          golden_boot: [
+            { player_id: "player-1", player_name: "John Smith", team_id: "team-1", team_name: "Alpha FC", value: 24 },
+          ],
+          assist_king: [],
+          player_of_year: [],
+          clean_sheet_king: [],
+          most_appearances: [],
+          young_player: [],
+        },
+      },
+    ];
+    const onSelectTeam = vi.fn();
+
+    render(<TournamentsTab gameState={gameState} onSelectTeam={onSelectTeam} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /honoursTab/i }));
+    // The champion row is a button containing both the competition and team name.
+    const championButton = screen
+      .getAllByRole("button")
+      .find(
+        (button) =>
+          button.textContent?.includes("Premier League") &&
+          button.textContent?.includes("Alpha FC"),
+      );
+    expect(championButton).toBeDefined();
+    fireEvent.click(championButton!);
+
+    expect(onSelectTeam).toHaveBeenCalledWith("team-1");
+  });
+
+  it("shows all-time records on the records tab", () => {
+    const gameState = createGameState(true);
+    gameState.records = {
+      most_goals_in_season: {
+        player_id: "player-1",
+        player_name: "John Smith",
+        team_name: "Alpha FC",
+        value: 41,
+        season: 1,
+      },
+    };
+
+    render(<TournamentsTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /recordsTab/i }));
+
+    // The record value (41) is unique to the records panel.
+    expect(screen.getByText("41")).toBeInTheDocument();
+    expect(screen.getAllByText(/John Smith/).length).toBeGreaterThan(0);
+  });
 });

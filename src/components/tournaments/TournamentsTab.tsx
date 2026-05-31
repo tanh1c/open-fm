@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
+import type { SeasonHonours, GameRecords } from "../../store/types";
 import ContextMenu from "../ContextMenu";
 import DivisionLogo from "../common/DivisionLogo";
 import TeamLogo from "../common/TeamLogo";
@@ -21,6 +22,7 @@ import {
   formatMatchDate,
 } from "../../lib/helpers";
 import { resolveSeasonContext } from "../../lib/seasonContext";
+import { formatExactMoney } from "../../lib/valueFormatting";
 import { useTranslation } from "react-i18next";
 import {
   buildViewProfileMenuItem,
@@ -87,7 +89,7 @@ interface SeasonAwards {
   young_player: AwardEntry[];
 }
 
-type TournamentView = "overview" | "fixtures" | "standings" | "awards";
+type TournamentView = "overview" | "fixtures" | "standings" | "awards" | "honours" | "records";
 type StandingEntry = NonNullable<GameStateData["league"]>["standings"][number];
 type TopScorerEntry = { player: GameStateData["players"][number] | undefined; goals: number };
 
@@ -382,7 +384,7 @@ export default function TournamentsTab({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
-        {(["overview", "standings", "fixtures", "awards"] as const).map((nextView) => (
+        {(["overview", "standings", "fixtures", "awards", "honours", "records"] as const).map((nextView) => (
           <button
             key={nextView}
             type="button"
@@ -394,8 +396,8 @@ export default function TournamentsTab({
                 : "border-transparent text-app-text-muted hover:text-app-text",
             )}
           >
-            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "awards" ? t("tournaments.awardsTab") : t("schedule.fixtures")}
+            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : t("schedule.fixtures")}
           </button>
         ))}
       </div>
@@ -513,6 +515,18 @@ export default function TournamentsTab({
                   onSelectPlayer={onSelectPlayer}
                   onSelectTeam={onSelectTeam}
                 />
+              ) : null}
+
+              {view === "honours" ? (
+                <HonoursPanel
+                  honours={gameState.season_honours ?? []}
+                  onSelectTeam={onSelectTeam}
+                  onSelectPlayer={onSelectPlayer}
+                />
+              ) : null}
+
+              {view === "records" ? (
+                <RecordsPanel records={gameState.records ?? null} />
               ) : null}
             </div>
           </TemplateCard>
@@ -933,6 +947,233 @@ function SnapshotCard({
           <StatRow label="Completed matches" value={String(completedMatches)} />
           <StatRow label="Goals" value={String(totalGoals)} />
         </div>
+      </TemplateCard>
+    </div>
+  );
+}
+
+function HonoursPanel({
+  honours,
+  onSelectTeam,
+  onSelectPlayer,
+}: {
+  honours: SeasonHonours[];
+  onSelectTeam: (id: string) => void;
+  onSelectPlayer?: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  if (honours.length === 0) {
+    return (
+      <EmptyPanel
+        icon={<Crown className="h-8 w-8" />}
+        title={t("tournaments.honoursEmptyTitle", { defaultValue: "No honours yet" })}
+        description={t("tournaments.honoursEmptyBody", {
+          defaultValue: "Champions and award winners are recorded at the end of each season.",
+        })}
+      />
+    );
+  }
+
+  const seasons = [...honours].sort((a, b) => b.season - a.season);
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {seasons.map((entry) => {
+        const goldenBoot = entry.awards.golden_boot[0];
+        const playerOfYear = entry.awards.player_of_year[0];
+        return (
+          <TemplateCard key={entry.season} className="overflow-hidden">
+            <PanelHeader
+              title={t("schedule.season", { number: entry.season })}
+              action={t("tournaments.nChampions", {
+                defaultValue: "{{count}} champions",
+                count: entry.champions.length,
+              })}
+            />
+            <div className="flex flex-col gap-4 p-4">
+              <div>
+                <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                  {t("tournaments.champions", { defaultValue: "Champions" })}
+                </h4>
+                {entry.champions.length === 0 ? (
+                  <p className="text-xs text-app-text-muted">—</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {entry.champions.map((champion) => (
+                      <button
+                        key={champion.competition_id}
+                        type="button"
+                        onClick={() => onSelectTeam(champion.team_id)}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-left transition-colors hover:bg-white/5"
+                      >
+                        <span className="flex items-center gap-2 text-xs text-app-text-muted">
+                          <Trophy className="h-4 w-4 text-app-green" />
+                          {champion.competition_name}
+                        </span>
+                        <span className="truncate text-sm font-bold text-app-text">{champion.team_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-3 border-t border-app-border/50 pt-3 sm:grid-cols-2">
+                <HonourAwardRow
+                  label={t("tournaments.goldenBoot", { defaultValue: "Golden Boot" })}
+                  name={goldenBoot?.player_name}
+                  detail={goldenBoot ? t("endOfSeason.nGoals", { count: goldenBoot.value }) : undefined}
+                  onClick={goldenBoot && onSelectPlayer ? () => onSelectPlayer(goldenBoot.player_id) : undefined}
+                />
+                <HonourAwardRow
+                  label={t("tournaments.playerOfYear", { defaultValue: "Player of the Year" })}
+                  name={playerOfYear?.player_name}
+                  detail={playerOfYear ? playerOfYear.value.toFixed(2) : undefined}
+                  onClick={playerOfYear && onSelectPlayer ? () => onSelectPlayer(playerOfYear.player_id) : undefined}
+                />
+              </div>
+            </div>
+          </TemplateCard>
+        );
+      })}
+    </div>
+  );
+}
+
+function HonourAwardRow({
+  label,
+  name,
+  detail,
+  onClick,
+}: {
+  label: string;
+  name?: string;
+  detail?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-left transition-colors enabled:hover:bg-white/5 disabled:cursor-default"
+    >
+      <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-app-text-muted">
+        <Award className="h-3.5 w-3.5 text-app-green" />
+        {label}
+      </span>
+      <span className="min-w-0 text-right">
+        <span className="block truncate text-sm font-bold text-app-text">{name ?? "—"}</span>
+        {detail ? <span className="block text-[10px] text-app-text-muted">{detail}</span> : null}
+      </span>
+    </button>
+  );
+}
+
+function RecordsPanel({ records }: { records: GameRecords | null }) {
+  const { t } = useTranslation();
+
+  const hasAny =
+    records &&
+    Object.values(records).some((value) => value !== null && value !== undefined);
+
+  if (!records || !hasAny) {
+    return (
+      <EmptyPanel
+        icon={<Star className="h-8 w-8" />}
+        title={t("tournaments.recordsEmptyTitle", { defaultValue: "No records yet" })}
+        description={t("tournaments.recordsEmptyBody", {
+          defaultValue: "All-time records build up as seasons are completed.",
+        })}
+      />
+    );
+  }
+
+  const playerRows: Array<{ label: string; holder?: string | null; value?: number; season?: number }> = [
+    { label: t("tournaments.recMostGoalsSeason", { defaultValue: "Most goals (season)" }), holder: records.most_goals_in_season?.player_name, value: records.most_goals_in_season?.value, season: records.most_goals_in_season?.season },
+    { label: t("tournaments.recMostGoalsCareer", { defaultValue: "Most goals (career)" }), holder: records.most_career_goals?.player_name, value: records.most_career_goals?.value, season: records.most_career_goals?.season },
+    { label: t("tournaments.recMostAssistsSeason", { defaultValue: "Most assists (season)" }), holder: records.most_assists_in_season?.player_name, value: records.most_assists_in_season?.value, season: records.most_assists_in_season?.season },
+    { label: t("tournaments.recMostAssistsCareer", { defaultValue: "Most assists (career)" }), holder: records.most_career_assists?.player_name, value: records.most_career_assists?.value, season: records.most_career_assists?.season },
+    { label: t("tournaments.recMostCleanSheetsSeason", { defaultValue: "Most clean sheets (season)" }), holder: records.most_clean_sheets_in_season?.player_name, value: records.most_clean_sheets_in_season?.value, season: records.most_clean_sheets_in_season?.season },
+    { label: t("tournaments.recMostCleanSheetsCareer", { defaultValue: "Most clean sheets (career)" }), holder: records.most_career_clean_sheets?.player_name, value: records.most_career_clean_sheets?.value, season: records.most_career_clean_sheets?.season },
+  ];
+
+  const teamRows: Array<{ label: string; holder?: string | null; value?: number; season?: number }> = [
+    { label: t("tournaments.recHighestPoints", { defaultValue: "Highest points (season)" }), holder: records.highest_points_in_season?.team_name, value: records.highest_points_in_season?.value, season: records.highest_points_in_season?.season },
+    { label: t("tournaments.recMostGoalsTeam", { defaultValue: "Most goals by a team (season)" }), holder: records.most_goals_team_in_season?.team_name, value: records.most_goals_team_in_season?.value, season: records.most_goals_team_in_season?.season },
+    { label: t("tournaments.recLongestUnbeaten", { defaultValue: "Longest unbeaten run" }), holder: records.longest_unbeaten_run?.team_name, value: records.longest_unbeaten_run?.value, season: records.longest_unbeaten_run?.season },
+  ];
+
+  const transfer = records.record_transfer_fee;
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <RecordGroup title={t("tournaments.playerRecords", { defaultValue: "Player records" })} rows={playerRows} t={t} />
+      <RecordGroup title={t("tournaments.teamRecords", { defaultValue: "Team records" })} rows={teamRows} t={t} />
+      <div>
+        <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+          {t("tournaments.transferRecord", { defaultValue: "Transfer record" })}
+        </h4>
+        <TemplateCard className="flex items-center justify-between gap-3 p-4">
+          {transfer ? (
+            <>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-app-text">{transfer.player_name}</span>
+                <span className="block truncate text-[11px] text-app-text-muted">
+                  {transfer.from_team_name} → {transfer.to_team_name}
+                </span>
+              </span>
+              <span className="text-right">
+                <span className="block font-heading text-sm font-bold tabular-nums text-app-green">
+                  {formatExactMoney(transfer.fee)}
+                </span>
+                <span className="block text-[10px] text-app-text-muted">
+                  {t("schedule.season", { number: transfer.season })}
+                </span>
+              </span>
+            </>
+          ) : (
+            <span className="text-xs text-app-text-muted">—</span>
+          )}
+        </TemplateCard>
+      </div>
+    </div>
+  );
+}
+
+function RecordGroup({
+  title,
+  rows,
+  t,
+}: {
+  title: string;
+  rows: Array<{ label: string; holder?: string | null; value?: number; season?: number }>;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{title}</h4>
+      <TemplateCard className="divide-y divide-app-border/30">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <span className="text-xs text-app-text-muted">{row.label}</span>
+            <span className="min-w-0 text-right">
+              {row.holder ? (
+                <>
+                  <span className="block truncate text-sm font-bold text-app-text">
+                    {row.holder} <span className="text-app-green">{row.value}</span>
+                  </span>
+                  {row.season ? (
+                    <span className="block text-[10px] text-app-text-muted">
+                      {t("schedule.season", { number: row.season })}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-sm text-app-text-muted">—</span>
+              )}
+            </span>
+          </div>
+        ))}
       </TemplateCard>
     </div>
   );

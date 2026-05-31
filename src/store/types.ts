@@ -563,6 +563,75 @@ export interface GameStateData {
   youth_scouting_assignments?: YouthScoutingAssignment[];
   board_objectives: BoardObjective[];
   season_context?: SeasonContextData;
+  season_honours?: SeasonHonours[];
+  records?: GameRecords;
+}
+
+export interface SeasonAwardEntry {
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  team_name: string;
+  value: number;
+}
+
+export interface SeasonAwardsData {
+  golden_boot: SeasonAwardEntry[];
+  assist_king: SeasonAwardEntry[];
+  player_of_year: SeasonAwardEntry[];
+  clean_sheet_king: SeasonAwardEntry[];
+  most_appearances: SeasonAwardEntry[];
+  young_player: SeasonAwardEntry[];
+}
+
+export interface CompetitionChampion {
+  competition_id: string;
+  competition_name: string;
+  team_id: string;
+  team_name: string;
+}
+
+export interface SeasonHonours {
+  season: number;
+  champions: CompetitionChampion[];
+  awards: SeasonAwardsData;
+}
+
+export interface PlayerRecord {
+  player_id: string;
+  player_name: string;
+  team_name: string;
+  value: number;
+  season: number;
+}
+
+export interface TeamRecord {
+  team_id: string;
+  team_name: string;
+  value: number;
+  season: number;
+}
+
+export interface TransferRecord {
+  player_id: string;
+  player_name: string;
+  from_team_name: string;
+  to_team_name: string;
+  fee: number;
+  season: number;
+}
+
+export interface GameRecords {
+  most_goals_in_season?: PlayerRecord | null;
+  most_career_goals?: PlayerRecord | null;
+  most_assists_in_season?: PlayerRecord | null;
+  most_career_assists?: PlayerRecord | null;
+  most_clean_sheets_in_season?: PlayerRecord | null;
+  most_career_clean_sheets?: PlayerRecord | null;
+  longest_unbeaten_run?: TeamRecord | null;
+  record_transfer_fee?: TransferRecord | null;
+  highest_points_in_season?: TeamRecord | null;
+  most_goals_team_in_season?: TeamRecord | null;
 }
 
 export function getCompetitionForTeam(gameState: GameStateData, teamId: string | null | undefined): CompetitionLikeData | null {

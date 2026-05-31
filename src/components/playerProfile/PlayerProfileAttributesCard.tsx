@@ -6,6 +6,7 @@ import { Card, CardBody, CardHeader, ProgressBar } from "../ui";
 interface PlayerProfileAttributesCardProps {
     attrGroups: PlayerAttributeGroup[];
     isOwnClub: boolean;
+    godMode?: boolean;
     title: string;
     averageLabel: string;
     hiddenTitle: string;
@@ -15,16 +16,18 @@ interface PlayerProfileAttributesCardProps {
 export default function PlayerProfileAttributesCard({
     attrGroups,
     isOwnClub,
+    godMode = false,
     title,
     averageLabel,
     hiddenTitle,
     hiddenBody,
 }: PlayerProfileAttributesCardProps) {
+    const reveal = isOwnClub || godMode;
     return (
         <Card className="lg:col-span-2">
             <CardHeader>{title}</CardHeader>
             <CardBody>
-                {isOwnClub ? (
+                {reveal ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {attrGroups.map((group) => (
                             <div key={group.label}>

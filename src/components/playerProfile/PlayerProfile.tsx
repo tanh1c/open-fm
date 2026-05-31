@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatExactMoney, getContractRiskLevel, getPlayerOvr } from "../../lib/helpers";
 import { PlayerData, GameStateData } from "../../store/gameStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveBackendText } from "../../utils/backendI18n";
@@ -24,6 +25,7 @@ import {
 import PlayerProfileAdvancedStatsCard from "./PlayerProfileAdvancedStatsCard";
 import { buildPlayerAttributeGroups } from "./PlayerProfile.attributes";
 import PlayerProfileAttributesCard from "./PlayerProfileAttributesCard";
+import PlayerProfileAttributeEditor from "./PlayerProfileAttributeEditor";
 import PlayerProfileCareerHistoryCard from "./PlayerProfileCareerHistoryCard";
 import PlayerProfileContractCard from "./PlayerProfileContractCard";
 import PlayerProfileHeroCard from "./PlayerProfileHeroCard";
@@ -48,6 +50,7 @@ import {
   getScoutAvailability,
   type PlayerProfileScoutStatus,
 } from "./PlayerProfile.scouting";
+import { editPlayer, type PlayerEdits } from "../../services/attributeService";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -78,6 +81,7 @@ export default function PlayerProfile({
   onGameUpdate,
 }: PlayerProfileProps) {
   const { t, i18n } = useTranslation();
+  const godMode = useSettingsStore((s) => s.settings.god_mode);
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
   const primaryPosition = player.natural_position || player.position;
   const footednessLabel = t(
@@ -125,6 +129,8 @@ export default function PlayerProfile({
     useState(false);
   const [hasConsumedInitialTerminationIntent, setHasConsumedInitialTerminationIntent] =
     useState(false);
+  const [godModeSubmitting, setGodModeSubmitting] = useState(false);
+  const [godModeError, setGodModeError] = useState<string | null>(null);
   const ovr = getPlayerOvr(player);
   const age = getPlayerAge(player.date_of_birth);
   const teamName = getPlayerTeamName(
@@ -584,6 +590,24 @@ export default function PlayerProfile({
     }
   }
 
+  async function handleGodModeEdit(edits: PlayerEdits): Promise<void> {
+    if (godModeSubmitting) {
+      return;
+    }
+
+    setGodModeSubmitting(true);
+    setGodModeError(null);
+
+    try {
+      const result = await editPlayer(player.id, edits);
+      onGameUpdate?.(result.game);
+    } catch (error) {
+      setGodModeError(resolveTranslatedErrorMessage(error, t));
+    } finally {
+      setGodModeSubmitting(false);
+    }
+  }
+
   return (
     <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -685,12 +709,29 @@ export default function PlayerProfile({
           <PlayerProfileAttributesCard
             attrGroups={attrGroups}
             isOwnClub={isOwnClub}
+            godMode={godMode}
             title={t("playerProfile.attributes")}
             averageLabel={t("common.average")}
             hiddenTitle={t("playerProfile.attributesHidden")}
             hiddenBody={t("playerProfile.scoutToView")}
           />
           <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
+          {godMode && onGameUpdate ? (
+            <>
+              {godModeError ? (
+                <div className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm text-app-red">
+                  {godModeError}
+                </div>
+              ) : null}
+              <PlayerProfileAttributeEditor
+                player={player}
+                teams={gameState.teams}
+                submitting={godModeSubmitting}
+                onSubmit={(edits) => void handleGodModeEdit(edits)}
+                t={t}
+              />
+            </>
+          ) : null}
         </section>
 
         <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">

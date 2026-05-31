@@ -1189,6 +1189,8 @@
     "matchCommentaryDesc": "Afficher les commentaires d'événements pendant les matchs",
     "confirmAdvance": "Confirmer Avant d'Avancer",
     "confirmAdvanceDesc": "Demander confirmation avant d'avancer d'un jour",
+    "godMode": "Mode Dieu",
+    "godModeDesc": "Révèle les vrais attributs de chaque joueur et débloque l'édition des joueurs",
     "savesData": "Sauvegardes et Données",
     "autoSave": "Sauvegarde Auto",
     "autoSaveDesc": "Sauvegarder automatiquement après chaque jour",

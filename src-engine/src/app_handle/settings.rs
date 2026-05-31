@@ -29,6 +29,8 @@ pub struct AppSettings {
     pub ui_scale: String,
     #[serde(default)]
     pub high_contrast: bool,
+    #[serde(default)]
+    pub god_mode: bool,
 }
 
 fn default_language() -> String {
@@ -57,6 +59,7 @@ impl Default for AppSettings {
             confirm_advance: false,
             ui_scale: "normal".to_string(),
             high_contrast: false,
+            god_mode: false,
         }
     }
 }

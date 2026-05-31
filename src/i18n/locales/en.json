@@ -1189,6 +1189,8 @@
     "matchCommentaryDesc": "Show event commentary during live matches",
     "confirmAdvance": "Confirm Before Advancing",
     "confirmAdvanceDesc": "Ask for confirmation before advancing a day",
+    "godMode": "God Mode",
+    "godModeDesc": "Reveal every player's real attributes and unlock player editing",
     "savesData": "Saves & Data",
     "autoSave": "Auto-Save",
     "autoSaveDesc": "Off: never auto-save. Matchday: save after each match. Always: also save on every day advance.",

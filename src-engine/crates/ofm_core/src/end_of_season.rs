@@ -116,7 +116,11 @@ fn apply_promotion_and_relegation(
             .relegation_count
             .min(lower_definition.promotion_count)
             .min(tier_memberships[upper_index].1.len())
-            .min(tier_memberships[lower_index].1.len());
+            .min(tier_memberships[lower_index].1.len())
+            // Never relegate an entire division: the upper tier must retain at
+            // least its champion. Only bites for degenerately small leagues
+            // (e.g. a 2-team test tier); real pyramids relegate 3 of 20+.
+            .min(tier_memberships[upper_index].1.len().saturating_sub(1));
 
         if movement_count == 0 {
             continue;
@@ -678,12 +682,16 @@ mod tests {
     use domain::team::Team;
 
     fn test_team(id: &str, name: &str, reputation: u32) -> Team {
+        test_team_in_country(id, name, "England", reputation)
+    }
+
+    fn test_team_in_country(id: &str, name: &str, country: &str, reputation: u32) -> Team {
         let mut team = Team::new(
             id.to_string(),
             name.to_string(),
             name.chars().take(2).collect(),
-            "England".to_string(),
-            "England".to_string(),
+            country.to_string(),
+            country.to_string(),
             "Ground".to_string(),
             40_000,
         );
@@ -706,6 +714,12 @@ mod tests {
             test_team("eng-2", "English Two", 800),
             test_team("eng-3", "English Three", 700),
             test_team("eng-4", "English Four", 600),
+            // A second country so two tier-1 leagues supply enough
+            // continental qualifiers (2 per league) to form a group of four.
+            test_team_in_country("esp-1", "Spanish One", "Spain", 850),
+            test_team_in_country("esp-2", "Spanish Two", "Spain", 750),
+            test_team_in_country("esp-3", "Spanish Three", "Spain", 650),
+            test_team_in_country("esp-4", "Spanish Four", "Spain", 550),
         ];
         let mut game = Game::new(
             GameClock::new(start + Duration::days(14)),
@@ -782,7 +796,7 @@ mod tests {
         let championship = game
             .competitions
             .iter()
-            .find(|competition| competition.name == "Championship")
+            .find(|competition| competition.name == "EFL Championship")
             .unwrap();
         assert_eq!(premier_league.team_ids, vec!["eng-1", "eng-3"]);
         assert_eq!(championship.team_ids, vec!["eng-4", "eng-2"]);

@@ -16,6 +16,7 @@ export interface AppSettings {
   confirm_advance: boolean;
   ui_scale: "small" | "normal" | "large" | "xlarge";
   high_contrast: boolean;
+  god_mode: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   confirm_advance: false,
   ui_scale: "normal",
   high_contrast: false,
+  god_mode: false,
 };
 
 function mergeWithDefaultSettings(settings: Partial<AppSettings> = {}): AppSettings {

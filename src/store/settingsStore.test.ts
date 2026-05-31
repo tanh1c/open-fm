@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS = {
   confirm_advance: false,
   ui_scale: "normal",
   high_contrast: false,
+  god_mode: false,
 } as const;
 
 beforeEach(() => {

@@ -330,6 +330,10 @@ export default function Settings({ embedded = false }: SettingsProps) {
             <SettingRow label={t("settings.confirmAdvance")} description={t("settings.confirmAdvanceDesc")}>
               <Toggle checked={settings.confirm_advance} onChange={(v) => handleUpdate({ confirm_advance: v })} />
             </SettingRow>
+
+            <SettingRow label={t("settings.godMode", { defaultValue: "God Mode" })} description={t("settings.godModeDesc", { defaultValue: "Reveal every player's real attributes and unlock player editing." })}>
+              <Toggle checked={settings.god_mode} onChange={(v) => handleUpdate({ god_mode: v })} />
+            </SettingRow>
           </Section>
           ) : null}
 

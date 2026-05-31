@@ -23,6 +23,7 @@ mod club;
 mod contracts;
 mod finances;
 mod game;
+mod god_mode;
 mod jobs;
 mod live_match;
 mod messages;

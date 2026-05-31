@@ -1189,6 +1189,8 @@
     "matchCommentaryDesc": "Ereigniskommentare während Live-Spielen anzeigen",
     "confirmAdvance": "Vor dem Fortfahren bestätigen",
     "confirmAdvanceDesc": "Bestätigung anfordern, bevor ein Tag vorrückt",
+    "godMode": "Gott-Modus",
+    "godModeDesc": "Echte Attribute aller Spieler anzeigen und Spielerbearbeitung freischalten",
     "savesData": "Speicherstände & Daten",
     "autoSave": "Automatisch speichern",
     "autoSaveDesc": "Automatisch nach jedem Tag speichern",

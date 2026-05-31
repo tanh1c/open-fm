@@ -215,13 +215,18 @@ fn expiring_contract_lowers_resistance_to_sale() {
         .expect("bid should be evaluated");
 
     assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
-    assert_eq!(
-        game.players
-            .iter()
-            .find(|player| player.id == "player-expiring")
-            .and_then(|player| player.team_id.as_deref()),
-        Some("team-1")
-    );
+    // The bid only agrees a fee; the player moves later during the contract step
+    // (see accepted_outgoing_bid_waits_for_player_contract_before_transfer).
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-expiring")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-2"));
+    assert!(player
+        .transfer_offers
+        .iter()
+        .any(|offer| offer.status == TransferOfferStatus::Accepted));
 }
 
 #[test]
@@ -279,12 +284,14 @@ fn repeated_bid_advances_transfer_negotiation_round() {
         TransferNegotiationDecision::Accepted
     );
     assert_eq!(second_result.feedback.round, 2);
+    // Accepting the bid only agrees a fee; the player stays until the separate
+    // contract step moves them.
     assert_eq!(
         game.players
             .iter()
             .find(|player| player.id == "player-repeat-bid")
             .and_then(|player| player.team_id.as_deref()),
-        Some("team-1")
+        Some("team-2")
     );
 }
 
@@ -445,7 +452,7 @@ fn accepted_outgoing_bid_waits_for_player_contract_before_transfer() {
         &mut game,
         "player-contract-step",
         &offer_id,
-        8_000,
+        10_000,
         3,
     )
     .expect("contract counter");
@@ -941,6 +948,31 @@ fn accepted_major_transfer_generates_news_article() {
         .expect("major transfer bid should succeed");
 
     assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
+
+    // The completed move (and its news article) only happens once personal
+    // terms are agreed in the contract step.
+    let offer_id = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-news-major")
+        .unwrap()
+        .transfer_offers
+        .iter()
+        .find(|offer| offer.status == TransferOfferStatus::Accepted)
+        .unwrap()
+        .id
+        .clone();
+
+    let contract = propose_transfer_contract(
+        &mut game,
+        "player-news-major",
+        &offer_id,
+        50_000,
+        3,
+    )
+    .expect("contract step should complete the transfer");
+    assert_eq!(contract.decision, TransferContractDecision::Accepted);
+
     let article = game
         .news
         .iter()

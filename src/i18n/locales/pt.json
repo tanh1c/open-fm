@@ -1189,6 +1189,8 @@
     "matchCommentaryDesc": "Mostrar comentários de eventos durante jogos ao vivo",
     "confirmAdvance": "Confirmar Antes de Avançar",
     "confirmAdvanceDesc": "Pedir confirmação antes de avançar um dia",
+    "godMode": "Modo Deus",
+    "godModeDesc": "Revela os atributos reais de cada jogador e desbloqueia a edição de jogadores",
     "savesData": "Saves e Dados",
     "autoSave": "Guardar Automaticamente",
     "autoSaveDesc": "Guardar automaticamente após cada dia",

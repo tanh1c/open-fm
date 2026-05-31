@@ -31,85 +31,99 @@ pub fn replace_stats_state(conn: &Connection, stats: &StatsState) -> Result<(), 
     upsert_stats_state(conn, stats)
 }
 
+/// Persist match stats append-only.
+///
+/// Match stats are immutable once a fixture is played, and both tables are
+/// keyed by `(fixture_id, player_id)` / `(fixture_id, team_id)`. Using
+/// `INSERT OR IGNORE` with a single cached statement means each save only
+/// writes rows for fixtures not already stored, instead of rewriting the whole
+/// career history every time — the dominant cost as a save accumulates seasons.
 pub fn upsert_stats_state(conn: &Connection, stats: &StatsState) -> Result<(), String> {
-    conn.prepare("SELECT fixture_id FROM player_match_stats LIMIT 0")
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.prepare("SELECT fixture_id FROM team_match_stats LIMIT 0")
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    {
+        let mut player_stmt = conn
+            .prepare_cached(
+                "INSERT OR IGNORE INTO player_match_stats (
+                    fixture_id, season, matchday, date, competition, player_id, team_id,
+                    opponent_team_id, home_team_id, away_team_id, home_goals, away_goals,
+                    minutes_played, goals, assists, shots, shots_on_target, passes_completed,
+                    passes_attempted, tackles_won, interceptions, fouls_committed,
+                    yellow_cards, red_cards, rating
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
-    for record in &stats.player_matches {
-        conn.execute(
-            "INSERT OR REPLACE INTO player_match_stats (
-                fixture_id, season, matchday, date, competition, player_id, team_id,
-                opponent_team_id, home_team_id, away_team_id, home_goals, away_goals,
-                minutes_played, goals, assists, shots, shots_on_target, passes_completed,
-                passes_attempted, tackles_won, interceptions, fouls_committed,
-                yellow_cards, red_cards, rating
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
-            params![
-                record.fixture_id,
-                record.season,
-                record.matchday,
-                record.date,
-                competition_to_string(&record.competition),
-                record.player_id,
-                record.team_id,
-                record.opponent_team_id,
-                record.home_team_id,
-                record.away_team_id,
-                record.home_goals,
-                record.away_goals,
-                record.minutes_played,
-                record.goals,
-                record.assists,
-                record.shots,
-                record.shots_on_target,
-                record.passes_completed,
-                record.passes_attempted,
-                record.tackles_won,
-                record.interceptions,
-                record.fouls_committed,
-                record.yellow_cards,
-                record.red_cards,
-                record.rating,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        for record in &stats.player_matches {
+            player_stmt
+                .execute(params![
+                    record.fixture_id,
+                    record.season,
+                    record.matchday,
+                    record.date,
+                    competition_to_string(&record.competition),
+                    record.player_id,
+                    record.team_id,
+                    record.opponent_team_id,
+                    record.home_team_id,
+                    record.away_team_id,
+                    record.home_goals,
+                    record.away_goals,
+                    record.minutes_played,
+                    record.goals,
+                    record.assists,
+                    record.shots,
+                    record.shots_on_target,
+                    record.passes_completed,
+                    record.passes_attempted,
+                    record.tackles_won,
+                    record.interceptions,
+                    record.fouls_committed,
+                    record.yellow_cards,
+                    record.red_cards,
+                    record.rating,
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
     }
 
-    for record in &stats.team_matches {
-        conn.execute(
-            "INSERT OR REPLACE INTO team_match_stats (
-                fixture_id, season, matchday, date, competition, team_id, opponent_team_id,
-                home_team_id, away_team_id, goals_for, goals_against, possession_pct,
-                shots, shots_on_target, passes_completed, passes_attempted, tackles_won,
-                interceptions, fouls_committed, yellow_cards, red_cards
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
-            params![
-                record.fixture_id,
-                record.season,
-                record.matchday,
-                record.date,
-                competition_to_string(&record.competition),
-                record.team_id,
-                record.opponent_team_id,
-                record.home_team_id,
-                record.away_team_id,
-                record.goals_for,
-                record.goals_against,
-                record.possession_pct,
-                record.shots,
-                record.shots_on_target,
-                record.passes_completed,
-                record.passes_attempted,
-                record.tackles_won,
-                record.interceptions,
-                record.fouls_committed,
-                record.yellow_cards,
-                record.red_cards,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    {
+        let mut team_stmt = conn
+            .prepare_cached(
+                "INSERT OR IGNORE INTO team_match_stats (
+                    fixture_id, season, matchday, date, competition, team_id, opponent_team_id,
+                    home_team_id, away_team_id, goals_for, goals_against, possession_pct,
+                    shots, shots_on_target, passes_completed, passes_attempted, tackles_won,
+                    interceptions, fouls_committed, yellow_cards, red_cards
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+
+        for record in &stats.team_matches {
+            team_stmt
+                .execute(params![
+                    record.fixture_id,
+                    record.season,
+                    record.matchday,
+                    record.date,
+                    competition_to_string(&record.competition),
+                    record.team_id,
+                    record.opponent_team_id,
+                    record.home_team_id,
+                    record.away_team_id,
+                    record.goals_for,
+                    record.goals_against,
+                    record.possession_pct,
+                    record.shots,
+                    record.shots_on_target,
+                    record.passes_completed,
+                    record.passes_attempted,
+                    record.tackles_won,
+                    record.interceptions,
+                    record.fouls_committed,
+                    record.yellow_cards,
+                    record.red_cards,
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
     }
 
     Ok(())
@@ -307,5 +321,41 @@ mod tests {
         let result = load_stats_state(&conn);
 
         assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
+    }
+
+    #[test]
+    fn test_save_is_append_only_and_idempotent() {
+        let db = test_db();
+        let first = sample_stats_state();
+
+        // Saving the same state twice must not duplicate rows (append-only).
+        upsert_stats_state(db.conn(), &first).unwrap();
+        upsert_stats_state(db.conn(), &first).unwrap();
+
+        let after_dup = load_stats_state(db.conn()).unwrap();
+        assert_eq!(after_dup.player_matches.len(), 1);
+        assert_eq!(after_dup.team_matches.len(), 1);
+
+        // A later save carrying the old match plus one new match adds only the
+        // new fixture's rows; the existing fixture row is left untouched.
+        let mut second = sample_stats_state();
+        let mut new_player = second.player_matches[0].clone();
+        new_player.fixture_id = "fixture-002".to_string();
+        new_player.matchday = 2;
+        second.player_matches.push(new_player);
+        let mut new_team = second.team_matches[0].clone();
+        new_team.fixture_id = "fixture-002".to_string();
+        new_team.matchday = 2;
+        second.team_matches.push(new_team);
+
+        upsert_stats_state(db.conn(), &second).unwrap();
+
+        let loaded = load_stats_state(db.conn()).unwrap();
+        assert_eq!(loaded.player_matches.len(), 2);
+        assert_eq!(loaded.team_matches.len(), 2);
+        assert!(loaded
+            .player_matches
+            .iter()
+            .any(|record| record.fixture_id == "fixture-002"));
     }
 }

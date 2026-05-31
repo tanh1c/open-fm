@@ -30,66 +30,81 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
-    for f in &league.fixtures {
-        let competition_str = format!("{:?}", f.competition);
-        let status_str = format!("{:?}", f.status);
-        let result_json = f
-            .result
-            .as_ref()
-            .map(|r| serde_json::to_string(r).unwrap_or_default());
-        conn.execute(
-            "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-            params![
-                f.id,
-                league.id,
-                f.matchday,
-                f.date,
-                f.home_team_id,
-                f.away_team_id,
-                competition_str,
-                status_str,
-                result_json,
-                f.competition_id.as_deref().unwrap_or(&league.id),
-                f.season.unwrap_or(league.season),
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    {
+        let mut fixture_stmt = conn
+            .prepare_cached(
+                "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        for f in &league.fixtures {
+            let competition_str = format!("{:?}", f.competition);
+            let status_str = format!("{:?}", f.status);
+            let result_json = f
+                .result
+                .as_ref()
+                .map(|r| serde_json::to_string(r).unwrap_or_default());
+            fixture_stmt
+                .execute(params![
+                    f.id,
+                    league.id,
+                    f.matchday,
+                    f.date,
+                    f.home_team_id,
+                    f.away_team_id,
+                    competition_str,
+                    status_str,
+                    result_json,
+                    f.competition_id.as_deref().unwrap_or(&league.id),
+                    f.season.unwrap_or(league.season),
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
     }
 
-    for s in &league.standings {
-        conn.execute(
-            "INSERT INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                league.id,
-                s.team_id,
-                s.played,
-                s.won,
-                s.drawn,
-                s.lost,
-                s.goals_for,
-                s.goals_against,
-                s.points,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    {
+        let mut standing_stmt = conn
+            .prepare_cached(
+                "INSERT INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        for s in &league.standings {
+            standing_stmt
+                .execute(params![
+                    league.id,
+                    s.team_id,
+                    s.played,
+                    s.won,
+                    s.drawn,
+                    s.lost,
+                    s.goals_for,
+                    s.goals_against,
+                    s.points,
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
     }
 
-    for transfer in &league.transfer_log {
-        conn.execute(
-            "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                league.id,
-                transfer.date,
-                transfer.from_team_id,
-                transfer.to_team_id,
-                transfer.player_id,
-                transfer.fee as i64,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    {
+        let mut transfer_stmt = conn
+            .prepare_cached(
+                "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        for transfer in &league.transfer_log {
+            transfer_stmt
+                .execute(params![
+                    league.id,
+                    transfer.date,
+                    transfer.from_team_id,
+                    transfer.to_team_id,
+                    transfer.player_id,
+                    transfer.fee as i64,
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
     }
 
     Ok(())
@@ -148,11 +163,39 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
     conn.execute("DELETE FROM competition_teams", [])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
-    for competition in competitions {
-        conn.execute(
+    let mut competition_stmt = conn
+        .prepare_cached(
             "INSERT OR REPLACE INTO competitions (id, name, season, kind, format, country, tier)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let mut team_stmt = conn
+        .prepare_cached(
+            "INSERT OR REPLACE INTO competition_teams (competition_id, team_id) VALUES (?1, ?2)",
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let mut fixture_stmt = conn
+        .prepare_cached(
+            "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let mut standing_stmt = conn
+        .prepare_cached(
+            "INSERT OR REPLACE INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let mut transfer_stmt = conn
+        .prepare_cached(
+            "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+
+    for competition in competitions {
+        competition_stmt
+            .execute(params![
                 competition.id,
                 competition.name,
                 competition.season,
@@ -160,16 +203,13 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
                 format!("{:?}", competition.format),
                 competition.country,
                 competition.tier,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+            ])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
         for team_id in &competition.team_ids {
-            conn.execute(
-                "INSERT OR REPLACE INTO competition_teams (competition_id, team_id) VALUES (?1, ?2)",
-                params![competition.id, team_id],
-            )
-            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+            team_stmt
+                .execute(params![competition.id, team_id])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
 
         let fixture_competition = competition_fixture_value(competition);
@@ -185,10 +225,8 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
                 .result
                 .as_ref()
                 .map(|result| serde_json::to_string(result).unwrap_or_default());
-            conn.execute(
-                "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![
+            fixture_stmt
+                .execute(params![
                     fixture.id,
                     competition.id,
                     fixture.matchday,
@@ -200,16 +238,13 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
                     result_json,
                     fixture.competition_id.as_deref().unwrap_or(&competition.id),
                     fixture.season.unwrap_or(competition.season),
-                ],
-            )
-            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
 
         for standing in &competition.standings {
-            conn.execute(
-                "INSERT OR REPLACE INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![
+            standing_stmt
+                .execute(params![
                     competition.id,
                     standing.team_id,
                     standing.played,
@@ -219,25 +254,21 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
                     standing.goals_for,
                     standing.goals_against,
                     standing.points,
-                ],
-            )
-            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
 
         for transfer in &competition.transfer_log {
-            conn.execute(
-                "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
+            transfer_stmt
+                .execute(params![
                     competition.id,
                     transfer.date,
                     transfer.from_team_id,
                     transfer.to_team_id,
                     transfer.player_id,
                     transfer.fee as i64,
-                ],
-            )
-            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
     }
 

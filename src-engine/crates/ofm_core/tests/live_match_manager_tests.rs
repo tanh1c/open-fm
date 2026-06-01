@@ -145,7 +145,11 @@ fn make_game_with_fixture() -> Game {
         competition: FixtureCompetition::League,
         status: FixtureStatus::Scheduled,
         result: None,
-    };
+    
+        stage: None,
+        leg: None,
+        tie_id: None,
+};
 
     let league = League {
         id: "league1".to_string(),

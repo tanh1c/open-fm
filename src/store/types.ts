@@ -400,6 +400,12 @@ export interface FixtureData {
     away_scorers: { player_id: string; minute: number }[];
     report?: CompactMatchReportData | null;
   };
+  /** Knockout stage id ("round_1", "playoff", "r16", "qf", "sf", "final"); null for league matches. */
+  stage?: string | null;
+  /** Leg number within a two-legged knockout tie (1 or 2); null otherwise. */
+  leg?: number | null;
+  /** Groups both legs of a two-legged tie together. */
+  tie_id?: string | null;
 }
 
 export interface CompactMatchEventData {
@@ -649,6 +655,22 @@ export interface RetiredPlayer {
   total_goals: number;
   total_assists: number;
   career_seasons: number;
+}
+
+export interface LeaderboardEntry {
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  team_name: string;
+  value: number;
+}
+
+export interface CompetitionLeaderboards {
+  competition_id: string;
+  season: number;
+  top_scorers: LeaderboardEntry[];
+  top_assists: LeaderboardEntry[];
+  top_clean_sheets: LeaderboardEntry[];
 }
 
 export function getCompetitionForTeam(gameState: GameStateData, teamId: string | null | undefined): CompetitionLikeData | null {

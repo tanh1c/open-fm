@@ -59,6 +59,10 @@ where
         training::check_squad_fitness_warnings(game);
     }
 
+    // After today's results resolve, advance any knockout brackets whose latest
+    // round just completed (domestic cups + Champions League knockout phase).
+    crate::knockout::process_knockout_progression(game, &today);
+
     crate::contracts::process_contract_expiries(game);
     transfers::process_loan_expiries(game);
 
@@ -100,6 +104,9 @@ pub fn finish_live_match_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     info!("[turn] finish_live_match_day: {}", today);
     generate_matchday_news(game, &today);
+
+    // Advance any knockout brackets whose latest round just completed.
+    crate::knockout::process_knockout_progression(game, &today);
 
     crate::contracts::process_contract_expiries(game);
     crate::finances::process_weekly_finances(game);
@@ -540,7 +547,7 @@ fn apply_fast_competition_result(
         report: None,
     });
 
-    if fixture.counts_for_league_standings() {
+    if fixture.counts_for_competition_standings() {
         let home_team_id = fixture.home_team_id.clone();
         let away_team_id = fixture.away_team_id.clone();
         if let Some(standing_index) = standing_index_by_team.get(home_team_id.as_str()).copied()

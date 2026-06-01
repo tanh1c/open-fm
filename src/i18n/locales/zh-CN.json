@@ -1046,7 +1046,19 @@
     "hallOfFameEmptyBody": "随着赛季更迭,传奇球员挂靴退役,进入名人堂。",
     "hofRetiredAt": "{{season}}赛季退役,{{age}}岁",
     "hofCareerLine": "{{apps}}场 · {{goals}}球 · {{assists}}助攻",
-    "hofPeak": "巅峰"
+    "hofPeak": "巅峰",
+    "leaderboardsTab": "排行榜",
+    "leaderboardsLoading": "正在加载排行榜…",
+    "leaderboardsEmptyTitle": "暂无排行榜数据",
+    "leaderboardsEmptyBody": "随着联赛比赛进行,球员排行榜会逐渐填充。",
+    "lbTopScorers": "射手榜",
+    "lbTopAssists": "助攻榜",
+    "lbTopCleanSheets": "零封榜",
+    "lbGoals": "进球",
+    "lbAssists": "助攻",
+    "lbCleanSheets": "零封",
+    "latestResults": "最新赛果",
+    "noResultsYet": "尚无赛果。"
   },
   "news": {
     "noNews": "暂无新闻报道。",

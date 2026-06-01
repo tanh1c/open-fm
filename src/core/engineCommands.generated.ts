@@ -38,6 +38,8 @@ export const ENGINE_COMMANDS: Readonly<Record<string, CommandSpec>> = Object.fre
   finish_live_match: { method: "finishLiveMatch", args: [] as const },
   get_active_game: { method: "getActiveGame", args: [] as const },
   get_available_jobs: { method: "getAvailableJobs", args: [] as const },
+  get_competition_awards: { method: "getCompetitionAwards", args: ["competitionId"] as const },
+  get_competition_leaderboards: { method: "getCompetitionLeaderboards", args: ["competitionId"] as const },
   get_finance_snapshot: { method: "getFinanceSnapshot", args: ["teamId"] as const },
   get_match_snapshot: { method: "getMatchSnapshot", args: [] as const },
   get_player_match_history: { method: "getPlayerMatchHistory", args: ["playerId", "limit"] as const },

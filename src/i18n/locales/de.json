@@ -1046,7 +1046,19 @@
     "hallOfFameEmptyBody": "Im Laufe der Saisons hängen Legenden die Schuhe an den Nagel und ziehen in die Ruhmeshalle ein.",
     "hofRetiredAt": "Karriereende {{season}}, Alter {{age}}",
     "hofCareerLine": "{{apps}} Spiele · {{goals}} Tore · {{assists}} Vorlagen",
-    "hofPeak": "Bestwert"
+    "hofPeak": "Bestwert",
+    "leaderboardsTab": "Bestenlisten",
+    "leaderboardsLoading": "Bestenlisten werden geladen…",
+    "leaderboardsEmptyTitle": "Noch keine Bestenlisten-Daten",
+    "leaderboardsEmptyBody": "Spieler-Bestenlisten füllen sich, sobald Ligaspiele ausgetragen werden.",
+    "lbTopScorers": "Torjäger",
+    "lbTopAssists": "Top-Vorlagen",
+    "lbTopCleanSheets": "Zu-null-Spiele",
+    "lbGoals": "Tore",
+    "lbAssists": "Vorlagen",
+    "lbCleanSheets": "Zu null",
+    "latestResults": "Neueste Ergebnisse",
+    "noResultsYet": "Noch keine Ergebnisse."
   },
   "news": {
     "noNews": "Noch keine Nachrichten.",

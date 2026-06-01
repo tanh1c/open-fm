@@ -281,6 +281,9 @@ mod tests {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
+            stage: None,
+            leg: None,
+            tie_id: None,
         };
 
         let league = League {

@@ -61,11 +61,11 @@ export default function PlayerProfileHeroCard({
         : [];
 
     return (
-        <Card accent="primary" className="mb-5">
-            <div className="bg-linear-to-r from-surface-700 to-surface-800 p-8 rounded-t-xl">
-                <div className="flex items-start gap-6">
+        <Card accent="primary">
+            <div className="bg-linear-to-r from-surface-700 to-surface-800 p-5 rounded-t-xl">
+                <div className="flex items-start gap-4">
                     <div
-                        className={`w-24 h-24 rounded-2xl flex items-center justify-center font-heading font-bold text-4xl border-2 ${ovr >= 75
+                        className={`w-16 h-16 rounded-xl flex items-center justify-center font-heading font-bold text-2xl border-2 shrink-0 ${ovr >= 75
                             ? "bg-primary-500/20 text-primary-400 border-primary-500/30"
                             : ovr >= 55
                                 ? "bg-accent-500/20 text-accent-400 border-accent-500/30"
@@ -74,11 +74,11 @@ export default function PlayerProfileHeroCard({
                     >
                         {ovr}
                     </div>
-                    <div className="flex-1">
-                        <h2 className="text-3xl font-heading font-bold text-white uppercase tracking-wide">
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-heading font-bold text-white uppercase tracking-wide truncate">
                             {player.full_name}
                         </h2>
-                        <div className="flex items-center gap-3 mt-2">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
                             <Badge variant={positionBadgeVariant(primaryPosition)}>
                                 {translatePositionLabel(t, primaryPosition)}
                             </Badge>
@@ -87,7 +87,7 @@ export default function PlayerProfileHeroCard({
                                     {translatePositionLabel(t, alternatePosition)}
                                 </Badge>
                             ))}
-                            <span className="text-gray-400 text-sm">
+                            <span className="text-gray-400 text-xs">
                                 <CountryFlag
                                     code={player.nationality}
                                     locale={language}
@@ -96,22 +96,20 @@ export default function PlayerProfileHeroCard({
                                 {countryName(player.nationality, language)}
                             </span>
                             <span className="text-gray-500">•</span>
-                            <span className="text-gray-400 text-sm">
+                            <span className="text-gray-400 text-xs">
                                 {t("common.age")} {age}
                             </span>
                             <span className="text-gray-500">•</span>
-                            <span className="text-gray-400 text-sm">
-                                {t("common.footednessLabel")}: {" "}
-                                {footednessLabel}
+                            <span className="text-gray-400 text-xs">
+                                {t("common.footednessLabel")}: {footednessLabel}
                             </span>
                             <span className="text-gray-500">•</span>
-                            <span className="text-gray-400 text-sm">
-                                {t("common.weakFoot")}: {" "}
-                                {weakFootValue}/5
+                            <span className="text-gray-400 text-xs">
+                                {t("common.weakFoot")}: {weakFootValue}/5
                             </span>
                         </div>
-                        <p className="text-gray-400 text-sm mt-2 flex items-center gap-1.5">
-                            <Shield className="w-4 h-4" />
+                        <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-1.5">
+                            <Shield className="w-3.5 h-3.5" />
                             {player.team_id && onSelectTeam ? (
                                 <ContextMenu items={teamContextItems}>
                                     <button
@@ -127,14 +125,14 @@ export default function PlayerProfileHeroCard({
                             )}
                         </p>
                         {player.traits && player.traits.length > 0 ? (
-                            <div className="mt-3">
+                            <div className="mt-2">
                                 <TraitList traits={player.traits} size="sm" />
                             </div>
                         ) : null}
                     </div>
 
                     {!isOwnClub ? (
-                        <div className="mt-3">
+                        <div className="shrink-0">
                             <PlayerProfileScoutAction
                                 availability={scoutAvailability}
                                 scoutStatus={scoutStatus}
@@ -144,7 +142,7 @@ export default function PlayerProfileHeroCard({
                         </div>
                     ) : null}
 
-                    <div className="hidden md:grid grid-cols-2 gap-3">
+                    <div className="hidden md:grid grid-cols-2 gap-2 shrink-0">
                         <QuickStat
                             label={t("common.condition")}
                             value={`${player.condition}%`}
@@ -205,11 +203,11 @@ function QuickStat({
     color: string;
 }) {
     return (
-        <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
-            <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
+        <div className="bg-white/5 rounded-lg px-4 py-2 text-center min-w-24">
+            <p className="text-[10px] text-gray-400 font-heading uppercase tracking-wider">
                 {label}
             </p>
-            <p className={`font-heading font-bold text-xl mt-0.5 ${color}`}>
+            <p className={`font-heading font-bold text-base mt-0.5 ${color}`}>
                 {value}
             </p>
         </div>

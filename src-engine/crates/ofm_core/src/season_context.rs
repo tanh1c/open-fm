@@ -166,6 +166,9 @@ mod tests {
                 away_scorers: vec![],
                 report: None,
             }),
+            stage: None,
+            leg: None,
+            tie_id: None,
         }
     }
 

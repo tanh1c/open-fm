@@ -200,7 +200,11 @@ fn make_game_with_match() -> Game {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
-        }],
+        
+            stage: None,
+            leg: None,
+            tie_id: None,
+}],
         standings: vec![
             StandingEntry::new("team1".to_string()),
             StandingEntry::new("team2".to_string()),
@@ -497,7 +501,11 @@ fn process_day_simulates_background_competition_fixture() {
             competition: FixtureCompetition::DomesticLeague,
             status: FixtureStatus::Scheduled,
             result: None,
-        }],
+        
+            stage: None,
+            leg: None,
+            tie_id: None,
+}],
         standings: vec![
             StandingEntry::new("team1".to_string()),
             StandingEntry::new("team2".to_string()),
@@ -1591,7 +1599,11 @@ fn make_round_summary_game() -> Game {
                     }],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "fix2".to_string(),
                 matchday: 7,
@@ -1618,7 +1630,11 @@ fn make_round_summary_game() -> Game {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ],
         standings: vec![
             standing_entry("team1", 11, 30, 21, 11),

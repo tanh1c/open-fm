@@ -508,7 +508,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f2".to_string(),
                 matchday: 2,
@@ -526,7 +530,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ];
         game.league = Some(league);
 
@@ -595,7 +603,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f2".to_string(),
                 matchday: 2,
@@ -613,7 +625,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ];
         game.league = Some(league);
 
@@ -687,7 +703,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f2".to_string(),
                 matchday: 2,
@@ -705,7 +725,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ];
         game.league = Some(league);
 
@@ -754,7 +778,11 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
-            }
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+}
         };
         league.standings = vec![
             StandingEntry {

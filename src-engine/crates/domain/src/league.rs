@@ -85,6 +85,19 @@ pub struct Fixture {
     pub competition: FixtureCompetition,
     pub status: FixtureStatus,
     pub result: Option<MatchResult>,
+    /// Knockout stage identifier (e.g. "playoff", "r16", "qf", "sf", "final",
+    /// "round_1"). `None` for round-robin league matches.
+    #[serde(default)]
+    pub stage: Option<String>,
+    /// Leg number within a two-legged knockout tie (1 or 2). `None` for
+    /// single-match ties and league fixtures.
+    #[serde(default)]
+    pub leg: Option<u8>,
+    /// Stable identifier grouping the two legs of a knockout tie together so the
+    /// frontend can render them as one bracket node and the engine can compute
+    /// aggregate scores.
+    #[serde(default)]
+    pub tie_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -189,6 +202,18 @@ impl Fixture {
         matches!(self.competition, FixtureCompetition::League | FixtureCompetition::DomesticLeague)
     }
 
+    /// Whether this fixture should update its competition's standings table.
+    /// Domestic-league matches always do; continental matches do **only** during
+    /// the Swiss league phase (`stage == None`) — knockout legs don't feed a
+    /// table. Pure knockout cups have no standings at all.
+    pub fn counts_for_competition_standings(&self) -> bool {
+        match self.competition {
+            FixtureCompetition::League | FixtureCompetition::DomesticLeague => true,
+            FixtureCompetition::ContinentalLeague => self.stage.is_none(),
+            _ => false,
+        }
+    }
+
     pub fn generates_match_report_news(&self) -> bool {
         matches!(
             self.competition,
@@ -245,6 +270,9 @@ impl Default for Fixture {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
+            stage: None,
+            leg: None,
+            tie_id: None,
         }
     }
 }

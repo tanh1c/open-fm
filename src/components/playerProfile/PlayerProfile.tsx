@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { formatExactMoney, getContractRiskLevel, getPlayerOvr } from "../../lib/helpers";
 import { PlayerData, GameStateData } from "../../store/gameStore";
 import { useSettingsStore } from "../../store/settingsStore";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveBackendText } from "../../utils/backendI18n";
 import { resolveTranslatedErrorMessage } from "../../utils/errorMessage";
@@ -131,6 +131,8 @@ export default function PlayerProfile({
     useState(false);
   const [godModeSubmitting, setGodModeSubmitting] = useState(false);
   const [godModeError, setGodModeError] = useState<string | null>(null);
+  const [showGodModeEditor, setShowGodModeEditor] = useState(false);
+  const canEditPlayer = godMode && Boolean(onGameUpdate);
   const ovr = getPlayerOvr(player);
   const age = getPlayerAge(player.date_of_birth);
   const teamName = getPlayerTeamName(
@@ -601,6 +603,7 @@ export default function PlayerProfile({
     try {
       const result = await editPlayer(player.id, edits);
       onGameUpdate?.(result.game);
+      setShowGodModeEditor(false);
     } catch (error) {
       setGodModeError(resolveTranslatedErrorMessage(error, t));
     } finally {
@@ -609,22 +612,37 @@ export default function PlayerProfile({
   }
 
   return (
-    <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-app-text">{player.full_name.toUpperCase()}</h1>
-          <p className="text-sm text-app-text-muted">
+    <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-bold tracking-tight text-app-text">{player.full_name.toUpperCase()}</h1>
+          <p className="text-xs text-app-text-muted">
             {t(`common.posAbbr.${primaryPosition}`, { defaultValue: primaryPosition })} &bull; {teamName} &bull; OVR {ovr}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex w-fit items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("common.back")}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {canEditPlayer ? (
+            <button
+              type="button"
+              onClick={() => {
+                setGodModeError(null);
+                setShowGodModeEditor(true);
+              }}
+              className="flex items-center gap-2 rounded-lg border border-app-green/40 bg-app-green/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-green transition-colors hover:bg-app-green/20"
+            >
+              <Pencil className="h-4 w-4" />
+              {t("playerProfile.editPlayer", { defaultValue: "Edit Player" })}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t("common.back")}
+          </button>
+        </div>
       </div>
 
       <PlayerProfileHeroCard
@@ -716,22 +734,6 @@ export default function PlayerProfile({
             hiddenBody={t("playerProfile.scoutToView")}
           />
           <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
-          {godMode && onGameUpdate ? (
-            <>
-              {godModeError ? (
-                <div className="rounded-lg border border-app-red/40 bg-app-red/10 px-4 py-3 text-sm text-app-red">
-                  {godModeError}
-                </div>
-              ) : null}
-              <PlayerProfileAttributeEditor
-                player={player}
-                teams={gameState.teams}
-                submitting={godModeSubmitting}
-                onSubmit={(edits) => void handleGodModeEdit(edits)}
-                t={t}
-              />
-            </>
-          ) : null}
         </section>
 
         <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
@@ -763,6 +765,23 @@ export default function PlayerProfile({
         onDelegate={() => void handleDelegateRenewal()}
         onSubmit={() => void handleRenewalSubmit()}
       />
+
+      {showGodModeEditor && canEditPlayer ? (
+        <PlayerProfileAttributeEditor
+          player={player}
+          teams={gameState.teams}
+          submitting={godModeSubmitting}
+          error={godModeError}
+          onSubmit={(edits) => void handleGodModeEdit(edits)}
+          onClose={() => {
+            if (godModeSubmitting) {
+              return;
+            }
+            setShowGodModeEditor(false);
+          }}
+          t={t}
+        />
+      ) : null}
 
       {showTerminationModal ? (
         <DashboardModalFrame maxWidthClassName="max-w-lg">

@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
-import type { SeasonHonours, GameRecords, RetiredPlayer } from "../../store/types";
+import type { SeasonHonours, GameRecords, RetiredPlayer, CompetitionLeaderboards, LeaderboardEntry } from "../../store/types";
+import { getCompetitionForTeam } from "../../store/types";
 import ContextMenu from "../ContextMenu";
-import DivisionLogo from "../common/DivisionLogo";
 import TeamLogo from "../common/TeamLogo";
 import {
   Trophy,
@@ -16,9 +16,10 @@ import {
   Zap,
   Crown,
   History,
+  GitBranch,
+  ListOrdered,
 } from "lucide-react";
 import {
-  getCompetitiveFixtures,
   getTeamName,
   formatMatchDate,
 } from "../../lib/helpers";
@@ -65,15 +66,6 @@ function HeaderChip({ icon, label, value }: { icon: ReactNode; label: string; va
   );
 }
 
-function competitionLogoMeta(competition: unknown): { country: string | null; tier: number | null } {
-  if (!competition || typeof competition !== "object") return { country: null, tier: null };
-  const value = competition as { country?: unknown; tier?: unknown };
-  return {
-    country: typeof value.country === "string" ? value.country : null,
-    tier: typeof value.tier === "number" ? value.tier : null,
-  };
-}
-
 interface AwardEntry {
   player_id: string;
   player_name: string;
@@ -90,7 +82,7 @@ interface SeasonAwards {
   young_player: AwardEntry[];
 }
 
-type TournamentView = "overview" | "fixtures" | "standings" | "awards" | "honours" | "records" | "halloffame";
+type TournamentView = "overview" | "fixtures" | "standings" | "bracket" | "awards" | "leaderboards" | "honours" | "records" | "halloffame";
 type StandingEntry = NonNullable<GameStateData["league"]>["standings"][number];
 type TopScorerEntry = { player: GameStateData["players"][number] | undefined; goals: number };
 
@@ -115,31 +107,36 @@ export default function TournamentsTab({
     : gameState.league
       ? [gameState.league]
       : [];
+  // Default to the competition the user's club plays in, not the first one in
+  // the list (which is roughly alphabetical / generation order).
+  const defaultCompetitionId =
+    getCompetitionForTeam(gameState, gameState.manager.team_id)?.id ??
+    competitionOptions[0]?.id ??
+    "";
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>(
-    competitionOptions[0]?.id ?? "",
+    defaultCompetitionId,
   );
   const selectedCompetition =
     competitionOptions.find((competition) => competition.id === selectedCompetitionId) ??
     competitionOptions[0] ??
     null;
-  const domesticLeagueCompetitions = competitionOptions.filter(
-    (competition) => !("kind" in competition) || competition.kind === "DomesticLeague",
-  );
-  const domesticCupCompetitions = competitionOptions.filter(
-    (competition) => "kind" in competition && competition.kind === "DomesticCup",
-  );
-  const continentalCompetitions = competitionOptions.filter(
-    (competition) => "kind" in competition && competition.kind === "ContinentalLeague",
-  );
   const userTeamId = gameState.manager.team_id;
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
   const [view, setView] = useState<TournamentView>("overview");
-  const [awardsBySeason, setAwardsBySeason] = useState<Record<number, SeasonAwards>>({});
+  const [awardsByCompetition, setAwardsByCompetition] = useState<Record<string, SeasonAwards>>({});
   const [awardsLoadState, setAwardsLoadState] = useState<"idle" | "loading" | "error">("idle");
   const [awardsRetryCount, setAwardsRetryCount] = useState(0);
-  const currentSeason = selectedCompetition?.season ?? 0;
-  const awards = awardsBySeason[currentSeason] ?? null;
+  const awards = selectedCompetition
+    ? awardsByCompetition[selectedCompetition.id] ?? null
+    : null;
+  const [leaderboardsByCompetition, setLeaderboardsByCompetition] = useState<
+    Record<string, CompetitionLeaderboards>
+  >({});
+  const [leaderboardsLoadState, setLeaderboardsLoadState] = useState<"idle" | "loading" | "error">("idle");
+  const selectedLeaderboards = selectedCompetition
+    ? leaderboardsByCompetition[selectedCompetition.id] ?? null
+    : null;
 
   useEffect(() => {
     if (competitionOptions.length === 0) {
@@ -150,27 +147,28 @@ export default function TournamentsTab({
     }
 
     if (!competitionOptions.some((competition) => competition.id === selectedCompetitionId)) {
-      setSelectedCompetitionId(competitionOptions[0].id);
+      setSelectedCompetitionId(defaultCompetitionId);
     }
-  }, [competitionOptions, selectedCompetitionId]);
+  }, [competitionOptions, selectedCompetitionId, defaultCompetitionId]);
 
   useEffect(() => {
-    if (view !== "awards" || awards) {
+    if (view !== "awards" || !selectedCompetition || awards) {
       return;
     }
 
+    const competitionId = selectedCompetition.id;
     let cancelled = false;
     setAwardsLoadState("loading");
 
-    invoke<SeasonAwards>("get_season_awards")
+    invoke<SeasonAwards>("get_competition_awards", { competitionId })
       .then((nextAwards) => {
         if (cancelled) {
           return;
         }
 
-        setAwardsBySeason((current) => ({
+        setAwardsByCompetition((current) => ({
           ...current,
-          [currentSeason]: nextAwards,
+          [competitionId]: nextAwards,
         }));
         setAwardsLoadState("idle");
       })
@@ -183,7 +181,38 @@ export default function TournamentsTab({
     return () => {
       cancelled = true;
     };
-  }, [view, awards, currentSeason, awardsRetryCount]);
+  }, [view, awards, selectedCompetition, awardsRetryCount]);
+
+  useEffect(() => {
+    if (view !== "leaderboards" || !selectedCompetition || selectedLeaderboards) {
+      return;
+    }
+
+    const competitionId = selectedCompetition.id;
+    let cancelled = false;
+    setLeaderboardsLoadState("loading");
+
+    invoke<CompetitionLeaderboards>("get_competition_leaderboards", { competitionId })
+      .then((next) => {
+        if (cancelled) {
+          return;
+        }
+        setLeaderboardsByCompetition((current) => ({
+          ...current,
+          [competitionId]: next,
+        }));
+        setLeaderboardsLoadState("idle");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLeaderboardsLoadState("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view, selectedCompetition, selectedLeaderboards]);
 
   if (!selectedCompetition) {
     return (
@@ -201,7 +230,6 @@ export default function TournamentsTab({
 
   const hasStandings = selectedCompetition.standings.length > 0;
   const competitionLabel = getCompetitionDisplayName(selectedCompetition);
-  const { country: competitionCountry, tier: competitionTier } = competitionLogoMeta(selectedCompetition);
   const competitionTeamCount =
     "team_ids" in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
       ? selectedCompetition.team_ids.length
@@ -213,7 +241,27 @@ export default function TournamentsTab({
       b.goals_for - a.goals_for,
   );
 
+  const stageDisplayLabel = (stage: string): string => {
+    const fallbacks: Record<string, string> = {
+      playoff: "Playoff",
+      r16: "Round of 16",
+      qf: "Quarter-finals",
+      sf: "Semi-finals",
+      final: "Final",
+    };
+    const fb = fallbacks[stage] ?? (stage.startsWith("round_") ? `Round of ${stage.slice(6)}` : stage);
+    return t(`tournaments.stages.${stage}`, { defaultValue: fb });
+  };
+
   const getFixtureRoundLabel = (fixture: FixtureData): string => {
+    // Knockout fixtures carry a stage; prefer the human round name + leg.
+    if (fixture.stage) {
+      const base = stageDisplayLabel(fixture.stage);
+      if (fixture.leg) {
+        return `${base} · ${t("tournaments.bracketLeg", { defaultValue: "Leg", count: fixture.leg })} ${fixture.leg}`;
+      }
+      return base;
+    }
     if ("kind" in selectedCompetition && selectedCompetition.kind === "DomesticCup") {
       return `${selectedCompetition.name} round ${fixture.matchday}`;
     }
@@ -221,7 +269,25 @@ export default function TournamentsTab({
     return t("schedule.matchday", { number: fixture.matchday });
   };
 
-  const competitiveFixtures = getCompetitiveFixtures(selectedCompetition.fixtures);
+  const competitionKind =
+    "kind" in selectedCompetition ? selectedCompetition.kind : "DomesticLeague";
+  const isCupCompetition = competitionKind === "DomesticCup";
+  const isContinentalCompetition = competitionKind === "ContinentalLeague";
+  // A bracket view is meaningful when the competition has knockout-stage
+  // fixtures (cup rounds, or the Champions League knockout phase).
+  const hasKnockoutStages = selectedCompetition.fixtures.some(
+    (fixture) => fixture.stage != null,
+  );
+  const showBracketTab = isCupCompetition || (isContinentalCompetition && hasKnockoutStages);
+
+  // Show every real fixture of the SELECTED competition (league rounds, cup
+  // ties, or continental matches) — not just domestic-league games. Only filter
+  // out friendlies/preseason, which never belong to a tracked competition.
+  const competitiveFixtures = selectedCompetition.fixtures.filter(
+    (fixture) =>
+      fixture.competition !== "Friendly" &&
+      fixture.competition !== "PreseasonTournament",
+  );
   const matchdays = new Map<number, FixtureData[]>();
   competitiveFixtures.forEach((fixture) => {
     const list = matchdays.get(fixture.matchday) || [];
@@ -237,7 +303,6 @@ export default function TournamentsTab({
   const totalGoals = competitiveFixtures
     .filter((fixture) => fixture.result)
     .reduce((sum, fixture) => sum + (fixture.result!.home_goals + fixture.result!.away_goals), 0);
-  const upcomingMatches = competitiveFixtures.length - completedMatches;
 
   const topScorers = (() => {
     const goals: Record<string, number> = {};
@@ -260,6 +325,18 @@ export default function TournamentsTab({
       .sort((a, b) => b.goals - a.goals)
       .slice(0, 10);
   })();
+
+  // Most recent completed round (highest matchday that has any played fixture),
+  // with its results — replaces the old "latest rounds" count list.
+  const latestResultsRound = (() => {
+    const completedRounds = sortedMatchdays.filter(([, fixtures]) =>
+      fixtures.some((fixture) => fixture.status === "Completed" && fixture.result),
+    );
+    return completedRounds.length > 0 ? completedRounds[completedRounds.length - 1] : null;
+  })();
+  const latestResults = (latestResultsRound?.[1] ?? []).filter(
+    (fixture) => fixture.status === "Completed" && fixture.result,
+  );
 
   const buildFixtureMenuItems = (fixture: FixtureData) => [
     {
@@ -349,13 +426,6 @@ export default function TournamentsTab({
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-app-border bg-app-card text-app-green">
-            {competitionCountry && competitionTier ? (
-              <DivisionLogo country={competitionCountry} leagueName={competitionLabel} />
-            ) : (
-              <Trophy className="h-7 w-7" />
-            )}
-          </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold tracking-tight text-app-text">TOURNAMENTS</h1>
             <p className="text-sm text-app-text-muted">
@@ -385,7 +455,9 @@ export default function TournamentsTab({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
-        {(["overview", "standings", "fixtures", "awards", "honours", "records", "halloffame"] as const).map((nextView) => (
+        {(["overview", "standings", "bracket", "fixtures", "awards", "leaderboards", "honours", "records", "halloffame"] as const)
+          .filter((nextView) => nextView !== "bracket" || showBracketTab)
+          .map((nextView) => (
           <button
             key={nextView}
             type="button"
@@ -397,42 +469,13 @@ export default function TournamentsTab({
                 : "border-transparent text-app-text-muted hover:text-app-text",
             )}
           >
-            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
+            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "bracket" ? <GitBranch className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "leaderboards" ? <ListOrdered className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "bracket" ? t("tournaments.bracketTab", { defaultValue: "Bracket" }) : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "leaderboards" ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" }) : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
           </button>
         ))}
       </div>
 
       <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
-        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[280px]">
-          <div>
-            <SectionTitle title="COMPETITION" action={competitionLabel} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              <StatRow label="Leagues" value={String(domesticLeagueCompetitions.length)} tone="text-app-green" />
-              <StatRow label="Cups" value={String(domesticCupCompetitions.length)} />
-              <StatRow label="Continental" value={String(continentalCompetitions.length)} />
-              <StatRow label="Teams" value={String(competitionTeamCount)} />
-            </TemplateCard>
-          </div>
-          <div>
-            <SectionTitle title="SEASON STATUS" action={seasonContext.phase} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              <StatRow label="Current phase" value={t(`season.phases.${seasonContext.phase}`)} tone="text-app-green" />
-              <StatRow label="Completed rounds" value={`${completedMatchdays}/${totalMatchdays}`} />
-              <StatRow label="Completed matches" value={String(completedMatches)} />
-              <StatRow label="Upcoming matches" value={String(upcomingMatches)} />
-            </TemplateCard>
-          </div>
-          <div>
-            <SectionTitle title="FORMAT" action={hasStandings ? "Table" : "Knockout"} />
-            <TemplateCard className="flex flex-col gap-3 p-4 text-xs text-app-text-muted">
-              <p>{hasStandings ? "Track the full league table and matchday flow." : "Follow each cup round through the fixtures tab."}</p>
-              <StatRow label="Rounds" value={String(totalMatchdays)} tone="text-app-green" />
-              <StatRow label="Fixtures" value={String(competitiveFixtures.length)} />
-            </TemplateCard>
-          </div>
-        </aside>
-
         <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full">
           <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden bg-app-bg">
             <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-4 py-3">
@@ -463,18 +506,50 @@ export default function TournamentsTab({
                     )}
                   </TemplateCard>
                   <TemplateCard className="overflow-hidden xl:col-span-2">
-                    <PanelHeader title="Latest rounds" action={String(sortedMatchdays.length)} />
-                    <div className="divide-y divide-app-border/30">
-                      {sortedMatchdays.slice(0, 5).map(([matchday, fixtures]) => (
-                        <div key={matchday} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
-                          <div className="min-w-0">
-                            <p className="font-bold text-app-text">{getFixtureRoundLabel(fixtures[0])}</p>
-                            <p className="mt-0.5 text-app-text-muted">{formatMatchDate(fixtures[0].date)}</p>
-                          </div>
-                          <span className="rounded bg-app-bg px-2 py-1 text-[10px] font-bold text-app-green">{fixtures.length}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <PanelHeader
+                      title={t("tournaments.latestResults", { defaultValue: "Latest results" })}
+                      action={latestResultsRound ? getFixtureRoundLabel(latestResultsRound[1][0]) : undefined}
+                    />
+                    {latestResults.length > 0 ? (
+                      <div className="divide-y divide-app-border/30">
+                        {latestResults.map((fixture) => (
+                          <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
+                            <div
+                              className="flex items-center gap-2 px-4 py-2.5 text-xs transition-colors hover:bg-white/5"
+                              data-testid={`tournaments-result-${fixture.id}`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => onSelectTeam(fixture.home_team_id)}
+                                className={cx(
+                                  "min-w-0 flex-1 truncate text-right font-semibold hover:text-app-green",
+                                  fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                                )}
+                              >
+                                {teamById.get(fixture.home_team_id)?.name ?? getTeamName(gameState.teams, fixture.home_team_id)}
+                              </button>
+                              <span className="shrink-0 rounded bg-app-bg px-2 py-1 font-heading text-sm font-bold tabular-nums text-app-text">
+                                {fixture.result!.home_goals} - {fixture.result!.away_goals}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => onSelectTeam(fixture.away_team_id)}
+                                className={cx(
+                                  "min-w-0 flex-1 truncate text-left font-semibold hover:text-app-green",
+                                  fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                                )}
+                              >
+                                {teamById.get(fixture.away_team_id)?.name ?? getTeamName(gameState.teams, fixture.away_team_id)}
+                              </button>
+                            </div>
+                          </ContextMenu>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="p-4 text-center text-sm text-app-text-muted">
+                        {t("tournaments.noResultsYet", { defaultValue: "No results played yet." })}
+                      </p>
+                    )}
                   </TemplateCard>
                 </div>
               ) : null}
@@ -496,6 +571,17 @@ export default function TournamentsTab({
                 )
               ) : null}
 
+              {view === "bracket" ? (
+                <BracketPanel
+                  fixtures={competitiveFixtures}
+                  isContinental={isContinentalCompetition}
+                  teamById={teamById}
+                  teams={gameState.teams}
+                  userTeamId={userTeamId}
+                  onSelectTeam={onSelectTeam}
+                />
+              ) : null}
+
               {view === "fixtures" ? (
                 <FixturesList
                   sortedMatchdays={sortedMatchdays}
@@ -513,6 +599,15 @@ export default function TournamentsTab({
                   awards={awards}
                   awardsLoadState={awardsLoadState}
                   onRetry={() => setAwardsRetryCount((count) => count + 1)}
+                  onSelectPlayer={onSelectPlayer}
+                  onSelectTeam={onSelectTeam}
+                />
+              ) : null}
+
+              {view === "leaderboards" ? (
+                <LeaderboardsPanel
+                  leaderboards={selectedLeaderboards}
+                  loadState={leaderboardsLoadState}
                   onSelectPlayer={onSelectPlayer}
                   onSelectTeam={onSelectTeam}
                 />
@@ -545,6 +640,8 @@ export default function TournamentsTab({
             topScorers={topScorers}
             teams={gameState.teams}
             buildPlayerMenuItems={buildPlayerMenuItems}
+            onSelectPlayer={onSelectPlayer}
+            onSelectTeam={onSelectTeam}
             title={t("tournaments.topScorers")}
             emptyText={t("tournaments.noGoals")}
             withTestIds
@@ -751,6 +848,193 @@ function FixturesList({
   );
 }
 
+function BracketPanel({
+  fixtures,
+  isContinental,
+  teamById,
+  teams,
+  userTeamId,
+  onSelectTeam,
+}: {
+  fixtures: FixtureData[];
+  isContinental: boolean;
+  teamById: Map<string, GameStateData["teams"][number]>;
+  teams: GameStateData["teams"];
+  userTeamId: string | null;
+  onSelectTeam: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  // Knockout-stage fixtures only (the league phase shows on the Standings tab).
+  const knockoutFixtures = fixtures.filter((fixture) => fixture.stage != null);
+
+  // Order stages by their place in a real bracket.
+  const STAGE_ORDER: Record<string, number> = {
+    playoff: 0,
+    round_64: 1,
+    round_32: 2,
+    r16: 3,
+    qf: 4,
+    sf: 5,
+    final: 6,
+  };
+  const stageOrder = (stage: string): number =>
+    STAGE_ORDER[stage] ?? (stage.startsWith("round_") ? Number(stage.slice(6)) / 10000 : 99);
+  const stageLabel = (stage: string): string => {
+    const key = `tournaments.stages.${stage}`;
+    const fallbacks: Record<string, string> = {
+      playoff: "Playoff",
+      r16: "Round of 16",
+      qf: "Quarter-finals",
+      sf: "Semi-finals",
+      final: "Final",
+    };
+    const fb = fallbacks[stage] ?? (stage.startsWith("round_") ? `Round of ${stage.slice(6)}` : stage);
+    return t(key, { defaultValue: fb });
+  };
+
+  // Group fixtures into ties. Two-legged ties share a tie_id; single-leg cup
+  // ties are their own tie (keyed by fixture id).
+  type Tie = {
+    key: string;
+    stage: string;
+    homeTeamId: string; // leg-1 home (or the single match's home)
+    awayTeamId: string;
+    legs: FixtureData[];
+  };
+  const tieMap = new Map<string, Tie>();
+  for (const fixture of knockoutFixtures) {
+    const tieKey = fixture.tie_id ?? fixture.id;
+    const existing = tieMap.get(tieKey);
+    if (existing) {
+      existing.legs.push(fixture);
+    } else {
+      tieMap.set(tieKey, {
+        key: tieKey,
+        stage: fixture.stage!,
+        homeTeamId: fixture.home_team_id,
+        awayTeamId: fixture.away_team_id,
+        legs: [fixture],
+      });
+    }
+  }
+
+  const ties = Array.from(tieMap.values());
+  const stages = Array.from(new Set(ties.map((tie) => tie.stage))).sort(
+    (a, b) => stageOrder(a) - stageOrder(b),
+  );
+
+  if (ties.length === 0) {
+    return (
+      <EmptyPanel
+        icon={<GitBranch className="h-8 w-8" />}
+        title={t("tournaments.bracketEmptyTitle", { defaultValue: "Knockout stage not drawn yet" })}
+        description={
+          isContinental
+            ? t("tournaments.bracketEmptyContinental", {
+                defaultValue: "The bracket is drawn once the league phase finishes.",
+              })
+            : t("tournaments.bracketEmptyCup", {
+                defaultValue: "Later rounds appear as each round is played.",
+              })
+        }
+      />
+    );
+  }
+
+  const teamName = (id: string): string =>
+    teamById.get(id)?.name ?? getTeamName(teams, id);
+
+  // Aggregate score across legs for a tie (handles 1 or 2 legs).
+  const tieAggregate = (tie: Tie): { home: number; away: number; played: boolean } => {
+    let home = 0;
+    let away = 0;
+    let played = false;
+    for (const leg of tie.legs) {
+      if (!leg.result) continue;
+      played = true;
+      if (leg.home_team_id === tie.homeTeamId) {
+        home += leg.result.home_goals;
+        away += leg.result.away_goals;
+      } else {
+        // Second leg with reversed venue.
+        home += leg.result.away_goals;
+        away += leg.result.home_goals;
+      }
+    }
+    return { home, away, played };
+  };
+
+  const tieWinner = (tie: Tie): string | null => {
+    const allPlayed = tie.legs.every((leg) => leg.status === "Completed");
+    if (!allPlayed) return null;
+    const agg = tieAggregate(tie);
+    if (agg.home > agg.away) return tie.homeTeamId;
+    if (agg.away > agg.home) return tie.awayTeamId;
+    return null; // level — engine breaks it, but we don't surface a coin-flip here
+  };
+
+  return (
+    <div className="overflow-x-auto pb-2 custom-scrollbar">
+      <div className="flex min-w-max gap-4">
+        {stages.map((stage) => {
+          const stageTies = ties.filter((tie) => tie.stage === stage);
+          return (
+            <div key={stage} className="flex min-w-[260px] flex-col gap-3">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                {stageLabel(stage)}
+              </h4>
+              <div className="flex flex-1 flex-col justify-around gap-3">
+                {stageTies.map((tie) => {
+                  const agg = tieAggregate(tie);
+                  const winner = tieWinner(tie);
+                  const twoLegged = tie.legs.length > 1;
+                  return (
+                    <div
+                      key={tie.key}
+                      className="rounded-xl border border-app-border bg-app-bg p-3"
+                    >
+                      {[tie.homeTeamId, tie.awayTeamId].map((teamId, idx) => {
+                        const score = idx === 0 ? agg.home : agg.away;
+                        const isWinner = winner === teamId;
+                        const isUser = teamId === userTeamId;
+                        const team = teamById.get(teamId);
+                        return (
+                          <button
+                            type="button"
+                            key={teamId}
+                            onClick={() => onSelectTeam(teamId)}
+                            className={cx(
+                              "flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors hover:bg-white/5",
+                              isWinner ? "font-bold text-app-text" : "text-app-text-muted",
+                              isUser && "text-app-green",
+                            )}
+                          >
+                            {team ? <TeamLogo team={team} size="sm" /> : null}
+                            <span className="min-w-0 flex-1 truncate">{teamName(teamId)}</span>
+                            {agg.played ? (
+                              <span className="shrink-0 font-heading tabular-nums">{score}</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                      <div className="mt-1 border-t border-app-border/40 pt-1 text-center text-[9px] uppercase tracking-wider text-app-text-muted">
+                        {twoLegged
+                          ? t("tournaments.bracketTwoLegged", { defaultValue: "Two legs · aggregate" })
+                          : t("tournaments.bracketSingleLeg", { defaultValue: "Single match" })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AwardsPanel({
   awards,
   awardsLoadState,
@@ -858,8 +1142,20 @@ function AwardCard({
               >
                 <span className={cx("w-5 text-center font-heading text-sm font-bold", index === 0 ? "text-app-green" : "text-app-text-muted")}>{index + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-app-text">{entry.player_name}</p>
-                  <p className="text-xs text-app-text-muted">{entry.team_name}</p>
+                  <button
+                    type="button"
+                    onClick={() => onSelectPlayer?.(entry.player_id)}
+                    className="block w-full truncate text-left text-sm font-semibold text-app-text hover:text-app-green"
+                  >
+                    {entry.player_name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => entry.team_id && onSelectTeam(entry.team_id)}
+                    className="block w-full truncate text-left text-xs text-app-text-muted hover:text-app-green"
+                  >
+                    {entry.team_name}
+                  </button>
                 </div>
                 <span className={cx("font-heading font-bold tabular-nums", index === 0 ? "text-lg text-app-green" : "text-sm text-app-text-muted")}>
                   {decimal ? entry.value.toFixed(2) : entry.value}
@@ -878,6 +1174,8 @@ function TopScorersCard({
   topScorers,
   teams,
   buildPlayerMenuItems,
+  onSelectPlayer,
+  onSelectTeam,
   title,
   emptyText,
   withTestIds = false,
@@ -885,6 +1183,8 @@ function TopScorersCard({
   topScorers: TopScorerEntry[];
   teams: GameStateData["teams"];
   buildPlayerMenuItems: (playerId: string, teamId?: string | null) => ReturnType<typeof buildViewTeamMenuItem>[];
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam: (id: string) => void;
   title: string;
   emptyText: string;
   withTestIds?: boolean;
@@ -905,8 +1205,20 @@ function TopScorersCard({
                 >
                   <span className={cx("w-5 text-center font-heading text-sm font-bold", index === 0 ? "text-app-green" : "text-app-text-muted")}>{index + 1}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-app-text">{entry.player!.full_name}</p>
-                    <p className="text-xs text-app-text-muted">{getTeamName(teams, entry.player!.team_id ?? "")}</p>
+                    <button
+                      type="button"
+                      onClick={() => onSelectPlayer?.(entry.player!.id)}
+                      className="block w-full truncate text-left text-sm font-semibold text-app-text hover:text-app-green"
+                    >
+                      {entry.player!.full_name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => entry.player!.team_id && onSelectTeam(entry.player!.team_id)}
+                      className="block w-full truncate text-left text-xs text-app-text-muted hover:text-app-green"
+                    >
+                      {getTeamName(teams, entry.player!.team_id ?? "")}
+                    </button>
                   </div>
                   <span className="font-heading text-lg font-bold tabular-nums text-app-green">{entry.goals}</span>
                 </div>
@@ -1254,6 +1566,127 @@ function HallOfFamePanel({
           </span>
         </TemplateCard>
       ))}
+    </div>
+  );
+}
+
+function LeaderboardsPanel({
+  leaderboards,
+  loadState,
+  onSelectPlayer,
+  onSelectTeam,
+}: {
+  leaderboards: CompetitionLeaderboards | null;
+  loadState: "idle" | "loading" | "error";
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  if (!leaderboards && loadState === "loading") {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center p-8 text-sm text-app-text-muted">
+        {t("tournaments.leaderboardsLoading", { defaultValue: "Loading leaderboards…" })}
+      </div>
+    );
+  }
+
+  const hasData =
+    !!leaderboards &&
+    (leaderboards.top_scorers.length > 0 ||
+      leaderboards.top_assists.length > 0 ||
+      leaderboards.top_clean_sheets.length > 0);
+
+  if (!hasData) {
+    return (
+      <EmptyPanel
+        icon={<ListOrdered className="h-8 w-8" />}
+        title={t("tournaments.leaderboardsEmptyTitle", { defaultValue: "No leaderboard data yet" })}
+        description={t("tournaments.leaderboardsEmptyBody", {
+          defaultValue: "Player leaderboards fill in as league matches are played.",
+        })}
+      />
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+      <LeaderboardColumn
+        title={t("tournaments.lbTopScorers", { defaultValue: "Top Scorers" })}
+        unit={t("tournaments.lbGoals", { defaultValue: "Goals" })}
+        entries={leaderboards.top_scorers}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
+      />
+      <LeaderboardColumn
+        title={t("tournaments.lbTopAssists", { defaultValue: "Top Assists" })}
+        unit={t("tournaments.lbAssists", { defaultValue: "Assists" })}
+        entries={leaderboards.top_assists}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
+      />
+      <LeaderboardColumn
+        title={t("tournaments.lbTopCleanSheets", { defaultValue: "Clean Sheets" })}
+        unit={t("tournaments.lbCleanSheets", { defaultValue: "Clean sheets" })}
+        entries={leaderboards.top_clean_sheets}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
+      />
+    </div>
+  );
+}
+
+function LeaderboardColumn({
+  title,
+  unit,
+  entries,
+  onSelectPlayer,
+  onSelectTeam,
+}: {
+  title: string;
+  unit: string;
+  entries: LeaderboardEntry[];
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam: (id: string) => void;
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+        <span>{title}</span>
+        <span>{unit}</span>
+      </h4>
+      <TemplateCard className="divide-y divide-app-border/30">
+        {entries.length === 0 ? (
+          <div className="px-4 py-6 text-center text-xs text-app-text-muted">—</div>
+        ) : (
+          entries.map((entry, index) => (
+            <div key={entry.player_id} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="w-5 shrink-0 text-center text-xs font-bold tabular-nums text-app-text-muted">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => onSelectPlayer?.(entry.player_id)}
+                  className="block truncate text-left text-sm font-bold text-app-text hover:text-app-green"
+                >
+                  {entry.player_name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => entry.team_id && onSelectTeam(entry.team_id)}
+                  className="block truncate text-left text-[11px] text-app-text-muted hover:text-app-green"
+                >
+                  {entry.team_name}
+                </button>
+              </span>
+              <span className="shrink-0 font-heading text-sm font-bold tabular-nums text-app-green">
+                {entry.value}
+              </span>
+            </div>
+          ))
+        )}
+      </TemplateCard>
     </div>
   );
 }

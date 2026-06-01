@@ -1046,7 +1046,19 @@
     "hallOfFameEmptyBody": "Au fil des saisons, les légendes raccrochent les crampons et entrent au Panthéon.",
     "hofRetiredAt": "Retraite en {{season}}, {{age}} ans",
     "hofCareerLine": "{{apps}} matchs · {{goals}} buts · {{assists}} passes",
-    "hofPeak": "Sommet"
+    "hofPeak": "Sommet",
+    "leaderboardsTab": "Classements",
+    "leaderboardsLoading": "Chargement des classements…",
+    "leaderboardsEmptyTitle": "Pas encore de données de classement",
+    "leaderboardsEmptyBody": "Les classements des joueurs se remplissent au fil des matchs de championnat.",
+    "lbTopScorers": "Meilleurs buteurs",
+    "lbTopAssists": "Meilleurs passeurs",
+    "lbTopCleanSheets": "Clean sheets",
+    "lbGoals": "Buts",
+    "lbAssists": "Passes déc.",
+    "lbCleanSheets": "Clean sheets",
+    "latestResults": "Derniers résultats",
+    "noResultsYet": "Aucun résultat pour l'instant."
   },
   "news": {
     "noNews": "Pas encore d'actualités.",

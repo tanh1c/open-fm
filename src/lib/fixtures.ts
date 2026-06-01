@@ -17,7 +17,11 @@ export function getFixtureDisplayLabel(
 }
 
 export function isCompetitiveFixture(fixture: FixtureData): boolean {
-    return !fixture.competition || fixture.competition === "League";
+    return (
+        !fixture.competition ||
+        fixture.competition === "League" ||
+        fixture.competition === "DomesticLeague"
+    );
 }
 
 export function getCompetitiveFixtures(fixtures: FixtureData[]): FixtureData[] {

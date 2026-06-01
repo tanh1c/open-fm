@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -383,8 +383,9 @@ describe("TournamentsTab", () => {
     expect(star.compareDocumentPosition(journeyman) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("92")).toBeInTheDocument();
 
-    // Clicking the last-team link navigates to that team.
-    fireEvent.click(screen.getByRole("button", { name: "Alpha FC" }));
+    // Clicking the last-team link in the legend's card navigates to that team.
+    const starCard = star.closest("div")!;
+    fireEvent.click(within(starCard).getByRole("button", { name: "Alpha FC" }));
     expect(onSelectTeam).toHaveBeenCalledWith("team-1");
   });
 });

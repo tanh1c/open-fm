@@ -106,7 +106,11 @@ fn make_game_with_league() -> Game {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
-        }],
+        
+            stage: None,
+            leg: None,
+            tie_id: None,
+}],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],
     });
@@ -295,7 +299,11 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f2".to_string(),
                 matchday: 2,
@@ -313,7 +321,11 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f3".to_string(),
                 matchday: 3,
@@ -331,7 +343,11 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ],
         standings: vec![],
         transfer_log: vec![],
@@ -384,7 +400,11 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f2".to_string(),
                 matchday: 2,
@@ -402,7 +422,11 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f3".to_string(),
                 matchday: 3,
@@ -420,7 +444,11 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ],
         standings: vec![],
         transfer_log: vec![],
@@ -460,7 +488,11 @@ fn check_random_events_international_callup_with_upcoming_match() {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
-        }],
+        
+            stage: None,
+            leg: None,
+            tie_id: None,
+}],
         standings: vec![],
         transfer_log: vec![],
     });

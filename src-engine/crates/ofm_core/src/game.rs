@@ -285,6 +285,9 @@ mod sync_tests {
             competition: FixtureCompetition::Friendly,
             status: FixtureStatus::Scheduled,
             result: None,
+            stage: None,
+            leg: None,
+            tie_id: None,
         }
     }
 

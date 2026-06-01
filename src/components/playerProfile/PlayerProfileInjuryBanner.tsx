@@ -21,11 +21,11 @@ export default function PlayerProfileInjuryBanner({
     t,
 }: PlayerProfileInjuryBannerProps) {
     return (
-        <Card accent="danger" className="mb-5">
+        <Card accent="danger">
             <CardBody>
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                    <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
                     </div>
                     <div>
                         <p className="font-semibold text-sm text-red-600 dark:text-red-400">

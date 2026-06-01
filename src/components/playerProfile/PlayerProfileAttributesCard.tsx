@@ -28,16 +28,16 @@ export default function PlayerProfileAttributesCard({
             <CardHeader>{title}</CardHeader>
             <CardBody>
                 {reveal ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                         {attrGroups.map((group) => (
                             <div key={group.label}>
-                                <h4 className="font-heading font-bold text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 pb-2 border-b border-gray-100 dark:border-surface-600">
+                                <h4 className="font-heading font-bold text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 pb-1.5 border-b border-gray-100 dark:border-surface-600">
                                     {group.label}
                                 </h4>
-                                <div className="flex flex-col gap-2.5">
+                                <div className="flex flex-col gap-1.5">
                                     {group.attrs.map((attr) => (
                                         <div key={attr.name} className="flex items-center gap-3">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400 w-24">
+                                            <span className="text-xs text-gray-600 dark:text-gray-400 w-24">
                                                 {attr.name}
                                             </span>
                                             <ProgressBar
@@ -47,18 +47,18 @@ export default function PlayerProfileAttributesCard({
                                                 className="flex-1"
                                             />
                                             <span
-                                                className={`font-heading font-bold text-sm w-8 text-right tabular-nums ${getAttributeColorClass(attr.value)}`}
+                                                className={`font-heading font-bold text-xs w-7 text-right tabular-nums ${getAttributeColorClass(attr.value)}`}
                                             >
                                                 {attr.value}
                                             </span>
                                         </div>
                                     ))}
                                     <div className="pt-1 border-t border-gray-100 dark:border-surface-600 flex items-center gap-3">
-                                        <span className="text-sm text-gray-500 dark:text-gray-400 w-24 font-semibold">
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 w-24 font-semibold">
                                             {averageLabel}
                                         </span>
                                         <span className="flex-1" />
-                                        <span className="font-heading font-bold text-sm w-8 text-right tabular-nums text-gray-700 dark:text-gray-200">
+                                        <span className="font-heading font-bold text-xs w-7 text-right tabular-nums text-gray-700 dark:text-gray-200">
                                             {group.average}
                                         </span>
                                     </div>

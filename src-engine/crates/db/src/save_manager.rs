@@ -698,6 +698,10 @@ mod tests {
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
             }],
             standings: vec![
                 StandingEntry::new("team-001".to_string()),

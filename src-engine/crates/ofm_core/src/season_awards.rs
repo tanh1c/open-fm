@@ -1,7 +1,10 @@
 use crate::game::Game;
 use chrono::{Datelike, NaiveDate};
+use domain::league::FixtureCompetition;
 use domain::player::{Player, Position};
+use domain::stats::StatsState;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 /// A single award entry (player + stat value).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,6 +165,192 @@ pub fn compute_season_awards(game: &Game) -> SeasonAwards {
         },
         |context| context.player.stats.avg_rating as f64,
     );
+
+    SeasonAwards {
+        golden_boot,
+        assist_king,
+        player_of_year,
+        clean_sheet_king,
+        most_appearances,
+        young_player,
+    }
+}
+
+/// True for the per-match `competition` values that represent domestic-league play.
+fn is_league_competition(competition: &FixtureCompetition) -> bool {
+    matches!(
+        competition,
+        FixtureCompetition::League | FixtureCompetition::DomesticLeague
+    )
+}
+
+/// Per-competition aggregate of a player's match stats, scoped to one competition.
+#[derive(Default)]
+struct CompetitionTally {
+    goals: u32,
+    assists: u32,
+    appearances: u32,
+    clean_sheets: u32,
+    rating_sum: f64,
+    last_team_id: String,
+}
+
+/// Compute season award standings for a single competition, summing only that
+/// competition's per-match records. This mirrors `compute_competition_leaderboards`
+/// so the Awards tab and the Leaderboards tab report the same goal/assist totals
+/// (a player's cup or continental goals no longer leak into a league award).
+///
+/// Only the user's domestic league captures full per-player match detail, so
+/// awards are populated for that competition and otherwise empty — matching the
+/// leaderboards' FM-style behavior.
+pub fn compute_competition_awards(
+    game: &Game,
+    stats: &StatsState,
+    competition_id: &str,
+) -> SeasonAwards {
+    // Resolve the competition's team set + season (competitions first, then the
+    // legacy league fallback for older saves).
+    let (team_ids, season): (Vec<String>, u32) = game
+        .competitions
+        .iter()
+        .find(|competition| competition.id == competition_id)
+        .map(|competition| (competition.team_ids.clone(), competition.season))
+        .or_else(|| {
+            game.league
+                .as_ref()
+                .filter(|league| league.id == competition_id)
+                .map(|league| {
+                    let ids: Vec<String> = league
+                        .standings
+                        .iter()
+                        .map(|standing| standing.team_id.clone())
+                        .collect();
+                    (ids, league.season)
+                })
+        })
+        .unwrap_or_default();
+
+    if team_ids.is_empty() {
+        return SeasonAwards {
+            golden_boot: Vec::new(),
+            assist_king: Vec::new(),
+            player_of_year: Vec::new(),
+            clean_sheet_king: Vec::new(),
+            most_appearances: Vec::new(),
+            young_player: Vec::new(),
+        };
+    }
+
+    let team_id_set: HashSet<&str> = team_ids.iter().map(|id| id.as_str()).collect();
+    let goalkeeper_ids: HashSet<&str> = game
+        .players
+        .iter()
+        .filter(|player| matches!(player.position.to_group_position(), Position::Goalkeeper))
+        .map(|player| player.id.as_str())
+        .collect();
+
+    let mut tallies: HashMap<String, CompetitionTally> = HashMap::new();
+    for record in &stats.player_matches {
+        if record.season != season {
+            continue;
+        }
+        if !is_league_competition(&record.competition) {
+            continue;
+        }
+        if !team_id_set.contains(record.team_id.as_str()) {
+            continue;
+        }
+
+        let tally = tallies.entry(record.player_id.clone()).or_default();
+        tally.goals += record.goals as u32;
+        tally.assists += record.assists as u32;
+        tally.appearances += 1;
+        tally.rating_sum += record.rating as f64;
+        tally.last_team_id = record.team_id.clone();
+
+        if record.minutes_played > 0 && goalkeeper_ids.contains(record.player_id.as_str()) {
+            let conceded = if record.team_id == record.home_team_id {
+                record.away_goals
+            } else {
+                record.home_goals
+            };
+            if conceded == 0 {
+                tally.clean_sheets += 1;
+            }
+        }
+    }
+
+    let today = game.clock.current_date.date_naive();
+    let find_player = |player_id: &str| -> Option<&Player> {
+        game.players.iter().find(|player| player.id == player_id)
+    };
+    let team_name = |team_id: &str| -> String {
+        if team_id.is_empty() {
+            return free_agent_team_name();
+        }
+        game.teams
+            .iter()
+            .find(|team| team.id == team_id)
+            .map(|team| team.name.clone())
+            .unwrap_or_else(free_agent_team_name)
+    };
+
+    let make_entry = |player_id: &str, tally: &CompetitionTally, value: f64| -> Option<AwardEntry> {
+        let player = find_player(player_id)?;
+        Some(AwardEntry {
+            player_id: player.id.clone(),
+            player_name: player.match_name.clone(),
+            team_id: tally.last_team_id.clone(),
+            team_name: team_name(&tally.last_team_id),
+            value,
+        })
+    };
+
+    let build = |include: &dyn Fn(&str, &CompetitionTally) -> Option<f64>| -> Vec<AwardEntry> {
+        let mut entries: Vec<AwardEntry> = tallies
+            .iter()
+            .filter_map(|(player_id, tally)| {
+                let value = include(player_id, tally)?;
+                make_entry(player_id, tally, value)
+            })
+            .collect();
+        entries.sort_by(|a, b| {
+            b.value
+                .partial_cmp(&a.value)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.player_name.cmp(&b.player_name))
+        });
+        entries.truncate(5);
+        entries
+    };
+
+    let avg_rating = |tally: &CompetitionTally| -> f64 {
+        if tally.appearances == 0 {
+            0.0
+        } else {
+            tally.rating_sum / tally.appearances as f64
+        }
+    };
+
+    let golden_boot = build(&|_, tally| (tally.goals > 0).then_some(tally.goals as f64));
+    let assist_king = build(&|_, tally| (tally.assists > 0).then_some(tally.assists as f64));
+    let player_of_year = build(&|_, tally| {
+        let rating = avg_rating(tally);
+        (tally.appearances >= 5 && rating > 0.0).then_some(rating)
+    });
+    let clean_sheet_king = build(&|player_id, tally| {
+        (goalkeeper_ids.contains(player_id) && tally.clean_sheets > 0)
+            .then_some(tally.clean_sheets as f64)
+    });
+    let most_appearances =
+        build(&|_, tally| (tally.appearances > 0).then_some(tally.appearances as f64));
+    let young_player = build(&|player_id, tally| {
+        let rating = avg_rating(tally);
+        let age = find_player(player_id)
+            .map(|player| player_age_on(&today, &player.date_of_birth))
+            .unwrap_or(30);
+        (age <= 21 && tally.appearances >= 3 && rating > 0.0).then_some(rating)
+    });
 
     SeasonAwards {
         golden_boot,
@@ -502,5 +691,83 @@ mod tests {
                 .iter()
                 .all(|entry| entry.player_id != "defender")
         );
+    }
+
+    #[test]
+    fn competition_awards_only_count_that_competitions_matches() {
+        use super::compute_competition_awards;
+        use domain::league::{
+            Competition, CompetitionFormat, CompetitionKind, FixtureCompetition,
+        };
+        use domain::stats::{PlayerMatchStatsRecord, StatsState};
+
+        let team = make_team("team1", "Test FC");
+        // Striker's season total is 14 goals, but only 11 came in the league.
+        let striker = make_player(
+            "striker",
+            "Striker",
+            Some("team1"),
+            Position::Forward,
+            "2000-01-01",
+            PlayerSeasonStats {
+                appearances: 20,
+                goals: 14,
+                ..PlayerSeasonStats::default()
+            },
+        );
+
+        let mut game = make_game(vec![striker], vec![team]);
+        let season = chrono::Datelike::year(&game.clock.current_date.date_naive()) as u32;
+        game.competitions = vec![Competition {
+            id: "league-1".to_string(),
+            name: "Test League".to_string(),
+            season,
+            kind: CompetitionKind::DomesticLeague,
+            format: CompetitionFormat::RoundRobin,
+            country: Some("England".to_string()),
+            tier: Some(1),
+            team_ids: vec!["team1".to_string()],
+            fixtures: vec![],
+            standings: vec![],
+            transfer_log: vec![],
+        }];
+
+        let mut stats = StatsState::default();
+        let record = |competition: FixtureCompetition, goals: u8| PlayerMatchStatsRecord {
+            fixture_id: format!("fx-{:?}-{goals}", competition),
+            season,
+            matchday: 1,
+            date: "2026-09-01".to_string(),
+            competition,
+            player_id: "striker".to_string(),
+            team_id: "team1".to_string(),
+            opponent_team_id: "team2".to_string(),
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            home_goals: goals,
+            away_goals: 0,
+            minutes_played: 90,
+            goals,
+            assists: 0,
+            shots: 0,
+            shots_on_target: 0,
+            passes_completed: 0,
+            passes_attempted: 0,
+            tackles_won: 0,
+            interceptions: 0,
+            fouls_committed: 0,
+            yellow_cards: 0,
+            red_cards: 0,
+            rating: 7.5,
+        };
+        // 11 league goals + 3 cup goals = the 14 the all-competition stat shows.
+        stats.player_matches.push(record(FixtureCompetition::DomesticLeague, 11));
+        stats.player_matches.push(record(FixtureCompetition::DomesticCup, 3));
+
+        let awards = compute_competition_awards(&game, &stats, "league-1");
+        assert_eq!(awards.golden_boot.len(), 1);
+        // Must report only the 11 league goals, not the 14 season aggregate.
+        assert_eq!(awards.golden_boot[0].player_id, "striker");
+        assert_eq!(awards.golden_boot[0].value, 11.0);
     }
 }

@@ -80,6 +80,9 @@ fn make_completed_fixture(id: &str, home: &str, away: &str, hg: u8, ag: u8) -> F
             away_scorers: vec![],
             report: None,
         }),
+        stage: None,
+        leg: None,
+        tie_id: None,
     }
 }
 
@@ -247,7 +250,11 @@ fn season_not_complete_with_truncated_completed_fixture_list() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
             Fixture {
                 id: "f2".to_string(),
                 matchday: 1,
@@ -265,7 +272,11 @@ fn season_not_complete_with_truncated_completed_fixture_list() {
                     away_scorers: vec![],
                     report: None,
                 }),
-            },
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
+},
         ];
     }
 

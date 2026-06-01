@@ -14,6 +14,8 @@ pub mod game;
 pub mod generator;
 pub mod honours;
 pub mod job_offers;
+pub mod knockout;
+pub mod leaderboards;
 pub mod live_match_manager;
 pub mod messages;
 pub mod news;

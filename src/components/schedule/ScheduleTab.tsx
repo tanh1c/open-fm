@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { FixtureData, GameStateData, getCompetitionDisplayName } from "../../store/gameStore";
 import { TeamData } from "../../store/types";
+import { getCompetitionForTeam } from "../../store/types";
 import { getTeamName, formatMatchDate } from "../../lib/helpers";
 import { getCompetitionTag } from "../../lib/competitionTag";
 import { resolveSeasonContext } from "../../lib/seasonContext";
@@ -96,8 +97,14 @@ export default function ScheduleTab({
     : gameState.league
       ? [gameState.league]
       : [];
+  // Default to the competition the user's club plays in, not the first one in
+  // the list (which is roughly alphabetical / generation order).
+  const defaultCompetitionId =
+    getCompetitionForTeam(gameState, gameState.manager.team_id)?.id ??
+    competitionOptions[0]?.id ??
+    "";
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>(
-    competitionOptions[0]?.id ?? "",
+    defaultCompetitionId,
   );
   const selectedCompetition =
     competitionOptions.find((competition) => competition.id === selectedCompetitionId) ??
@@ -123,9 +130,9 @@ export default function ScheduleTab({
     }
 
     if (!competitionOptions.some((competition) => competition.id === selectedCompetitionId)) {
-      setSelectedCompetitionId(competitionOptions[0].id);
+      setSelectedCompetitionId(defaultCompetitionId);
     }
-  }, [competitionOptions, selectedCompetitionId]);
+  }, [competitionOptions, selectedCompetitionId, defaultCompetitionId]);
 
   useEffect(() => {
     setActiveFixtureGroupIndex(0);
@@ -155,7 +162,11 @@ export default function ScheduleTab({
     }
 
     if (fixture.competition === "DomesticCup") {
-      return `${selectedCompetition.name} round ${fixture.matchday} — ${formatMatchDate(fixture.date)}`;
+      const cupName =
+        (fixture.competition_id &&
+          gameState.competitions?.find((competition) => competition.id === fixture.competition_id)?.name) ||
+        selectedCompetition.name;
+      return `${cupName} round ${fixture.matchday} — ${formatMatchDate(fixture.date)}`;
     }
 
     if (fixture.competition === "PreseasonTournament") {

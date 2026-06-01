@@ -93,7 +93,7 @@ export default function DashboardVacationReportModal({
             </button>
           </div>
           {report.matchResults.length > 0 ? (
-            <div className="space-y-2">
+            <div className="max-h-56 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
               {report.matchResults.map((match) => (
                 <div key={match.fixtureId} className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm">
                   <span className="min-w-0 truncate text-app-text-muted">

@@ -1046,7 +1046,19 @@
     "hallOfFameEmptyBody": "Com o passar das temporadas, as lendas penduram as chuteiras e entram no Hall da Fama.",
     "hofRetiredAt": "Aposentado em {{season}}, {{age}} anos",
     "hofCareerLine": "{{apps}} jogos · {{goals}} gols · {{assists}} assist.",
-    "hofPeak": "Pico"
+    "hofPeak": "Pico",
+    "leaderboardsTab": "Classificações",
+    "leaderboardsLoading": "Carregando classificações…",
+    "leaderboardsEmptyTitle": "Ainda sem dados de classificação",
+    "leaderboardsEmptyBody": "As classificações dos jogadores são preenchidas conforme os jogos da liga são disputados.",
+    "lbTopScorers": "Artilheiros",
+    "lbTopAssists": "Líderes em assistências",
+    "lbTopCleanSheets": "Jogos sem sofrer gols",
+    "lbGoals": "Gols",
+    "lbAssists": "Assistências",
+    "lbCleanSheets": "Sem sofrer",
+    "latestResults": "Últimos resultados",
+    "noResultsYet": "Ainda sem resultados."
   },
   "news": {
     "noNews": "Nenhuma notícia ainda.",

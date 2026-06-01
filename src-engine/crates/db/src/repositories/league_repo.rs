@@ -33,8 +33,8 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     {
         let mut fixture_stmt = conn
             .prepare_cached(
-                "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             )
             .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         for f in &league.fixtures {
@@ -57,6 +57,9 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
                     result_json,
                     f.competition_id.as_deref().unwrap_or(&league.id),
                     f.season.unwrap_or(league.season),
+                    f.stage,
+                    f.leg,
+                    f.tie_id,
                 ])
                 .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
@@ -176,8 +179,8 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let mut fixture_stmt = conn
         .prepare_cached(
-            "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         )
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let mut standing_stmt = conn
@@ -238,6 +241,9 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
                     result_json,
                     fixture.competition_id.as_deref().unwrap_or(&competition.id),
                     fixture.season.unwrap_or(competition.season),
+                    fixture.stage,
+                    fixture.leg,
+                    fixture.tie_id,
                 ])
                 .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
@@ -300,7 +306,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
     // Load fixtures
     let mut fix_stmt = conn
         .prepare(
-            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season
+            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id
              FROM fixtures WHERE league_id = ?1 ORDER BY matchday, id",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -321,6 +327,9 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
                 competition: parse_fixture_competition(&competition_str),
                 status: parse_fixture_status(&status_str),
                 result: result_json.and_then(|j| serde_json::from_str(&j).ok()),
+                stage: row.get(10)?,
+                leg: row.get(11)?,
+                tie_id: row.get(12)?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -449,7 +458,7 @@ fn load_competition_team_ids(conn: &Connection, competition_id: &str) -> Result<
 fn load_competition_fixtures(conn: &Connection, competition_id: &str) -> Result<Vec<Fixture>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season
+            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id
              FROM fixtures WHERE competition_id = ?1 ORDER BY matchday, id",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -469,6 +478,9 @@ fn load_competition_fixtures(conn: &Connection, competition_id: &str) -> Result<
                 result: result_json.and_then(|json| serde_json::from_str(&json).ok()),
                 competition_id: row.get(8)?,
                 season: row.get(9)?,
+                stage: row.get(10)?,
+                leg: row.get(11)?,
+                tie_id: row.get(12)?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -617,6 +629,10 @@ mod tests {
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
             },
             Fixture {
                 id: "fix-002".to_string(),
@@ -638,6 +654,10 @@ mod tests {
                     away_scorers: vec![],
                     report: None,
                 }),
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
             },
         ];
         league.transfer_log = vec![CompletedTransfer {
@@ -733,6 +753,10 @@ mod tests {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
+        
+            stage: None,
+            leg: None,
+            tie_id: None,
         }];
         upsert_league(db.conn(), &league).unwrap();
 
@@ -762,6 +786,10 @@ mod tests {
                 competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
+            
+                stage: None,
+                leg: None,
+                tie_id: None,
             }],
             standings: vec![
                 StandingEntry::new("team-001".to_string()),

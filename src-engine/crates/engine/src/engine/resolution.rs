@@ -1,12 +1,77 @@
 use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
-use crate::shared::{PlayStylePhase, TraitContext, home_mod, play_style_modifier, trait_bonus};
+use crate::shared::{
+    PlayStylePhase, PlayerSnap, TraitContext, home_mod, play_style_modifier, trait_bonus,
+};
 use crate::types::{Position, Side, TeamData, Zone};
 
 use super::MatchContext;
 use super::fouls::maybe_foul;
 use super::snap_player;
+
+fn weighted_attacker<R: Rng>(
+    ctx: &MatchContext,
+    side: Side,
+    rng: &mut R,
+    score: impl Fn(&crate::types::PlayerData) -> f64,
+) -> PlayerSnap {
+    let team = ctx.team(side);
+    let available: Vec<&crate::types::PlayerData> = team
+        .players
+        .iter()
+        .filter(|player| player.position != Position::Goalkeeper)
+        .collect();
+
+    if available.is_empty() {
+        return snap_player(ctx, side, Position::Forward, rng);
+    }
+
+    let weights = available
+        .iter()
+        .map(|player| score(player).max(1.0))
+        .collect::<Vec<_>>();
+    let total = weights.iter().sum::<f64>();
+    let mut roll = rng.random_range(0.0..total);
+
+    for (player, weight) in available.iter().zip(weights.iter()) {
+        if roll <= *weight {
+            return PlayerSnap::from(player);
+        }
+        roll -= *weight;
+    }
+
+    PlayerSnap::from(available[available.len() - 1])
+}
+
+fn shooter_weight(player: &crate::types::PlayerData) -> f64 {
+    let role_weight = match player.position {
+        Position::Forward => 1.45,
+        Position::Midfielder => 0.70,
+        Position::Defender => 0.18,
+        Position::Goalkeeper => 0.0,
+    };
+    let skill = player.shooting as f64 * 1.35
+        + player.composure as f64
+        + player.positioning as f64 * 0.75
+        + player.decisions as f64 * 0.65
+        + player.dribbling as f64 * 0.45;
+    role_weight * skill
+}
+
+fn assister_weight(player: &crate::types::PlayerData) -> f64 {
+    let role_weight = match player.position {
+        Position::Midfielder => 1.30,
+        Position::Forward => 0.85,
+        Position::Defender => 0.45,
+        Position::Goalkeeper => 0.0,
+    };
+    let skill = player.passing as f64 * 1.30
+        + player.vision as f64 * 1.15
+        + player.teamwork as f64 * 0.75
+        + player.decisions as f64 * 0.70;
+    role_weight * skill
+}
 
 // ---------------------------------------------------------------------------
 // Action resolution per zone
@@ -132,6 +197,10 @@ fn resolve_midfield<R: Rng>(
             );
         } else {
             ctx.emit(
+                MatchEvent::new(minute, EventType::PassIntercepted, att_side, Zone::Midfield)
+                    .with_player(&attacker.id),
+            );
+            ctx.emit(
                 MatchEvent::new(minute, EventType::Interception, def_side, Zone::Midfield)
                     .with_player(&defender.id),
             );
@@ -168,8 +237,10 @@ fn resolve_attacking_third<R: Rng>(
 
     let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
     let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
-    let att_eff = att_rating * att_mod * shape_attack_multiplier(att_team) * home_mod(att_side, ctx.config);
-    let def_eff = def_rating * def_mod * shape_defense_multiplier(def_team) * home_mod(def_side, ctx.config);
+    let att_eff =
+        att_rating * att_mod * shape_attack_multiplier(att_team) * home_mod(att_side, ctx.config);
+    let def_eff =
+        def_rating * def_mod * shape_defense_multiplier(def_team) * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
     let zone = Zone::attacking_third(att_side);
 
@@ -213,8 +284,8 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     let def_side = att_side.opposite();
     let att_team = ctx.team(att_side);
     let def_team = ctx.team(def_side);
-    let shooter = snap_player(ctx, att_side, Position::Forward, rng);
-    let assister = snap_player(ctx, att_side, Position::Midfielder, rng);
+    let shooter = weighted_attacker(ctx, att_side, rng, shooter_weight);
+    let assister = weighted_attacker(ctx, att_side, rng, assister_weight);
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
 
     let shoot_rating =
@@ -227,8 +298,10 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
 
     let shape_attack = shape_attack_multiplier(att_team);
     let shape_defense = shape_defense_multiplier(def_team);
-    let accuracy =
-        (ctx.config.shot_accuracy_base + (shoot_rating * shape_attack - 50.0) / 200.0).clamp(0.15, 0.85);
+    let accuracy = (ctx.config.shot_accuracy_base
+        + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0
+        - 0.03)
+        .clamp(0.10, 0.50);
     let zone = Zone::attacking_box(att_side);
 
     if rng.random_range(0.0..1.0f64) > accuracy {
@@ -247,8 +320,9 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     }
 
     let conversion = (ctx.config.goal_conversion_base
-        + (shoot_rating * shape_attack - gk_rating * shape_defense) / 150.0)
-        .clamp(0.10, 0.70);
+        + (shoot_rating * shape_attack - gk_rating * shape_defense) / 280.0
+        - 0.02)
+        .clamp(0.05, 0.36);
 
     if rng.random_range(0.0..1.0f64) < conversion {
         ctx.emit(

@@ -565,259 +565,1984 @@ macro_rules! team {
 }
 
 pub(super) const TEAM_TEMPLATES: &[TeamTemplate] = &[
-    team!("Arsenal", "London", "England", 1, "#dc2626", "#ffffff", "Possession"),
-    team!("Aston Villa", "Birmingham", "England", 1, "#7c2d12", "#60a5fa", "Counter"),
-    team!("Bournemouth", "Bournemouth", "England", 1, "#ef4444", "#111827", "HighPress"),
-    team!("Brentford", "London", "England", 1, "#ef4444", "#ffffff", "Balanced"),
-    team!("Brighton & Hove Albion", "Brighton", "England", 1, "#2563eb", "#ffffff", "Possession"),
-    team!("Chelsea", "London", "England", 1, "#1d4ed8", "#ffffff", "Attacking"),
-    team!("Coventry City", "Coventry", "England", 1, "#60a5fa", "#ffffff", "Possession"),
-    team!("Crystal Palace", "London", "England", 1, "#1d4ed8", "#dc2626", "Counter"),
-    team!("Everton", "Liverpool", "England", 1, "#1d4ed8", "#ffffff", "Balanced"),
-    team!("Fulham", "London", "England", 1, "#ffffff", "#111827", "Possession"),
-    team!("Hull City", "Hull", "England", 1, "#f97316", "#111827", "Counter"),
-    team!("Ipswich Town", "Ipswich", "England", 1, "#1d4ed8", "#ffffff", "Balanced"),
-    team!("Leeds United", "Leeds", "England", 1, "#ffffff", "#1d4ed8", "HighPress"),
-    team!("Liverpool", "Liverpool", "England", 1, "#b91c1c", "#fbbf24", "HighPress"),
-    team!("Manchester City", "Manchester", "England", 1, "#60a5fa", "#1e3a5f", "Possession"),
-    team!("Manchester United", "Manchester", "England", 1, "#dc2626", "#fbbf24", "Attacking"),
-    team!("Newcastle United", "Newcastle upon Tyne", "England", 1, "#111827", "#ffffff", "HighPress"),
-    team!("Nottingham Forest", "Nottingham", "England", 1, "#dc2626", "#ffffff", "Counter"),
-    team!("Sunderland", "Sunderland", "England", 1, "#dc2626", "#ffffff", "Attacking"),
-    team!("Tottenham Hotspur", "London", "England", 1, "#ffffff", "#1e3a5f", "Attacking"),
-    team!("Birmingham City", "Birmingham", "England", 2, "#1d4ed8", "#ffffff", "Balanced"),
-    team!("Blackburn Rovers", "Blackburn", "England", 2, "#ffffff", "#2563eb", "Balanced"),
-    team!("Bolton Wanderers", "Bolton", "England", 2, "#ffffff", "#1e3a8a", "Defensive"),
-    team!("Bristol City", "Bristol", "England", 2, "#dc2626", "#ffffff", "HighPress"),
-    team!("Burnley", "Burnley", "England", 2, "#7f1d1d", "#93c5fd", "Balanced"),
-    team!("Cardiff City", "Cardiff", "England", 2, "#1d4ed8", "#ffffff", "Counter"),
-    team!("Charlton Athletic", "London", "England", 2, "#dc2626", "#ffffff", "HighPress"),
-    team!("Derby County", "Derby", "England", 2, "#ffffff", "#111827", "Balanced"),
-    team!("Lincoln City", "Lincoln", "England", 2, "#dc2626", "#ffffff", "Counter"),
-    team!("Middlesbrough", "Middlesbrough", "England", 2, "#dc2626", "#ffffff", "Balanced"),
-    team!("Millwall", "London", "England", 2, "#1e3a8a", "#ffffff", "Defensive"),
-    team!("Norwich City", "Norwich", "England", 2, "#facc15", "#16a34a", "Possession"),
-    team!("Portsmouth", "Portsmouth", "England", 2, "#1d4ed8", "#ffffff", "HighPress"),
-    team!("Preston North End", "Preston", "England", 2, "#ffffff", "#1e3a8a", "Balanced"),
-    team!("Queens Park Rangers", "London", "England", 2, "#2563eb", "#ffffff", "Possession"),
-    team!("Sheffield United", "Sheffield", "England", 2, "#dc2626", "#ffffff", "HighPress"),
-    team!("Southampton", "Southampton", "England", 2, "#ef4444", "#ffffff", "Possession"),
-    team!("Stoke City", "Stoke-on-Trent", "England", 2, "#dc2626", "#ffffff", "Defensive"),
-    team!("Swansea City", "Swansea", "England", 2, "#ffffff", "#111827", "Possession"),
-    team!("Watford", "Watford", "England", 2, "#facc15", "#dc2626", "Counter"),
-    team!("West Bromwich Albion", "West Bromwich", "England", 2, "#ffffff", "#1d4ed8", "Balanced"),
-    team!("West Ham United", "London", "England", 2, "#7f1d1d", "#93c5fd", "Balanced"),
-    team!("Wolverhampton Wanderers", "Wolverhampton", "England", 2, "#f59e0b", "#111827", "Counter"),
-    team!("Wrexham", "Wrexham", "England", 2, "#dc2626", "#ffffff", "HighPress"),
-
-    team!("Angers", "Angers", "France", 1, "#111827", "#ffffff", "Defensive"),
-    team!("AS Monaco", "Monaco", "France", 1, "#ef4444", "#ffffff", "Counter"),
-    team!("Auxerre", "Auxerre", "France", 1, "#ffffff", "#2563eb", "Counter"),
-    team!("Brest", "Brest", "France", 1, "#dc2626", "#ffffff", "Balanced"),
-    team!("FC Metz", "Metz", "France", 1, "#7f1d1d", "#ffffff", "Balanced"),
-    team!("Le Havre AC", "Le Havre", "France", 1, "#60a5fa", "#1e3a8a", "Defensive"),
-    team!("Lille", "Lille", "France", 1, "#dc2626", "#1e3a8a", "Balanced"),
-    team!("Lorient", "Lorient", "France", 1, "#f97316", "#111827", "Possession"),
-    team!("Lyon", "Lyon", "France", 1, "#1d4ed8", "#ffffff", "Possession"),
-    team!("Marseille", "Marseille", "France", 1, "#38bdf8", "#ffffff", "HighPress"),
-    team!("Nantes", "Nantes", "France", 1, "#facc15", "#16a34a", "Possession"),
+    team!(
+        "Arsenal",
+        "London",
+        "England",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Aston Villa",
+        "Birmingham",
+        "England",
+        1,
+        "#7c2d12",
+        "#60a5fa",
+        "Counter"
+    ),
+    team!(
+        "Bournemouth",
+        "Bournemouth",
+        "England",
+        1,
+        "#ef4444",
+        "#111827",
+        "HighPress"
+    ),
+    team!(
+        "Brentford",
+        "London",
+        "England",
+        1,
+        "#ef4444",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Brighton & Hove Albion",
+        "Brighton",
+        "England",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Chelsea",
+        "London",
+        "England",
+        1,
+        "#1d4ed8",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Coventry City",
+        "Coventry",
+        "England",
+        1,
+        "#60a5fa",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Crystal Palace",
+        "London",
+        "England",
+        1,
+        "#1d4ed8",
+        "#dc2626",
+        "Counter"
+    ),
+    team!(
+        "Everton",
+        "Liverpool",
+        "England",
+        1,
+        "#1d4ed8",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Fulham",
+        "London",
+        "England",
+        1,
+        "#ffffff",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "Hull City",
+        "Hull",
+        "England",
+        1,
+        "#f97316",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Ipswich Town",
+        "Ipswich",
+        "England",
+        1,
+        "#1d4ed8",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Leeds United",
+        "Leeds",
+        "England",
+        1,
+        "#ffffff",
+        "#1d4ed8",
+        "HighPress"
+    ),
+    team!(
+        "Liverpool",
+        "Liverpool",
+        "England",
+        1,
+        "#b91c1c",
+        "#fbbf24",
+        "HighPress"
+    ),
+    team!(
+        "Manchester City",
+        "Manchester",
+        "England",
+        1,
+        "#60a5fa",
+        "#1e3a5f",
+        "Possession"
+    ),
+    team!(
+        "Manchester United",
+        "Manchester",
+        "England",
+        1,
+        "#dc2626",
+        "#fbbf24",
+        "Attacking"
+    ),
+    team!(
+        "Newcastle United",
+        "Newcastle upon Tyne",
+        "England",
+        1,
+        "#111827",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Nottingham Forest",
+        "Nottingham",
+        "England",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Sunderland",
+        "Sunderland",
+        "England",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Tottenham Hotspur",
+        "London",
+        "England",
+        1,
+        "#ffffff",
+        "#1e3a5f",
+        "Attacking"
+    ),
+    team!(
+        "Birmingham City",
+        "Birmingham",
+        "England",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Blackburn Rovers",
+        "Blackburn",
+        "England",
+        2,
+        "#ffffff",
+        "#2563eb",
+        "Balanced"
+    ),
+    team!(
+        "Bolton Wanderers",
+        "Bolton",
+        "England",
+        2,
+        "#ffffff",
+        "#1e3a8a",
+        "Defensive"
+    ),
+    team!(
+        "Bristol City",
+        "Bristol",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Burnley", "Burnley", "England", 2, "#7f1d1d", "#93c5fd", "Balanced"
+    ),
+    team!(
+        "Cardiff City",
+        "Cardiff",
+        "England",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Charlton Athletic",
+        "London",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Derby County",
+        "Derby",
+        "England",
+        2,
+        "#ffffff",
+        "#111827",
+        "Balanced"
+    ),
+    team!(
+        "Lincoln City",
+        "Lincoln",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Middlesbrough",
+        "Middlesbrough",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Millwall",
+        "London",
+        "England",
+        2,
+        "#1e3a8a",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Norwich City",
+        "Norwich",
+        "England",
+        2,
+        "#facc15",
+        "#16a34a",
+        "Possession"
+    ),
+    team!(
+        "Portsmouth",
+        "Portsmouth",
+        "England",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Preston North End",
+        "Preston",
+        "England",
+        2,
+        "#ffffff",
+        "#1e3a8a",
+        "Balanced"
+    ),
+    team!(
+        "Queens Park Rangers",
+        "London",
+        "England",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Sheffield United",
+        "Sheffield",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Southampton",
+        "Southampton",
+        "England",
+        2,
+        "#ef4444",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Stoke City",
+        "Stoke-on-Trent",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Swansea City",
+        "Swansea",
+        "England",
+        2,
+        "#ffffff",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "Watford", "Watford", "England", 2, "#facc15", "#dc2626", "Counter"
+    ),
+    team!(
+        "West Bromwich Albion",
+        "West Bromwich",
+        "England",
+        2,
+        "#ffffff",
+        "#1d4ed8",
+        "Balanced"
+    ),
+    team!(
+        "West Ham United",
+        "London",
+        "England",
+        2,
+        "#7f1d1d",
+        "#93c5fd",
+        "Balanced"
+    ),
+    team!(
+        "Wolverhampton Wanderers",
+        "Wolverhampton",
+        "England",
+        2,
+        "#f59e0b",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Wrexham",
+        "Wrexham",
+        "England",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Angers",
+        "Angers",
+        "France",
+        1,
+        "#111827",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "AS Monaco",
+        "Monaco",
+        "France",
+        1,
+        "#ef4444",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Auxerre", "Auxerre", "France", 1, "#ffffff", "#2563eb", "Counter"
+    ),
+    team!(
+        "Brest", "Brest", "France", 1, "#dc2626", "#ffffff", "Balanced"
+    ),
+    team!(
+        "FC Metz", "Metz", "France", 1, "#7f1d1d", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Le Havre AC",
+        "Le Havre",
+        "France",
+        1,
+        "#60a5fa",
+        "#1e3a8a",
+        "Defensive"
+    ),
+    team!(
+        "Lille", "Lille", "France", 1, "#dc2626", "#1e3a8a", "Balanced"
+    ),
+    team!(
+        "Lorient",
+        "Lorient",
+        "France",
+        1,
+        "#f97316",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "Lyon",
+        "Lyon",
+        "France",
+        1,
+        "#1d4ed8",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Marseille",
+        "Marseille",
+        "France",
+        1,
+        "#38bdf8",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Nantes",
+        "Nantes",
+        "France",
+        1,
+        "#facc15",
+        "#16a34a",
+        "Possession"
+    ),
     team!("Nice", "Nice", "France", 1, "#dc2626", "#111827", "Counter"),
-    team!("Paris FC", "Paris", "France", 1, "#1e3a8a", "#ffffff", "Possession"),
-    team!("Paris Saint-Germain", "Paris", "France", 1, "#1e3a8a", "#dc2626", "Attacking"),
-    team!("RC Lens", "Lens", "France", 1, "#dc2626", "#facc15", "HighPress"),
-    team!("RC Strasbourg Alsace", "Strasbourg", "France", 1, "#2563eb", "#ffffff", "Balanced"),
-    team!("Rennes", "Rennes", "France", 1, "#dc2626", "#111827", "HighPress"),
-    team!("Toulouse", "Toulouse", "France", 1, "#7c3aed", "#ffffff", "Possession"),
-    team!("Amiens", "Amiens", "France", 2, "#111827", "#ffffff", "Balanced"),
-    team!("Annecy", "Annecy", "France", 2, "#dc2626", "#ffffff", "Counter"),
-    team!("AS Saint-Étienne", "Saint-Étienne", "France", 2, "#16a34a", "#ffffff", "HighPress"),
-    team!("Bastia", "Bastia", "France", 2, "#2563eb", "#ffffff", "HighPress"),
-    team!("Boulogne", "Boulogne-sur-Mer", "France", 2, "#dc2626", "#111827", "Counter"),
-    team!("Clermont Foot", "Clermont-Ferrand", "France", 2, "#7f1d1d", "#2563eb", "Balanced"),
-    team!("Dunkerque", "Dunkerque", "France", 2, "#ffffff", "#1d4ed8", "Counter"),
-    team!("Grenoble Foot 38", "Grenoble", "France", 2, "#1d4ed8", "#ffffff", "Defensive"),
-    team!("Guingamp", "Guingamp", "France", 2, "#dc2626", "#111827", "HighPress"),
-    team!("Le Mans", "Le Mans", "France", 2, "#dc2626", "#facc15", "Balanced"),
-    team!("Montpellier", "Montpellier", "France", 2, "#f97316", "#1e3a8a", "Counter"),
-    team!("Nancy", "Nancy", "France", 2, "#dc2626", "#ffffff", "Balanced"),
+    team!(
+        "Paris FC",
+        "Paris",
+        "France",
+        1,
+        "#1e3a8a",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Paris Saint-Germain",
+        "Paris",
+        "France",
+        1,
+        "#1e3a8a",
+        "#dc2626",
+        "Attacking"
+    ),
+    team!(
+        "RC Lens",
+        "Lens",
+        "France",
+        1,
+        "#dc2626",
+        "#facc15",
+        "HighPress"
+    ),
+    team!(
+        "RC Strasbourg Alsace",
+        "Strasbourg",
+        "France",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Rennes",
+        "Rennes",
+        "France",
+        1,
+        "#dc2626",
+        "#111827",
+        "HighPress"
+    ),
+    team!(
+        "Toulouse",
+        "Toulouse",
+        "France",
+        1,
+        "#7c3aed",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Amiens", "Amiens", "France", 2, "#111827", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Annecy", "Annecy", "France", 2, "#dc2626", "#ffffff", "Counter"
+    ),
+    team!(
+        "AS Saint-Étienne",
+        "Saint-Étienne",
+        "France",
+        2,
+        "#16a34a",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Bastia",
+        "Bastia",
+        "France",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Boulogne",
+        "Boulogne-sur-Mer",
+        "France",
+        2,
+        "#dc2626",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Clermont Foot",
+        "Clermont-Ferrand",
+        "France",
+        2,
+        "#7f1d1d",
+        "#2563eb",
+        "Balanced"
+    ),
+    team!(
+        "Dunkerque",
+        "Dunkerque",
+        "France",
+        2,
+        "#ffffff",
+        "#1d4ed8",
+        "Counter"
+    ),
+    team!(
+        "Grenoble Foot 38",
+        "Grenoble",
+        "France",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Guingamp",
+        "Guingamp",
+        "France",
+        2,
+        "#dc2626",
+        "#111827",
+        "HighPress"
+    ),
+    team!(
+        "Le Mans", "Le Mans", "France", 2, "#dc2626", "#facc15", "Balanced"
+    ),
+    team!(
+        "Montpellier",
+        "Montpellier",
+        "France",
+        2,
+        "#f97316",
+        "#1e3a8a",
+        "Counter"
+    ),
+    team!(
+        "Nancy", "Nancy", "France", 2, "#dc2626", "#ffffff", "Balanced"
+    ),
     team!("Pau", "Pau", "France", 2, "#facc15", "#1d4ed8", "Counter"),
-    team!("Red Star FC", "Saint-Ouen", "France", 2, "#16a34a", "#ffffff", "HighPress"),
-    team!("Rodez AF", "Rodez", "France", 2, "#dc2626", "#facc15", "Balanced"),
-    team!("Stade de Reims", "Reims", "France", 2, "#dc2626", "#ffffff", "Balanced"),
-    team!("Stade Lavallois", "Laval", "France", 2, "#f97316", "#111827", "Counter"),
-    team!("Troyes", "Troyes", "France", 2, "#2563eb", "#ffffff", "Possession"),
-
-    team!("Augsburg", "Augsburg", "Germany", 1, "#dc2626", "#16a34a", "Counter"),
-    team!("Bayer Leverkusen", "Leverkusen", "Germany", 1, "#dc2626", "#111827", "Possession"),
-    team!("Bayern München", "Munich", "Germany", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("Borussia Dortmund", "Dortmund", "Germany", 1, "#facc15", "#111827", "Attacking"),
-    team!("Borussia Mönchengladbach", "Mönchengladbach", "Germany", 1, "#ffffff", "#16a34a", "Balanced"),
-    team!("Eintracht Frankfurt", "Frankfurt", "Germany", 1, "#dc2626", "#111827", "Counter"),
-    team!("FC Heidenheim", "Heidenheim", "Germany", 1, "#dc2626", "#1d4ed8", "Balanced"),
-    team!("Freiburg", "Freiburg", "Germany", 1, "#dc2626", "#111827", "Balanced"),
-    team!("Hamburger SV", "Hamburg", "Germany", 1, "#1d4ed8", "#ffffff", "Attacking"),
-    team!("Hoffenheim", "Sinsheim", "Germany", 1, "#2563eb", "#ffffff", "Attacking"),
-    team!("Köln", "Cologne", "Germany", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("Mainz 05", "Mainz", "Germany", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("RB Leipzig", "Leipzig", "Germany", 1, "#ffffff", "#dc2626", "HighPress"),
-    team!("St. Pauli", "Hamburg", "Germany", 1, "#7c2d12", "#ffffff", "HighPress"),
-    team!("Union Berlin", "Berlin", "Germany", 1, "#dc2626", "#facc15", "Defensive"),
-    team!("VfB Stuttgart", "Stuttgart", "Germany", 1, "#ffffff", "#dc2626", "Possession"),
-    team!("Wolfsburg", "Wolfsburg", "Germany", 1, "#16a34a", "#ffffff", "Counter"),
-    team!("Werder Bremen", "Bremen", "Germany", 1, "#16a34a", "#ffffff", "Possession"),
-    team!("1. FC Magdeburg", "Magdeburg", "Germany", 2, "#2563eb", "#ffffff", "Attacking"),
-    team!("Arminia Bielefeld", "Bielefeld", "Germany", 2, "#111827", "#ffffff", "Counter"),
-    team!("Darmstadt", "Darmstadt", "Germany", 2, "#1d4ed8", "#ffffff", "Possession"),
-    team!("Dynamo Dresden", "Dresden", "Germany", 2, "#facc15", "#111827", "HighPress"),
-    team!("Eintracht Braunschweig", "Braunschweig", "Germany", 2, "#facc15", "#2563eb", "Balanced"),
-    team!("FC Kaiserslautern", "Kaiserslautern", "Germany", 2, "#dc2626", "#ffffff", "HighPress"),
-    team!("FC Nürnberg", "Nuremberg", "Germany", 2, "#7f1d1d", "#ffffff", "Balanced"),
-    team!("Fortuna Düsseldorf", "Düsseldorf", "Germany", 2, "#dc2626", "#ffffff", "Possession"),
-    team!("Hannover 96", "Hannover", "Germany", 2, "#16a34a", "#111827", "Counter"),
-    team!("Hertha BSC", "Berlin", "Germany", 2, "#2563eb", "#ffffff", "Possession"),
-    team!("Holstein Kiel", "Kiel", "Germany", 2, "#1d4ed8", "#ffffff", "Possession"),
-    team!("Karlsruher", "Karlsruhe", "Germany", 2, "#2563eb", "#ffffff", "Balanced"),
-    team!("Paderborn", "Paderborn", "Germany", 2, "#1d4ed8", "#111827", "Counter"),
-    team!("Preußen Münster", "Münster", "Germany", 2, "#16a34a", "#111827", "Defensive"),
-    team!("Schalke 04", "Gelsenkirchen", "Germany", 2, "#1d4ed8", "#ffffff", "HighPress"),
-    team!("SpVgg Greuther Fürth", "Fürth", "Germany", 2, "#16a34a", "#ffffff", "Balanced"),
-    team!("SV Elversberg", "Spiesen-Elversberg", "Germany", 2, "#111827", "#ffffff", "Counter"),
-    team!("VfL Bochum", "Bochum", "Germany", 2, "#1d4ed8", "#ffffff", "Defensive"),
-
-    team!("Atalanta", "Bergamo", "Italy", 1, "#1d4ed8", "#111827", "HighPress"),
-    team!("Bologna", "Bologna", "Italy", 1, "#1d4ed8", "#dc2626", "Balanced"),
-    team!("Cagliari", "Cagliari", "Italy", 1, "#1e3a8a", "#7f1d1d", "Counter"),
-    team!("Como 1907", "Como", "Italy", 1, "#2563eb", "#ffffff", "Balanced"),
-    team!("Cremonese", "Cremona", "Italy", 1, "#dc2626", "#9ca3af", "Possession"),
-    team!("Fiorentina", "Florence", "Italy", 1, "#7c3aed", "#ffffff", "Possession"),
-    team!("Genoa", "Genoa", "Italy", 1, "#1d4ed8", "#dc2626", "Counter"),
-    team!("Inter", "Milan", "Italy", 1, "#1d4ed8", "#111827", "Counter"),
-    team!("Juventus", "Turin", "Italy", 1, "#111827", "#ffffff", "Possession"),
-    team!("Lazio", "Rome", "Italy", 1, "#60a5fa", "#ffffff", "Balanced"),
-    team!("Lecce", "Lecce", "Italy", 1, "#dc2626", "#facc15", "HighPress"),
-    team!("Milan", "Milan", "Italy", 1, "#dc2626", "#111827", "Attacking"),
-    team!("Napoli", "Naples", "Italy", 1, "#0ea5e9", "#ffffff", "Attacking"),
-    team!("Parma", "Parma", "Italy", 1, "#facc15", "#1d4ed8", "Possession"),
-    team!("Pisa", "Pisa", "Italy", 1, "#1d4ed8", "#111827", "HighPress"),
+    team!(
+        "Red Star FC",
+        "Saint-Ouen",
+        "France",
+        2,
+        "#16a34a",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Rodez AF", "Rodez", "France", 2, "#dc2626", "#facc15", "Balanced"
+    ),
+    team!(
+        "Stade de Reims",
+        "Reims",
+        "France",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Stade Lavallois",
+        "Laval",
+        "France",
+        2,
+        "#f97316",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Troyes",
+        "Troyes",
+        "France",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Augsburg", "Augsburg", "Germany", 1, "#dc2626", "#16a34a", "Counter"
+    ),
+    team!(
+        "Bayer Leverkusen",
+        "Leverkusen",
+        "Germany",
+        1,
+        "#dc2626",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "Bayern München",
+        "Munich",
+        "Germany",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Borussia Dortmund",
+        "Dortmund",
+        "Germany",
+        1,
+        "#facc15",
+        "#111827",
+        "Attacking"
+    ),
+    team!(
+        "Borussia Mönchengladbach",
+        "Mönchengladbach",
+        "Germany",
+        1,
+        "#ffffff",
+        "#16a34a",
+        "Balanced"
+    ),
+    team!(
+        "Eintracht Frankfurt",
+        "Frankfurt",
+        "Germany",
+        1,
+        "#dc2626",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "FC Heidenheim",
+        "Heidenheim",
+        "Germany",
+        1,
+        "#dc2626",
+        "#1d4ed8",
+        "Balanced"
+    ),
+    team!(
+        "Freiburg", "Freiburg", "Germany", 1, "#dc2626", "#111827", "Balanced"
+    ),
+    team!(
+        "Hamburger SV",
+        "Hamburg",
+        "Germany",
+        1,
+        "#1d4ed8",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Hoffenheim",
+        "Sinsheim",
+        "Germany",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Köln",
+        "Cologne",
+        "Germany",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Mainz 05",
+        "Mainz",
+        "Germany",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "RB Leipzig",
+        "Leipzig",
+        "Germany",
+        1,
+        "#ffffff",
+        "#dc2626",
+        "HighPress"
+    ),
+    team!(
+        "St. Pauli",
+        "Hamburg",
+        "Germany",
+        1,
+        "#7c2d12",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Union Berlin",
+        "Berlin",
+        "Germany",
+        1,
+        "#dc2626",
+        "#facc15",
+        "Defensive"
+    ),
+    team!(
+        "VfB Stuttgart",
+        "Stuttgart",
+        "Germany",
+        1,
+        "#ffffff",
+        "#dc2626",
+        "Possession"
+    ),
+    team!(
+        "Wolfsburg",
+        "Wolfsburg",
+        "Germany",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Werder Bremen",
+        "Bremen",
+        "Germany",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "1. FC Magdeburg",
+        "Magdeburg",
+        "Germany",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Arminia Bielefeld",
+        "Bielefeld",
+        "Germany",
+        2,
+        "#111827",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Darmstadt",
+        "Darmstadt",
+        "Germany",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Dynamo Dresden",
+        "Dresden",
+        "Germany",
+        2,
+        "#facc15",
+        "#111827",
+        "HighPress"
+    ),
+    team!(
+        "Eintracht Braunschweig",
+        "Braunschweig",
+        "Germany",
+        2,
+        "#facc15",
+        "#2563eb",
+        "Balanced"
+    ),
+    team!(
+        "FC Kaiserslautern",
+        "Kaiserslautern",
+        "Germany",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "FC Nürnberg",
+        "Nuremberg",
+        "Germany",
+        2,
+        "#7f1d1d",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Fortuna Düsseldorf",
+        "Düsseldorf",
+        "Germany",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Hannover 96",
+        "Hannover",
+        "Germany",
+        2,
+        "#16a34a",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Hertha BSC",
+        "Berlin",
+        "Germany",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Holstein Kiel",
+        "Kiel",
+        "Germany",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Karlsruher",
+        "Karlsruhe",
+        "Germany",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Paderborn",
+        "Paderborn",
+        "Germany",
+        2,
+        "#1d4ed8",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Preußen Münster",
+        "Münster",
+        "Germany",
+        2,
+        "#16a34a",
+        "#111827",
+        "Defensive"
+    ),
+    team!(
+        "Schalke 04",
+        "Gelsenkirchen",
+        "Germany",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "SpVgg Greuther Fürth",
+        "Fürth",
+        "Germany",
+        2,
+        "#16a34a",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "SV Elversberg",
+        "Spiesen-Elversberg",
+        "Germany",
+        2,
+        "#111827",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "VfL Bochum",
+        "Bochum",
+        "Germany",
+        2,
+        "#1d4ed8",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Atalanta",
+        "Bergamo",
+        "Italy",
+        1,
+        "#1d4ed8",
+        "#111827",
+        "HighPress"
+    ),
+    team!(
+        "Bologna", "Bologna", "Italy", 1, "#1d4ed8", "#dc2626", "Balanced"
+    ),
+    team!(
+        "Cagliari", "Cagliari", "Italy", 1, "#1e3a8a", "#7f1d1d", "Counter"
+    ),
+    team!(
+        "Como 1907",
+        "Como",
+        "Italy",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Cremonese",
+        "Cremona",
+        "Italy",
+        1,
+        "#dc2626",
+        "#9ca3af",
+        "Possession"
+    ),
+    team!(
+        "Fiorentina",
+        "Florence",
+        "Italy",
+        1,
+        "#7c3aed",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Genoa", "Genoa", "Italy", 1, "#1d4ed8", "#dc2626", "Counter"
+    ),
+    team!(
+        "Inter", "Milan", "Italy", 1, "#1d4ed8", "#111827", "Counter"
+    ),
+    team!(
+        "Juventus",
+        "Turin",
+        "Italy",
+        1,
+        "#111827",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Lazio", "Rome", "Italy", 1, "#60a5fa", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Lecce",
+        "Lecce",
+        "Italy",
+        1,
+        "#dc2626",
+        "#facc15",
+        "HighPress"
+    ),
+    team!(
+        "Milan",
+        "Milan",
+        "Italy",
+        1,
+        "#dc2626",
+        "#111827",
+        "Attacking"
+    ),
+    team!(
+        "Napoli",
+        "Naples",
+        "Italy",
+        1,
+        "#0ea5e9",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Parma",
+        "Parma",
+        "Italy",
+        1,
+        "#facc15",
+        "#1d4ed8",
+        "Possession"
+    ),
+    team!(
+        "Pisa",
+        "Pisa",
+        "Italy",
+        1,
+        "#1d4ed8",
+        "#111827",
+        "HighPress"
+    ),
     team!("Roma", "Rome", "Italy", 1, "#7f1d1d", "#f59e0b", "Counter"),
-    team!("Sassuolo", "Sassuolo", "Italy", 1, "#16a34a", "#111827", "Attacking"),
-    team!("Torino", "Turin", "Italy", 1, "#7f1d1d", "#ffffff", "Defensive"),
-    team!("Udinese", "Udine", "Italy", 1, "#111827", "#ffffff", "Balanced"),
-    team!("Verona", "Verona", "Italy", 1, "#1e3a8a", "#facc15", "Defensive"),
-    team!("Bari", "Bari", "Italy", 2, "#dc2626", "#ffffff", "Attacking"),
-    team!("Carrarese", "Carrara", "Italy", 2, "#60a5fa", "#ffffff", "Counter"),
-    team!("Catanzaro", "Catanzaro", "Italy", 2, "#dc2626", "#facc15", "HighPress"),
-    team!("Cesena", "Cesena", "Italy", 2, "#111827", "#ffffff", "Balanced"),
-    team!("Empoli", "Empoli", "Italy", 2, "#2563eb", "#ffffff", "Defensive"),
-    team!("Frosinone", "Frosinone", "Italy", 2, "#facc15", "#1d4ed8", "Attacking"),
-    team!("Juve Stabia", "Castellammare di Stabia", "Italy", 2, "#facc15", "#1d4ed8", "Counter"),
-    team!("Mantova 1911", "Mantua", "Italy", 2, "#dc2626", "#ffffff", "Balanced"),
-    team!("Modena", "Modena", "Italy", 2, "#facc15", "#1d4ed8", "Possession"),
-    team!("Monza", "Monza", "Italy", 2, "#dc2626", "#ffffff", "Possession"),
-    team!("Padova", "Padua", "Italy", 2, "#dc2626", "#ffffff", "Balanced"),
-    team!("Palermo", "Palermo", "Italy", 2, "#f472b6", "#111827", "Attacking"),
-    team!("Pescara", "Pescara", "Italy", 2, "#60a5fa", "#ffffff", "Counter"),
-    team!("Reggiana", "Reggio Emilia", "Italy", 2, "#dc2626", "#ffffff", "Balanced"),
-    team!("Sampdoria", "Genoa", "Italy", 2, "#2563eb", "#ffffff", "Possession"),
-    team!("Spezia", "La Spezia", "Italy", 2, "#ffffff", "#111827", "Counter"),
-    team!("Südtirol", "Bolzano", "Italy", 2, "#dc2626", "#ffffff", "Balanced"),
-    team!("US Avellino 1912", "Avellino", "Italy", 2, "#16a34a", "#ffffff", "HighPress"),
-    team!("Venezia", "Venice", "Italy", 2, "#f97316", "#16a34a", "Counter"),
-    team!("Virtus Entella", "Chiavari", "Italy", 2, "#60a5fa", "#111827", "Balanced"),
-
-    team!("Athletic Club", "Bilbao", "Spain", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("Atlético Madrid", "Madrid", "Spain", 1, "#dc2626", "#ffffff", "Counter"),
-    team!("Barcelona", "Barcelona", "Spain", 1, "#9f1239", "#1d4ed8", "Attacking"),
-    team!("Celta Vigo", "Vigo", "Spain", 1, "#60a5fa", "#ffffff", "Balanced"),
-    team!("Deportivo", "Vitoria-Gasteiz", "Spain", 1, "#2563eb", "#ffffff", "Defensive"),
-    team!("Elche", "Elche", "Spain", 1, "#ffffff", "#16a34a", "Balanced"),
-    team!("Espanyol", "Barcelona", "Spain", 1, "#2563eb", "#ffffff", "Balanced"),
-    team!("Getafe", "Getafe", "Spain", 1, "#2563eb", "#ffffff", "Defensive"),
-    team!("Girona", "Girona", "Spain", 1, "#dc2626", "#ffffff", "Possession"),
-    team!("Levante", "Valencia", "Spain", 1, "#1d4ed8", "#7f1d1d", "Attacking"),
-    team!("Mallorca", "Palma", "Spain", 1, "#dc2626", "#111827", "Counter"),
-    team!("Osasuna", "Pamplona", "Spain", 1, "#dc2626", "#1e3a8a", "HighPress"),
-    team!("Real Oviedo", "Oviedo", "Spain", 1, "#2563eb", "#ffffff", "Possession"),
-    team!("Rayo Vallecano", "Madrid", "Spain", 1, "#ffffff", "#dc2626", "HighPress"),
-    team!("Real Betis", "Seville", "Spain", 1, "#16a34a", "#ffffff", "Attacking"),
-    team!("Real Madrid", "Madrid", "Spain", 1, "#ffffff", "#d4af37", "Possession"),
-    team!("Real Sociedad", "San Sebastián", "Spain", 1, "#2563eb", "#ffffff", "Possession"),
-    team!("Sevilla", "Seville", "Spain", 1, "#ffffff", "#dc2626", "Counter"),
-    team!("Valencia", "Valencia", "Spain", 1, "#ffffff", "#111827", "Possession"),
-    team!("Villarreal", "Villarreal", "Spain", 1, "#facc15", "#1d4ed8", "Attacking"),
-    team!("Albacete", "Albacete", "Spain", 2, "#ffffff", "#111827", "Balanced"),
-    team!("Almería", "Almería", "Spain", 2, "#dc2626", "#ffffff", "Attacking"),
-    team!("Burgos", "Burgos", "Spain", 2, "#ffffff", "#111827", "Defensive"),
-    team!("Cádiz", "Cádiz", "Spain", 2, "#facc15", "#1d4ed8", "Counter"),
-    team!("Castellón", "Castellón", "Spain", 2, "#ffffff", "#111827", "Possession"),
-    team!("Ceuta", "Ceuta", "Spain", 2, "#ffffff", "#111827", "Counter"),
-    team!("Córdoba", "Córdoba", "Spain", 2, "#16a34a", "#ffffff", "HighPress"),
-    team!("Cultural Leonesa", "León", "Spain", 2, "#ffffff", "#111827", "Balanced"),
-    team!("Deportivo La Coruña", "A Coruña", "Spain", 2, "#2563eb", "#ffffff", "Possession"),
-    team!("Eibar", "Eibar", "Spain", 2, "#1d4ed8", "#7f1d1d", "Counter"),
-    team!("Granada", "Granada", "Spain", 2, "#dc2626", "#ffffff", "Possession"),
-    team!("Huesca", "Huesca", "Spain", 2, "#1d4ed8", "#dc2626", "Counter"),
-    team!("Las Palmas", "Las Palmas", "Spain", 2, "#facc15", "#1d4ed8", "Possession"),
-    team!("Leganés", "Leganés", "Spain", 2, "#2563eb", "#ffffff", "Counter"),
-    team!("Málaga", "Málaga", "Spain", 2, "#60a5fa", "#ffffff", "Possession"),
-    team!("Mirandés", "Miranda de Ebro", "Spain", 2, "#dc2626", "#111827", "HighPress"),
-    team!("Racing Santander", "Santander", "Spain", 2, "#16a34a", "#ffffff", "Counter"),
-    team!("Sporting Gijón", "Gijón", "Spain", 2, "#dc2626", "#ffffff", "HighPress"),
-    team!("Valladolid", "Valladolid", "Spain", 2, "#7c3aed", "#ffffff", "Possession"),
-    team!("Real Zaragoza", "Zaragoza", "Spain", 2, "#ffffff", "#2563eb", "Attacking"),
-
-    team!("Alverca", "Alverca do Ribatejo", "Portugal", 1, "#dc2626", "#ffffff", "Counter"),
-    team!("Arouca", "Arouca", "Portugal", 1, "#facc15", "#1d4ed8", "Counter"),
-    team!("AVS Futebol SAD", "Vila das Aves", "Portugal", 1, "#dc2626", "#ffffff", "Balanced"),
-    team!("Benfica", "Lisbon", "Portugal", 1, "#dc2626", "#ffffff", "Attacking"),
-    team!("Casa Pia AC", "Lisbon", "Portugal", 1, "#111827", "#ffffff", "Balanced"),
-    team!("Estoril", "Estoril", "Portugal", 1, "#facc15", "#2563eb", "Possession"),
-    team!("Estrela da Amadora", "Amadora", "Portugal", 1, "#dc2626", "#16a34a", "HighPress"),
-    team!("Famalicão", "Vila Nova de Famalicão", "Portugal", 1, "#ffffff", "#1d4ed8", "Balanced"),
-    team!("FC Porto", "Porto", "Portugal", 1, "#1d4ed8", "#ffffff", "Possession"),
-    team!("Gil Vicente", "Barcelos", "Portugal", 1, "#dc2626", "#1d4ed8", "Balanced"),
-    team!("Moreirense", "Moreira de Cónegos", "Portugal", 1, "#16a34a", "#ffffff", "Counter"),
-    team!("Nacional da Madeira", "Funchal", "Portugal", 1, "#111827", "#ffffff", "Defensive"),
-    team!("Rio Ave", "Vila do Conde", "Portugal", 1, "#16a34a", "#ffffff", "Possession"),
-    team!("Santa Clara", "Ponta Delgada", "Portugal", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("SC Braga", "Braga", "Portugal", 1, "#dc2626", "#ffffff", "Attacking"),
-    team!("Sporting CP", "Lisbon", "Portugal", 1, "#16a34a", "#ffffff", "HighPress"),
-    team!("Tondela", "Tondela", "Portugal", 1, "#facc15", "#16a34a", "Balanced"),
-    team!("Vitória de Guimarães", "Guimarães", "Portugal", 1, "#ffffff", "#111827", "Counter"),
-
-    team!("Ajax", "Amsterdam", "Netherlands", 1, "#dc2626", "#ffffff", "Possession"),
-    team!("AZ Alkmaar", "Alkmaar", "Netherlands", 1, "#dc2626", "#ffffff", "Possession"),
-    team!("Excelsior Rotterdam", "Rotterdam", "Netherlands", 1, "#dc2626", "#111827", "Counter"),
-    team!("FC Groningen", "Groningen", "Netherlands", 1, "#16a34a", "#ffffff", "Balanced"),
-    team!("FC Utrecht", "Utrecht", "Netherlands", 1, "#dc2626", "#ffffff", "Balanced"),
-    team!("Feyenoord", "Rotterdam", "Netherlands", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("Fortuna Sittard", "Sittard", "Netherlands", 1, "#16a34a", "#facc15", "Defensive"),
-    team!("Go Ahead Eagles", "Deventer", "Netherlands", 1, "#dc2626", "#facc15", "HighPress"),
-    team!("Heracles Almelo", "Almelo", "Netherlands", 1, "#111827", "#ffffff", "Counter"),
-    team!("NAC Breda", "Breda", "Netherlands", 1, "#facc15", "#111827", "Balanced"),
-    team!("NEC Nijmegen", "Nijmegen", "Netherlands", 1, "#dc2626", "#16a34a", "HighPress"),
-    team!("PEC Zwolle", "Zwolle", "Netherlands", 1, "#2563eb", "#ffffff", "Possession"),
-    team!("PSV", "Eindhoven", "Netherlands", 1, "#dc2626", "#ffffff", "Attacking"),
-    team!("SC Heerenveen", "Heerenveen", "Netherlands", 1, "#2563eb", "#ffffff", "Counter"),
-    team!("Sparta Rotterdam", "Rotterdam", "Netherlands", 1, "#dc2626", "#ffffff", "Defensive"),
-    team!("Telstar", "Velsen", "Netherlands", 1, "#2563eb", "#ffffff", "Counter"),
-    team!("Twente", "Enschede", "Netherlands", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("Volendam", "Volendam", "Netherlands", 1, "#f97316", "#111827", "Balanced"),
-
-    team!("Anderlecht", "Brussels", "Belgium", 1, "#7c3aed", "#ffffff", "Possession"),
-    team!("Antwerp", "Antwerp", "Belgium", 1, "#dc2626", "#ffffff", "Counter"),
-    team!("Cercle Brugge", "Bruges", "Belgium", 1, "#16a34a", "#111827", "Counter"),
-    team!("Charleroi", "Charleroi", "Belgium", 1, "#111827", "#ffffff", "Defensive"),
-    team!("Club Brugge", "Bruges", "Belgium", 1, "#1d4ed8", "#111827", "Attacking"),
-    team!("FCV Dender EH", "Denderleeuw", "Belgium", 1, "#1d4ed8", "#111827", "Counter"),
-    team!("Genk", "Genk", "Belgium", 1, "#2563eb", "#ffffff", "HighPress"),
-    team!("Gent", "Ghent", "Belgium", 1, "#2563eb", "#ffffff", "Balanced"),
-    team!("Mechelen", "Mechelen", "Belgium", 1, "#facc15", "#dc2626", "Balanced"),
-    team!("Oud-Heverlee Leuven", "Leuven", "Belgium", 1, "#ffffff", "#111827", "Possession"),
-    team!("RAAL La Louvière", "La Louvière", "Belgium", 1, "#16a34a", "#ffffff", "Counter"),
-    team!("Sint-Truidense", "Sint-Truiden", "Belgium", 1, "#facc15", "#1d4ed8", "Balanced"),
-    team!("Standard Liège", "Liège", "Belgium", 1, "#dc2626", "#ffffff", "HighPress"),
-    team!("Union Saint-Gilloise", "Brussels", "Belgium", 1, "#facc15", "#1d4ed8", "Attacking"),
-    team!("Westerlo", "Westerlo", "Belgium", 1, "#facc15", "#1d4ed8", "Counter"),
-    team!("Zulte Waregem", "Waregem", "Belgium", 1, "#dc2626", "#16a34a", "Balanced"),
+    team!(
+        "Sassuolo",
+        "Sassuolo",
+        "Italy",
+        1,
+        "#16a34a",
+        "#111827",
+        "Attacking"
+    ),
+    team!(
+        "Torino",
+        "Turin",
+        "Italy",
+        1,
+        "#7f1d1d",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Udinese", "Udine", "Italy", 1, "#111827", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Verona",
+        "Verona",
+        "Italy",
+        1,
+        "#1e3a8a",
+        "#facc15",
+        "Defensive"
+    ),
+    team!(
+        "Bari",
+        "Bari",
+        "Italy",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Carrarese",
+        "Carrara",
+        "Italy",
+        2,
+        "#60a5fa",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Catanzaro",
+        "Catanzaro",
+        "Italy",
+        2,
+        "#dc2626",
+        "#facc15",
+        "HighPress"
+    ),
+    team!(
+        "Cesena", "Cesena", "Italy", 2, "#111827", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Empoli",
+        "Empoli",
+        "Italy",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Frosinone",
+        "Frosinone",
+        "Italy",
+        2,
+        "#facc15",
+        "#1d4ed8",
+        "Attacking"
+    ),
+    team!(
+        "Juve Stabia",
+        "Castellammare di Stabia",
+        "Italy",
+        2,
+        "#facc15",
+        "#1d4ed8",
+        "Counter"
+    ),
+    team!(
+        "Mantova 1911",
+        "Mantua",
+        "Italy",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Modena",
+        "Modena",
+        "Italy",
+        2,
+        "#facc15",
+        "#1d4ed8",
+        "Possession"
+    ),
+    team!(
+        "Monza",
+        "Monza",
+        "Italy",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Padova", "Padua", "Italy", 2, "#dc2626", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Palermo",
+        "Palermo",
+        "Italy",
+        2,
+        "#f472b6",
+        "#111827",
+        "Attacking"
+    ),
+    team!(
+        "Pescara", "Pescara", "Italy", 2, "#60a5fa", "#ffffff", "Counter"
+    ),
+    team!(
+        "Reggiana",
+        "Reggio Emilia",
+        "Italy",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Sampdoria",
+        "Genoa",
+        "Italy",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Spezia",
+        "La Spezia",
+        "Italy",
+        2,
+        "#ffffff",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Südtirol",
+        "Bolzano",
+        "Italy",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "US Avellino 1912",
+        "Avellino",
+        "Italy",
+        2,
+        "#16a34a",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Venezia", "Venice", "Italy", 2, "#f97316", "#16a34a", "Counter"
+    ),
+    team!(
+        "Virtus Entella",
+        "Chiavari",
+        "Italy",
+        2,
+        "#60a5fa",
+        "#111827",
+        "Balanced"
+    ),
+    team!(
+        "Athletic Club",
+        "Bilbao",
+        "Spain",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Atlético Madrid",
+        "Madrid",
+        "Spain",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Barcelona",
+        "Barcelona",
+        "Spain",
+        1,
+        "#9f1239",
+        "#1d4ed8",
+        "Attacking"
+    ),
+    team!(
+        "Celta Vigo",
+        "Vigo",
+        "Spain",
+        1,
+        "#60a5fa",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Deportivo",
+        "Vitoria-Gasteiz",
+        "Spain",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Elche", "Elche", "Spain", 1, "#ffffff", "#16a34a", "Balanced"
+    ),
+    team!(
+        "Espanyol",
+        "Barcelona",
+        "Spain",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Getafe",
+        "Getafe",
+        "Spain",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Girona",
+        "Girona",
+        "Spain",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Levante",
+        "Valencia",
+        "Spain",
+        1,
+        "#1d4ed8",
+        "#7f1d1d",
+        "Attacking"
+    ),
+    team!(
+        "Mallorca", "Palma", "Spain", 1, "#dc2626", "#111827", "Counter"
+    ),
+    team!(
+        "Osasuna",
+        "Pamplona",
+        "Spain",
+        1,
+        "#dc2626",
+        "#1e3a8a",
+        "HighPress"
+    ),
+    team!(
+        "Real Oviedo",
+        "Oviedo",
+        "Spain",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Rayo Vallecano",
+        "Madrid",
+        "Spain",
+        1,
+        "#ffffff",
+        "#dc2626",
+        "HighPress"
+    ),
+    team!(
+        "Real Betis",
+        "Seville",
+        "Spain",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Real Madrid",
+        "Madrid",
+        "Spain",
+        1,
+        "#ffffff",
+        "#d4af37",
+        "Possession"
+    ),
+    team!(
+        "Real Sociedad",
+        "San Sebastián",
+        "Spain",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Sevilla", "Seville", "Spain", 1, "#ffffff", "#dc2626", "Counter"
+    ),
+    team!(
+        "Valencia",
+        "Valencia",
+        "Spain",
+        1,
+        "#ffffff",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "Villarreal",
+        "Villarreal",
+        "Spain",
+        1,
+        "#facc15",
+        "#1d4ed8",
+        "Attacking"
+    ),
+    team!(
+        "Albacete", "Albacete", "Spain", 2, "#ffffff", "#111827", "Balanced"
+    ),
+    team!(
+        "Almería",
+        "Almería",
+        "Spain",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Burgos",
+        "Burgos",
+        "Spain",
+        2,
+        "#ffffff",
+        "#111827",
+        "Defensive"
+    ),
+    team!(
+        "Cádiz", "Cádiz", "Spain", 2, "#facc15", "#1d4ed8", "Counter"
+    ),
+    team!(
+        "Castellón",
+        "Castellón",
+        "Spain",
+        2,
+        "#ffffff",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "Ceuta", "Ceuta", "Spain", 2, "#ffffff", "#111827", "Counter"
+    ),
+    team!(
+        "Córdoba",
+        "Córdoba",
+        "Spain",
+        2,
+        "#16a34a",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Cultural Leonesa",
+        "León",
+        "Spain",
+        2,
+        "#ffffff",
+        "#111827",
+        "Balanced"
+    ),
+    team!(
+        "Deportivo La Coruña",
+        "A Coruña",
+        "Spain",
+        2,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Eibar", "Eibar", "Spain", 2, "#1d4ed8", "#7f1d1d", "Counter"
+    ),
+    team!(
+        "Granada",
+        "Granada",
+        "Spain",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Huesca", "Huesca", "Spain", 2, "#1d4ed8", "#dc2626", "Counter"
+    ),
+    team!(
+        "Las Palmas",
+        "Las Palmas",
+        "Spain",
+        2,
+        "#facc15",
+        "#1d4ed8",
+        "Possession"
+    ),
+    team!(
+        "Leganés", "Leganés", "Spain", 2, "#2563eb", "#ffffff", "Counter"
+    ),
+    team!(
+        "Málaga",
+        "Málaga",
+        "Spain",
+        2,
+        "#60a5fa",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Mirandés",
+        "Miranda de Ebro",
+        "Spain",
+        2,
+        "#dc2626",
+        "#111827",
+        "HighPress"
+    ),
+    team!(
+        "Racing Santander",
+        "Santander",
+        "Spain",
+        2,
+        "#16a34a",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Sporting Gijón",
+        "Gijón",
+        "Spain",
+        2,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Valladolid",
+        "Valladolid",
+        "Spain",
+        2,
+        "#7c3aed",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Real Zaragoza",
+        "Zaragoza",
+        "Spain",
+        2,
+        "#ffffff",
+        "#2563eb",
+        "Attacking"
+    ),
+    team!(
+        "Alverca",
+        "Alverca do Ribatejo",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Arouca", "Arouca", "Portugal", 1, "#facc15", "#1d4ed8", "Counter"
+    ),
+    team!(
+        "AVS Futebol SAD",
+        "Vila das Aves",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Benfica",
+        "Lisbon",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Casa Pia AC",
+        "Lisbon",
+        "Portugal",
+        1,
+        "#111827",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Estoril",
+        "Estoril",
+        "Portugal",
+        1,
+        "#facc15",
+        "#2563eb",
+        "Possession"
+    ),
+    team!(
+        "Estrela da Amadora",
+        "Amadora",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#16a34a",
+        "HighPress"
+    ),
+    team!(
+        "Famalicão",
+        "Vila Nova de Famalicão",
+        "Portugal",
+        1,
+        "#ffffff",
+        "#1d4ed8",
+        "Balanced"
+    ),
+    team!(
+        "FC Porto",
+        "Porto",
+        "Portugal",
+        1,
+        "#1d4ed8",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Gil Vicente",
+        "Barcelos",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#1d4ed8",
+        "Balanced"
+    ),
+    team!(
+        "Moreirense",
+        "Moreira de Cónegos",
+        "Portugal",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Nacional da Madeira",
+        "Funchal",
+        "Portugal",
+        1,
+        "#111827",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Rio Ave",
+        "Vila do Conde",
+        "Portugal",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Santa Clara",
+        "Ponta Delgada",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "SC Braga",
+        "Braga",
+        "Portugal",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "Sporting CP",
+        "Lisbon",
+        "Portugal",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Tondela", "Tondela", "Portugal", 1, "#facc15", "#16a34a", "Balanced"
+    ),
+    team!(
+        "Vitória de Guimarães",
+        "Guimarães",
+        "Portugal",
+        1,
+        "#ffffff",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Ajax",
+        "Amsterdam",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "AZ Alkmaar",
+        "Alkmaar",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Excelsior Rotterdam",
+        "Rotterdam",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "FC Groningen",
+        "Groningen",
+        "Netherlands",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "FC Utrecht",
+        "Utrecht",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Balanced"
+    ),
+    team!(
+        "Feyenoord",
+        "Rotterdam",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Fortuna Sittard",
+        "Sittard",
+        "Netherlands",
+        1,
+        "#16a34a",
+        "#facc15",
+        "Defensive"
+    ),
+    team!(
+        "Go Ahead Eagles",
+        "Deventer",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#facc15",
+        "HighPress"
+    ),
+    team!(
+        "Heracles Almelo",
+        "Almelo",
+        "Netherlands",
+        1,
+        "#111827",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "NAC Breda",
+        "Breda",
+        "Netherlands",
+        1,
+        "#facc15",
+        "#111827",
+        "Balanced"
+    ),
+    team!(
+        "NEC Nijmegen",
+        "Nijmegen",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#16a34a",
+        "HighPress"
+    ),
+    team!(
+        "PEC Zwolle",
+        "Zwolle",
+        "Netherlands",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "PSV",
+        "Eindhoven",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Attacking"
+    ),
+    team!(
+        "SC Heerenveen",
+        "Heerenveen",
+        "Netherlands",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Sparta Rotterdam",
+        "Rotterdam",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Telstar",
+        "Velsen",
+        "Netherlands",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Twente",
+        "Enschede",
+        "Netherlands",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Volendam",
+        "Volendam",
+        "Netherlands",
+        1,
+        "#f97316",
+        "#111827",
+        "Balanced"
+    ),
+    team!(
+        "Anderlecht",
+        "Brussels",
+        "Belgium",
+        1,
+        "#7c3aed",
+        "#ffffff",
+        "Possession"
+    ),
+    team!(
+        "Antwerp", "Antwerp", "Belgium", 1, "#dc2626", "#ffffff", "Counter"
+    ),
+    team!(
+        "Cercle Brugge",
+        "Bruges",
+        "Belgium",
+        1,
+        "#16a34a",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Charleroi",
+        "Charleroi",
+        "Belgium",
+        1,
+        "#111827",
+        "#ffffff",
+        "Defensive"
+    ),
+    team!(
+        "Club Brugge",
+        "Bruges",
+        "Belgium",
+        1,
+        "#1d4ed8",
+        "#111827",
+        "Attacking"
+    ),
+    team!(
+        "FCV Dender EH",
+        "Denderleeuw",
+        "Belgium",
+        1,
+        "#1d4ed8",
+        "#111827",
+        "Counter"
+    ),
+    team!(
+        "Genk",
+        "Genk",
+        "Belgium",
+        1,
+        "#2563eb",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Gent", "Ghent", "Belgium", 1, "#2563eb", "#ffffff", "Balanced"
+    ),
+    team!(
+        "Mechelen", "Mechelen", "Belgium", 1, "#facc15", "#dc2626", "Balanced"
+    ),
+    team!(
+        "Oud-Heverlee Leuven",
+        "Leuven",
+        "Belgium",
+        1,
+        "#ffffff",
+        "#111827",
+        "Possession"
+    ),
+    team!(
+        "RAAL La Louvière",
+        "La Louvière",
+        "Belgium",
+        1,
+        "#16a34a",
+        "#ffffff",
+        "Counter"
+    ),
+    team!(
+        "Sint-Truidense",
+        "Sint-Truiden",
+        "Belgium",
+        1,
+        "#facc15",
+        "#1d4ed8",
+        "Balanced"
+    ),
+    team!(
+        "Standard Liège",
+        "Liège",
+        "Belgium",
+        1,
+        "#dc2626",
+        "#ffffff",
+        "HighPress"
+    ),
+    team!(
+        "Union Saint-Gilloise",
+        "Brussels",
+        "Belgium",
+        1,
+        "#facc15",
+        "#1d4ed8",
+        "Attacking"
+    ),
+    team!(
+        "Westerlo", "Westerlo", "Belgium", 1, "#facc15", "#1d4ed8", "Counter"
+    ),
+    team!(
+        "Zulte Waregem",
+        "Waregem",
+        "Belgium",
+        1,
+        "#dc2626",
+        "#16a34a",
+        "Balanced"
+    ),
 ];

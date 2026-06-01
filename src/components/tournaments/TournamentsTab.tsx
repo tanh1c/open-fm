@@ -18,6 +18,8 @@ import {
   History,
   GitBranch,
   ListOrdered,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   getTeamName,
@@ -780,70 +782,145 @@ function FixturesList({
   buildFixtureMenuItems: (fixture: FixtureData) => Array<ReturnType<typeof buildViewTeamMenuItem>>;
   onSelectTeam: (id: string) => void;
 }) {
+  const { t } = useTranslation();
+
+  // Default to the most recent round that has any played fixture, otherwise the
+  // next round to be played, otherwise the last round in the list. Only ONE
+  // round is rendered at a time — navigate with the < / > arrows — so a 30-round
+  // league or a deep cup doesn't render hundreds of rows at once.
+  const defaultIndex = (() => {
+    if (sortedMatchdays.length === 0) return 0;
+    const lastPlayed = sortedMatchdays.reduce(
+      (acc, [, fixtures], index) =>
+        fixtures.some((fixture) => fixture.status === "Completed") ? index : acc,
+      -1,
+    );
+    if (lastPlayed >= 0) return lastPlayed;
+    const nextUnplayed = sortedMatchdays.findIndex(([, fixtures]) =>
+      fixtures.some((fixture) => fixture.status === "Scheduled"),
+    );
+    return nextUnplayed >= 0 ? nextUnplayed : sortedMatchdays.length - 1;
+  })();
+
+  const [roundIndex, setRoundIndex] = useState(defaultIndex);
+  // Re-anchor when the competition (and therefore its round set) changes.
+  useEffect(() => {
+    setRoundIndex(defaultIndex);
+  }, [defaultIndex, sortedMatchdays.length]);
+
+  if (sortedMatchdays.length === 0) {
+    return (
+      <EmptyPanel
+        icon={<Calendar className="h-8 w-8" />}
+        title={t("tournaments.noFixturesTitle", { defaultValue: "No fixtures yet" })}
+        description={t("tournaments.noFixturesBody", {
+          defaultValue: "Fixtures appear once the schedule is generated.",
+        })}
+      />
+    );
+  }
+
+  const clampedIndex = Math.min(Math.max(roundIndex, 0), sortedMatchdays.length - 1);
+  const [, fixtures] = sortedMatchdays[clampedIndex];
+  const canPrev = clampedIndex > 0;
+  const canNext = clampedIndex < sortedMatchdays.length - 1;
+
   return (
     <div className="flex flex-col gap-4">
-      {sortedMatchdays.map(([matchday, fixtures]) => (
-        <TemplateCard key={matchday} className="overflow-hidden">
-          <div className="border-b border-app-border/50 bg-app-card px-4 py-3">
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-              {getFixtureRoundLabel(fixtures[0])} — {formatMatchDate(fixtures[0].date)}
-            </h4>
-          </div>
-          <div className="divide-y divide-app-border/30">
-            {fixtures.map((fixture) => {
-              const isUserMatch = fixture.home_team_id === userTeamId || fixture.away_team_id === userTeamId;
-              const homeTeam = teamById.get(fixture.home_team_id);
-              const awayTeam = teamById.get(fixture.away_team_id);
-              const completed = fixture.status === "Completed";
-              return (
-                <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
-                  <div
-                    className={cx(
-                      "flex items-center px-4 py-3 transition-colors hover:bg-white/5",
-                      isUserMatch && "bg-app-green/10",
-                    )}
-                    data-testid={`tournaments-fixture-${fixture.id}`}
-                  >
-                    <span
-                      onClick={() => onSelectTeam(fixture.home_team_id)}
-                      className={cx(
-                        "flex-1 cursor-pointer text-right text-sm font-semibold hover:underline",
-                        fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
-                      )}
-                    >
-                      <span className="flex items-center justify-end gap-2">
-                        <span className="truncate">{homeTeam?.name ?? getTeamName(teams, fixture.home_team_id)}</span>
-                        {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
-                      </span>
-                    </span>
-                    <div className="mx-3 w-24 text-center">
-                      {completed && fixture.result ? (
-                        <span className="font-heading text-lg font-bold text-app-text">
-                          {fixture.result.home_goals} - {fixture.result.away_goals}
-                        </span>
-                      ) : (
-                        <span className="rounded bg-app-card px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">vs</span>
-                      )}
-                    </div>
-                    <span
-                      onClick={() => onSelectTeam(fixture.away_team_id)}
-                      className={cx(
-                        "flex-1 cursor-pointer text-left text-sm font-semibold hover:underline",
-                        fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
-                        <span className="truncate">{awayTeam?.name ?? getTeamName(teams, fixture.away_team_id)}</span>
-                      </span>
-                    </span>
-                  </div>
-                </ContextMenu>
-              );
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          disabled={!canPrev}
+          onClick={() => setRoundIndex(clampedIndex - 1)}
+          className={cx(
+            "flex h-9 w-9 items-center justify-center rounded-lg border border-app-border bg-app-card transition-colors",
+            canPrev ? "text-app-text hover:bg-white/5" : "cursor-not-allowed text-app-text-muted/40",
+          )}
+          aria-label={t("common.previous", { defaultValue: "Previous" })}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <p className="truncate text-sm font-bold uppercase tracking-wider text-app-text">
+            {getFixtureRoundLabel(fixtures[0])}
+          </p>
+          <p className="text-[11px] text-app-text-muted">
+            {formatMatchDate(fixtures[0].date)} · {t("tournaments.roundOfTotal", {
+              defaultValue: "{{current}} / {{total}}",
+              current: clampedIndex + 1,
+              total: sortedMatchdays.length,
             })}
-          </div>
-        </TemplateCard>
-      ))}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={!canNext}
+          onClick={() => setRoundIndex(clampedIndex + 1)}
+          className={cx(
+            "flex h-9 w-9 items-center justify-center rounded-lg border border-app-border bg-app-card transition-colors",
+            canNext ? "text-app-text hover:bg-white/5" : "cursor-not-allowed text-app-text-muted/40",
+          )}
+          aria-label={t("common.next", { defaultValue: "Next" })}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      <TemplateCard className="overflow-hidden">
+        <div className="divide-y divide-app-border/30">
+          {fixtures.map((fixture) => {
+            const isUserMatch = fixture.home_team_id === userTeamId || fixture.away_team_id === userTeamId;
+            const homeTeam = teamById.get(fixture.home_team_id);
+            const awayTeam = teamById.get(fixture.away_team_id);
+            const completed = fixture.status === "Completed";
+            return (
+              <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
+                <div
+                  className={cx(
+                    "flex items-center px-4 py-3 transition-colors hover:bg-white/5",
+                    isUserMatch && "bg-app-green/10",
+                  )}
+                  data-testid={`tournaments-fixture-${fixture.id}`}
+                >
+                  <span
+                    onClick={() => onSelectTeam(fixture.home_team_id)}
+                    className={cx(
+                      "flex-1 cursor-pointer text-right text-sm font-semibold hover:underline",
+                      fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                    )}
+                  >
+                    <span className="flex items-center justify-end gap-2">
+                      <span className="truncate">{homeTeam?.name ?? getTeamName(teams, fixture.home_team_id)}</span>
+                      {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
+                    </span>
+                  </span>
+                  <div className="mx-3 w-24 text-center">
+                    {completed && fixture.result ? (
+                      <span className="font-heading text-lg font-bold text-app-text">
+                        {fixture.result.home_goals} - {fixture.result.away_goals}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-app-card px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">vs</span>
+                    )}
+                  </div>
+                  <span
+                    onClick={() => onSelectTeam(fixture.away_team_id)}
+                    className={cx(
+                      "flex-1 cursor-pointer text-left text-sm font-semibold hover:underline",
+                      fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
+                      <span className="truncate">{awayTeam?.name ?? getTeamName(teams, fixture.away_team_id)}</span>
+                    </span>
+                  </span>
+                </div>
+              </ContextMenu>
+            );
+          })}
+        </div>
+      </TemplateCard>
     </div>
   );
 }

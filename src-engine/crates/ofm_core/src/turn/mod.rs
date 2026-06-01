@@ -4,6 +4,7 @@ mod round_summary;
 
 use crate::board_objectives;
 use crate::game::Game;
+use crate::live_match_manager::build_team_with_bench;
 use crate::player_events;
 use crate::random_events;
 use crate::scouting;
@@ -11,7 +12,6 @@ use crate::training;
 use crate::transfers;
 use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
-use domain::player::{Player, Position as DomainPosition};
 use domain::stats::StatsState;
 use log::{debug, info};
 use std::collections::HashMap;
@@ -288,99 +288,6 @@ fn build_day_simulation_indexes(game: &Game) -> DaySimulationIndexes {
     }
 }
 
-fn build_players_by_team(game: &Game) -> HashMap<&str, Vec<&Player>> {
-    let mut players_by_team = HashMap::new();
-    for player in &game.players {
-        if let Some(team_id) = player.team_id.as_deref() {
-            players_by_team
-                .entry(team_id)
-                .or_insert_with(Vec::new)
-                .push(player);
-        }
-    }
-    players_by_team
-}
-
-fn build_engine_team_with_index(
-    game: &Game,
-    team_id: &str,
-    players_by_team: &HashMap<&str, Vec<&Player>>,
-) -> engine::TeamData {
-    let team = game.teams.iter().find(|t| t.id == team_id);
-    let (name, formation, play_style) = match team {
-        Some(t) => (
-            t.name.clone(),
-            t.formation.clone(),
-            match t.play_style {
-                domain::team::PlayStyle::Attacking => engine::PlayStyle::Attacking,
-                domain::team::PlayStyle::Defensive => engine::PlayStyle::Defensive,
-                domain::team::PlayStyle::Possession => engine::PlayStyle::Possession,
-                domain::team::PlayStyle::Counter => engine::PlayStyle::Counter,
-                domain::team::PlayStyle::HighPress => engine::PlayStyle::HighPress,
-                _ => engine::PlayStyle::Balanced,
-            },
-        ),
-        None => (
-            "Unknown".into(),
-            "4-4-2".into(),
-            engine::PlayStyle::Balanced,
-        ),
-    };
-
-    let players: Vec<engine::PlayerData> = players_by_team
-        .get(team_id)
-        .map_or(&[][..], |players| players.as_slice())
-        .iter()
-        .map(|p| {
-            let pos = match p.position.to_group_position() {
-                DomainPosition::Goalkeeper => engine::Position::Goalkeeper,
-                DomainPosition::Defender => engine::Position::Defender,
-                DomainPosition::Midfielder => engine::Position::Midfielder,
-                DomainPosition::Forward => engine::Position::Forward,
-                _ => engine::Position::Midfielder,
-            };
-            engine::PlayerData {
-                id: p.id.clone(),
-                name: p.match_name.clone(),
-                position: pos,
-                ovr: p.ovr,
-                condition: p.condition,
-                fitness: p.fitness,
-                pace: p.attributes.pace,
-                stamina: p.attributes.stamina,
-                strength: p.attributes.strength,
-                agility: p.attributes.agility,
-                passing: p.attributes.passing,
-                shooting: p.attributes.shooting,
-                tackling: p.attributes.tackling,
-                dribbling: p.attributes.dribbling,
-                defending: p.attributes.defending,
-                positioning: p.attributes.positioning,
-                vision: p.attributes.vision,
-                decisions: p.attributes.decisions,
-                composure: p.attributes.composure,
-                aggression: p.attributes.aggression,
-                teamwork: p.attributes.teamwork,
-                leadership: p.attributes.leadership,
-                handling: p.attributes.handling,
-                reflexes: p.attributes.reflexes,
-                aerial: p.attributes.aerial,
-                traits: p.traits.iter().map(|t| format!("{:?}", t)).collect(),
-            }
-        })
-        .collect();
-
-    engine::TeamData {
-        id: team_id.to_string(),
-        name,
-        formation,
-        play_style,
-        players,
-        shape_profile: engine::ShapeProfile::default(),
-        tactical_profile: engine::TacticalProfile::default(),
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Matchday simulation using the engine crate
 // ---------------------------------------------------------------------------
@@ -425,7 +332,6 @@ pub fn simulate_other_matches_with_capture<F>(
     F: FnMut(StatsState),
 {
     let indexes = build_day_simulation_indexes(game);
-    let players_by_team = build_players_by_team(game);
     let fixture_indices = indexes
         .scheduled_legacy_fixture_indices_by_date
         .get(today)
@@ -441,13 +347,11 @@ pub fn simulate_other_matches_with_capture<F>(
             let fixture = &game.league.as_ref().unwrap().fixtures[idx];
             let home_team_id = fixture.home_team_id.clone();
             let away_team_id = fixture.away_team_id.clone();
-            let home_data = build_engine_team_with_index(game, &home_team_id, &players_by_team);
-            let away_data = build_engine_team_with_index(game, &away_team_id, &players_by_team);
+            let (home_data, _) = build_team_with_bench(game, &home_team_id);
+            let (away_data, _) = build_team_with_bench(game, &away_team_id);
             (idx, home_team_id, away_team_id, home_data, away_data)
         })
         .collect::<Vec<_>>();
-    drop(players_by_team);
-
     for (idx, home_team_id, away_team_id, home_data, away_data) in prepared_matches {
         simulate_single_match_with_capture(
             game,
@@ -528,10 +432,9 @@ fn apply_fast_competition_result(
         .get(fixture.away_team_id.as_str())
         .copied()
         .unwrap_or(500);
-    let seed = fixture
-        .id
-        .bytes()
-        .fold(0_u32, |acc, byte| acc.wrapping_mul(31).wrapping_add(byte as u32));
+    let seed = fixture.id.bytes().fold(0_u32, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(byte as u32)
+    });
     let home_bias = 8_i16 + ((home_strength as i16 - away_strength as i16) / 75);
     let away_bias = (away_strength as i16 - home_strength as i16) / 100;
     let home_goals = ((seed % 3) as i16 + home_bias.max(0) / 8).clamp(0, 5) as u8;

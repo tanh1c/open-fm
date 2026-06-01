@@ -13,37 +13,63 @@ use crate::player_rating::{generate_potential, refresh_player_derived};
 
 /// Compute a sensible alternate position based on primary position and attributes.
 fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> Option<Position> {
-    match primary.to_group_position() {
+    match primary {
         Position::Goalkeeper => None,
-        Position::Defender => {
-            // Defenders with good passing/vision → Midfielder
-            if attrs.passing >= 65 && attrs.vision >= 60 {
-                Some(Position::Midfielder)
+        Position::LeftBack | Position::LeftWingBack => Some(Position::LeftMidfielder),
+        Position::RightBack | Position::RightWingBack => Some(Position::RightMidfielder),
+        Position::CenterBack | Position::Defender => {
+            if attrs.passing >= 62 && attrs.vision >= 56 {
+                Some(Position::DefensiveMidfielder)
             } else {
                 None
             }
         }
-        Position::Midfielder => {
-            // Midfielders with strong defending/tackling → Defender
-            if attrs.defending >= 65 && attrs.tackling >= 60 {
-                Some(Position::Defender)
+        Position::DefensiveMidfielder => {
+            if attrs.defending >= 62 && attrs.tackling >= 62 {
+                Some(Position::CenterBack)
+            } else {
+                Some(Position::CentralMidfielder)
             }
-            // Midfielders with good shooting/dribbling → Forward
-            else if attrs.shooting >= 65 && attrs.dribbling >= 60 {
-                Some(Position::Forward)
+        }
+        Position::CentralMidfielder | Position::Midfielder => {
+            if attrs.defending >= 62 && attrs.tackling >= 60 {
+                Some(Position::DefensiveMidfielder)
+            } else if attrs.shooting >= 62 && attrs.dribbling >= 60 {
+                Some(Position::AttackingMidfielder)
             } else {
                 None
             }
         }
-        Position::Forward => {
-            // Forwards with good passing/vision → Midfielder
-            if attrs.passing >= 65 && attrs.vision >= 60 {
-                Some(Position::Midfielder)
+        Position::AttackingMidfielder => {
+            if attrs.shooting >= 64 && attrs.dribbling >= 62 {
+                Some(Position::Striker)
+            } else {
+                Some(Position::CentralMidfielder)
+            }
+        }
+        Position::LeftMidfielder => Some(Position::LeftWinger),
+        Position::RightMidfielder => Some(Position::RightWinger),
+        Position::LeftWinger => {
+            if attrs.passing >= 60 && attrs.vision >= 56 {
+                Some(Position::LeftMidfielder)
+            } else {
+                Some(Position::Striker)
+            }
+        }
+        Position::RightWinger => {
+            if attrs.passing >= 60 && attrs.vision >= 56 {
+                Some(Position::RightMidfielder)
+            } else {
+                Some(Position::Striker)
+            }
+        }
+        Position::Striker | Position::Forward => {
+            if attrs.passing >= 58 && attrs.vision >= 56 {
+                Some(Position::AttackingMidfielder)
             } else {
                 None
             }
         }
-        _ => None,
     }
 }
 
@@ -156,6 +182,247 @@ fn round_money(value: u64, step: u64) -> u64 {
     ((value + step - 1) / step) * step
 }
 
+fn attr(rng: &mut impl Rng, range: std::ops::Range<u8>) -> u8 {
+    rng.random_range(range)
+}
+
+fn generated_position_for_slot(index: usize) -> Position {
+    match index {
+        0 | 1 => Position::Goalkeeper,
+        2 => Position::LeftBack,
+        3 | 4 | 7 => Position::CenterBack,
+        5 => Position::RightBack,
+        6 => Position::LeftWingBack,
+        8 => Position::RightWingBack,
+        9 => Position::DefensiveMidfielder,
+        10 | 11 => Position::CentralMidfielder,
+        12 => Position::AttackingMidfielder,
+        13 => Position::LeftMidfielder,
+        14 => Position::RightMidfielder,
+        15 => Position::CentralMidfielder,
+        16 => Position::LeftWinger,
+        17 | 20 => Position::Striker,
+        18 => Position::RightWinger,
+        19 => Position::LeftWinger,
+        _ => Position::RightWinger,
+    }
+}
+
+fn generate_position_attributes(position: &Position, rng: &mut impl Rng) -> PlayerAttributes {
+    match position {
+        Position::Goalkeeper => PlayerAttributes {
+            pace: attr(rng, 34..62),
+            stamina: attr(rng, 46..78),
+            strength: attr(rng, 54..86),
+            agility: attr(rng, 58..92),
+            passing: attr(rng, 36..68),
+            shooting: attr(rng, 12..34),
+            tackling: attr(rng, 16..38),
+            dribbling: attr(rng, 18..42),
+            defending: attr(rng, 18..44),
+            positioning: attr(rng, 60..94),
+            vision: attr(rng, 36..68),
+            decisions: attr(rng, 58..92),
+            composure: attr(rng, 56..92),
+            aggression: attr(rng, 28..70),
+            teamwork: attr(rng, 44..78),
+            leadership: attr(rng, 38..84),
+            handling: attr(rng, 64..98),
+            reflexes: attr(rng, 64..98),
+            aerial: attr(rng, 62..96),
+        },
+        Position::CenterBack | Position::Defender => PlayerAttributes {
+            pace: attr(rng, 44..78),
+            stamina: attr(rng, 58..90),
+            strength: attr(rng, 66..98),
+            agility: attr(rng, 42..76),
+            passing: attr(rng, 44..78),
+            shooting: attr(rng, 24..54),
+            tackling: attr(rng, 66..99),
+            dribbling: attr(rng, 30..62),
+            defending: attr(rng, 68..99),
+            positioning: attr(rng, 64..98),
+            vision: attr(rng, 36..68),
+            decisions: attr(rng, 58..92),
+            composure: attr(rng, 54..88),
+            aggression: attr(rng, 56..94),
+            teamwork: attr(rng, 54..88),
+            leadership: attr(rng, 42..88),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 66..98),
+        },
+        Position::LeftBack | Position::RightBack => PlayerAttributes {
+            pace: attr(rng, 58..92),
+            stamina: attr(rng, 62..96),
+            strength: attr(rng, 50..82),
+            agility: attr(rng, 54..88),
+            passing: attr(rng, 54..86),
+            shooting: attr(rng, 28..58),
+            tackling: attr(rng, 62..94),
+            dribbling: attr(rng, 48..82),
+            defending: attr(rng, 62..94),
+            positioning: attr(rng, 58..92),
+            vision: attr(rng, 44..76),
+            decisions: attr(rng, 56..90),
+            composure: attr(rng, 50..84),
+            aggression: attr(rng, 50..88),
+            teamwork: attr(rng, 58..92),
+            leadership: attr(rng, 36..78),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 44..78),
+        },
+        Position::LeftWingBack | Position::RightWingBack => PlayerAttributes {
+            pace: attr(rng, 62..96),
+            stamina: attr(rng, 66..98),
+            strength: attr(rng, 46..78),
+            agility: attr(rng, 58..92),
+            passing: attr(rng, 58..90),
+            shooting: attr(rng, 32..64),
+            tackling: attr(rng, 56..88),
+            dribbling: attr(rng, 56..90),
+            defending: attr(rng, 56..88),
+            positioning: attr(rng, 56..90),
+            vision: attr(rng, 50..82),
+            decisions: attr(rng, 56..90),
+            composure: attr(rng, 50..84),
+            aggression: attr(rng, 48..86),
+            teamwork: attr(rng, 58..92),
+            leadership: attr(rng, 34..76),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 40..74),
+        },
+        Position::DefensiveMidfielder => PlayerAttributes {
+            pace: attr(rng, 48..82),
+            stamina: attr(rng, 66..98),
+            strength: attr(rng, 56..90),
+            agility: attr(rng, 50..84),
+            passing: attr(rng, 60..92),
+            shooting: attr(rng, 34..66),
+            tackling: attr(rng, 62..96),
+            dribbling: attr(rng, 48..82),
+            defending: attr(rng, 58..92),
+            positioning: attr(rng, 64..96),
+            vision: attr(rng, 56..90),
+            decisions: attr(rng, 64..96),
+            composure: attr(rng, 56..90),
+            aggression: attr(rng, 54..92),
+            teamwork: attr(rng, 64..98),
+            leadership: attr(rng, 42..86),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 48..82),
+        },
+        Position::CentralMidfielder | Position::Midfielder => PlayerAttributes {
+            pace: attr(rng, 52..86),
+            stamina: attr(rng, 64..98),
+            strength: attr(rng, 44..78),
+            agility: attr(rng, 54..88),
+            passing: attr(rng, 66..98),
+            shooting: attr(rng, 42..74),
+            tackling: attr(rng, 48..82),
+            dribbling: attr(rng, 56..90),
+            defending: attr(rng, 42..76),
+            positioning: attr(rng, 58..92),
+            vision: attr(rng, 66..98),
+            decisions: attr(rng, 64..96),
+            composure: attr(rng, 56..90),
+            aggression: attr(rng, 42..82),
+            teamwork: attr(rng, 66..98),
+            leadership: attr(rng, 42..88),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 36..70),
+        },
+        Position::AttackingMidfielder => PlayerAttributes {
+            pace: attr(rng, 56..90),
+            stamina: attr(rng, 58..92),
+            strength: attr(rng, 38..72),
+            agility: attr(rng, 62..96),
+            passing: attr(rng, 66..98),
+            shooting: attr(rng, 54..86),
+            tackling: attr(rng, 30..64),
+            dribbling: attr(rng, 64..98),
+            defending: attr(rng, 28..62),
+            positioning: attr(rng, 60..94),
+            vision: attr(rng, 68..99),
+            decisions: attr(rng, 62..96),
+            composure: attr(rng, 60..94),
+            aggression: attr(rng, 34..76),
+            teamwork: attr(rng, 58..92),
+            leadership: attr(rng, 38..82),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 32..66),
+        },
+        Position::LeftMidfielder | Position::RightMidfielder => PlayerAttributes {
+            pace: attr(rng, 60..94),
+            stamina: attr(rng, 64..98),
+            strength: attr(rng, 42..76),
+            agility: attr(rng, 60..94),
+            passing: attr(rng, 62..94),
+            shooting: attr(rng, 44..76),
+            tackling: attr(rng, 42..76),
+            dribbling: attr(rng, 60..94),
+            defending: attr(rng, 38..72),
+            positioning: attr(rng, 56..90),
+            vision: attr(rng, 58..90),
+            decisions: attr(rng, 58..92),
+            composure: attr(rng, 54..88),
+            aggression: attr(rng, 38..80),
+            teamwork: attr(rng, 62..96),
+            leadership: attr(rng, 36..78),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 34..68),
+        },
+        Position::LeftWinger | Position::RightWinger => PlayerAttributes {
+            pace: attr(rng, 66..99),
+            stamina: attr(rng, 56..90),
+            strength: attr(rng, 42..78),
+            agility: attr(rng, 66..99),
+            passing: attr(rng, 54..86),
+            shooting: attr(rng, 58..90),
+            tackling: attr(rng, 22..56),
+            dribbling: attr(rng, 66..99),
+            defending: attr(rng, 20..54),
+            positioning: attr(rng, 58..92),
+            vision: attr(rng, 54..86),
+            decisions: attr(rng, 56..90),
+            composure: attr(rng, 58..92),
+            aggression: attr(rng, 34..78),
+            teamwork: attr(rng, 50..84),
+            leadership: attr(rng, 32..74),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 40..76),
+        },
+        Position::Striker | Position::Forward => PlayerAttributes {
+            pace: attr(rng, 60..94),
+            stamina: attr(rng, 52..86),
+            strength: attr(rng, 54..90),
+            agility: attr(rng, 58..92),
+            passing: attr(rng, 42..76),
+            shooting: attr(rng, 70..99),
+            tackling: attr(rng, 18..50),
+            dribbling: attr(rng, 58..92),
+            defending: attr(rng, 16..48),
+            positioning: attr(rng, 68..99),
+            vision: attr(rng, 42..76),
+            decisions: attr(rng, 62..96),
+            composure: attr(rng, 66..99),
+            aggression: attr(rng, 38..82),
+            teamwork: attr(rng, 44..80),
+            leadership: attr(rng, 34..78),
+            handling: attr(rng, 8..28),
+            reflexes: attr(rng, 12..34),
+            aerial: attr(rng, 50..88),
+        },
+    }
+}
+
 pub(super) fn generate_random_player_from_def(
     team_id: &str,
     index: usize,
@@ -167,16 +434,7 @@ pub(super) fn generate_random_player_from_def(
     let full_name = format!("{} {}", first_name, last_name);
     let match_name = last_name.clone();
 
-    // Distribute positions: GK:0-1, DEF:2-8, MID:9-15, FWD:16-21
-    let position = if index < 2 {
-        Position::Goalkeeper
-    } else if index < 9 {
-        Position::Defender
-    } else if index < 16 {
-        Position::Midfielder
-    } else {
-        Position::Forward
-    };
+    let position = generated_position_for_slot(index);
 
     let p_id = Uuid::new_v4().to_string();
     let nationality = nationality.to_string();
@@ -195,62 +453,9 @@ pub(super) fn generate_random_player_from_def(
 
     let group = position.to_group_position();
     let is_gk = matches!(group, Position::Goalkeeper);
-    let is_def = matches!(group, Position::Defender);
     let is_fwd = matches!(group, Position::Forward);
 
-    let attributes = PlayerAttributes {
-        pace: rng.random_range(55..97),
-        stamina: rng.random_range(55..97),
-        strength: rng.random_range(55..94),
-        agility: rng.random_range(55..97),
-        passing: rng.random_range(55..96),
-        shooting: if is_gk {
-            rng.random_range(24..52)
-        } else {
-            rng.random_range(55..96)
-        },
-        tackling: if is_gk || is_fwd {
-            rng.random_range(30..66)
-        } else {
-            rng.random_range(58..96)
-        },
-        dribbling: if is_gk {
-            rng.random_range(24..52)
-        } else {
-            rng.random_range(55..96)
-        },
-        defending: if is_gk {
-            rng.random_range(30..58)
-        } else if is_def {
-            rng.random_range(64..97)
-        } else {
-            rng.random_range(50..90)
-        },
-        positioning: rng.random_range(56..96),
-        vision: rng.random_range(55..95),
-        decisions: rng.random_range(55..95),
-        composure: rng.random_range(55..95),
-        aggression: rng.random_range(42..92),
-        teamwork: rng.random_range(56..96),
-        leadership: rng.random_range(38..90),
-        handling: if is_gk {
-            rng.random_range(62..97)
-        } else {
-            rng.random_range(10..35)
-        },
-        reflexes: if is_gk {
-            rng.random_range(62..97)
-        } else {
-            rng.random_range(22..50)
-        },
-        aerial: if is_gk {
-            rng.random_range(60..96)
-        } else if is_def {
-            rng.random_range(55..92)
-        } else {
-            rng.random_range(38..80)
-        },
-    };
+    let attributes = generate_position_attributes(&position, rng);
 
     let current_year: u32 = 2026;
 
@@ -313,7 +518,13 @@ pub(super) fn generate_random_player_from_def(
         0.36
     };
     let rating_factor = ((player.ovr as f64 - 42.0).max(1.0) / 50.0).powf(2.2);
-    let position_factor = if is_gk { 0.82 } else if is_fwd { 1.1 } else { 1.0 };
+    let position_factor = if is_gk {
+        0.82
+    } else if is_fwd {
+        1.1
+    } else {
+        1.0
+    };
     let potential_premium = if player_age <= 23 {
         1.0 + (player.potential.saturating_sub(player.ovr) as f64 * 0.025).min(0.45)
     } else {

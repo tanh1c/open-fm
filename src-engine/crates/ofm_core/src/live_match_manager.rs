@@ -1,6 +1,6 @@
 mod team_builder;
 pub use team_builder::auto_select_set_pieces;
-use team_builder::build_team_with_bench;
+pub(crate) use team_builder::build_team_with_bench;
 
 use rand::SeedableRng;
 use rand::rngs::StdRng;

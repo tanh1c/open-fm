@@ -2,16 +2,81 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{PlayStylePhase, PlayerSnap, TraitContext, play_style_modifier, trait_bonus};
-use crate::types::{Position, Side, Zone};
+use crate::types::{PlayerData, Position, Side, Zone};
 
 use super::LiveMatchState;
 use super::helpers::{shape_attack_multiplier, shape_defense_multiplier};
+
+fn shooter_weight(player: &PlayerData) -> f64 {
+    let role_weight = match player.position {
+        Position::Forward => 1.45,
+        Position::Midfielder => 0.70,
+        Position::Defender => 0.18,
+        Position::Goalkeeper => 0.0,
+    };
+    let skill = player.shooting as f64 * 1.35
+        + player.composure as f64
+        + player.positioning as f64 * 0.75
+        + player.decisions as f64 * 0.65
+        + player.dribbling as f64 * 0.45;
+    role_weight * skill
+}
+
+fn assister_weight(player: &PlayerData) -> f64 {
+    let role_weight = match player.position {
+        Position::Midfielder => 1.30,
+        Position::Forward => 0.85,
+        Position::Defender => 0.45,
+        Position::Goalkeeper => 0.0,
+    };
+    let skill = player.passing as f64 * 1.30
+        + player.vision as f64 * 1.15
+        + player.teamwork as f64 * 0.75
+        + player.decisions as f64 * 0.70;
+    role_weight * skill
+}
 
 // ---------------------------------------------------------------------------
 // Action resolution
 // ---------------------------------------------------------------------------
 
 impl LiveMatchState {
+    fn weighted_attacker<R: Rng>(
+        &self,
+        side: Side,
+        rng: &mut R,
+        score: impl Fn(&PlayerData) -> f64,
+    ) -> PlayerSnap {
+        let team = self.team_ref(side);
+        let available: Vec<&PlayerData> = team
+            .players
+            .iter()
+            .filter(|player| {
+                player.position != Position::Goalkeeper && !self.sent_off.contains(&player.id)
+            })
+            .collect();
+
+        if available.is_empty() {
+            return self.snap_player(side, Position::Forward, rng);
+        }
+
+        let weights = available
+            .iter()
+            .map(|player| score(player).max(1.0))
+            .collect::<Vec<_>>();
+        let total = weights.iter().sum::<f64>();
+        let mut roll = rng.random_range(0.0..total);
+
+        for (player, weight) in available.iter().zip(weights.iter()) {
+            if roll <= *weight {
+                return PlayerSnap::from(player);
+            }
+            roll -= *weight;
+        }
+
+        PlayerSnap::from(available[available.len() - 1])
+    }
+
     pub(super) fn resolve_action<R: Rng>(&mut self, minute: u8, rng: &mut R) -> Vec<MatchEvent> {
         let att_side = self.possession;
         let def_side = att_side.opposite();
@@ -126,10 +191,15 @@ impl LiveMatchState {
                     self.maybe_foul(minute, def_side, &attacker, &defender, Zone::Midfield, rng);
                 events.extend(foul_events);
             } else {
+                let pass_evt =
+                    MatchEvent::new(minute, EventType::PassIntercepted, att_side, Zone::Midfield)
+                        .with_player(&attacker.id);
                 let evt =
                     MatchEvent::new(minute, EventType::Interception, def_side, Zone::Midfield)
                         .with_player(&defender.id);
+                self.events.push(pass_evt.clone());
                 self.events.push(evt.clone());
+                events.push(pass_evt);
                 events.push(evt);
             }
             self.possession = def_side;
@@ -226,8 +296,8 @@ impl LiveMatchState {
         let def_side = att_side.opposite();
         let att_team = self.team_ref(att_side).clone();
         let def_team = self.team_ref(def_side).clone();
-        let shooter = self.snap_player(att_side, Position::Forward, rng);
-        let assister = self.snap_player(att_side, Position::Midfielder, rng);
+        let shooter = self.weighted_attacker(att_side, rng, shooter_weight);
+        let assister = self.weighted_attacker(att_side, rng, assister_weight);
         let goalkeeper = self.snap_player(def_side, Position::Goalkeeper, rng);
 
         let shoot_raw =
@@ -243,8 +313,10 @@ impl LiveMatchState {
 
         let shape_attack = shape_attack_multiplier(&att_team);
         let shape_defense = shape_defense_multiplier(&def_team);
-        let accuracy = (self.config.shot_accuracy_base + (shoot_rating * shape_attack - 50.0) / 200.0)
-            .clamp(0.15, 0.85);
+        let accuracy = (self.config.shot_accuracy_base
+            + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0
+            - 0.03)
+            .clamp(0.10, 0.50);
         let zone = Zone::attacking_box(att_side);
 
         if rng.random_range(0.0..1.0f64) > accuracy {
@@ -265,8 +337,9 @@ impl LiveMatchState {
         }
 
         let conversion = (self.config.goal_conversion_base
-            + (shoot_rating * shape_attack - gk_rating * shape_defense) / 150.0)
-            .clamp(0.10, 0.70);
+            + (shoot_rating * shape_attack - gk_rating * shape_defense) / 280.0
+            - 0.02)
+            .clamp(0.05, 0.36);
 
         if rng.random_range(0.0..1.0f64) < conversion {
             let evt = MatchEvent::new(minute, EventType::Goal, att_side, zone)

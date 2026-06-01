@@ -213,7 +213,10 @@ fn normalize_generated_team(team: &mut Team, players: &mut [Player]) {
 pub fn generate_world(
     definitions: Option<(NamesDefinition, TeamsDefinition)>,
 ) -> (Vec<domain::team::Team>, Vec<Player>, Vec<Staff>) {
-    info!("[generator] generate_world: custom_defs={}", definitions.is_some());
+    info!(
+        "[generator] generate_world: custom_defs={}",
+        definitions.is_some()
+    );
     let mut rng = rand::rng();
     let mut teams_out = Vec::new();
     let mut players = Vec::new();
@@ -465,6 +468,118 @@ mod tests {
                 team.name
             );
         }
+    }
+
+    #[derive(Default)]
+    struct AttributeAverages {
+        count: u32,
+        shooting: u32,
+        passing: u32,
+        vision: u32,
+        defending: u32,
+        tackling: u32,
+        aerial: u32,
+        handling: u32,
+        reflexes: u32,
+    }
+
+    impl AttributeAverages {
+        fn add(&mut self, player: &Player) {
+            self.count += 1;
+            self.shooting += player.attributes.shooting as u32;
+            self.passing += player.attributes.passing as u32;
+            self.vision += player.attributes.vision as u32;
+            self.defending += player.attributes.defending as u32;
+            self.tackling += player.attributes.tackling as u32;
+            self.aerial += player.attributes.aerial as u32;
+            self.handling += player.attributes.handling as u32;
+            self.reflexes += player.attributes.reflexes as u32;
+        }
+
+        fn avg(&self, total: u32) -> f64 {
+            total as f64 / self.count as f64
+        }
+
+        fn shooting(&self) -> f64 {
+            self.avg(self.shooting)
+        }
+
+        fn passing(&self) -> f64 {
+            self.avg(self.passing)
+        }
+
+        fn vision(&self) -> f64 {
+            self.avg(self.vision)
+        }
+
+        fn defending(&self) -> f64 {
+            self.avg(self.defending)
+        }
+
+        fn tackling(&self) -> f64 {
+            self.avg(self.tackling)
+        }
+
+        fn aerial(&self) -> f64 {
+            self.avg(self.aerial)
+        }
+
+        fn handling(&self) -> f64 {
+            self.avg(self.handling)
+        }
+
+        fn reflexes(&self) -> f64 {
+            self.avg(self.reflexes)
+        }
+    }
+
+    #[test]
+    fn test_generated_players_use_granular_positions() {
+        let (_, players, _) = generate_world(None);
+        let granular_count = players
+            .iter()
+            .filter(|player| !player.position.is_legacy_bucket())
+            .count();
+
+        assert!(granular_count > players.len() / 2);
+        assert!(
+            players
+                .iter()
+                .all(|player| player.natural_position == player.position)
+        );
+    }
+
+    #[test]
+    fn test_generated_players_have_position_archetypes() {
+        let (_, players, _) = generate_world(None);
+        let mut by_group = std::collections::HashMap::<Position, AttributeAverages>::new();
+
+        for player in &players {
+            by_group
+                .entry(player.position.to_group_position())
+                .or_default()
+                .add(player);
+        }
+
+        let gk = by_group.get(&Position::Goalkeeper).expect("goalkeepers");
+        let def = by_group.get(&Position::Defender).expect("defenders");
+        let mid = by_group.get(&Position::Midfielder).expect("midfielders");
+        let fwd = by_group.get(&Position::Forward).expect("forwards");
+
+        assert!(fwd.shooting() > mid.shooting());
+        assert!(mid.shooting() > def.shooting());
+        assert!(mid.passing() > def.passing());
+        assert!(mid.passing() > fwd.passing());
+        assert!(mid.vision() > def.vision());
+        assert!(mid.vision() > fwd.vision());
+        assert!(def.defending() > mid.defending());
+        assert!(def.defending() > fwd.defending());
+        assert!(def.tackling() > mid.tackling());
+        assert!(def.tackling() > fwd.tackling());
+        assert!(def.aerial() > mid.aerial());
+        assert!(def.aerial() > fwd.aerial());
+        assert!(gk.handling() > def.handling() + 35.0);
+        assert!(gk.reflexes() > mid.reflexes() + 35.0);
     }
 
     #[test]

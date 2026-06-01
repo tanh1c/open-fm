@@ -970,15 +970,113 @@ fn player_ratings_computed_for_active_players() {
     let config = MatchConfig::default();
     let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(42));
 
-    // All players with stats should have ratings
     for (pid, ps) in &report.player_stats {
-        assert!(
-            ps.rating >= 0.0 && ps.rating <= 10.0,
-            "Player {} has invalid rating: {}",
-            pid,
-            ps.rating
-        );
+        if ps.minutes_played > 0 {
+            assert!(
+                ps.rating >= 4.0 && ps.rating <= 10.0,
+                "Player {} has invalid active rating: {}",
+                pid,
+                ps.rating
+            );
+        } else {
+            assert_eq!(ps.rating, 0.0, "Inactive player {pid} should be unrated");
+        }
     }
+}
+
+#[test]
+fn goals_and_assists_are_not_locked_to_single_position_groups() {
+    let home = make_team("home", "Home FC", 72, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 62, PlayStyle::Balanced);
+    let config = MatchConfig::default();
+    let position_by_id = home
+        .players
+        .iter()
+        .chain(away.players.iter())
+        .map(|player| (player.id.as_str(), player.position))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    let mut non_forward_goals = 0;
+    let mut non_midfield_assists = 0;
+    let mut total_goals = 0;
+    for seed in 0..250 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        for goal in report.goals {
+            total_goals += 1;
+            if position_by_id.get(goal.scorer_id.as_str()) != Some(&Position::Forward) {
+                non_forward_goals += 1;
+            }
+            if let Some(assist_id) = goal.assist_id {
+                if position_by_id.get(assist_id.as_str()) != Some(&Position::Midfielder) {
+                    non_midfield_assists += 1;
+                }
+            }
+        }
+    }
+
+    assert!(total_goals > 20, "Sample should include enough goals");
+    assert!(non_forward_goals > 0, "Non-forwards should score sometimes");
+    assert!(
+        non_midfield_assists > 0,
+        "Non-midfielders should assist sometimes"
+    );
+}
+
+#[test]
+fn long_run_match_calibration_stays_sane() {
+    let home = make_team("home", "Home FC", 70, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig::default();
+    let mut goals = 0u32;
+    let mut shots = 0u32;
+    let mut shots_on_target = 0u32;
+    let mut passes_completed = 0u32;
+    let mut passes_intercepted = 0u32;
+    let mut rating_sum = 0.0f64;
+    let mut rating_count = 0u32;
+
+    for seed in 0..300 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        goals += (report.home_goals + report.away_goals) as u32;
+        shots += report.home_stats.shots as u32 + report.away_stats.shots as u32;
+        shots_on_target +=
+            report.home_stats.shots_on_target as u32 + report.away_stats.shots_on_target as u32;
+        passes_completed +=
+            report.home_stats.passes_completed as u32 + report.away_stats.passes_completed as u32;
+        passes_intercepted += report.home_stats.passes_intercepted as u32
+            + report.away_stats.passes_intercepted as u32;
+
+        for stats in report.player_stats.values() {
+            if stats.minutes_played > 0 {
+                rating_sum += stats.rating as f64;
+                rating_count += 1;
+            }
+        }
+    }
+
+    assert!(shots > 100, "Sample should include enough shots");
+    assert!(shots_on_target <= shots, "SOT cannot exceed total shots");
+    let goals_per_game = goals as f64 / 300.0;
+    let sot_rate = shots_on_target as f64 / shots as f64;
+    let pass_accuracy = passes_completed as f64 / (passes_completed + passes_intercepted) as f64;
+    let avg_rating = rating_sum / rating_count as f64;
+
+    assert!(
+        goals_per_game < 3.6,
+        "Goals/game should stay near calibration range, got {goals_per_game:.2}"
+    );
+    assert!(
+        sot_rate < 0.55,
+        "SOT rate should be realistic, got {sot_rate:.2}"
+    );
+    assert!(
+        pass_accuracy > 0.65 && pass_accuracy < 0.92,
+        "Pass accuracy should be realistic, got {pass_accuracy:.2}"
+    );
+    assert!(
+        avg_rating >= 6.3 && avg_rating <= 7.1,
+        "Average rating should stay plausible, got {avg_rating:.2}"
+    );
 }
 
 // ---------------------------------------------------------------------------

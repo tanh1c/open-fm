@@ -7,9 +7,7 @@ const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
 
 fn backend_text_with_param(key: &str, param_name: &str, param_value: usize) -> String {
     let param_value = param_value.to_string();
-    let mut message = String::with_capacity(
-        key.len() + param_name.len() + param_value.len() + 2,
-    );
+    let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
     message.push_str(key);
     message.push('?');
     message.push_str(param_name);
@@ -24,7 +22,10 @@ fn backend_text_with_param(key: &str, param_name: &str, param_value: usize) -> S
 /// hardcoded fallbacks. Hosts that load JSON from disk should call
 /// `parse_names_definition` and `parse_teams_definition` before invoking this.
 pub fn generate_world_data(
-    definitions: Option<(super::definitions::NamesDefinition, super::definitions::TeamsDefinition)>,
+    definitions: Option<(
+        super::definitions::NamesDefinition,
+        super::definitions::TeamsDefinition,
+    )>,
 ) -> WorldData {
     let (mut teams, mut players, mut staff) = super::generate_world(definitions);
     crate::football_identity::upgrade_world_football_identities(

@@ -11,7 +11,7 @@ use engine::{
 // Domain → Engine conversion with starting XI / bench split
 // ---------------------------------------------------------------------------
 
-pub(super) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Vec<PlayerData>) {
+pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Vec<PlayerData>) {
     let team = game.teams.iter().find(|t| t.id == team_id);
     let (name, formation, play_style) = match team {
         Some(t) => (
@@ -39,7 +39,11 @@ pub(super) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
     let mut starting_xi = Vec::with_capacity(11);
 
     if let Some(team) = team {
-        for slot in team.custom_tactic_slots.iter().filter(|slot| slot.player_id.is_some()) {
+        for slot in team
+            .custom_tactic_slots
+            .iter()
+            .filter(|slot| slot.player_id.is_some())
+        {
             let Some(player_id) = slot.player_id.as_ref() else {
                 continue;
             };
@@ -123,7 +127,12 @@ fn shape_profile_from_formation(formation: &str) -> ShapeProfile {
             midfielders: *midfielders,
             forwards: *forwards,
         },
-        [defenders, defensive_midfielders, attacking_midfielders, forwards] => ShapeProfile {
+        [
+            defenders,
+            defensive_midfielders,
+            attacking_midfielders,
+            forwards,
+        ] => ShapeProfile {
             defenders: *defenders,
             midfielders: defensive_midfielders + attacking_midfielders,
             forwards: *forwards,
@@ -161,7 +170,8 @@ fn tactical_profile_from_slots(slots: &[CustomTacticSlot]) -> TacticalProfile {
         .filter(|slot| (42..=58).contains(&slot.x))
         .map(|slot| tactic_slot_weight(slot))
         .sum();
-    let mean_x = occupied_slots.iter().map(|slot| slot.x as f64).sum::<f64>() / occupied_slots.len() as f64;
+    let mean_x =
+        occupied_slots.iter().map(|slot| slot.x as f64).sum::<f64>() / occupied_slots.len() as f64;
     let spread = occupied_slots
         .iter()
         .map(|slot| (slot.x as f64 - mean_x).abs())
@@ -208,7 +218,13 @@ fn tactic_slot_weight(slot: &CustomTacticSlot) -> f64 {
         Some("Defend") => 0.97,
         _ => 1.0,
     };
-    let vertical_weight = if slot.y < 35 { 1.08 } else if slot.y > 70 { 0.94 } else { 1.0 };
+    let vertical_weight = if slot.y < 35 {
+        1.08
+    } else if slot.y > 70 {
+        0.94
+    } else {
+        1.0
+    };
 
     line_weight * role_weight * duty_weight * vertical_weight
 }

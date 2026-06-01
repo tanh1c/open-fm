@@ -104,7 +104,11 @@ struct TeamTrainingPlan {
 /// `weekday_num` is 0=Mon .. 6=Sun (chrono Weekday::num_days_from_monday()).
 pub fn process_training(game: &mut Game, weekday_num: u32) {
     // Derive the current year from the game clock for accurate age calculations.
-    let current_year = game.clock.current_date.format("%Y").to_string()
+    let current_year = game
+        .clock
+        .current_date
+        .format("%Y")
+        .to_string()
         .parse::<u32>()
         .unwrap_or(2026);
 
@@ -384,8 +388,10 @@ fn recovery_factor_from_morale(morale: u8) -> f64 {
 /// Recovery multiplier from current condition: severely fatigued players recover more slowly.
 fn recovery_factor_from_condition(condition: u8) -> f64 {
     if condition < 30 {
-        0.80
+        1.35
     } else if condition < 50 {
+        1.18
+    } else if condition > 85 {
         0.90
     } else {
         1.00

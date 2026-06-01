@@ -278,6 +278,7 @@ impl MatchReport {
             &tracked_player_ids,
             &mut player_stats,
         );
+        compute_player_ratings(&mut player_stats);
 
         let total_poss = home_possession_ticks + away_possession_ticks;
         let home_possession = if total_poss > 0 {
@@ -297,6 +298,46 @@ impl MatchReport {
             home_possession,
             total_minutes,
         }
+    }
+}
+
+fn compute_player_ratings(player_stats: &mut HashMap<String, PlayerMatchStats>) {
+    for stats in player_stats.values_mut() {
+        if stats.minutes_played == 0 {
+            stats.rating = 0.0;
+            continue;
+        }
+
+        let minutes_factor = (stats.minutes_played as f32 / 90.0).clamp(0.25, 1.0);
+        let pass_accuracy = if stats.passes_attempted > 0 {
+            stats.passes_completed as f32 / stats.passes_attempted as f32
+        } else {
+            0.72
+        };
+        let shot_accuracy = if stats.shots > 0 {
+            stats.shots_on_target as f32 / stats.shots as f32
+        } else {
+            0.0
+        };
+
+        let mut rating = 6.3;
+        rating += stats.goals as f32 * 0.95;
+        rating += stats.assists as f32 * 0.60;
+        rating += stats.shots_on_target as f32 * 0.10;
+        rating += stats.tackles_won as f32 * 0.07;
+        rating += stats.interceptions as f32 * 0.07;
+        rating += (stats.passes_completed as f32 * 0.012).min(0.55);
+        rating += ((pass_accuracy - 0.74) * 1.1).clamp(-0.50, 0.35);
+
+        if stats.shots >= 3 && shot_accuracy < 0.25 {
+            rating -= 0.35;
+        }
+        rating -= stats.fouls_committed as f32 * 0.10;
+        rating -= stats.yellow_cards as f32 * 0.40;
+        rating -= stats.red_cards as f32 * 1.8;
+
+        let adjusted = 6.0 + (rating - 6.0) * minutes_factor;
+        stats.rating = adjusted.clamp(4.0, 10.0);
     }
 }
 

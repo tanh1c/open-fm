@@ -684,8 +684,8 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str, report: &engine::MatchR
             }
             let minutes_factor = minutes as f64 / 90.0;
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
-            let base_depletion = 40.0 * (1.0 - stamina_factor * 0.4);
-            let depletion = (base_depletion * minutes_factor) as u8;
+            let base_depletion = 26.0 * (1.0 - stamina_factor * 0.35);
+            let depletion = (base_depletion * minutes_factor).round().max(4.0) as u8;
             player.condition = player.condition.saturating_sub(depletion);
 
             // Regular match play improves fitness for players with significant time.

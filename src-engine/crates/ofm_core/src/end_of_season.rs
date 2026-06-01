@@ -438,6 +438,14 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     // records. Done before season regeneration wipes competition standings.
     record_season_honours_and_records(game, season, &awards);
 
+    // 5c. Player lifecycle (run after stats/career are recorded, before schedule
+    // regeneration). Order matters: veterans decline first, then the oldest
+    // retire into the Hall of Fame, then fresh youth refill the world so the
+    // total roster stays bounded over many seasons.
+    crate::aging::process_player_decline(game);
+    let retirements = crate::aging::process_retirements(game, season);
+    crate::aging::process_youth_intake(game);
+
     // 6. Update manager career stats
     if let Some(standing) = &user_standing {
         let total_matches = standing.won + standing.drawn + standing.lost;
@@ -505,6 +513,21 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     // 6d. Publish the season awards ceremony article (skipped when no marquee winners)
     if let Some(article) = crate::news::season_awards_article(&awards, season, &last_fixture_date) {
         game.news.push(article);
+    }
+
+    // 6e. Publish a retirement roundup led by the most notable retiree.
+    if let Some(headliner) = retirements.first() {
+        if let Some(article) = crate::news::retirement_roundup_article(
+            season,
+            &headliner.id,
+            &headliner.full_name,
+            &headliner.last_team_name,
+            headliner.age_at_retirement,
+            retirements.len().saturating_sub(1) as u32,
+            &last_fixture_date,
+        ) {
+            game.news.push(article);
+        }
     }
 
     // 7. Generate next season schedule
@@ -1036,5 +1059,109 @@ mod tests {
             .iter()
             .any(|champion| champion.competition_name == "EFL Championship"
                 && !champion.team_id.is_empty()));
+    }
+
+    fn lifecycle_player(id: &str, team_id: &str, birth_year: u32) -> domain::player::Player {
+        use domain::player::{Player, PlayerAttributes, Position};
+        let mut p = Player::new(
+            id.to_string(),
+            id.to_string(),
+            format!("Player {id}"),
+            format!("{birth_year:04}-01-01"),
+            "England".to_string(),
+            Position::Striker,
+            PlayerAttributes {
+                pace: 70,
+                stamina: 70,
+                strength: 70,
+                agility: 70,
+                passing: 70,
+                shooting: 70,
+                tackling: 50,
+                dribbling: 70,
+                defending: 40,
+                positioning: 70,
+                vision: 70,
+                decisions: 70,
+                composure: 70,
+                aggression: 60,
+                teamwork: 70,
+                leadership: 60,
+                handling: 20,
+                reflexes: 20,
+                aerial: 60,
+            },
+        );
+        p.team_id = Some(team_id.to_string());
+        p.contract_end = Some("2030-06-30".to_string());
+        // Give a season of career history so the Hall of Fame record has totals.
+        p.career.push(domain::player::CareerEntry {
+            season: 2026,
+            team_id: team_id.to_string(),
+            team_name: "English Three".to_string(),
+            appearances: 30,
+            goals: 12,
+            assists: 5,
+            clean_sheets: 0,
+            avg_rating: 7.0,
+            yellow_cards: 0,
+            red_cards: 0,
+            minutes_played: 2700,
+            shots: 0,
+            shots_on_target: 0,
+            tackles_won: 0,
+            interceptions: 0,
+        });
+        p
+    }
+
+    #[test]
+    fn process_end_of_season_retires_old_players_and_refills_youth() {
+        let mut game = completed_multi_competition_game("eng-3");
+
+        // One ancient player (certain to retire) and one young player (must stay).
+        let ancient = lifecycle_player("ancient", "eng-3", 1983); // age ~43
+        let prospect = lifecycle_player("prospect", "eng-3", 2004); // age ~22
+        game.teams
+            .iter_mut()
+            .find(|t| t.id == "eng-3")
+            .unwrap()
+            .starting_xi_ids = vec!["ancient".to_string(), "prospect".to_string()];
+        game.players.push(ancient);
+        game.players.push(prospect);
+
+        let players_before = game.players.len();
+        process_end_of_season(&mut game);
+
+        // The ancient player is gone from the active roster but recorded in the HoF.
+        assert!(!game.players.iter().any(|p| p.id == "ancient"));
+        assert!(game.retired_players.iter().any(|r| r.id == "ancient"));
+        let record = game
+            .retired_players
+            .iter()
+            .find(|r| r.id == "ancient")
+            .unwrap();
+        assert_eq!(record.total_goals, 12);
+        assert_eq!(record.total_appearances, 30);
+
+        // The young prospect survives.
+        assert!(game.players.iter().any(|p| p.id == "prospect"));
+
+        // Retired ids are scrubbed from the team lineup.
+        let eng3 = game.teams.iter().find(|t| t.id == "eng-3").unwrap();
+        assert!(!eng3.starting_xi_ids.contains(&"ancient".to_string()));
+
+        // Youth intake refilled the world: there are new youth-role players and
+        // the roster did not collapse despite the retirement.
+        let youth_count = game
+            .players
+            .iter()
+            .filter(|p| p.squad_role == domain::player::SquadRole::Youth)
+            .count();
+        assert!(youth_count > 0, "youth intake should add prospects");
+        assert!(
+            game.players.len() >= players_before,
+            "intake should offset retirements"
+        );
     }
 }

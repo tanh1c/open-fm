@@ -334,4 +334,57 @@ describe("TournamentsTab", () => {
     expect(screen.getByText("41")).toBeInTheDocument();
     expect(screen.getAllByText(/John Smith/).length).toBeGreaterThan(0);
   });
+
+  it("shows retired legends on the hall of fame tab sorted by peak ovr", () => {
+    const gameState = createGameState(true);
+    gameState.retired_players = [
+      {
+        id: "legend-low",
+        full_name: "Older Journeyman",
+        nationality: "GB",
+        position: "Defender",
+        last_team_id: "team-2",
+        last_team_name: "Beta FC",
+        retired_season: 5,
+        age_at_retirement: 35,
+        peak_ovr: 71,
+        total_appearances: 300,
+        total_goals: 8,
+        total_assists: 20,
+        career_seasons: 15,
+      },
+      {
+        id: "legend-high",
+        full_name: "Star Striker",
+        nationality: "GB",
+        position: "Forward",
+        last_team_id: "team-1",
+        last_team_name: "Alpha FC",
+        retired_season: 6,
+        age_at_retirement: 37,
+        peak_ovr: 92,
+        total_appearances: 500,
+        total_goals: 410,
+        total_assists: 120,
+        career_seasons: 18,
+      },
+    ];
+    const onSelectTeam = vi.fn();
+
+    render(<TournamentsTab gameState={gameState} onSelectTeam={onSelectTeam} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /hallOfFameTab/i }));
+
+    // Both legends render; the higher peak OVR appears first.
+    const star = screen.getByText("Star Striker");
+    const journeyman = screen.getByText("Older Journeyman");
+    expect(star).toBeInTheDocument();
+    expect(journeyman).toBeInTheDocument();
+    expect(star.compareDocumentPosition(journeyman) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("92")).toBeInTheDocument();
+
+    // Clicking the last-team link navigates to that team.
+    fireEvent.click(screen.getByRole("button", { name: "Alpha FC" }));
+    expect(onSelectTeam).toHaveBeenCalledWith("team-1");
+  });
 });

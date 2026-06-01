@@ -1019,6 +1019,12 @@
     "recHighestPoints": "Highest points (season)",
     "recMostGoalsTeam": "Most goals by a team (season)",
     "recLongestUnbeaten": "Longest unbeaten run",
+    "hallOfFameTab": "Hall of Fame",
+    "hallOfFameEmptyTitle": "No retirees yet",
+    "hallOfFameEmptyBody": "As seasons pass, legends hang up their boots and join the Hall of Fame.",
+    "hofRetiredAt": "Retired {{season}}, age {{age}}",
+    "hofCareerLine": "{{apps}} apps · {{goals}} goals · {{assists}} assists",
+    "hofPeak": "Peak",
     "awards": {
       "goldenBootTitle": "Golden Boot",
       "goldenBootSubtitle": "Top Scorers",
@@ -2448,6 +2454,11 @@
         "bodyBoth": "Season {{season}} concluded with {{goldenBootWinner}} ({{goldenBootTeam}}) lifting the Golden Boot with {{goldenBootGoals}} goals. Player of the Year went to {{potyWinner}} ({{potyTeam}}) with an average rating of {{potyRating}}.",
         "bodyGoldenBootOnly": "Season {{season}} closed with {{goldenBootWinner}} ({{goldenBootTeam}}) crowned top scorer with {{goldenBootGoals}} goals.",
         "bodyPotyOnly": "Season {{season}} ended with {{potyWinner}} ({{potyTeam}}) named Player of the Year, posting an average rating of {{potyRating}}."
+      },
+      "retirements": {
+        "headline": "End of an Era",
+        "body": "{{player}} ({{team}}) has announced their retirement at the age of {{age}}, bringing the curtain down on a memorable career.",
+        "bodyWithOthers": "{{player}} ({{team}}) has announced their retirement at the age of {{age}}. They are among {{others}} other professional(s) hanging up their boots at the end of season {{season}}."
       },
       "weeklyDigest": {
         "headline": "Weekly Digest — Week of {{weekStart}}",

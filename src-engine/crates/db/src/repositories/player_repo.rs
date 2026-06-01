@@ -104,6 +104,37 @@ pub fn upsert_players(conn: &Connection, players: &[Player]) -> Result<(), Strin
     Ok(())
 }
 
+/// Delete player rows whose id is not present in `players`. The upsert path only
+/// inserts/updates, so players removed from the game state (e.g. retired into the
+/// Hall of Fame) would otherwise linger in the DB forever. Mirrors the prune used
+/// for match-stat history.
+pub fn prune_players_not_in(conn: &Connection, players: &[Player]) -> Result<(), String> {
+    use std::collections::HashSet;
+    let keep: HashSet<&str> = players.iter().map(|p| p.id.as_str()).collect();
+
+    let existing_ids: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT id FROM players")
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let mut delete_stmt = conn
+        .prepare_cached("DELETE FROM players WHERE id = ?1")
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    for id in existing_ids {
+        if !keep.contains(id.as_str()) {
+            delete_stmt
+                .execute(params![id])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 fn parse_position(s: &str) -> Position {
     match s {
         "Goalkeeper" => Position::Goalkeeper,
@@ -685,5 +716,22 @@ mod tests {
         let result = load_all_players(&conn);
 
         assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
+    }
+
+    #[test]
+    fn test_prune_players_removes_rows_not_in_roster() {
+        let db = test_db();
+        let keep = sample_player("p-keep", Some("team-1"));
+        let drop = sample_player("p-drop", Some("team-1"));
+        upsert_player(db.conn(), &keep).unwrap();
+        upsert_player(db.conn(), &drop).unwrap();
+        assert_eq!(load_all_players(db.conn()).unwrap().len(), 2);
+
+        // Roster now only contains the player we keep; the other should be pruned.
+        prune_players_not_in(db.conn(), std::slice::from_ref(&keep)).unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, "p-keep");
     }
 }

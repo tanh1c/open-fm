@@ -565,6 +565,7 @@ export interface GameStateData {
   season_context?: SeasonContextData;
   season_honours?: SeasonHonours[];
   records?: GameRecords;
+  retired_players?: RetiredPlayer[];
 }
 
 export interface SeasonAwardEntry {
@@ -632,6 +633,22 @@ export interface GameRecords {
   record_transfer_fee?: TransferRecord | null;
   highest_points_in_season?: TeamRecord | null;
   most_goals_team_in_season?: TeamRecord | null;
+}
+
+export interface RetiredPlayer {
+  id: string;
+  full_name: string;
+  nationality: string;
+  position: string;
+  last_team_id: string;
+  last_team_name: string;
+  retired_season: number;
+  age_at_retirement: number;
+  peak_ovr: number;
+  total_appearances: number;
+  total_goals: number;
+  total_assists: number;
+  career_seasons: number;
 }
 
 export function getCompetitionForTeam(gameState: GameStateData, teamId: string | null | undefined): CompetitionLikeData | null {

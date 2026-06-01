@@ -99,6 +99,10 @@ pub struct Game {
     /// All-time "best ever" records for the save.
     #[serde(default)]
     pub records: crate::honours::GameRecords,
+    /// Hall of Fame: compact summaries of players who have retired. The full
+    /// `Player` is removed from `players` on retirement to keep the roster bounded.
+    #[serde(default)]
+    pub retired_players: Vec<domain::player::RetiredPlayer>,
 }
 
 impl Game {
@@ -132,6 +136,7 @@ impl Game {
             vacant_team_days: HashMap::new(),
             season_honours: vec![],
             records: crate::honours::GameRecords::default(),
+            retired_players: vec![],
         };
         crate::football_identity::upgrade_game_football_identities(&mut game);
         crate::season_context::refresh_game_context(&mut game);

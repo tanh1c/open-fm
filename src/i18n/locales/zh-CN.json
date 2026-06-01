@@ -115,7 +115,6 @@
     "vacationModalDesc": "Pick a date to fast-forward to. Stops early for your matches.",
     "vacationTarget": "Target",
     "vacationGo": "Go on Vacation",
-
     "vacationAssistantTitle": "Assistant responsibilities",
     "vacationAssistantDesc": "Choose what your assistant oversees while you are on holiday. Departments continue through the normal daily simulation.",
     "vacationHandleMatches": "Manage matches",
@@ -1041,7 +1040,13 @@
         "apps": "场"
       }
     },
-    "noGoals": "暂无进球。"
+    "noGoals": "暂无进球。",
+    "hallOfFameTab": "名人堂",
+    "hallOfFameEmptyTitle": "暂无退役球员",
+    "hallOfFameEmptyBody": "随着赛季更迭,传奇球员挂靴退役,进入名人堂。",
+    "hofRetiredAt": "{{season}}赛季退役,{{age}}岁",
+    "hofCareerLine": "{{apps}}场 · {{goals}}球 · {{assists}}助攻",
+    "hofPeak": "巅峰"
   },
   "news": {
     "noNews": "暂无新闻报道。",
@@ -2500,6 +2505,11 @@
         "bodyMultiple": "在{{result}}的比赛之后，{{team}}主帅接受了媒体采访。\n\n{{quotes}}\n\n这场发布会谈到了比赛结果、战术安排以及球队接下来的方向。",
         "bodySingle": "{{team}}主帅在{{result}}的结果后简短发言。\n\n\"{{quote}}\"",
         "bodyNone": "在{{result}}的结果后，{{team}}主帅拒绝长时间发言。"
+      },
+      "retirements": {
+        "headline": "一个时代的落幕",
+        "body": "{{player}}（{{team}}）宣布在{{age}}岁退役,为一段难忘的职业生涯画上句号。",
+        "bodyWithOthers": "{{player}}（{{team}}）宣布在{{age}}岁退役。他是{{season}}赛季结束时挂靴的{{others}}名职业球员之一。"
       }
     }
   },

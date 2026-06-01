@@ -20,6 +20,8 @@ pub struct GameMeta {
     pub season_honours_json: String,
     #[serde(default = "default_records_json")]
     pub records_json: String,
+    #[serde(default = "default_retired_players_json")]
+    pub retired_players_json: String,
 }
 
 fn default_vacant_team_days_json() -> String {
@@ -34,11 +36,15 @@ fn default_records_json() -> String {
     "{}".to_string()
 }
 
+fn default_retired_players_json() -> String {
+    "[]".to_string()
+}
+
 /// Insert or replace the singleton game_meta row.
 pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
     conn.execute(
-        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, season_honours_json, records_json)
-         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, season_honours_json, records_json, retired_players_json)
+         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             meta.save_id,
             meta.save_name,
@@ -50,6 +56,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
             meta.vacant_team_days_json,
             meta.season_honours_json,
             meta.records_json,
+            meta.retired_players_json,
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -60,7 +67,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
 pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, season_honours_json, records_json
+            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, season_honours_json, records_json, retired_players_json
              FROM game_meta WHERE id = 'singleton'",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -78,6 +85,7 @@ pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
                 vacant_team_days_json: row.get(7)?,
                 season_honours_json: row.get(8)?,
                 records_json: row.get(9)?,
+                retired_players_json: row.get(10)?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -112,6 +120,7 @@ mod tests {
             vacant_team_days_json: "{}".to_string(),
             season_honours_json: "[]".to_string(),
             records_json: "{}".to_string(),
+            retired_players_json: "[]".to_string(),
         };
 
         upsert_meta(db.conn(), &meta).unwrap();
@@ -144,6 +153,7 @@ mod tests {
             vacant_team_days_json: "{}".to_string(),
             season_honours_json: "[]".to_string(),
             records_json: "{}".to_string(),
+            retired_players_json: "[]".to_string(),
         };
         upsert_meta(db.conn(), &meta1).unwrap();
 
@@ -158,6 +168,7 @@ mod tests {
             vacant_team_days_json: "{}".to_string(),
             season_honours_json: "[]".to_string(),
             records_json: "{}".to_string(),
+            retired_players_json: "[]".to_string(),
         };
         upsert_meta(db.conn(), &meta2).unwrap();
 
@@ -180,6 +191,7 @@ mod tests {
             vacant_team_days_json: "{}".to_string(),
             season_honours_json: "[]".to_string(),
             records_json: "{}".to_string(),
+            retired_players_json: "[]".to_string(),
         };
 
         let result = upsert_meta(&conn, &meta);

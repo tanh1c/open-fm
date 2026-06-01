@@ -478,6 +478,60 @@ pub fn season_awards_article(
     )
 }
 
+/// Editorial roundup of the most notable retirements at the end of a season.
+/// `headliner` is the highest-peak-OVR retiree; `others` is the count of further
+/// retirements that season. Returns `None` when nobody notable retired.
+pub fn retirement_roundup_article(
+    season: u32,
+    headliner_id: &str,
+    headliner_name: &str,
+    headliner_team: &str,
+    headliner_age: u32,
+    others: u32,
+    date: &str,
+) -> Option<NewsArticle> {
+    if headliner_name.is_empty() {
+        return None;
+    }
+
+    let mut i18n_params = HashMap::new();
+    i18n_params.insert("season".to_string(), season.to_string());
+    i18n_params.insert("player".to_string(), headliner_name.to_string());
+    i18n_params.insert("team".to_string(), headliner_team.to_string());
+    i18n_params.insert("age".to_string(), headliner_age.to_string());
+    i18n_params.insert("others".to_string(), others.to_string());
+
+    let body_key = if others > 0 {
+        "be.news.retirements.bodyWithOthers"
+    } else {
+        "be.news.retirements.body"
+    };
+
+    let player_ids = if headliner_id.is_empty() {
+        Vec::new()
+    } else {
+        vec![headliner_id.to_string()]
+    };
+
+    Some(
+        NewsArticle::new(
+            format!("retirements_{}", season),
+            String::new(),
+            String::new(),
+            String::new(),
+            date.to_string(),
+            NewsCategory::Editorial,
+        )
+        .with_players(player_ids)
+        .with_i18n(
+            "be.news.retirements.headline",
+            body_key,
+            "be.source.footballHerald",
+            i18n_params,
+        ),
+    )
+}
+
 pub fn major_transfer_article(
     id: &str,
     player_id: &str,

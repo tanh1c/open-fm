@@ -61,6 +61,8 @@ fn write_game_rows(
             .map_err(|_| game_persistence_write_error())?;
         let records_json = serde_json::to_string(&game.records)
             .map_err(|_| game_persistence_write_error())?;
+        let retired_players_json = serde_json::to_string(&game.retired_players)
+            .map_err(|_| game_persistence_write_error())?;
         let manager_id = if game.manager_id.is_empty() {
             game.manager.id.clone()
         } else {
@@ -86,6 +88,7 @@ fn write_game_rows(
                 vacant_team_days_json,
                 season_honours_json,
                 records_json,
+                retired_players_json,
             },
         )?;
 
@@ -94,6 +97,10 @@ fn write_game_rows(
         }
         team_repo::upsert_teams(conn, &game.teams)?;
         player_repo::upsert_players(conn, &game.players)?;
+        // Remove player rows that are no longer part of the game (e.g. retired
+        // players removed from the roster). The upsert path only inserts/updates,
+        // so without this, dropped players would linger in the DB forever.
+        player_repo::prune_players_not_in(conn, &game.players)?;
         staff_repo::upsert_staff_list(conn, &game.staff)?;
         message_repo::upsert_messages(conn, &game.messages)?;
         news_repo::upsert_news_list(conn, &game.news)?;
@@ -281,6 +288,7 @@ impl GamePersistenceReader {
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
             season_honours: serde_json::from_str(&meta.season_honours_json).unwrap_or_default(),
             records: serde_json::from_str(&meta.records_json).unwrap_or_default(),
+            retired_players: serde_json::from_str(&meta.retired_players_json).unwrap_or_default(),
         };
         game.sync_competitions_from_legacy_league();
         // Repair saves written before per-day sync existed: the legacy league
@@ -315,6 +323,7 @@ mod tests {
             vacant_team_days_json: "{}".to_string(),
             season_honours_json: "[]".to_string(),
             records_json: "{}".to_string(),
+            retired_players_json: "[]".to_string(),
         }
     }
 

@@ -407,6 +407,47 @@ pub struct CareerEntry {
     pub interceptions: u32,
 }
 
+/// Compact Hall of Fame record kept after a player retires. The full `Player`
+/// is removed from `game.players` on retirement (keeps the roster bounded over
+/// decades); this summary preserves the legend for display and history.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RetiredPlayer {
+    pub id: String,
+    pub full_name: String,
+    pub nationality: String,
+    pub position: Position,
+    pub last_team_id: String,
+    pub last_team_name: String,
+    pub retired_season: u32,
+    pub age_at_retirement: u32,
+    pub peak_ovr: u8,
+    pub total_appearances: u32,
+    pub total_goals: u32,
+    pub total_assists: u32,
+    pub career_seasons: u32,
+}
+
+impl Default for RetiredPlayer {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            full_name: String::new(),
+            nationality: String::new(),
+            position: Position::default(),
+            last_team_id: String::new(),
+            last_team_name: String::new(),
+            retired_season: 0,
+            age_at_retirement: 0,
+            peak_ovr: 0,
+            total_appearances: 0,
+            total_goals: 0,
+            total_assists: 0,
+            career_seasons: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferOffer {
     pub id: String,
@@ -612,6 +653,18 @@ impl Player {
             transfer_offers: Vec::new(),
             morale_core: PlayerMoraleCore::default(),
         }
+    }
+
+    /// Approximate age in years from the player's birth year and a reference year
+    /// (use the game clock year). Matches the year-only convention used across the engine.
+    pub fn age(&self, current_year: u32) -> u32 {
+        let birth_year: u32 = self
+            .date_of_birth
+            .split('-')
+            .next()
+            .and_then(|y| y.parse().ok())
+            .unwrap_or(2000);
+        current_year.saturating_sub(birth_year)
     }
 }
 

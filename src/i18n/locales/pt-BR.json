@@ -115,7 +115,6 @@
     "vacationModalDesc": "Pick a date to fast-forward to. Stops early for your matches.",
     "vacationTarget": "Target",
     "vacationGo": "Go on Vacation",
-
     "vacationAssistantTitle": "Assistant responsibilities",
     "vacationAssistantDesc": "Choose what your assistant oversees while you are on holiday. Departments continue through the normal daily simulation.",
     "vacationHandleMatches": "Manage matches",
@@ -1041,7 +1040,13 @@
         "apps": "jogos"
       }
     },
-    "noGoals": "Nenhum gol marcado ainda."
+    "noGoals": "Nenhum gol marcado ainda.",
+    "hallOfFameTab": "Hall da Fama",
+    "hallOfFameEmptyTitle": "Ainda sem aposentados",
+    "hallOfFameEmptyBody": "Com o passar das temporadas, as lendas penduram as chuteiras e entram no Hall da Fama.",
+    "hofRetiredAt": "Aposentado em {{season}}, {{age}} anos",
+    "hofCareerLine": "{{apps}} jogos · {{goals}} gols · {{assists}} assist.",
+    "hofPeak": "Pico"
   },
   "news": {
     "noNews": "Nenhuma notícia ainda.",
@@ -2503,6 +2508,11 @@
         "bodyMultiple": "Após o resultado {{result}}, o técnico do {{team}} falou com a imprensa.\n\n{{quotes}}\n\nA coletiva abordou o resultado, a abordagem tática e o que vem pela frente para o time.",
         "bodySingle": "O técnico do {{team}} falou brevemente após o resultado {{result}}.\n\n\"{{quote}}\"",
         "bodyNone": "O técnico do {{team}} não quis falar longamente após o resultado {{result}}."
+      },
+      "retirements": {
+        "headline": "O fim de uma era",
+        "body": "{{player}} ({{team}}) anunciou sua aposentadoria aos {{age}} anos, encerrando uma carreira memorável.",
+        "bodyWithOthers": "{{player}} ({{team}}) anunciou sua aposentadoria aos {{age}} anos. É um dos {{others}} profissional(is) a pendurar as chuteiras ao final da temporada {{season}}."
       }
     }
   },

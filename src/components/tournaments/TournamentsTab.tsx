@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
-import type { SeasonHonours, GameRecords } from "../../store/types";
+import type { SeasonHonours, GameRecords, RetiredPlayer } from "../../store/types";
 import ContextMenu from "../ContextMenu";
 import DivisionLogo from "../common/DivisionLogo";
 import TeamLogo from "../common/TeamLogo";
@@ -15,6 +15,7 @@ import {
   Users,
   Zap,
   Crown,
+  History,
 } from "lucide-react";
 import {
   getCompetitiveFixtures,
@@ -89,7 +90,7 @@ interface SeasonAwards {
   young_player: AwardEntry[];
 }
 
-type TournamentView = "overview" | "fixtures" | "standings" | "awards" | "honours" | "records";
+type TournamentView = "overview" | "fixtures" | "standings" | "awards" | "honours" | "records" | "halloffame";
 type StandingEntry = NonNullable<GameStateData["league"]>["standings"][number];
 type TopScorerEntry = { player: GameStateData["players"][number] | undefined; goals: number };
 
@@ -384,7 +385,7 @@ export default function TournamentsTab({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
-        {(["overview", "standings", "fixtures", "awards", "honours", "records"] as const).map((nextView) => (
+        {(["overview", "standings", "fixtures", "awards", "honours", "records", "halloffame"] as const).map((nextView) => (
           <button
             key={nextView}
             type="button"
@@ -396,8 +397,8 @@ export default function TournamentsTab({
                 : "border-transparent text-app-text-muted hover:text-app-text",
             )}
           >
-            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : t("schedule.fixtures")}
+            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
           </button>
         ))}
       </div>
@@ -527,6 +528,13 @@ export default function TournamentsTab({
 
               {view === "records" ? (
                 <RecordsPanel records={gameState.records ?? null} />
+              ) : null}
+
+              {view === "halloffame" ? (
+                <HallOfFamePanel
+                  retired={gameState.retired_players ?? []}
+                  onSelectTeam={onSelectTeam}
+                />
               ) : null}
             </div>
           </TemplateCard>
@@ -1175,6 +1183,77 @@ function RecordGroup({
           </div>
         ))}
       </TemplateCard>
+    </div>
+  );
+}
+
+function HallOfFamePanel({
+  retired,
+  onSelectTeam,
+}: {
+  retired: RetiredPlayer[];
+  onSelectTeam?: (teamId: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  if (retired.length === 0) {
+    return (
+      <EmptyPanel
+        icon={<History className="h-8 w-8" />}
+        title={t("tournaments.hallOfFameEmptyTitle", { defaultValue: "No retirees yet" })}
+        description={t("tournaments.hallOfFameEmptyBody", {
+          defaultValue: "As seasons pass, legends hang up their boots and join the Hall of Fame.",
+        })}
+      />
+    );
+  }
+
+  const sorted = [...retired].sort(
+    (a, b) => b.peak_ovr - a.peak_ovr || b.retired_season - a.retired_season,
+  );
+
+  return (
+    <div className="flex flex-col gap-2 p-4">
+      {sorted.map((player) => (
+        <TemplateCard key={player.id} className="flex items-center justify-between gap-3 p-4">
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-bold text-app-text">{player.full_name}</span>
+            <span className="block truncate text-[11px] text-app-text-muted">
+              {player.last_team_id && onSelectTeam ? (
+                <button
+                  type="button"
+                  onClick={() => onSelectTeam(player.last_team_id)}
+                  className="hover:text-app-green"
+                >
+                  {player.last_team_name}
+                </button>
+              ) : (
+                player.last_team_name
+              )}
+              {" · "}
+              {t("tournaments.hofRetiredAt", {
+                defaultValue: "Retired {{season}}, age {{age}}",
+                season: player.retired_season,
+                age: player.age_at_retirement,
+              })}
+            </span>
+            <span className="mt-0.5 block text-[11px] text-app-text-muted">
+              {t("tournaments.hofCareerLine", {
+                defaultValue: "{{apps}} apps · {{goals}} goals · {{assists}} assists",
+                apps: player.total_appearances,
+                goals: player.total_goals,
+                assists: player.total_assists,
+              })}
+            </span>
+          </span>
+          <span className="flex shrink-0 flex-col items-center">
+            <span className="font-heading text-lg font-bold tabular-nums text-app-green">{player.peak_ovr}</span>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-app-text-muted">
+              {t("tournaments.hofPeak", { defaultValue: "Peak" })}
+            </span>
+          </span>
+        </TemplateCard>
+      ))}
     </div>
   );
 }

@@ -13,6 +13,7 @@ fn make_player(id: &str, name: &str, position: Position, skill: u8) -> PlayerDat
         position,
         ovr: skill,
         condition: 90,
+        morale: 50,
         fitness: 75,
         pace: skill,
         stamina: skill,
@@ -56,6 +57,8 @@ fn make_team(id: &str, name: &str, skill: u8, play_style: PlayStyle) -> TeamData
             make_player(&format!("{id}_fwd1"), "FWD1", Position::Forward, skill),
             make_player(&format!("{id}_fwd2"), "FWD2", Position::Forward, skill),
         ],
+        form: Vec::new(),
+        tactical_familiarity: 0.5,
         shape_profile: ShapeProfile::default(),
         tactical_profile: TacticalProfile::default(),
     }
@@ -91,6 +94,19 @@ fn with_traits(mut team: TeamData, position: Position, traits: &[&str]) -> TeamD
             player.traits = traits.iter().map(|trait_name| trait_name.to_string()).collect();
         }
     }
+    team
+}
+
+fn with_morale(mut team: TeamData, morale: u8) -> TeamData {
+    for player in &mut team.players {
+        player.morale = morale;
+    }
+    team
+}
+
+fn with_form_and_familiarity(mut team: TeamData, form: &[&str], tactical_familiarity: f64) -> TeamData {
+    team.form = form.iter().map(|result| result.to_string()).collect();
+    team.tactical_familiarity = tactical_familiarity;
     team
 }
 
@@ -765,6 +781,123 @@ fn dribbler_speedster_traits_improve_progression() {
     );
 }
 
+#[test]
+fn high_morale_improves_match_reliability() {
+    let high_morale = with_morale(make_team("high", "High Morale FC", 68, PlayStyle::Balanced), 95);
+    let low_morale = with_morale(make_team("low", "Low Morale FC", 68, PlayStyle::Balanced), 10);
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut high_completed = 0u32;
+    let mut high_intercepted = 0u32;
+    let mut high_sot = 0u32;
+    let mut low_completed = 0u32;
+    let mut low_intercepted = 0u32;
+    let mut low_sot = 0u32;
+    for seed in 0..220 {
+        let report = simulate_with_rng(&high_morale, &low_morale, &config, &mut seeded_rng(seed));
+        high_completed += report.home_stats.passes_completed as u32;
+        high_intercepted += report.home_stats.passes_intercepted as u32;
+        high_sot += report.home_stats.shots_on_target as u32;
+        low_completed += report.away_stats.passes_completed as u32;
+        low_intercepted += report.away_stats.passes_intercepted as u32;
+        low_sot += report.away_stats.shots_on_target as u32;
+    }
+
+    let high_accuracy = high_completed as f64 / (high_completed + high_intercepted) as f64;
+    let low_accuracy = low_completed as f64 / (low_completed + low_intercepted) as f64;
+    assert!(
+        high_accuracy > low_accuracy || high_sot > low_sot,
+        "High morale should improve reliability: pass high={high_accuracy:.3}, low={low_accuracy:.3}, sot high={high_sot}, low={low_sot}"
+    );
+}
+
+#[test]
+fn positive_team_form_improves_team_control() {
+    let positive_form = with_form_and_familiarity(
+        make_team("pos", "Positive Form FC", 68, PlayStyle::Balanced),
+        &["W", "W", "D", "W", "W"],
+        0.5,
+    );
+    let negative_form = with_form_and_familiarity(
+        make_team("neg", "Negative Form FC", 68, PlayStyle::Balanced),
+        &["L", "L", "D", "L", "L"],
+        0.5,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut positive_completed = 0u32;
+    let mut positive_intercepted = 0u32;
+    let mut negative_completed = 0u32;
+    let mut negative_intercepted = 0u32;
+    for seed in 0..220 {
+        let report = simulate_with_rng(&positive_form, &negative_form, &config, &mut seeded_rng(seed));
+        positive_completed += report.home_stats.passes_completed as u32;
+        positive_intercepted += report.home_stats.passes_intercepted as u32;
+        negative_completed += report.away_stats.passes_completed as u32;
+        negative_intercepted += report.away_stats.passes_intercepted as u32;
+    }
+
+    let positive_accuracy =
+        positive_completed as f64 / (positive_completed + positive_intercepted) as f64;
+    let negative_accuracy =
+        negative_completed as f64 / (negative_completed + negative_intercepted) as f64;
+    assert!(
+        positive_accuracy > negative_accuracy,
+        "Positive form should improve team control: positive={positive_accuracy:.3}, negative={negative_accuracy:.3}"
+    );
+}
+
+#[test]
+fn tactical_familiarity_improves_coordinated_phases() {
+    let familiar = with_form_and_familiarity(
+        make_team("fam", "Familiar FC", 68, PlayStyle::Balanced),
+        &[],
+        0.95,
+    );
+    let unfamiliar = with_form_and_familiarity(
+        make_team("unfam", "Unfamiliar FC", 68, PlayStyle::Balanced),
+        &[],
+        0.05,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut familiar_progression = 0u32;
+    let mut unfamiliar_progression = 0u32;
+    let mut familiar_intercepted = 0u32;
+    let mut unfamiliar_intercepted = 0u32;
+    for seed in 0..220 {
+        let report = simulate_with_rng(&familiar, &unfamiliar, &config, &mut seeded_rng(seed));
+        familiar_progression += report.home_stats.shots as u32
+            + report
+                .events
+                .iter()
+                .filter(|event| event.side == Side::Home && event.event_type == EventType::Dribble)
+                .count() as u32;
+        unfamiliar_progression += report.away_stats.shots as u32
+            + report
+                .events
+                .iter()
+                .filter(|event| event.side == Side::Away && event.event_type == EventType::Dribble)
+                .count() as u32;
+        familiar_intercepted += report.home_stats.passes_intercepted as u32;
+        unfamiliar_intercepted += report.away_stats.passes_intercepted as u32;
+    }
+
+    assert!(
+        familiar_progression > unfamiliar_progression || familiar_intercepted < unfamiliar_intercepted,
+        "Tactical familiarity should help coordinated phases: progression familiar={familiar_progression}, unfamiliar={unfamiliar_progression}, intercepted familiar={familiar_intercepted}, unfamiliar={unfamiliar_intercepted}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Team/player stats aggregation tests
 // ---------------------------------------------------------------------------
@@ -1183,6 +1316,8 @@ fn minimal_team_doesnt_crash() {
             make_player("mid", "MID", Position::Midfielder, 50),
             make_player("fwd", "FWD", Position::Forward, 50),
         ],
+        form: Vec::new(),
+        tactical_familiarity: 0.5,
         shape_profile: ShapeProfile::default(),
         tactical_profile: TacticalProfile::default(),
     };

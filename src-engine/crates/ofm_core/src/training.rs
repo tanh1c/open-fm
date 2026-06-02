@@ -147,6 +147,8 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             TrainingIntensity::High => 1.5,
         };
 
+        improve_tactical_familiarity_from_training(game, plan, is_training_day, intensity_mult);
+
         for player in game.players.iter_mut() {
             if player.team_id.as_deref() != Some(&plan.team_id) {
                 continue;
@@ -257,6 +259,28 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
                 * fitness_rec) as u8;
             player.condition = (player.condition + recovery).min(100);
         }
+    }
+}
+
+fn improve_tactical_familiarity_from_training(
+    game: &mut Game,
+    plan: &TeamTrainingPlan,
+    is_training_day: bool,
+    intensity_mult: f64,
+) {
+    if !is_training_day {
+        return;
+    }
+    let gain = match plan.default_focus {
+        TrainingFocus::Tactical => (1.2 * intensity_mult * plan.bonus.specialization_mult).round() as u8,
+        TrainingFocus::Defending | TrainingFocus::Attacking => 1,
+        _ => 0,
+    };
+    if gain == 0 {
+        return;
+    }
+    if let Some(team) = game.teams.iter_mut().find(|team| team.id == plan.team_id) {
+        team.tactical_familiarity = team.tactical_familiarity.saturating_add(gain).min(100);
     }
 }
 

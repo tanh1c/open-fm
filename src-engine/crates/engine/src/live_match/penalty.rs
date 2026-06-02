@@ -1,7 +1,9 @@
 use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
-use crate::shared::{TraitContext, trait_bonus, trait_shot_quality_modifier};
+use crate::shared::{
+    TraitContext, morale_performance_modifier, trait_bonus, trait_shot_quality_modifier,
+};
 use crate::types::{Position, Side, Zone};
 
 use super::{LiveMatchState, MinuteResult};
@@ -38,8 +40,12 @@ impl LiveMatchState {
         let fatigue_factor = (taker_condition / 100.0).clamp(0.7, 1.0);
 
         let conversion = (0.75
-            + (shoot_skill * trait_shot_quality_modifier(&taker)
-                - gk_skill * trait_bonus(&gk, TraitContext::Goalkeeping))
+            + (shoot_skill
+                * trait_shot_quality_modifier(&taker)
+                * morale_performance_modifier(taker.morale)
+                - gk_skill
+                    * trait_bonus(&gk, TraitContext::Goalkeeping)
+                    * morale_performance_modifier(gk.morale))
                 / 300.0)
             * fatigue_factor;
         let conversion = conversion.clamp(0.55, 0.92);
@@ -142,8 +148,12 @@ impl LiveMatchState {
         let shoot_skill = (taker.shooting as f64 + taker.decisions as f64) / 2.0;
         let gk_skill = (gk.positioning as f64 + gk.decisions as f64) / 2.0;
         let conversion = (0.75
-            + (shoot_skill * trait_shot_quality_modifier(&taker)
-                - gk_skill * trait_bonus(&gk, TraitContext::Goalkeeping))
+            + (shoot_skill
+                * trait_shot_quality_modifier(&taker)
+                * morale_performance_modifier(taker.morale)
+                - gk_skill
+                    * trait_bonus(&gk, TraitContext::Goalkeeping)
+                    * morale_performance_modifier(gk.morale))
                 / 300.0)
             .clamp(0.55, 0.92);
         let zone = Zone::attacking_box(att_side);

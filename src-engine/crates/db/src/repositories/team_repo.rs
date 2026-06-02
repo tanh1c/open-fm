@@ -47,8 +47,8 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
          season_income, season_expenses, formation, play_style,
          training_focus, training_intensity, training_schedule,
          founded_year, colors_primary, colors_secondary,
-         starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33)",
+         starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, tactical_familiarity, history, training_groups, financial_ledger, sponsorship, facilities)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34)",
         params![
             t.id,
             t.name,
@@ -78,6 +78,7 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
             saved_tactic_presets_json,
             match_roles_json,
             form_json,
+            t.tactical_familiarity,
             history_json,
             training_groups_json,
             financial_ledger_json,
@@ -141,11 +142,11 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
     let saved_tactic_presets_json: String = row.get(25)?;
     let match_roles_json: String = row.get(26)?;
     let form_json: String = row.get(27)?;
-    let history_json: String = row.get(28)?;
-    let training_groups_json: String = row.get(29)?;
-    let financial_ledger_json: String = row.get(30)?;
-    let sponsorship_json: String = row.get(31)?;
-    let facilities_json: String = row.get(32)?;
+    let history_json: String = row.get(29)?;
+    let training_groups_json: String = row.get(30)?;
+    let financial_ledger_json: String = row.get(31)?;
+    let sponsorship_json: String = row.get(32)?;
+    let facilities_json: String = row.get(33)?;
     let play_style_str: String = row.get(16)?;
     let training_focus_str: String = row.get(17)?;
     let training_intensity_str: String = row.get(18)?;
@@ -191,6 +192,7 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
             .unwrap_or_default(),
         match_roles: serde_json::from_str(&match_roles_json).unwrap_or_default(),
         form: serde_json::from_str(&form_json).unwrap_or_default(),
+        tactical_familiarity: row.get(28)?,
         history: serde_json::from_str(&history_json).unwrap_or_default(),
     })
 }
@@ -204,7 +206,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities
+                    starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, tactical_familiarity, history, training_groups, financial_ledger, sponsorship, facilities
              FROM teams",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -229,7 +231,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities
+                    starting_xi_ids, custom_tactic_slots, saved_tactic_presets, match_roles, form, tactical_familiarity, history, training_groups, financial_ledger, sponsorship, facilities
              FROM teams WHERE id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -288,6 +290,7 @@ mod tests {
         assert_eq!(loaded.play_style, PlayStyle::Possession);
         assert_eq!(loaded.finance, 5_000_000);
         assert_eq!(loaded.stadium_capacity, 50000);
+        assert_eq!(loaded.tactical_familiarity, 50);
     }
 
     #[test]

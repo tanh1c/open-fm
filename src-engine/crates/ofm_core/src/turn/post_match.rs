@@ -163,6 +163,7 @@ pub fn apply_match_report_with_capture<F>(
 
     // Update morale based on result and individual performance
     update_post_match_morale(game, report, home_team_id, away_team_id);
+    improve_tactical_familiarity_from_match(game, home_team_id, away_team_id);
 
     // Update team form (last 5 results)
     if counts_for_standings {
@@ -578,6 +579,14 @@ fn update_post_match_morale(
         let total_delta = capped_positive_recovery(result_delta + individual_delta, player);
         let new_morale = (base_morale + total_delta).clamp(10, 100) as u8;
         player.morale = new_morale;
+    }
+}
+
+fn improve_tactical_familiarity_from_match(game: &mut Game, home_team_id: &str, away_team_id: &str) {
+    for team_id in [home_team_id, away_team_id] {
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            team.tactical_familiarity = team.tactical_familiarity.saturating_add(1).min(100);
+        }
     }
 }
 

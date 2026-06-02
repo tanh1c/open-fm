@@ -1,0 +1,1 @@
+ALTER TABLE teams ADD COLUMN tactical_familiarity INTEGER NOT NULL DEFAULT 50;

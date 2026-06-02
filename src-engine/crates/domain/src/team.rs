@@ -65,6 +65,8 @@ pub struct Team {
     // Recent form: last 5 results as "W", "D", "L" (most recent last)
     #[serde(default)]
     pub form: Vec<String>,
+    #[serde(default = "default_tactical_familiarity")]
+    pub tactical_familiarity: u8,
 
     // History
     pub history: Vec<TeamSeasonRecord>,
@@ -130,6 +132,10 @@ pub enum TrainingSchedule {
     Balanced,
     /// 2 training days (Tue, Thu), 5 rest. Minimal growth, excellent recovery.
     Light,
+}
+
+fn default_tactical_familiarity() -> u8 {
+    50
 }
 
 impl TrainingSchedule {
@@ -316,6 +322,7 @@ impl Team {
             saved_tactic_presets: Vec::new(),
             match_roles: MatchRoles::default(),
             form: Vec::new(),
+            tactical_familiarity: default_tactical_familiarity(),
             history: Vec::new(),
         }
     }

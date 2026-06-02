@@ -16,6 +16,7 @@ fn make_player(id: &str, position: Position, skill: u8) -> PlayerData {
         position,
         ovr: skill,
         condition: 90,
+        morale: 50,
         fitness: 75,
         pace: skill,
         stamina: skill,
@@ -57,6 +58,8 @@ fn make_team(id: &str, skill: u8) -> TeamData {
         formation: "4-4-2".to_string(),
         play_style: PlayStyle::Balanced,
         players,
+        form: Vec::new(),
+        tactical_familiarity: 0.5,
         shape_profile: ShapeProfile::default(),
         tactical_profile: TacticalProfile::default(),
     }

@@ -13,7 +13,7 @@ use engine::{
 
 pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Vec<PlayerData>) {
     let team = game.teams.iter().find(|t| t.id == team_id);
-    let (name, formation, play_style) = match team {
+    let (name, formation, play_style, form, tactical_familiarity) = match team {
         Some(t) => (
             t.name.clone(),
             t.formation.clone(),
@@ -25,8 +25,16 @@ pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
                 domain::team::PlayStyle::HighPress => PlayStyle::HighPress,
                 _ => PlayStyle::Balanced,
             },
+            t.form.clone(),
+            t.tactical_familiarity as f64 / 100.0,
         ),
-        None => ("Unknown".into(), "4-4-2".into(), PlayStyle::Balanced),
+        None => (
+            "Unknown".into(),
+            "4-4-2".into(),
+            PlayStyle::Balanced,
+            Vec::new(),
+            0.5,
+        ),
     };
 
     // Collect all available (non-injured) players for this team
@@ -106,6 +114,8 @@ pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
         formation,
         play_style,
         players: starting_xi,
+        form,
+        tactical_familiarity,
         shape_profile,
         tactical_profile,
     };
@@ -354,6 +364,7 @@ fn to_engine_player(p: &domain::player::Player) -> PlayerData {
         position: pos,
         ovr: p.ovr,
         condition: p.condition,
+        morale: p.morale,
         fitness: p.fitness,
         pace: p.attributes.pace,
         stamina: p.attributes.stamina,

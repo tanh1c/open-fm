@@ -712,6 +712,27 @@ fn all_focuses_run_without_panic() {
 }
 
 #[test]
+fn tactical_training_increases_familiarity() {
+    let mut game = make_game();
+    game.teams[0].training_focus = TrainingFocus::Tactical;
+    game.teams[0].training_intensity = TrainingIntensity::High;
+    game.teams[0].training_schedule = TrainingSchedule::Intense;
+    game.teams[0].tactical_familiarity = 50;
+
+    training::process_training(&mut game, 0);
+
+    assert!(
+        game.teams[0].tactical_familiarity > 50,
+        "Tactical training should increase familiarity, got {}",
+        game.teams[0].tactical_familiarity
+    );
+
+    game.teams[0].tactical_familiarity = 100;
+    training::process_training(&mut game, 0);
+    assert_eq!(game.teams[0].tactical_familiarity, 100);
+}
+
+#[test]
 fn all_intensities_run_without_panic() {
     let intensities = [
         TrainingIntensity::Low,

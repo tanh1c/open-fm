@@ -38,6 +38,8 @@ pub struct PlayerData {
     #[serde(default)]
     pub ovr: u8,
     pub condition: u8, // 0-100
+    #[serde(default = "default_morale")]
+    pub morale: u8,
     /// Long-term physical shape (0-100). Multiplies stamina depletion rate in-match.
     #[serde(default = "default_fitness")]
     pub fitness: u8,
@@ -86,8 +88,16 @@ fn default_engine_attr() -> u8 {
     50
 }
 
+fn default_morale() -> u8 {
+    50
+}
+
 fn default_fitness() -> u8 {
     75
+}
+
+fn default_tactical_familiarity() -> f64 {
+    0.5
 }
 
 impl PlayerData {
@@ -210,6 +220,10 @@ pub struct TeamData {
     pub formation: String,
     pub play_style: PlayStyle,
     pub players: Vec<PlayerData>,
+    #[serde(default)]
+    pub form: Vec<String>,
+    #[serde(default = "default_tactical_familiarity")]
+    pub tactical_familiarity: f64,
     #[serde(default)]
     pub shape_profile: ShapeProfile,
     #[serde(default)]

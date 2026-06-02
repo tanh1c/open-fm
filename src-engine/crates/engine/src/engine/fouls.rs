@@ -1,7 +1,10 @@
 use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
-use crate::shared::{PlayerSnap, trait_foul_risk_modifier, trait_shot_quality_modifier};
+use crate::shared::{
+    PlayerSnap, morale_performance_modifier, morale_risk_modifier, trait_foul_risk_modifier,
+    trait_shot_quality_modifier,
+};
 use crate::types::{Position, Side, Zone};
 
 use super::MatchContext;
@@ -21,7 +24,8 @@ pub(super) fn maybe_foul<R: Rng>(
     let aggression_mod = fouler_snap.aggression as f64 / 100.0;
     let foul_chance = ctx.config.foul_probability
         * (0.6 + aggression_mod * 0.8)
-        * trait_foul_risk_modifier(fouler_snap);
+        * trait_foul_risk_modifier(fouler_snap)
+        * morale_risk_modifier(fouler_snap.morale);
     if rng.random_range(0.0..1.0f64) >= foul_chance {
         return;
     }
@@ -66,12 +70,17 @@ fn maybe_card<R: Rng>(
     let aggression_factor = fouler.aggression as f64 / 100.0;
     let card_chance = ctx.config.yellow_card_probability
         * (0.5 + aggression_factor)
-        * trait_foul_risk_modifier(fouler).sqrt();
+        * trait_foul_risk_modifier(fouler).sqrt()
+        * morale_risk_modifier(fouler.morale).sqrt();
     if rng.random_range(0.0..1.0f64) >= card_chance {
         return;
     }
 
-    if rng.random_range(0.0..1.0f64) < ctx.config.red_card_probability * trait_foul_risk_modifier(fouler).sqrt() {
+    if rng.random_range(0.0..1.0f64)
+        < ctx.config.red_card_probability
+            * trait_foul_risk_modifier(fouler).sqrt()
+            * morale_risk_modifier(fouler.morale).sqrt()
+    {
         ctx.emit(MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(&fouler.id));
         ctx.sent_off.insert(fouler.id.clone());
         return;
@@ -96,7 +105,10 @@ fn resolve_penalty<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, r
 
     let shoot_skill = (taker.shooting as f64 + taker.decisions as f64) / 2.0;
     let gk_skill = (gk.positioning as f64 + gk.decisions as f64) / 2.0;
-    let conversion = (0.75 + (shoot_skill * trait_shot_quality_modifier(&taker) - gk_skill) / 300.0)
+    let conversion = (0.75
+        + (shoot_skill * trait_shot_quality_modifier(&taker) * morale_performance_modifier(taker.morale)
+            - gk_skill * morale_performance_modifier(gk.morale))
+            / 300.0)
         .clamp(0.55, 0.92);
     let zone = Zone::attacking_box(att_side);
 

@@ -24,6 +24,7 @@ pub(crate) struct PlayerSnap {
     pub aggression: u8,
     pub teamwork: u8,
     pub leadership: u8,
+    pub morale: u8,
     pub handling: u8,
     pub reflexes: u8,
     pub aerial: u8,
@@ -50,6 +51,7 @@ impl PlayerSnap {
             aggression: p.aggression,
             teamwork: p.teamwork,
             leadership: p.leadership,
+            morale: p.morale,
             handling: p.handling,
             reflexes: p.reflexes,
             aerial: p.aerial,
@@ -229,6 +231,47 @@ pub(crate) fn trait_press_work_rate_modifier(snap: &PlayerSnap) -> f64 {
         modifier *= 1.03;
     }
     modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn morale_performance_modifier(morale: u8) -> f64 {
+    let delta = (morale.clamp(0, 100) as f64 - 50.0) / 50.0;
+    (1.0 + delta * 0.06).clamp(0.94, 1.06)
+}
+
+pub(crate) fn morale_risk_modifier(morale: u8) -> f64 {
+    let delta = (morale.clamp(0, 100) as f64 - 50.0) / 50.0;
+    (1.0 - delta * 0.08).clamp(0.92, 1.08)
+}
+
+pub(crate) fn team_form_modifier(form: &[String]) -> f64 {
+    if form.is_empty() {
+        return 1.0;
+    }
+    let weighted_score = form
+        .iter()
+        .rev()
+        .take(5)
+        .enumerate()
+        .map(|(index, result)| {
+            let weight = 1.0 + (4usize.saturating_sub(index) as f64) * 0.05;
+            match result.as_str() {
+                "W" => weight,
+                "L" => -weight,
+                _ => 0.0,
+            }
+        })
+        .sum::<f64>();
+    (1.0 + weighted_score * 0.009).clamp(0.96, 1.05)
+}
+
+pub(crate) fn tactical_familiarity_modifier(familiarity: f64) -> f64 {
+    let delta = (familiarity.clamp(0.0, 1.0) - 0.5) * 2.0;
+    (1.0 + delta * 0.06).clamp(0.94, 1.06)
+}
+
+pub(crate) fn team_cohesion_modifier(team: &TeamData) -> f64 {
+    (team_form_modifier(&team.form) * tactical_familiarity_modifier(team.tactical_familiarity))
+        .clamp(0.92, 1.10)
 }
 
 fn trait_midfield_modifier(snap: &PlayerSnap) -> f64 {

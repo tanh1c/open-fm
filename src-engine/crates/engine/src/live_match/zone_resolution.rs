@@ -2,11 +2,12 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, play_style_modifier, tactical_buildup_modifier,
-    tactical_midfield_modifier, tactical_press_modifier, tactical_shot_quality_modifier,
-    tactical_space_creation_modifier, tactical_turnover_risk, trait_bonus, trait_carry_modifier,
-    trait_pass_creativity_modifier, trait_pass_safety_modifier, trait_press_work_rate_modifier,
-    trait_foul_risk_modifier, trait_shot_quality_modifier, trait_shot_tendency_modifier,
+    PlayStylePhase, PlayerSnap, TraitContext, morale_performance_modifier, morale_risk_modifier,
+    play_style_modifier, tactical_buildup_modifier, tactical_midfield_modifier,
+    tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
+    tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
+    trait_foul_risk_modifier, trait_pass_creativity_modifier, trait_pass_safety_modifier,
+    trait_press_work_rate_modifier, trait_shot_quality_modifier, trait_shot_tendency_modifier,
     trait_tackle_modifier,
 };
 use crate::types::{PlayerData, Position, Side, Zone};
@@ -118,7 +119,9 @@ impl LiveMatchState {
                 + passer.teamwork as f64)
                 / 4.0,
         ) * trait_pass_safety_modifier(&passer)
-            * tactical_buildup_modifier(att_team);
+            * morale_performance_modifier(passer.morale)
+            * tactical_buildup_modifier(att_team)
+            * team_cohesion_modifier(att_team);
         let press = self.effective_press(def_side);
         let ball_zone = self.ball_zone;
 
@@ -168,10 +171,12 @@ impl LiveMatchState {
             / 4.0;
         let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
             * trait_bonus(&attacker, TraitContext::Midfield)
-            * trait_pass_safety_modifier(&attacker);
+            * trait_pass_safety_modifier(&attacker)
+            * morale_performance_modifier(attacker.morale);
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_tackle_modifier(&defender)
-            * trait_press_work_rate_modifier(&defender);
+            * trait_press_work_rate_modifier(&defender)
+            * morale_performance_modifier(defender.morale);
 
         let att_mod = play_style_modifier(
             self.team_ref(att_side).play_style,
@@ -186,10 +191,12 @@ impl LiveMatchState {
         let att_eff = att_rating
             * att_mod
             * tactical_midfield_modifier(self.team_ref(att_side))
+            * team_cohesion_modifier(self.team_ref(att_side))
             * crate::shared::home_mod(att_side, &self.config);
         let def_eff = def_rating
             * def_mod
             * tactical_press_modifier(self.team_ref(def_side))
+            * team_cohesion_modifier(self.team_ref(def_side))
             * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
@@ -251,10 +258,12 @@ impl LiveMatchState {
             / 4.0;
         let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
             * trait_carry_modifier(&attacker)
-            * trait_pass_creativity_modifier(&attacker);
+            * trait_pass_creativity_modifier(&attacker)
+            * morale_performance_modifier(attacker.morale);
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_tackle_modifier(&defender)
-            * trait_press_work_rate_modifier(&defender);
+            * trait_press_work_rate_modifier(&defender)
+            * morale_performance_modifier(defender.morale);
 
         let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
         let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
@@ -262,11 +271,13 @@ impl LiveMatchState {
             * att_mod
             * shape_attack_multiplier(&att_team)
             * tactical_space_creation_modifier(&att_team, &def_team)
+            * team_cohesion_modifier(&att_team)
             * crate::shared::home_mod(att_side, &self.config);
         let def_eff = def_rating
             * def_mod
             * shape_defense_multiplier(&def_team)
             * tactical_press_modifier(&def_team)
+            * team_cohesion_modifier(&def_team)
             * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
         let zone = Zone::attacking_third(att_side);
@@ -325,13 +336,15 @@ impl LiveMatchState {
         let shoot_raw =
             (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
         let shoot_rating = self.condition_adjusted_skill(&shooter.id, shoot_raw)
-            * trait_shot_quality_modifier(&shooter);
+            * trait_shot_quality_modifier(&shooter)
+            * morale_performance_modifier(shooter.morale);
         let gk_raw = (goalkeeper.handling as f64
             + goalkeeper.reflexes as f64
             + goalkeeper.positioning as f64)
             / 3.0;
         let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw)
-            * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
+            * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
+            * morale_performance_modifier(goalkeeper.morale);
 
         let shot_quality = tactical_shot_quality_modifier(&att_team, &def_team);
         let shape_attack = shape_attack_multiplier(&att_team) * shot_quality;
@@ -401,7 +414,8 @@ impl LiveMatchState {
         let aggression_mod = fouler.aggression as f64 / 100.0;
         let foul_chance = self.config.foul_probability
             * (0.6 + aggression_mod * 0.8)
-            * trait_foul_risk_modifier(fouler);
+            * trait_foul_risk_modifier(fouler)
+            * morale_risk_modifier(fouler.morale);
         if rng.random_range(0.0..1.0f64) >= foul_chance {
             return events;
         }
@@ -454,13 +468,16 @@ impl LiveMatchState {
         let aggression_factor = fouler.aggression as f64 / 100.0;
         let card_chance = self.config.yellow_card_probability
             * (0.5 + aggression_factor)
-            * trait_foul_risk_modifier(fouler).sqrt();
+            * trait_foul_risk_modifier(fouler).sqrt()
+            * morale_risk_modifier(fouler.morale).sqrt();
         if rng.random_range(0.0..1.0f64) >= card_chance {
             return events;
         }
 
         if rng.random_range(0.0..1.0f64)
-            < self.config.red_card_probability * trait_foul_risk_modifier(fouler).sqrt()
+            < self.config.red_card_probability
+                * trait_foul_risk_modifier(fouler).sqrt()
+                * morale_risk_modifier(fouler.morale).sqrt()
         {
             let evt =
                 MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(&fouler.id);

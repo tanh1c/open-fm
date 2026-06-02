@@ -1370,7 +1370,7 @@ fn hot_head_trait_increases_foul_likelihood() {
     // Run many matches and check if aggressive-traited team fouls more
     let mut fouls_with_hotheads = 0u32;
     let mut fouls_without = 0u32;
-    let trials = 20;
+    let trials = 80;
 
     for seed in 0..trials {
         // Team with HotHead traits
@@ -1414,11 +1414,9 @@ fn hot_head_trait_increases_foul_likelihood() {
             .count() as u32;
     }
 
-    // HotHead team should foul at least as much (not strict due to RNG)
-    // But across 20 matches the trend should show
     assert!(
-        fouls_with_hotheads >= fouls_without / 2,
-        "HotHead team fouls: {fouls_with_hotheads}, normal: {fouls_without}"
+        fouls_with_hotheads > fouls_without,
+        "HotHead team should foul more: hotheads={fouls_with_hotheads}, normal={fouls_without}"
     );
 }
 

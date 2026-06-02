@@ -1,6 +1,7 @@
 use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
+use crate::shared::{TraitContext, trait_bonus, trait_shot_quality_modifier};
 use crate::types::{Position, Side, Zone};
 
 use super::{LiveMatchState, MinuteResult};
@@ -36,7 +37,11 @@ impl LiveMatchState {
             .unwrap_or(50.0);
         let fatigue_factor = (taker_condition / 100.0).clamp(0.7, 1.0);
 
-        let conversion = (0.75 + (shoot_skill - gk_skill) / 300.0) * fatigue_factor;
+        let conversion = (0.75
+            + (shoot_skill * trait_shot_quality_modifier(&taker)
+                - gk_skill * trait_bonus(&gk, TraitContext::Goalkeeping))
+                / 300.0)
+            * fatigue_factor;
         let conversion = conversion.clamp(0.55, 0.92);
 
         let zone = Zone::attacking_box(kicking_side);
@@ -136,7 +141,11 @@ impl LiveMatchState {
 
         let shoot_skill = (taker.shooting as f64 + taker.decisions as f64) / 2.0;
         let gk_skill = (gk.positioning as f64 + gk.decisions as f64) / 2.0;
-        let conversion = (0.75 + (shoot_skill - gk_skill) / 300.0).clamp(0.55, 0.92);
+        let conversion = (0.75
+            + (shoot_skill * trait_shot_quality_modifier(&taker)
+                - gk_skill * trait_bonus(&gk, TraitContext::Goalkeeping))
+                / 300.0)
+            .clamp(0.55, 0.92);
         let zone = Zone::attacking_box(att_side);
 
         if rng.random_range(0.0..1.0f64) < conversion {

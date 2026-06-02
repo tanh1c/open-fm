@@ -85,6 +85,15 @@ fn with_instructions(
     team
 }
 
+fn with_traits(mut team: TeamData, position: Position, traits: &[&str]) -> TeamData {
+    for player in &mut team.players {
+        if player.position == position {
+            player.traits = traits.iter().map(|trait_name| trait_name.to_string()).collect();
+        }
+    }
+    team
+}
+
 // ---------------------------------------------------------------------------
 // Types tests
 // ---------------------------------------------------------------------------
@@ -652,6 +661,107 @@ fn possession_control_improves_pass_accuracy() {
     assert!(
         possession_accuracy > direct_accuracy,
         "Possession control should improve pass accuracy: possession={possession_accuracy:.3}, direct={direct_accuracy:.3}"
+    );
+}
+
+#[test]
+fn playmaker_traits_improve_pass_safety() {
+    let playmakers = with_traits(
+        make_team("play", "Playmaker FC", 68, PlayStyle::Balanced),
+        Position::Midfielder,
+        &["Playmaker", "Visionary", "TeamPlayer", "CoolHead"],
+    );
+    let ordinary = make_team("ord", "Ordinary FC", 68, PlayStyle::Balanced);
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut play_completed = 0u32;
+    let mut play_intercepted = 0u32;
+    let mut ordinary_completed = 0u32;
+    let mut ordinary_intercepted = 0u32;
+    for seed in 0..180 {
+        let report = simulate_with_rng(&playmakers, &ordinary, &config, &mut seeded_rng(seed));
+        play_completed += report.home_stats.passes_completed as u32;
+        play_intercepted += report.home_stats.passes_intercepted as u32;
+        ordinary_completed += report.away_stats.passes_completed as u32;
+        ordinary_intercepted += report.away_stats.passes_intercepted as u32;
+    }
+
+    let play_accuracy = play_completed as f64 / (play_completed + play_intercepted) as f64;
+    let ordinary_accuracy = ordinary_completed as f64 / (ordinary_completed + ordinary_intercepted) as f64;
+    assert!(
+        play_accuracy > ordinary_accuracy,
+        "Playmaker traits should improve pass safety: playmakers={play_accuracy:.3}, ordinary={ordinary_accuracy:.3}"
+    );
+}
+
+#[test]
+fn sharpshooter_traits_improve_shot_quality() {
+    let shooters = with_traits(
+        make_team("sharp", "Sharpshooter FC", 68, PlayStyle::Balanced),
+        Position::Forward,
+        &["Sharpshooter", "CompleteForward", "CoolHead"],
+    );
+    let ordinary = make_team("ord", "Ordinary FC", 68, PlayStyle::Balanced);
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut sharp_shots = 0u32;
+    let mut sharp_sot = 0u32;
+    let mut ordinary_shots = 0u32;
+    let mut ordinary_sot = 0u32;
+    for seed in 0..220 {
+        let report = simulate_with_rng(&shooters, &ordinary, &config, &mut seeded_rng(seed));
+        sharp_shots += report.home_stats.shots as u32;
+        sharp_sot += report.home_stats.shots_on_target as u32;
+        ordinary_shots += report.away_stats.shots as u32;
+        ordinary_sot += report.away_stats.shots_on_target as u32;
+    }
+
+    let sharp_sot_rate = sharp_sot as f64 / sharp_shots as f64;
+    let ordinary_sot_rate = ordinary_sot as f64 / ordinary_shots as f64;
+    assert!(
+        sharp_sot_rate > ordinary_sot_rate,
+        "Sharpshooter traits should improve shot quality: sharp={sharp_sot_rate:.3}, ordinary={ordinary_sot_rate:.3}"
+    );
+}
+
+#[test]
+fn dribbler_speedster_traits_improve_progression() {
+    let carriers = with_traits(
+        make_team("carry", "Carrier FC", 68, PlayStyle::Balanced),
+        Position::Forward,
+        &["Dribbler", "Speedster", "Agile", "CompleteForward"],
+    );
+    let ordinary = make_team("ord", "Ordinary FC", 68, PlayStyle::Balanced);
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut carrier_dribbles = 0u32;
+    let mut ordinary_dribbles = 0u32;
+    for seed in 0..180 {
+        let report = simulate_with_rng(&carriers, &ordinary, &config, &mut seeded_rng(seed));
+        carrier_dribbles += report
+            .events
+            .iter()
+            .filter(|event| event.side == Side::Home && event.event_type == EventType::Dribble)
+            .count() as u32;
+        ordinary_dribbles += report
+            .events
+            .iter()
+            .filter(|event| event.side == Side::Away && event.event_type == EventType::Dribble)
+            .count() as u32;
+    }
+
+    assert!(
+        carrier_dribbles > ordinary_dribbles,
+        "Dribbler/speedster traits should improve progression: carriers={carrier_dribbles}, ordinary={ordinary_dribbles}"
     );
 }
 

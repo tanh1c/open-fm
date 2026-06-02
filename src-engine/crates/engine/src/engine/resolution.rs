@@ -5,7 +5,9 @@ use crate::shared::{
     PlayStylePhase, PlayerSnap, TraitContext, home_mod, play_style_modifier,
     tactical_buildup_modifier, tactical_midfield_modifier, tactical_press_modifier,
     tactical_shot_quality_modifier, tactical_space_creation_modifier, tactical_turnover_risk,
-    trait_bonus,
+    trait_bonus, trait_carry_modifier, trait_pass_creativity_modifier, trait_pass_safety_modifier,
+    trait_press_work_rate_modifier, trait_shot_quality_modifier, trait_shot_tendency_modifier,
+    trait_tackle_modifier,
 };
 use crate::types::{Position, Side, TeamData, Zone};
 
@@ -59,7 +61,7 @@ fn shooter_weight(player: &crate::types::PlayerData) -> f64 {
         + player.positioning as f64 * 0.75
         + player.decisions as f64 * 0.65
         + player.dribbling as f64 * 0.45;
-    role_weight * skill
+    role_weight * skill * trait_shot_tendency_modifier(&PlayerSnap::from(player))
 }
 
 fn assister_weight(player: &crate::types::PlayerData) -> f64 {
@@ -73,7 +75,7 @@ fn assister_weight(player: &crate::types::PlayerData) -> f64 {
         + player.vision as f64 * 1.15
         + player.teamwork as f64 * 0.75
         + player.decisions as f64 * 0.70;
-    role_weight * skill
+    role_weight * skill * trait_pass_creativity_modifier(&PlayerSnap::from(player))
 }
 
 // ---------------------------------------------------------------------------
@@ -116,7 +118,7 @@ fn resolve_buildup<R: Rng>(
         + passer.composure as f64
         + passer.teamwork as f64)
         / 4.0
-        * trait_bonus(&passer, TraitContext::Passing)
+        * trait_pass_safety_modifier(&passer)
         * tactical_buildup_modifier(att_team);
     let press = effective_press(ctx, def_side);
     let ball_zone = ctx.ball_zone;
@@ -158,13 +160,15 @@ fn resolve_midfield<R: Rng>(
         + attacker.vision as f64
         + attacker.teamwork as f64)
         / 4.0
-        * trait_bonus(&attacker, TraitContext::Midfield);
+        * trait_bonus(&attacker, TraitContext::Midfield)
+        * trait_pass_safety_modifier(&attacker);
     let def_rating = (defender.tackling as f64
         + defender.positioning as f64
         + defender.decisions as f64
         + defender.teamwork as f64)
         / 4.0
-        * trait_bonus(&defender, TraitContext::Tackling);
+        * trait_tackle_modifier(&defender)
+        * trait_press_work_rate_modifier(&defender);
 
     let att_mod = play_style_modifier(
         ctx.team(att_side).play_style,
@@ -239,13 +243,15 @@ fn resolve_attacking_third<R: Rng>(
         + attacker.agility as f64
         + attacker.composure as f64)
         / 4.0
-        * trait_bonus(&attacker, TraitContext::Dribbling);
+        * trait_carry_modifier(&attacker)
+        * trait_pass_creativity_modifier(&attacker);
     let def_rating = (defender.defending as f64
         + defender.tackling as f64
         + defender.positioning as f64
         + defender.aerial as f64)
         / 4.0
-        * trait_bonus(&defender, TraitContext::Tackling);
+        * trait_tackle_modifier(&defender)
+        * trait_press_work_rate_modifier(&defender);
 
     let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
     let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
@@ -308,7 +314,7 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
 
     let shoot_rating =
         (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0
-            * trait_bonus(&shooter, TraitContext::Shooting);
+            * trait_shot_quality_modifier(&shooter);
     let gk_rating =
         (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64)
             / 3.0

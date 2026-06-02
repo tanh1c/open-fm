@@ -67,6 +67,7 @@ impl PlayerSnap {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub(crate) enum TraitContext {
     Shooting,
     Dribbling,
@@ -80,84 +81,188 @@ pub(crate) enum TraitContext {
 /// Compute a multiplicative trait bonus for a specific action context.
 /// Returns a modifier >= 1.0 (bonus) based on relevant traits.
 pub(crate) fn trait_bonus(snap: &PlayerSnap, context: TraitContext) -> f64 {
-    let mut bonus = 1.0;
     match context {
-        TraitContext::Shooting => {
-            if snap.has_trait("Sharpshooter") {
-                bonus *= 1.08;
-            }
-            if snap.has_trait("CoolHead") {
-                bonus *= 1.04;
-            }
-            if snap.has_trait("CompleteForward") {
-                bonus *= 1.05;
-            }
-        }
-        TraitContext::Dribbling => {
-            if snap.has_trait("Dribbler") {
-                bonus *= 1.08;
-            }
-            if snap.has_trait("Speedster") {
-                bonus *= 1.04;
-            }
-            if snap.has_trait("Agile") {
-                bonus *= 1.04;
-            }
-        }
-        TraitContext::Passing => {
-            if snap.has_trait("Playmaker") {
-                bonus *= 1.08;
-            }
-            if snap.has_trait("Visionary") {
-                bonus *= 1.05;
-            }
-            if snap.has_trait("SetPieceSpecialist") {
-                bonus *= 1.03;
-            }
-        }
-        TraitContext::Tackling => {
-            if snap.has_trait("BallWinner") {
-                bonus *= 1.08;
-            }
-            if snap.has_trait("Rock") {
-                bonus *= 1.05;
-            }
-            if snap.has_trait("Tank") {
-                bonus *= 1.04;
-            }
-        }
-        TraitContext::Goalkeeping => {
-            if snap.has_trait("SafeHands") {
-                bonus *= 1.08;
-            }
-            if snap.has_trait("CatReflexes") {
-                bonus *= 1.06;
-            }
-            if snap.has_trait("AerialDominance") {
-                bonus *= 1.04;
-            }
-        }
-        TraitContext::Foul => {
-            if snap.has_trait("HotHead") {
-                bonus *= 1.25;
-            }
-            if snap.has_trait("CoolHead") {
-                bonus *= 0.70;
-            }
-        }
-        TraitContext::Midfield => {
-            if snap.has_trait("Engine") {
-                bonus *= 1.06;
-            }
-            if snap.has_trait("TeamPlayer") {
-                bonus *= 1.04;
-            }
-            if snap.has_trait("Tireless") {
-                bonus *= 1.03;
-            }
-        }
+        TraitContext::Shooting => trait_shot_quality_modifier(snap),
+        TraitContext::Dribbling => trait_carry_modifier(snap),
+        TraitContext::Passing => trait_pass_safety_modifier(snap),
+        TraitContext::Tackling => trait_tackle_modifier(snap),
+        TraitContext::Goalkeeping => trait_goalkeeping_modifier(snap),
+        TraitContext::Foul => trait_foul_risk_modifier(snap),
+        TraitContext::Midfield => trait_midfield_modifier(snap),
     }
-    bonus
+}
+
+pub(crate) fn trait_shot_tendency_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("Sharpshooter") {
+        modifier *= 1.12;
+    }
+    if snap.has_trait("CompleteForward") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("Dribbler") {
+        modifier *= 1.03;
+    }
+    if snap.has_trait("CoolHead") {
+        modifier *= 1.02;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn trait_shot_quality_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("Sharpshooter") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("CoolHead") {
+        modifier *= 1.05;
+    }
+    if snap.has_trait("CompleteForward") {
+        modifier *= 1.05;
+    }
+    if snap.has_trait("Visionary") {
+        modifier *= 1.02;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn trait_pass_safety_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("Playmaker") {
+        modifier *= 1.07;
+    }
+    if snap.has_trait("TeamPlayer") {
+        modifier *= 1.05;
+    }
+    if snap.has_trait("CoolHead") {
+        modifier *= 1.04;
+    }
+    if snap.has_trait("Visionary") {
+        modifier *= 1.02;
+    }
+    if snap.has_trait("HotHead") {
+        modifier *= 0.94;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn trait_pass_creativity_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("Visionary") {
+        modifier *= 1.10;
+    }
+    if snap.has_trait("Playmaker") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("SetPieceSpecialist") {
+        modifier *= 1.04;
+    }
+    if snap.has_trait("CompleteForward") {
+        modifier *= 1.03;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn trait_carry_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("Dribbler") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("Speedster") {
+        modifier *= 1.05;
+    }
+    if snap.has_trait("Agile") {
+        modifier *= 1.05;
+    }
+    if snap.has_trait("CompleteForward") {
+        modifier *= 1.03;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn trait_tackle_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("BallWinner") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("Rock") {
+        modifier *= 1.06;
+    }
+    if snap.has_trait("Tank") {
+        modifier *= 1.04;
+    }
+    if snap.has_trait("HotHead") {
+        modifier *= 0.96;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+pub(crate) fn trait_foul_risk_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("HotHead") {
+        modifier *= 1.30;
+    }
+    if snap.has_trait("BallWinner") {
+        modifier *= 1.06;
+    }
+    if snap.has_trait("CoolHead") {
+        modifier *= 0.72;
+    }
+    if snap.has_trait("TeamPlayer") {
+        modifier *= 0.95;
+    }
+    modifier.clamp(0.65, 1.45)
+}
+
+pub(crate) fn trait_press_work_rate_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("Engine") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("Tireless") {
+        modifier *= 1.06;
+    }
+    if snap.has_trait("TeamPlayer") {
+        modifier *= 1.04;
+    }
+    if snap.has_trait("Leader") {
+        modifier *= 1.03;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+fn trait_midfield_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier = trait_pass_creativity_modifier(snap);
+    if snap.has_trait("Engine") {
+        modifier *= 1.06;
+    }
+    if snap.has_trait("TeamPlayer") {
+        modifier *= 1.04;
+    }
+    if snap.has_trait("Tireless") {
+        modifier *= 1.03;
+    }
+    if snap.has_trait("Leader") {
+        modifier *= 1.03;
+    }
+    modifier.clamp(0.85, 1.18)
+}
+
+fn trait_goalkeeping_modifier(snap: &PlayerSnap) -> f64 {
+    let mut modifier: f64 = 1.0;
+    if snap.has_trait("SafeHands") {
+        modifier *= 1.08;
+    }
+    if snap.has_trait("CatReflexes") {
+        modifier *= 1.06;
+    }
+    if snap.has_trait("AerialDominance") {
+        modifier *= 1.04;
+    }
+    if snap.has_trait("CoolHead") {
+        modifier *= 1.02;
+    }
+    modifier.clamp(0.85, 1.18)
 }
 
 // ---------------------------------------------------------------------------

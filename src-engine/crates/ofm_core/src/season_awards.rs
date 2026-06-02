@@ -1,6 +1,6 @@
 use crate::game::Game;
 use chrono::{Datelike, NaiveDate};
-use domain::league::FixtureCompetition;
+use domain::league::{CompetitionKind, FixtureCompetition};
 use domain::player::{Player, Position};
 use domain::stats::StatsState;
 use serde::{Deserialize, Serialize};
@@ -176,12 +176,22 @@ pub fn compute_season_awards(game: &Game) -> SeasonAwards {
     }
 }
 
-/// True for the per-match `competition` values that represent domestic-league play.
-fn is_league_competition(competition: &FixtureCompetition) -> bool {
-    matches!(
-        competition,
-        FixtureCompetition::League | FixtureCompetition::DomesticLeague
-    )
+fn fixture_competition_matches_kind(competition: &FixtureCompetition, kind: Option<&CompetitionKind>) -> bool {
+    match kind {
+        Some(CompetitionKind::DomesticLeague) => matches!(
+            competition,
+            FixtureCompetition::League | FixtureCompetition::DomesticLeague
+        ),
+        Some(CompetitionKind::DomesticCup) => matches!(competition, FixtureCompetition::DomesticCup),
+        Some(CompetitionKind::ContinentalLeague) => {
+            matches!(competition, FixtureCompetition::ContinentalLeague)
+        }
+        Some(CompetitionKind::Friendly) => matches!(competition, FixtureCompetition::Friendly),
+        Some(CompetitionKind::PreseasonTournament) => {
+            matches!(competition, FixtureCompetition::PreseasonTournament)
+        }
+        None => true,
+    }
 }
 
 /// Per-competition aggregate of a player's match stats, scoped to one competition.
@@ -210,11 +220,17 @@ pub fn compute_competition_awards(
 ) -> SeasonAwards {
     // Resolve the competition's team set + season (competitions first, then the
     // legacy league fallback for older saves).
-    let (team_ids, season): (Vec<String>, u32) = game
+    let (team_ids, season, competition_kind): (Vec<String>, u32, Option<CompetitionKind>) = game
         .competitions
         .iter()
         .find(|competition| competition.id == competition_id)
-        .map(|competition| (competition.team_ids.clone(), competition.season))
+        .map(|competition| {
+            (
+                competition.team_ids.clone(),
+                competition.season,
+                Some(competition.kind.clone()),
+            )
+        })
         .or_else(|| {
             game.league
                 .as_ref()
@@ -225,7 +241,7 @@ pub fn compute_competition_awards(
                         .iter()
                         .map(|standing| standing.team_id.clone())
                         .collect();
-                    (ids, league.season)
+                    (ids, league.season, Some(CompetitionKind::DomesticLeague))
                 })
         })
         .unwrap_or_default();
@@ -254,7 +270,7 @@ pub fn compute_competition_awards(
         if record.season != season {
             continue;
         }
-        if !is_league_competition(&record.competition) {
+        if !fixture_competition_matches_kind(&record.competition, competition_kind.as_ref()) {
             continue;
         }
         if !team_id_set.contains(record.team_id.as_str()) {

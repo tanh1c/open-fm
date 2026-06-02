@@ -11,8 +11,8 @@ use crate::scouting;
 use crate::training;
 use crate::transfers;
 use chrono::Datelike;
-use domain::league::{FixtureStatus, GoalEvent, MatchResult};
-use domain::stats::StatsState;
+use domain::league::{Fixture, FixtureStatus, GoalEvent, MatchResult};
+use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
 use log::{debug, info};
 use std::collections::HashMap;
 
@@ -137,20 +137,25 @@ pub fn finish_live_match_day(game: &mut Game) {
 
 #[cfg(test)]
 mod tests {
-    use super::finish_live_match_day;
+    use super::{build_synthetic_stats_state, finish_live_match_day};
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
+    use domain::league::{Fixture, FixtureCompetition, FixtureStatus, GoalEvent, MatchResult};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
     use domain::staff::{Staff, StaffAttributes, StaffRole};
     use domain::team::Team;
 
     fn make_team() -> Team {
+        make_team_with_id("team1", "Test FC")
+    }
+
+    fn make_team_with_id(id: &str, name: &str) -> Team {
         let mut team = Team::new(
-            "team1".to_string(),
-            "Test FC".to_string(),
-            "TST".to_string(),
+            id.to_string(),
+            name.to_string(),
+            id.chars().take(3).collect::<String>().to_uppercase(),
             "England".to_string(),
             "London".to_string(),
             "Stadium".to_string(),
@@ -162,6 +167,10 @@ mod tests {
     }
 
     fn make_player() -> Player {
+        make_player_with_id("player1", "team1", Position::Midfielder)
+    }
+
+    fn make_player_with_id(id: &str, team_id: &str, position: Position) -> Player {
         let attrs = PlayerAttributes {
             pace: 65,
             stamina: 65,
@@ -184,15 +193,15 @@ mod tests {
             aerial: 60,
         };
         let mut player = Player::new(
-            "player1".to_string(),
-            "Player".to_string(),
-            "Test Player".to_string(),
+            id.to_string(),
+            id.to_string(),
+            format!("Test {id}"),
             "1995-01-01".to_string(),
             "GB".to_string(),
-            Position::Midfielder,
+            position,
             attrs,
         );
-        player.team_id = Some("team1".to_string());
+        player.team_id = Some(team_id.to_string());
         player.wage = 52_000;
         player
     }
@@ -245,6 +254,69 @@ mod tests {
             game.teams[0].finance,
             initial_finance - ((52_000 + 10_400) / 52)
         );
+    }
+
+    #[test]
+    fn synthetic_fast_sim_stats_include_cup_player_records() {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 8, 10, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+
+        let mut players = Vec::new();
+        for team_id in ["team1", "team2"] {
+            players.push(make_player_with_id(&format!("{team_id}-gk"), team_id, Position::Goalkeeper));
+            for index in 0..5 {
+                players.push(make_player_with_id(&format!("{team_id}-def-{index}"), team_id, Position::Defender));
+                players.push(make_player_with_id(&format!("{team_id}-mid-{index}"), team_id, Position::Midfielder));
+                players.push(make_player_with_id(&format!("{team_id}-fwd-{index}"), team_id, Position::Forward));
+            }
+        }
+
+        let game = Game::new(
+            clock,
+            manager,
+            vec![make_team_with_id("team1", "Home FC"), make_team_with_id("team2", "Away FC")],
+            players,
+            vec![],
+            vec![],
+        );
+        let fixture = Fixture {
+            id: "cup-fixture-1".to_string(),
+            matchday: 1,
+            date: "2025-08-10".to_string(),
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            competition_id: Some("cup-1".to_string()),
+            season: Some(2025),
+            competition: FixtureCompetition::DomesticCup,
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 2,
+                away_goals: 1,
+                home_scorers: Vec::<GoalEvent>::new(),
+                away_scorers: Vec::<GoalEvent>::new(),
+                report: None,
+            }),
+            stage: None,
+            leg: None,
+            tie_id: None,
+        };
+
+        let stats = build_synthetic_stats_state(&game, &fixture);
+
+        assert_eq!(stats.team_matches.len(), 2);
+        assert!(stats.player_matches.len() >= 22);
+        assert!(stats
+            .player_matches
+            .iter()
+            .any(|record| record.competition == FixtureCompetition::DomesticCup && record.goals > 0));
+        assert!(stats.player_matches.iter().all(|record| record.season == 2025));
     }
 }
 
@@ -363,14 +435,17 @@ pub fn simulate_other_matches_with_capture<F>(
             on_capture,
         );
     }
-    simulate_competition_matches_for_date(game, today, &indexes);
+    simulate_competition_matches_for_date(game, today, &indexes, on_capture);
 }
 
-fn simulate_competition_matches_for_date(
+fn simulate_competition_matches_for_date<F>(
     game: &mut Game,
     today: &str,
     indexes: &DaySimulationIndexes,
-) {
+    on_capture: &mut F,
+) where
+    F: FnMut(StatsState),
+{
     let legacy_league_id = game.league.as_ref().map(|league| league.id.as_str());
     let team_strengths: std::collections::HashMap<&str, u16> = game
         .teams
@@ -406,13 +481,23 @@ fn simulate_competition_matches_for_date(
             .enumerate()
             .map(|(standing_index, standing)| (standing.team_id.clone(), standing_index))
             .collect();
-        for fixture_index in fixture_indices {
-            apply_fast_competition_result(
-                competition,
-                fixture_index,
-                &team_strengths,
-                &mut standing_index_by_team,
-            );
+        let completed_fixtures = {
+            let mut completed_fixtures = Vec::new();
+            for fixture_index in fixture_indices {
+                if let Some(fixture) = apply_fast_competition_result(
+                    competition,
+                    fixture_index,
+                    &team_strengths,
+                    &mut standing_index_by_team,
+                ) {
+                    completed_fixtures.push(fixture);
+                }
+            }
+            completed_fixtures
+        };
+
+        for fixture in completed_fixtures {
+            on_capture(build_synthetic_stats_state(game, &fixture));
         }
     }
 }
@@ -422,7 +507,7 @@ fn apply_fast_competition_result(
     fixture_index: usize,
     team_strengths: &HashMap<&str, u16>,
     standing_index_by_team: &mut HashMap<String, usize>,
-) {
+) -> Option<Fixture> {
     let fixture = &competition.fixtures[fixture_index];
     let home_strength = team_strengths
         .get(fixture.home_team_id.as_str())
@@ -464,6 +549,291 @@ fn apply_fast_competition_result(
             standing.record_result(away_goals, home_goals);
         }
     }
+
+    Some(fixture.clone())
+}
+
+fn build_synthetic_stats_state(game: &Game, fixture: &Fixture) -> StatsState {
+    let Some(result) = fixture.result.as_ref() else {
+        return StatsState::default();
+    };
+
+    let (home_data, home_bench) = build_team_with_bench(game, &fixture.home_team_id);
+    let (away_data, away_bench) = build_team_with_bench(game, &fixture.away_team_id);
+    let home_players = synthetic_participants(&home_data, &home_bench, fixture_seed(&fixture.id));
+    let away_players = synthetic_participants(&away_data, &away_bench, fixture_seed(&fixture.id).wrapping_add(17));
+
+    let home_seed = fixture_seed(&fixture.id).wrapping_add(101);
+    let away_seed = fixture_seed(&fixture.id).wrapping_add(211);
+    let mut player_matches = Vec::new();
+    player_matches.extend(synthetic_player_records(
+        fixture,
+        &home_players,
+        &fixture.home_team_id,
+        &fixture.away_team_id,
+        result.home_goals,
+        result.away_goals,
+        home_seed,
+    ));
+    player_matches.extend(synthetic_player_records(
+        fixture,
+        &away_players,
+        &fixture.away_team_id,
+        &fixture.home_team_id,
+        result.away_goals,
+        result.home_goals,
+        away_seed,
+    ));
+
+    StatsState {
+        player_matches,
+        team_matches: vec![
+            synthetic_team_record(
+                fixture,
+                &fixture.home_team_id,
+                &fixture.away_team_id,
+                result.home_goals,
+                result.away_goals,
+                home_seed,
+            ),
+            synthetic_team_record(
+                fixture,
+                &fixture.away_team_id,
+                &fixture.home_team_id,
+                result.away_goals,
+                result.home_goals,
+                away_seed,
+            ),
+        ],
+    }
+}
+
+#[derive(Clone)]
+struct SyntheticPlayer {
+    id: String,
+    position: engine::Position,
+    ovr: u8,
+    minutes: u8,
+}
+
+fn synthetic_participants(
+    team: &engine::TeamData,
+    bench: &[engine::PlayerData],
+    seed: u32,
+) -> Vec<SyntheticPlayer> {
+    let mut players = team
+        .players
+        .iter()
+        .map(|player| SyntheticPlayer {
+            id: player.id.clone(),
+            position: player.position,
+            ovr: player.ovr,
+            minutes: 90,
+        })
+        .collect::<Vec<_>>();
+
+    for (index, substitute) in bench.iter().take(3).enumerate() {
+        if players.is_empty() {
+            break;
+        }
+        let replaced_index = ((seed as usize) + index * 3) % players.len();
+        players[replaced_index].minutes = players[replaced_index].minutes.saturating_sub(25);
+        players.push(SyntheticPlayer {
+            id: substitute.id.clone(),
+            position: substitute.position,
+            ovr: substitute.ovr,
+            minutes: 25,
+        });
+    }
+
+    players
+}
+
+fn synthetic_player_records(
+    fixture: &Fixture,
+    players: &[SyntheticPlayer],
+    team_id: &str,
+    opponent_team_id: &str,
+    goals_for: u8,
+    goals_against: u8,
+    seed: u32,
+) -> Vec<PlayerMatchStatsRecord> {
+    let scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
+        let position_weight = match player.position {
+            engine::Position::Forward => 90,
+            engine::Position::Midfielder => 50,
+            engine::Position::Defender => 14,
+            engine::Position::Goalkeeper => 1,
+        };
+        position_weight + player.ovr as u32
+    });
+    let assist_indices = pick_weighted_player_indices(
+        players,
+        goals_for.saturating_sub(1) as usize,
+        seed.wrapping_add(31),
+        |player| {
+            let position_weight = match player.position {
+                engine::Position::Midfielder => 80,
+                engine::Position::Forward => 55,
+                engine::Position::Defender => 28,
+                engine::Position::Goalkeeper => 1,
+            };
+            position_weight + player.ovr as u32
+        },
+    );
+    let yellow_indices = pick_weighted_player_indices(players, ((seed % 3) as usize).min(players.len()), seed.wrapping_add(59), |player| {
+        match player.position {
+            engine::Position::Defender => 70,
+            engine::Position::Midfielder => 45,
+            engine::Position::Forward => 20,
+            engine::Position::Goalkeeper => 8,
+        }
+    });
+
+    players
+        .iter()
+        .enumerate()
+        .map(|(index, player)| {
+            let goals = scorer_indices.iter().filter(|scorer_index| **scorer_index == index).count() as u8;
+            let assists = assist_indices.iter().filter(|assist_index| **assist_index == index).count() as u8;
+            let yellow_cards = u8::from(yellow_indices.contains(&index));
+            let is_goalkeeper = matches!(player.position, engine::Position::Goalkeeper);
+            let base_rating = 6.45
+                + (goals_for as f32 * 0.12)
+                - (goals_against as f32 * 0.08)
+                + (player.ovr as f32 - 60.0) * 0.01
+                + goals as f32 * 0.55
+                + assists as f32 * 0.32
+                + if is_goalkeeper && goals_against == 0 { 0.35 } else { 0.0 };
+            let rating_noise = ((seed.wrapping_add(index as u32 * 13) % 21) as f32 - 10.0) / 100.0;
+            let rating = (base_rating + rating_noise).clamp(5.4, 8.9);
+            let shot_bias = match player.position {
+                engine::Position::Forward => 2,
+                engine::Position::Midfielder => 1,
+                _ => 0,
+            };
+            let shots = (goals + shot_bias + ((seed.wrapping_add(index as u32) % 2) as u8)).min(6);
+            let shots_on_target = shots.min(goals.saturating_add(1));
+            let passes_attempted = match player.position {
+                engine::Position::Goalkeeper => 28,
+                engine::Position::Defender => 44,
+                engine::Position::Midfielder => 52,
+                engine::Position::Forward => 30,
+            } + (player.minutes / 15);
+            let passes_completed = ((passes_attempted as f32) * (0.72 + (player.ovr as f32 / 500.0))).round() as u8;
+
+            PlayerMatchStatsRecord {
+                fixture_id: fixture.id.clone(),
+                season: fixture.season.unwrap_or(1),
+                matchday: fixture.matchday,
+                date: fixture.date.clone(),
+                competition: fixture.competition.clone(),
+                player_id: player.id.clone(),
+                team_id: team_id.to_string(),
+                opponent_team_id: opponent_team_id.to_string(),
+                home_team_id: fixture.home_team_id.clone(),
+                away_team_id: fixture.away_team_id.clone(),
+                home_goals: fixture.result.as_ref().map_or(0, |result| result.home_goals),
+                away_goals: fixture.result.as_ref().map_or(0, |result| result.away_goals),
+                minutes_played: player.minutes,
+                goals,
+                assists,
+                shots,
+                shots_on_target,
+                passes_completed,
+                passes_attempted,
+                tackles_won: synthetic_defensive_count(player.position, seed, index, 3),
+                interceptions: synthetic_defensive_count(player.position, seed.wrapping_add(7), index, 2),
+                fouls_committed: synthetic_defensive_count(player.position, seed.wrapping_add(11), index, 2),
+                yellow_cards,
+                red_cards: u8::from(yellow_cards == 1 && seed.wrapping_add(index as u32) % 47 == 0),
+                rating,
+            }
+        })
+        .collect()
+}
+
+fn pick_weighted_player_indices(
+    players: &[SyntheticPlayer],
+    count: usize,
+    seed: u32,
+    weight: impl Fn(&SyntheticPlayer) -> u32,
+) -> Vec<usize> {
+    if players.is_empty() || count == 0 {
+        return Vec::new();
+    }
+
+    let total_weight = players.iter().map(&weight).sum::<u32>().max(1);
+    (0..count)
+        .map(|offset| {
+            let mut target = seed
+                .wrapping_mul(37)
+                .wrapping_add(offset as u32 * 19)
+                % total_weight;
+            for (index, player) in players.iter().enumerate() {
+                let player_weight = weight(player);
+                if target < player_weight {
+                    return index;
+                }
+                target = target.saturating_sub(player_weight);
+            }
+            players.len() - 1
+        })
+        .collect()
+}
+
+fn synthetic_defensive_count(position: engine::Position, seed: u32, index: usize, max_extra: u8) -> u8 {
+    let base = match position {
+        engine::Position::Goalkeeper => 0,
+        engine::Position::Defender => 2,
+        engine::Position::Midfielder => 1,
+        engine::Position::Forward => 0,
+    };
+    base + (seed.wrapping_add(index as u32) % (max_extra as u32 + 1)) as u8
+}
+
+fn synthetic_team_record(
+    fixture: &Fixture,
+    team_id: &str,
+    opponent_team_id: &str,
+    goals_for: u8,
+    goals_against: u8,
+    seed: u32,
+) -> TeamMatchStatsRecord {
+    let shots = 8 + goals_for as u16 * 3 + (seed % 5) as u16;
+    let shots_on_target = (goals_for as u16 + 2 + (seed % 3) as u16).min(shots);
+    let passes_attempted = 330 + (seed % 90) as u16;
+    let passes_completed = ((passes_attempted as f32) * 0.78).round() as u16;
+
+    TeamMatchStatsRecord {
+        fixture_id: fixture.id.clone(),
+        season: fixture.season.unwrap_or(1),
+        matchday: fixture.matchday,
+        date: fixture.date.clone(),
+        competition: fixture.competition.clone(),
+        team_id: team_id.to_string(),
+        opponent_team_id: opponent_team_id.to_string(),
+        home_team_id: fixture.home_team_id.clone(),
+        away_team_id: fixture.away_team_id.clone(),
+        goals_for,
+        goals_against,
+        possession_pct: (48 + (seed % 9) as u8).clamp(35, 65),
+        shots,
+        shots_on_target,
+        passes_completed,
+        passes_attempted,
+        tackles_won: 12 + (seed % 9) as u16,
+        interceptions: 8 + (seed % 7) as u16,
+        fouls_committed: 8 + (seed % 8) as u16,
+        yellow_cards: (seed % 3) as u8,
+        red_cards: u8::from(seed % 61 == 0),
+    }
+}
+
+fn fixture_seed(fixture_id: &str) -> u32 {
+    fixture_id.bytes().fold(0_u32, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(byte as u32)
+    })
 }
 
 fn simulate_single_match_with_capture<F>(

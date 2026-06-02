@@ -548,6 +548,19 @@ mod tests {
                 standings: vec![],
                 transfer_log: vec![],
             },
+            domain::league::Competition {
+                id: "continental-1".to_string(),
+                name: "Test Continental".to_string(),
+                season: 2026,
+                kind: domain::league::CompetitionKind::ContinentalLeague,
+                format: domain::league::CompetitionFormat::RoundRobin,
+                country: None,
+                tier: None,
+                team_ids: vec!["t1".to_string(), "t2".to_string()],
+                fixtures: vec![],
+                standings: vec![],
+                transfer_log: vec![],
+            },
         ];
         game
     }
@@ -659,6 +672,81 @@ mod tests {
         assert_eq!(board.yellow_cards[0].value, 1);
         assert_eq!(board.average_ratings[0].player_id, "striker");
         assert!((board.average_ratings[0].value - 8.2).abs() < 0.01);
+    }
+
+    #[test]
+    fn global_leaderboards_aggregate_all_competitions_when_type_is_empty() {
+        let game = test_game();
+        let mut stats = StatsState::default();
+        stats.player_matches.push(player_match(
+            FixtureCompetition::DomesticLeague,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            2,
+            0,
+            2,
+            1,
+        ));
+        stats.player_matches.push(player_match(
+            FixtureCompetition::DomesticCup,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            1,
+            0,
+            1,
+            2,
+        ));
+        stats.player_matches.push(player_match(
+            FixtureCompetition::ContinentalLeague,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            3,
+            1,
+            3,
+            1,
+        ));
+
+        let board = compute_global_player_leaderboards(
+            &game,
+            &stats,
+            GlobalPlayerLeaderboardQuery {
+                season: Some(2026),
+                country: None,
+                competition_type: None,
+                position: None,
+                limit: Some(10),
+            },
+        );
+
+        assert_eq!(board.top_scorers[0].player_id, "striker");
+        assert_eq!(board.top_scorers[0].value, 6);
+        assert_eq!(board.top_assists[0].player_id, "striker");
+        assert_eq!(board.top_assists[0].value, 4);
+        assert_eq!(board.appearances[0].value, 3);
+        assert_eq!(board.minutes[0].value, 270);
+
+        let cup_board = compute_global_player_leaderboards(
+            &game,
+            &stats,
+            GlobalPlayerLeaderboardQuery {
+                season: Some(2026),
+                country: None,
+                competition_type: Some("DomesticCup".to_string()),
+                position: None,
+                limit: Some(10),
+            },
+        );
+
+        assert_eq!(cup_board.top_scorers[0].value, 1);
+        assert_eq!(cup_board.top_assists[0].value, 2);
+        assert_eq!(cup_board.appearances[0].value, 1);
+        assert_eq!(cup_board.minutes[0].value, 90);
     }
 
     #[test]

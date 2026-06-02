@@ -180,8 +180,17 @@ pub fn generate_youth_academy_recruit_with_nationality(
         _ => &[8, 15, 21],
     };
     let slot_index = youth_slots[rng.random_range(0..youth_slots.len())];
-    let mut player =
-        generate_random_player_from_def(&team.id, slot_index, &nationality, &names_def, &mut rng);
+    let mut player = generate_random_player_from_def(
+        &team.id,
+        slot_index,
+        &nationality,
+        &names_def,
+        PlayerGenerationQuality {
+            reputation: team.reputation,
+            domestic_tier: team.domestic_tier,
+        },
+        &mut rng,
+    );
     player.squad_role = SquadRole::Youth;
     player.transfer_listed = false;
     player.loan_listed = false;
@@ -277,8 +286,17 @@ pub fn generate_world(
         // Generate 22 players
         for j in 0..22 {
             let nationality = pick_nationality_from_def(&tdef.country, &country_codes, &mut rng);
-            let mut player =
-                generate_random_player_from_def(&team_id, j, &nationality, &names_def, &mut rng);
+            let mut player = generate_random_player_from_def(
+                &team_id,
+                j,
+                &nationality,
+                &names_def,
+                PlayerGenerationQuality {
+                    reputation: team.reputation,
+                    domestic_tier: team.domestic_tier,
+                },
+                &mut rng,
+            );
             if rng.random_range(0..100) < 12 {
                 player.transfer_listed = true;
             } else if rng.random_range(0..100) < 8 {
@@ -546,6 +564,64 @@ mod tests {
             players
                 .iter()
                 .all(|player| player.natural_position == player.position)
+        );
+    }
+
+    #[test]
+    fn test_generated_players_reflect_team_quality_and_squad_roles() {
+        let names_def = default_names_definition();
+        let mut rng = rand::rng();
+        let high_quality = PlayerGenerationQuality {
+            reputation: 900,
+            domestic_tier: Some(1),
+        };
+        let low_quality = PlayerGenerationQuality {
+            reputation: 300,
+            domestic_tier: Some(4),
+        };
+
+        let high_players = (0..22)
+            .map(|index| {
+                generate_random_player_from_def(
+                    "high",
+                    index,
+                    "ENG",
+                    &names_def,
+                    high_quality,
+                    &mut rng,
+                )
+            })
+            .collect::<Vec<_>>();
+        let low_players = (0..22)
+            .map(|index| {
+                generate_random_player_from_def(
+                    "low",
+                    index,
+                    "ENG",
+                    &names_def,
+                    low_quality,
+                    &mut rng,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let avg_ovr = |players: &[Player]| {
+            players.iter().map(|player| player.ovr as u32).sum::<u32>() as f64 / players.len() as f64
+        };
+        let high_avg = avg_ovr(&high_players);
+        let low_avg = avg_ovr(&low_players);
+        assert!(
+            high_avg > low_avg + 8.0,
+            "high quality avg {high_avg} should exceed low quality avg {low_avg}"
+        );
+
+        let mut high_ovrs = high_players.iter().map(|player| player.ovr).collect::<Vec<_>>();
+        high_ovrs.sort_unstable();
+        let top_three = high_ovrs.iter().rev().take(3).map(|ovr| *ovr as u32).sum::<u32>() as f64 / 3.0;
+        let bottom_three = high_ovrs.iter().take(3).map(|ovr| *ovr as u32).sum::<u32>() as f64 / 3.0;
+        assert!(
+            top_three > bottom_three + 8.0,
+            "top squad band {top_three} should clear backup band {bottom_three}"
         );
     }
 

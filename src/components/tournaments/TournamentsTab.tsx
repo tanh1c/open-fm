@@ -1772,6 +1772,11 @@ function GlobalLeaderboardsPanel({
   return (
     <div className="flex flex-col gap-4 p-4">
       <TemplateCard className="p-4">
+        <div className="mb-3">
+          <p className="text-xs font-medium text-app-text-muted">
+            {t("tournaments.globalLeaderboardsScope", { defaultValue: "Season totals across all selected competitions." })}
+          </p>
+        </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <FilterSelect
             label={t("schedule.season", { number: "" }).trim() || "Season"}
@@ -1796,7 +1801,7 @@ function GlobalLeaderboardsPanel({
             value={filters.competition_type ?? ""}
             onChange={(value) => updateFilter("competition_type", value)}
             options={[
-              { value: "", label: t("common.all", { defaultValue: "All" }) },
+              { value: "", label: t("tournaments.allCompetitions", { defaultValue: "All competitions" }) },
               { value: "DomesticLeague", label: t("tournaments.domesticLeague", { defaultValue: "Domestic League" }) },
               { value: "DomesticCup", label: t("tournaments.domesticCup", { defaultValue: "Domestic Cup" }) },
               { value: "ContinentalLeague", label: t("tournaments.continental", { defaultValue: "Continental" }) },

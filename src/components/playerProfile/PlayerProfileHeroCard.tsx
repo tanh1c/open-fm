@@ -1,6 +1,6 @@
-import { Shield } from "lucide-react";
+import { RotateCcw, Shield, TimerOff, Trash2 } from "lucide-react";
 import { countryName } from "../../lib/countries";
-import { positionBadgeVariant } from "../../lib/helpers";
+import { formatDate, getContractRiskBadgeVariant, getContractYearsRemaining, positionBadgeVariant } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
 import { buildViewTeamMenuItem } from "../playerActions/playerContextMenuItems";
@@ -12,7 +12,7 @@ import type {
 } from "./PlayerProfile.scouting";
 import PlayerProfileScoutAction from "./PlayerProfileScoutAction";
 import { TraitList } from "../TraitBadge";
-import { Badge, Card, CountryFlag } from "../ui";
+import { Badge, Button, Card, CountryFlag } from "../ui";
 
 type TranslateFn = (
     key: string,
@@ -29,11 +29,20 @@ interface PlayerProfileHeroCardProps {
     weakFootValue: number;
     weeklySuffix: string;
     language: string;
+    currentDate: string;
+    contractRiskLevel: "critical" | "warning" | "stable";
+    contractRiskLabel: string;
+    hasLetExpireIntent: boolean;
+    actionSubmitting: boolean;
     isOwnClub: boolean;
     scoutAvailability: ScoutAvailability;
     scoutStatus: PlayerProfileScoutStatus;
     scoutError: string | null;
     onScout: () => void;
+    onOpenRenewal: () => void;
+    onMarkLetExpire: () => void;
+    onClearLetExpire: () => void;
+    onOpenTermination: () => void;
     onSelectTeam?: (id: string) => void;
     t: TranslateFn;
 }
@@ -48,11 +57,20 @@ export default function PlayerProfileHeroCard({
     weakFootValue,
     weeklySuffix,
     language,
+    currentDate,
+    contractRiskLevel,
+    contractRiskLabel,
+    hasLetExpireIntent,
+    actionSubmitting,
     isOwnClub,
     scoutAvailability,
     scoutStatus,
     scoutError,
     onScout,
+    onOpenRenewal,
+    onMarkLetExpire,
+    onClearLetExpire,
+    onOpenTermination,
     onSelectTeam,
     t,
 }: PlayerProfileHeroCardProps) {
@@ -129,6 +147,71 @@ export default function PlayerProfileHeroCard({
                                 <TraitList traits={player.traits} size="sm" />
                             </div>
                         ) : null}
+
+                        <div className="mt-3 grid gap-2 text-xs text-gray-300 sm:grid-cols-2 xl:grid-cols-4">
+                            <CompactInfo label={t("playerProfile.dateOfBirth")} value={formatDate(player.date_of_birth, language)} />
+                            <CompactInfo
+                                label={t("common.contract")}
+                                value={
+                                    player.contract_end
+                                        ? t("finances.contractExpiresOn", { date: player.contract_end })
+                                        : t("playerProfile.noContract")
+                                }
+                            />
+                            <CompactInfo
+                                label={t("playerProfile.yearsRemaining")}
+                                value={getContractYearsRemaining(player.contract_end, currentDate)}
+                            />
+                            <div className="rounded-lg bg-white/5 px-3 py-2">
+                                <p className="font-heading text-[10px] uppercase tracking-wider text-gray-400">
+                                    {t("playerProfile.contractRisk")}
+                                </p>
+                                <Badge variant={getContractRiskBadgeVariant(contractRiskLevel)}>
+                                    {contractRiskLabel}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        {isOwnClub ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {hasLetExpireIntent ? (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        icon={<RotateCcw />}
+                                        disabled={actionSubmitting}
+                                        onClick={onClearLetExpire}
+                                    >
+                                        {t("playerProfile.reopenContractTalks")}
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <Button size="sm" variant="outline" onClick={onOpenRenewal}>
+                                            {t("common.renewContract")}
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            icon={<TimerOff />}
+                                            disabled={actionSubmitting}
+                                            onClick={onMarkLetExpire}
+                                        >
+                                            {t("playerProfile.letContractExpire")}
+                                        </Button>
+                                    </>
+                                )}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    icon={<Trash2 />}
+                                    className="text-red-400 hover:text-red-300"
+                                    disabled={actionSubmitting || player.contract_end === null}
+                                    onClick={onOpenTermination}
+                                >
+                                    {t("playerProfile.terminateContract")}
+                                </Button>
+                            </div>
+                        ) : null}
                     </div>
 
                     {!isOwnClub ? (
@@ -190,6 +273,19 @@ export default function PlayerProfileHeroCard({
                 />
             </div>
         </Card>
+    );
+}
+
+function CompactInfo({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="min-w-0 rounded-lg bg-white/5 px-3 py-2">
+            <p className="truncate font-heading text-[10px] uppercase tracking-wider text-gray-400">
+                {label}
+            </p>
+            <p className="truncate font-heading text-xs font-bold text-white">
+                {value}
+            </p>
+        </div>
     );
 }
 

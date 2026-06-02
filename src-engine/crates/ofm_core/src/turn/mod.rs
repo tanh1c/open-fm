@@ -137,7 +137,10 @@ pub fn finish_live_match_day(game: &mut Game) {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_synthetic_stats_state, finish_live_match_day};
+    use super::{
+        assist_weight, build_synthetic_stats_state, finish_live_match_day, scorer_weight, star_minutes_priority,
+        synthetic_replaced_starter_index, SyntheticPlayer, SyntheticUsage,
+    };
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
@@ -254,6 +257,91 @@ mod tests {
             game.teams[0].finance,
             initial_finance - ((52_000 + 10_400) / 52)
         );
+    }
+
+    fn synthetic_player(
+        id: &str,
+        position: engine::Position,
+        ovr: u8,
+        shooting: u8,
+        passing: u8,
+        vision: u8,
+    ) -> SyntheticPlayer {
+        SyntheticPlayer {
+            id: id.to_string(),
+            position,
+            ovr,
+            minutes: 90,
+            shooting,
+            passing,
+            positioning: shooting,
+            vision,
+            decisions: passing.max(vision),
+            composure: shooting,
+            dribbling: passing,
+            aerial: shooting.saturating_sub(10),
+        }
+    }
+
+    #[test]
+    fn synthetic_goal_and_assist_weights_favour_elite_attackers_and_creators() {
+        let elite_forward = synthetic_player("elite-forward", engine::Position::Forward, 91, 94, 74, 72);
+        let average_forward = synthetic_player("average-forward", engine::Position::Forward, 66, 68, 56, 54);
+        let elite_creator = synthetic_player("elite-creator", engine::Position::Midfielder, 89, 72, 95, 94);
+        let average_midfielder = synthetic_player("average-midfielder", engine::Position::Midfielder, 65, 58, 65, 63);
+
+        assert!(scorer_weight(&elite_forward) * 2 > scorer_weight(&average_forward) * 3);
+        assert!(assist_weight(&elite_creator) * 2 > assist_weight(&average_midfielder) * 3);
+        assert!(scorer_weight(&elite_forward) > scorer_weight(&elite_creator));
+        assert!(assist_weight(&elite_creator) > assist_weight(&elite_forward));
+    }
+
+    #[test]
+    fn synthetic_rotation_protects_primary_stars_from_substitution() {
+        let elite_forward = synthetic_player("elite-forward", engine::Position::Forward, 92, 95, 78, 74);
+        let elite_creator = synthetic_player("elite-creator", engine::Position::Midfielder, 90, 74, 96, 95);
+        let average_forward = synthetic_player("average-forward", engine::Position::Forward, 67, 68, 58, 55);
+        let average_midfielder = synthetic_player("average-midfielder", engine::Position::Midfielder, 64, 55, 62, 60);
+        let average_defender = synthetic_player("average-defender", engine::Position::Defender, 66, 45, 60, 52);
+        let players = vec![
+            elite_forward.clone(),
+            elite_creator.clone(),
+            average_forward,
+            average_midfielder,
+            average_defender,
+        ];
+        let usage = SyntheticUsage::new(&players);
+
+        assert!(star_minutes_priority(&elite_forward, &usage) > star_minutes_priority(&players[2], &usage));
+        assert!(star_minutes_priority(&elite_creator, &usage) > star_minutes_priority(&players[3], &usage));
+
+        for substitution_index in 0..3 {
+            let replaced_index = synthetic_replaced_starter_index(&players, &usage, 17, substitution_index);
+            assert_ne!(players[replaced_index].id, "elite-forward");
+            assert_ne!(players[replaced_index].id, "elite-creator");
+        }
+    }
+
+    #[test]
+    fn synthetic_usage_concentrates_goals_and_assists_around_primary_players() {
+        let elite_forward = synthetic_player("elite-forward", engine::Position::Forward, 91, 94, 74, 72);
+        let average_forward = synthetic_player("average-forward", engine::Position::Forward, 66, 68, 56, 54);
+        let elite_creator = synthetic_player("elite-creator", engine::Position::Midfielder, 89, 72, 95, 94);
+        let average_midfielder = synthetic_player("average-midfielder", engine::Position::Midfielder, 65, 58, 65, 63);
+        let high_ovr_defender = synthetic_player("high-ovr-defender", engine::Position::Defender, 92, 55, 70, 62);
+        let players = vec![
+            elite_forward.clone(),
+            average_forward.clone(),
+            elite_creator.clone(),
+            average_midfielder.clone(),
+            high_ovr_defender.clone(),
+        ];
+        let usage = SyntheticUsage::new(&players);
+
+        assert!(usage.scorer_weight(&elite_forward) > usage.scorer_weight(&average_forward) * 2);
+        assert!(usage.assist_weight(&elite_creator) > usage.assist_weight(&average_midfielder) * 2);
+        assert!(usage.scorer_weight(&elite_forward) > usage.scorer_weight(&high_ovr_defender) * 3);
+        assert!(usage.assist_weight(&elite_creator) > usage.assist_weight(&high_ovr_defender));
     }
 
     #[test]
@@ -614,6 +702,14 @@ struct SyntheticPlayer {
     position: engine::Position,
     ovr: u8,
     minutes: u8,
+    shooting: u8,
+    passing: u8,
+    positioning: u8,
+    vision: u8,
+    decisions: u8,
+    composure: u8,
+    dribbling: u8,
+    aerial: u8,
 }
 
 fn synthetic_participants(
@@ -629,24 +725,83 @@ fn synthetic_participants(
             position: player.position,
             ovr: player.ovr,
             minutes: 90,
+            shooting: player.shooting,
+            passing: player.passing,
+            positioning: player.positioning,
+            vision: player.vision,
+            decisions: player.decisions,
+            composure: player.composure,
+            dribbling: player.dribbling,
+            aerial: player.aerial,
         })
         .collect::<Vec<_>>();
 
+    let starter_count = players.len();
     for (index, substitute) in bench.iter().take(3).enumerate() {
-        if players.is_empty() {
+        if starter_count == 0 {
             break;
         }
-        let replaced_index = ((seed as usize) + index * 3) % players.len();
-        players[replaced_index].minutes = players[replaced_index].minutes.saturating_sub(25);
+        let starters = &players[..starter_count];
+        let usage = SyntheticUsage::new(starters);
+        let replaced_index = synthetic_replaced_starter_index(starters, &usage, seed, index);
+        let minute_loss = synthetic_substitution_minute_loss(seed, index);
+        players[replaced_index].minutes = players[replaced_index].minutes.saturating_sub(minute_loss);
         players.push(SyntheticPlayer {
             id: substitute.id.clone(),
             position: substitute.position,
             ovr: substitute.ovr,
-            minutes: 25,
+            minutes: minute_loss,
+            shooting: substitute.shooting,
+            passing: substitute.passing,
+            positioning: substitute.positioning,
+            vision: substitute.vision,
+            decisions: substitute.decisions,
+            composure: substitute.composure,
+            dribbling: substitute.dribbling,
+            aerial: substitute.aerial,
         });
     }
 
     players
+}
+
+fn synthetic_substitution_minute_loss(seed: u32, index: usize) -> u8 {
+    15 + (seed.wrapping_add(index as u32 * 11) % 16) as u8
+}
+
+fn synthetic_replaced_starter_index(
+    players: &[SyntheticPlayer],
+    usage: &SyntheticUsage,
+    seed: u32,
+    substitution_index: usize,
+) -> usize {
+    let offset = seed.wrapping_add(substitution_index as u32 * 7) as usize;
+    players
+        .iter()
+        .enumerate()
+        .filter(|(_, player)| !matches!(player.position, engine::Position::Goalkeeper))
+        .max_by_key(|(index, player)| {
+            let rotation_score = 1_200_u32.saturating_sub(star_minutes_priority(player, usage));
+            (rotation_score, (index + offset) % players.len())
+        })
+        .map(|(index, _)| index)
+        .unwrap_or(offset % players.len())
+}
+
+fn star_minutes_priority(player: &SyntheticPlayer, usage: &SyntheticUsage) -> u32 {
+    let role_bonus = if usage.primary_finisher.as_deref() == Some(player.id.as_str()) {
+        360
+    } else if usage.primary_creator.as_deref() == Some(player.id.as_str()) {
+        300
+    } else if usage.secondary_finisher.as_deref() == Some(player.id.as_str()) {
+        180
+    } else if usage.secondary_creator.as_deref() == Some(player.id.as_str()) {
+        140
+    } else {
+        0
+    };
+
+    player.ovr as u32 * 5 + role_bonus + star_rating_bonus(player.ovr) * 3
 }
 
 fn synthetic_player_records(
@@ -658,29 +813,19 @@ fn synthetic_player_records(
     goals_against: u8,
     seed: u32,
 ) -> Vec<PlayerMatchStatsRecord> {
-    let scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
-        let position_weight = match player.position {
-            engine::Position::Forward => 90,
-            engine::Position::Midfielder => 50,
-            engine::Position::Defender => 14,
-            engine::Position::Goalkeeper => 1,
-        };
-        position_weight + player.ovr as u32
+    let usage = SyntheticUsage::new(players);
+    let mut scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
+        usage.scorer_weight(player)
     });
-    let assist_indices = pick_weighted_player_indices(
+    usage.apply_finisher_preference(players, &mut scorer_indices, seed);
+
+    let mut assist_indices = pick_weighted_player_indices(
         players,
         goals_for.saturating_sub(1) as usize,
         seed.wrapping_add(31),
-        |player| {
-            let position_weight = match player.position {
-                engine::Position::Midfielder => 80,
-                engine::Position::Forward => 55,
-                engine::Position::Defender => 28,
-                engine::Position::Goalkeeper => 1,
-            };
-            position_weight + player.ovr as u32
-        },
+        |player| usage.assist_weight(player),
     );
+    usage.apply_creator_preference(players, &mut assist_indices, seed.wrapping_add(31));
     let yellow_indices = pick_weighted_player_indices(players, ((seed % 3) as usize).min(players.len()), seed.wrapping_add(59), |player| {
         match player.position {
             engine::Position::Defender => 70,
@@ -751,6 +896,200 @@ fn synthetic_player_records(
             }
         })
         .collect()
+}
+
+#[derive(Default)]
+struct SyntheticUsage {
+    primary_finisher: Option<String>,
+    secondary_finisher: Option<String>,
+    primary_creator: Option<String>,
+    secondary_creator: Option<String>,
+}
+
+impl SyntheticUsage {
+    fn new(players: &[SyntheticPlayer]) -> Self {
+        let mut finishers = players
+            .iter()
+            .filter(|player| !matches!(player.position, engine::Position::Goalkeeper))
+            .map(|player| (player.id.clone(), finisher_score(player)))
+            .collect::<Vec<_>>();
+        finishers.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+
+        let mut creators = players
+            .iter()
+            .filter(|player| !matches!(player.position, engine::Position::Goalkeeper))
+            .map(|player| (player.id.clone(), creator_score(player)))
+            .collect::<Vec<_>>();
+        creators.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+
+        Self {
+            primary_finisher: finishers.first().map(|(id, _)| id.clone()),
+            secondary_finisher: finishers.get(1).map(|(id, _)| id.clone()),
+            primary_creator: creators.first().map(|(id, _)| id.clone()),
+            secondary_creator: creators.get(1).map(|(id, _)| id.clone()),
+        }
+    }
+
+    fn scorer_weight(&self, player: &SyntheticPlayer) -> u32 {
+        let base = scorer_weight(player);
+        let usage_bonus = if self.primary_finisher.as_deref() == Some(player.id.as_str()) {
+            base * 3 / 2 + 300
+        } else if self.secondary_finisher.as_deref() == Some(player.id.as_str()) {
+            base * 3 / 4 + 120
+        } else {
+            0
+        };
+
+        role_capped_scorer_weight(player, base + usage_bonus)
+    }
+
+    fn assist_weight(&self, player: &SyntheticPlayer) -> u32 {
+        let base = assist_weight(player);
+        let usage_bonus = if self.primary_creator.as_deref() == Some(player.id.as_str()) {
+            base * 4 / 5 + 150
+        } else if self.secondary_creator.as_deref() == Some(player.id.as_str()) {
+            base / 2 + 75
+        } else {
+            0
+        };
+
+        role_capped_assist_weight(player, base + usage_bonus)
+    }
+
+    fn apply_finisher_preference(&self, players: &[SyntheticPlayer], indices: &mut [usize], seed: u32) {
+        if indices.is_empty() {
+            return;
+        }
+
+        if seed % 100 < 78
+            && let Some(index) = self.player_index(players, self.primary_finisher.as_deref())
+        {
+            indices[0] = index;
+        }
+        if indices.len() > 1
+            && seed.wrapping_add(17) % 100 < 22
+            && let Some(index) = self.player_index(players, self.secondary_finisher.as_deref())
+        {
+            indices[1] = index;
+        }
+    }
+
+    fn apply_creator_preference(&self, players: &[SyntheticPlayer], indices: &mut [usize], seed: u32) {
+        if indices.is_empty() {
+            return;
+        }
+
+        if seed % 100 < 68
+            && let Some(index) = self.player_index(players, self.primary_creator.as_deref())
+        {
+            indices[0] = index;
+        }
+        if indices.len() > 1
+            && seed.wrapping_add(23) % 100 < 18
+            && let Some(index) = self.player_index(players, self.secondary_creator.as_deref())
+        {
+            indices[1] = index;
+        }
+    }
+
+    fn player_index(&self, players: &[SyntheticPlayer], player_id: Option<&str>) -> Option<usize> {
+        let player_id = player_id?;
+        players.iter().position(|player| player.id == player_id)
+    }
+}
+
+fn star_rating_bonus(ovr: u8) -> u32 {
+    let above_baseline = ovr.saturating_sub(60) as u32;
+    above_baseline + (above_baseline * above_baseline) / 18
+}
+
+fn elite_usage_bonus(ovr: u8) -> u32 {
+    let excellent = ovr.saturating_sub(84) as u32;
+    let world_class = ovr.saturating_sub(90) as u32;
+    excellent * 12 + world_class * 24
+}
+
+fn finisher_score(player: &SyntheticPlayer) -> u32 {
+    let position_weight = match player.position {
+        engine::Position::Forward => 260,
+        engine::Position::Midfielder => 95,
+        engine::Position::Defender => 24,
+        engine::Position::Goalkeeper => 0,
+    };
+
+    position_weight
+        + player.shooting as u32 * 4
+        + player.positioning as u32 * 3
+        + player.composure as u32 * 3
+        + player.aerial as u32
+        + player.ovr as u32 * 2
+        + elite_usage_bonus(player.ovr)
+}
+
+fn creator_score(player: &SyntheticPlayer) -> u32 {
+    let position_weight = match player.position {
+        engine::Position::Midfielder => 245,
+        engine::Position::Forward => 135,
+        engine::Position::Defender => 55,
+        engine::Position::Goalkeeper => 0,
+    };
+
+    position_weight
+        + player.passing as u32 * 4
+        + player.vision as u32 * 4
+        + player.decisions as u32 * 3
+        + player.dribbling as u32 * 2
+        + player.ovr as u32 * 2
+        + elite_usage_bonus(player.ovr)
+}
+
+fn scorer_weight(player: &SyntheticPlayer) -> u32 {
+    let position_weight = match player.position {
+        engine::Position::Forward => 155,
+        engine::Position::Midfielder => 58,
+        engine::Position::Defender => 12,
+        engine::Position::Goalkeeper => 1,
+    };
+    let skill_weight = player.shooting as u32 * 3
+        + player.positioning as u32 * 2
+        + player.composure as u32 * 2
+        + player.aerial as u32
+        + player.ovr as u32 * 2;
+
+    position_weight + skill_weight / 2 + star_rating_bonus(player.ovr) * 8
+}
+
+fn assist_weight(player: &SyntheticPlayer) -> u32 {
+    let position_weight = match player.position {
+        engine::Position::Midfielder => 145,
+        engine::Position::Forward => 86,
+        engine::Position::Defender => 34,
+        engine::Position::Goalkeeper => 1,
+    };
+    let skill_weight = player.passing as u32 * 3
+        + player.vision as u32 * 3
+        + player.decisions as u32 * 2
+        + player.dribbling as u32
+        + player.ovr as u32 * 2;
+
+    position_weight + skill_weight / 2 + star_rating_bonus(player.ovr) * 7
+}
+
+fn role_capped_scorer_weight(player: &SyntheticPlayer, weight: u32) -> u32 {
+    match player.position {
+        engine::Position::Goalkeeper => weight.min(8),
+        engine::Position::Defender => weight.min(170),
+        engine::Position::Midfielder => weight.min(720),
+        engine::Position::Forward => weight,
+    }
+}
+
+fn role_capped_assist_weight(player: &SyntheticPlayer, weight: u32) -> u32 {
+    match player.position {
+        engine::Position::Goalkeeper => weight.min(8),
+        engine::Position::Defender => weight.min(420),
+        engine::Position::Midfielder | engine::Position::Forward => weight,
+    }
 }
 
 fn pick_weighted_player_indices(

@@ -39,6 +39,8 @@ vi.mock("react-i18next", () => ({
       if (key === "tournaments.globalLeaderboardsTab") return params?.defaultValue?.toString() ?? "Global";
       if (key === "tournaments.viewGlobalLeaderboard") return "View Global Leaderboard";
       if (key === "tournaments.competitionType") return "Competition type";
+      if (key === "tournaments.allCompetitions") return "All competitions";
+      if (key === "tournaments.globalLeaderboardsScope") return "Season totals across all selected competitions.";
       if (key === "tournaments.domesticLeague") return "Domestic League";
       if (key === "tournaments.domesticCup") return "Domestic Cup";
       if (key === "tournaments.continental") return "Continental";
@@ -408,6 +410,8 @@ describe("TournamentsTab", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Global$/i }));
 
     expect(await screen.findByText("John Smith")).toBeInTheDocument();
+    expect(screen.getByText("All competitions")).toBeInTheDocument();
+    expect(screen.getByText("Season totals across all selected competitions.")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("get_global_player_leaderboards", {
       query: {
         season: 1,

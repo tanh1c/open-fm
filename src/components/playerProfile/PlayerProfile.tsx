@@ -22,19 +22,17 @@ import {
   getPlayerTeamName,
   type PlayerAdvancedStatsSummary,
 } from "./PlayerProfile.helpers";
-import PlayerProfileAdvancedStatsCard from "./PlayerProfileAdvancedStatsCard";
 import { buildPlayerAttributeGroups } from "./PlayerProfile.attributes";
 import PlayerProfileAttributesCard from "./PlayerProfileAttributesCard";
 import PlayerProfileAttributeEditor from "./PlayerProfileAttributeEditor";
 import PlayerProfileCareerHistoryCard from "./PlayerProfileCareerHistoryCard";
-import PlayerProfileContractCard from "./PlayerProfileContractCard";
 import PlayerProfileHeroCard from "./PlayerProfileHeroCard";
 import PlayerProfileInjuryBanner from "./PlayerProfileInjuryBanner";
 import PlayerProfileRecentMatchesCard, {
   type PlayerRecentMatchEntry,
 } from "./PlayerProfileRecentMatchesCard";
 import PlayerProfileRenewalModal from "./PlayerProfileRenewalModal";
-import PlayerProfileSeasonStatsCard from "./PlayerProfileSeasonStatsCard";
+import PlayerProfileStatsCard from "./PlayerProfileStatsCard";
 import {
   type DelegatedRenewalCaseData,
   type DelegatedRenewalResponseData,
@@ -655,7 +653,12 @@ export default function PlayerProfile({
         weakFootValue={weakFootValue}
         weeklySuffix={weeklySuffix}
         language={i18n.language}
-        isOwnClub={isOwnClub || !onGameUpdate}
+        currentDate={gameState.clock.current_date}
+        contractRiskLevel={contractRiskLevel}
+        contractRiskLabel={contractRiskLabel}
+        hasLetExpireIntent={hasLetExpireIntent}
+        actionSubmitting={contractActionSubmitting}
+        isOwnClub={isOwnClub}
         scoutAvailability={scoutAvailability}
         scoutStatus={scoutStatus}
         scoutError={scoutError}
@@ -682,6 +685,10 @@ export default function PlayerProfile({
             }
           })();
         }}
+        onOpenRenewal={openRenewalModal}
+        onMarkLetExpire={() => void handleMarkLetExpire()}
+        onClearLetExpire={() => void handleClearLetExpire()}
+        onOpenTermination={() => void openTerminationModal()}
         onSelectTeam={onSelectTeam}
         t={t}
       />
@@ -697,49 +704,22 @@ export default function PlayerProfile({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-4 xl:flex-row">
-        <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[320px]">
-          <PlayerProfileContractCard
-            dateOfBirth={player.date_of_birth}
-            contractEnd={player.contract_end}
-            currentDate={gameState.clock.current_date}
-            condition={player.condition}
-            morale={player.morale}
-            marketValue={player.market_value}
-            wage={player.wage}
-            weeklySuffix={weeklySuffix}
-            language={i18n.language}
-            contractRiskLevel={contractRiskLevel}
-            contractRiskLabel={contractRiskLabel}
-            isOwnClub={isOwnClub}
-            hasLetExpireIntent={hasLetExpireIntent}
-            actionSubmitting={contractActionSubmitting}
-            onOpenRenewal={openRenewalModal}
-            onMarkLetExpire={() => void handleMarkLetExpire()}
-            onClearLetExpire={() => void handleClearLetExpire()}
-            onOpenTermination={() => void openTerminationModal()}
-            t={t}
-          />
-          <PlayerProfileSeasonStatsCard stats={player.stats} t={t} />
-        </aside>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <PlayerProfileAttributesCard
+          attrGroups={attrGroups}
+          isOwnClub={isOwnClub}
+          godMode={godMode}
+          title={t("playerProfile.attributes")}
+          averageLabel={t("common.average")}
+          hiddenTitle={t("playerProfile.attributesHidden")}
+          hiddenBody={t("playerProfile.scoutToView")}
+        />
+        <PlayerProfileStatsCard stats={player.stats} advancedStats={advancedStats} t={t} />
+      </div>
 
-        <section className="flex min-w-0 flex-1 flex-col gap-4">
-          <PlayerProfileAttributesCard
-            attrGroups={attrGroups}
-            isOwnClub={isOwnClub}
-            godMode={godMode}
-            title={t("playerProfile.attributes")}
-            averageLabel={t("common.average")}
-            hiddenTitle={t("playerProfile.attributesHidden")}
-            hiddenBody={t("playerProfile.scoutToView")}
-          />
-          <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
-        </section>
-
-        <aside className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
-          <PlayerProfileAdvancedStatsCard summary={advancedStats} t={t} />
-          <PlayerProfileCareerHistoryCard career={player.career} t={t} />
-        </aside>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+        <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
+        <PlayerProfileCareerHistoryCard career={player.career} t={t} />
       </div>
 
       <PlayerProfileRenewalModal

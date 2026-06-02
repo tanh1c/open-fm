@@ -353,7 +353,7 @@ describe("PlayerProfile contract surfaces", () => {
       />,
     );
 
-    expect(screen.getByText("Contract Info")).toBeInTheDocument();
+    expect(screen.getByText("Contract")).toBeInTheDocument();
     expect(screen.getByText("Expires 2026-10-15")).toBeInTheDocument();
     expect(screen.getByText("Years Remaining")).toBeInTheDocument();
     expect(screen.getByText("Contract Risk")).toBeInTheDocument();
@@ -501,12 +501,13 @@ describe("PlayerProfile contract surfaces", () => {
       expect(invoke).toHaveBeenCalledWith("get_player_stats_overview", {
         playerId: "player-1",
       });
-      expect(screen.getByText("Advanced Stats")).toBeInTheDocument();
-      expect(screen.getByText("Shots")).toBeInTheDocument();
-      expect(screen.getAllByText("33").length).toBeGreaterThan(0);
-      expect(screen.getAllByText("80%").length).toBeGreaterThan(0);
-      expect(screen.getByText("88th")).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced Stats" }));
+
+    expect(screen.getByText("Shots")).toBeInTheDocument();
+    expect(screen.getAllByText("33").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Pass Accuracy 80%/).length).toBeGreaterThan(0);
   });
 
   it("loads and renders recent player match history", async () => {

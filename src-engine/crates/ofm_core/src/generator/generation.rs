@@ -186,6 +186,21 @@ fn attr(rng: &mut impl Rng, range: std::ops::Range<u8>) -> u8 {
     rng.random_range(range)
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct PlayerGenerationQuality {
+    pub reputation: u32,
+    pub domestic_tier: Option<u8>,
+}
+
+impl Default for PlayerGenerationQuality {
+    fn default() -> Self {
+        Self {
+            reputation: 500,
+            domestic_tier: Some(2),
+        }
+    }
+}
+
 fn generated_position_for_slot(index: usize) -> Position {
     match index {
         0 | 1 => Position::Goalkeeper,
@@ -205,6 +220,56 @@ fn generated_position_for_slot(index: usize) -> Position {
         18 => Position::RightWinger,
         19 => Position::LeftWinger,
         _ => Position::RightWinger,
+    }
+}
+
+fn quality_offset(quality: PlayerGenerationQuality, index: usize) -> i16 {
+    let reputation_offset = ((quality.reputation as i16 - 600) / 45).clamp(-8, 7);
+    let tier_offset = match quality.domestic_tier.unwrap_or(2) {
+        1 => 1,
+        2 => -1,
+        3 => -4,
+        4 => -6,
+        _ => -8,
+    };
+    let squad_offset = match index {
+        0 | 2..=5 | 9..=12 | 16..=18 => 3,
+        6..=8 | 13..=15 | 19..=20 => -1,
+        _ => -6,
+    };
+
+    (reputation_offset + tier_offset + squad_offset).clamp(-16, 12)
+}
+
+fn adjust_attr(value: u8, offset: i16, weight: i16) -> u8 {
+    (value as i16 + (offset * weight) / 10).clamp(1, 99) as u8
+}
+
+fn apply_generation_quality(attributes: &mut PlayerAttributes, position: &Position, offset: i16) {
+    attributes.pace = adjust_attr(attributes.pace, offset, 8);
+    attributes.stamina = adjust_attr(attributes.stamina, offset, 7);
+    attributes.strength = adjust_attr(attributes.strength, offset, 7);
+    attributes.agility = adjust_attr(attributes.agility, offset, 8);
+    attributes.passing = adjust_attr(attributes.passing, offset, 9);
+    attributes.shooting = adjust_attr(attributes.shooting, offset, 9);
+    attributes.tackling = adjust_attr(attributes.tackling, offset, 9);
+    attributes.dribbling = adjust_attr(attributes.dribbling, offset, 9);
+    attributes.defending = adjust_attr(attributes.defending, offset, 9);
+    attributes.positioning = adjust_attr(attributes.positioning, offset, 10);
+    attributes.vision = adjust_attr(attributes.vision, offset, 9);
+    attributes.decisions = adjust_attr(attributes.decisions, offset, 10);
+    attributes.composure = adjust_attr(attributes.composure, offset, 10);
+    attributes.aggression = adjust_attr(attributes.aggression, offset, 5);
+    attributes.teamwork = adjust_attr(attributes.teamwork, offset, 8);
+    attributes.leadership = adjust_attr(attributes.leadership, offset, 7);
+    attributes.aerial = adjust_attr(attributes.aerial, offset, 8);
+
+    if matches!(position.to_group_position(), Position::Goalkeeper) {
+        attributes.handling = adjust_attr(attributes.handling, offset, 11);
+        attributes.reflexes = adjust_attr(attributes.reflexes, offset, 11);
+    } else {
+        attributes.handling = adjust_attr(attributes.handling, offset, 2);
+        attributes.reflexes = adjust_attr(attributes.reflexes, offset, 2);
     }
 }
 
@@ -428,6 +493,7 @@ pub(super) fn generate_random_player_from_def(
     index: usize,
     nationality: &str,
     names_def: &NamesDefinition,
+    quality: PlayerGenerationQuality,
     rng: &mut impl Rng,
 ) -> Player {
     let (first_name, last_name) = pick_name_from_def(nationality, names_def, rng);
@@ -455,7 +521,8 @@ pub(super) fn generate_random_player_from_def(
     let is_gk = matches!(group, Position::Goalkeeper);
     let is_fwd = matches!(group, Position::Forward);
 
-    let attributes = generate_position_attributes(&position, rng);
+    let mut attributes = generate_position_attributes(&position, rng);
+    apply_generation_quality(&mut attributes, &position, quality_offset(quality, index));
 
     let current_year: u32 = 2026;
 

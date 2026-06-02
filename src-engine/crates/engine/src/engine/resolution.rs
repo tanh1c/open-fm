@@ -2,12 +2,14 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, home_mod, play_style_modifier,
-    tactical_buildup_modifier, tactical_midfield_modifier, tactical_press_modifier,
-    morale_performance_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
+    PlayStylePhase, PlayerSnap, TraitContext, home_mod, pitch_carry_modifier, pitch_pass_modifier,
+    play_style_modifier, tactical_buildup_modifier, tactical_midfield_modifier,
+    tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
     tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
     trait_pass_creativity_modifier, trait_pass_safety_modifier, trait_press_work_rate_modifier,
     trait_shot_quality_modifier, trait_shot_tendency_modifier, trait_tackle_modifier,
+    weather_conversion_modifier, weather_pass_modifier, weather_shot_accuracy_modifier,
+    morale_performance_modifier,
 };
 use crate::types::{Position, Side, TeamData, Zone};
 
@@ -120,6 +122,8 @@ fn resolve_buildup<R: Rng>(
         / 4.0
         * trait_pass_safety_modifier(&passer)
         * morale_performance_modifier(passer.morale)
+        * weather_pass_modifier(ctx.config)
+        * pitch_pass_modifier(ctx.config)
         * tactical_buildup_modifier(att_team)
         * team_cohesion_modifier(att_team);
     let press = effective_press(ctx, def_side);
@@ -164,7 +168,9 @@ fn resolve_midfield<R: Rng>(
         / 4.0
         * trait_bonus(&attacker, TraitContext::Midfield)
         * trait_pass_safety_modifier(&attacker)
-        * morale_performance_modifier(attacker.morale);
+        * morale_performance_modifier(attacker.morale)
+        * weather_pass_modifier(ctx.config)
+        * pitch_pass_modifier(ctx.config);
     let def_rating = (defender.tackling as f64
         + defender.positioning as f64
         + defender.decisions as f64
@@ -251,7 +257,9 @@ fn resolve_attacking_third<R: Rng>(
         / 4.0
         * trait_carry_modifier(&attacker)
         * trait_pass_creativity_modifier(&attacker)
-        * morale_performance_modifier(attacker.morale);
+        * morale_performance_modifier(attacker.morale)
+        * weather_pass_modifier(ctx.config)
+        * pitch_carry_modifier(ctx.config);
     let def_rating = (defender.defending as f64
         + defender.tackling as f64
         + defender.positioning as f64
@@ -325,7 +333,8 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     let shoot_rating =
         (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0
             * trait_shot_quality_modifier(&shooter)
-            * morale_performance_modifier(shooter.morale);
+            * morale_performance_modifier(shooter.morale)
+            * pitch_carry_modifier(ctx.config);
     let gk_rating =
         (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64)
             / 3.0
@@ -335,10 +344,11 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     let shot_quality = tactical_shot_quality_modifier(att_team, def_team);
     let shape_attack = shape_attack_multiplier(att_team) * shot_quality;
     let shape_defense = shape_defense_multiplier(def_team);
-    let accuracy = (ctx.config.shot_accuracy_base
+    let accuracy = ((ctx.config.shot_accuracy_base
         + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0
         - 0.03)
-        .clamp(0.10, 0.50);
+        * weather_shot_accuracy_modifier(ctx.config))
+    .clamp(0.10, 0.50);
     let zone = Zone::attacking_box(att_side);
 
     if rng.random_range(0.0..1.0f64) > accuracy {
@@ -356,10 +366,11 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
         return;
     }
 
-    let conversion = (ctx.config.goal_conversion_base
+    let conversion = ((ctx.config.goal_conversion_base
         + (shoot_rating * shape_attack - gk_rating * shape_defense) / 280.0
         - 0.02)
-        .clamp(0.05, 0.36);
+        * weather_conversion_modifier(ctx.config))
+    .clamp(0.05, 0.36);
 
     if rng.random_range(0.0..1.0f64) < conversion {
         ctx.emit(

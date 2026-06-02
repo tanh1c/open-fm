@@ -899,6 +899,140 @@ fn tactical_familiarity_improves_coordinated_phases() {
 }
 
 // ---------------------------------------------------------------------------
+// Referee, weather, and pitch context tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn strict_referee_increases_fouls_and_cards() {
+    let home = make_team("home", "Home FC", 68, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 68, PlayStyle::Balanced);
+    let strict = MatchConfig {
+        foul_probability: 0.25,
+        yellow_card_probability: 0.45,
+        referee: RefereeProfile {
+            foul_modifier: 1.35,
+            card_modifier: 1.45,
+            penalty_modifier: 1.0,
+        },
+        ..MatchConfig::default()
+    };
+    let lenient = MatchConfig {
+        foul_probability: 0.25,
+        yellow_card_probability: 0.45,
+        referee: RefereeProfile {
+            foul_modifier: 0.80,
+            card_modifier: 0.75,
+            penalty_modifier: 1.0,
+        },
+        ..MatchConfig::default()
+    };
+
+    let mut strict_fouls = 0u32;
+    let mut strict_cards = 0u32;
+    let mut lenient_fouls = 0u32;
+    let mut lenient_cards = 0u32;
+    for seed in 0..180 {
+        let strict_report = simulate_with_rng(&home, &away, &strict, &mut seeded_rng(seed));
+        strict_fouls += strict_report.home_stats.fouls as u32 + strict_report.away_stats.fouls as u32;
+        strict_cards += strict_report.home_stats.yellow_cards as u32
+            + strict_report.away_stats.yellow_cards as u32
+            + strict_report.home_stats.red_cards as u32
+            + strict_report.away_stats.red_cards as u32;
+
+        let lenient_report = simulate_with_rng(&home, &away, &lenient, &mut seeded_rng(seed));
+        lenient_fouls +=
+            lenient_report.home_stats.fouls as u32 + lenient_report.away_stats.fouls as u32;
+        lenient_cards += lenient_report.home_stats.yellow_cards as u32
+            + lenient_report.away_stats.yellow_cards as u32
+            + lenient_report.home_stats.red_cards as u32
+            + lenient_report.away_stats.red_cards as u32;
+    }
+
+    assert!(
+        strict_fouls > lenient_fouls && strict_cards > lenient_cards,
+        "Strict referee should increase fouls and cards: strict fouls={strict_fouls}, lenient fouls={lenient_fouls}, strict cards={strict_cards}, lenient cards={lenient_cards}"
+    );
+}
+
+#[test]
+fn adverse_weather_reduces_shot_accuracy() {
+    let home = make_team("home", "Home FC", 70, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+    let clear = MatchConfig {
+        weather: WeatherCondition::Clear,
+        ..MatchConfig::default()
+    };
+    let wind = MatchConfig {
+        weather: WeatherCondition::Wind,
+        ..MatchConfig::default()
+    };
+
+    let mut clear_shots = 0u32;
+    let mut clear_sot = 0u32;
+    let mut wind_shots = 0u32;
+    let mut wind_sot = 0u32;
+    for seed in 0..260 {
+        let clear_report = simulate_with_rng(&home, &away, &clear, &mut seeded_rng(seed));
+        clear_shots += clear_report.home_stats.shots as u32 + clear_report.away_stats.shots as u32;
+        clear_sot += clear_report.home_stats.shots_on_target as u32
+            + clear_report.away_stats.shots_on_target as u32;
+
+        let wind_report = simulate_with_rng(&home, &away, &wind, &mut seeded_rng(seed));
+        wind_shots += wind_report.home_stats.shots as u32 + wind_report.away_stats.shots as u32;
+        wind_sot += wind_report.home_stats.shots_on_target as u32
+            + wind_report.away_stats.shots_on_target as u32;
+    }
+
+    let clear_rate = clear_sot as f64 / clear_shots as f64;
+    let wind_rate = wind_sot as f64 / wind_shots as f64;
+    assert!(
+        wind_rate < clear_rate,
+        "Wind should reduce shot accuracy: clear={clear_rate:.3}, wind={wind_rate:.3}"
+    );
+}
+
+#[test]
+fn poor_pitch_increases_fouls_and_injuries() {
+    let home = make_team("home", "Home FC", 68, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 68, PlayStyle::Balanced);
+    let excellent = MatchConfig {
+        foul_probability: 0.32,
+        injury_probability: 0.12,
+        pitch: PitchCondition::Excellent,
+        ..MatchConfig::default()
+    };
+    let poor = MatchConfig {
+        foul_probability: 0.32,
+        injury_probability: 0.12,
+        pitch: PitchCondition::Poor,
+        ..MatchConfig::default()
+    };
+
+    let mut excellent_events = 0u32;
+    let mut poor_events = 0u32;
+    for seed in 0..240 {
+        let excellent_report = simulate_with_rng(&home, &away, &excellent, &mut seeded_rng(seed));
+        excellent_events += excellent_report
+            .events
+            .iter()
+            .filter(|event| matches!(event.event_type, EventType::Foul | EventType::Injury))
+            .count() as u32;
+
+        let poor_report = simulate_with_rng(&home, &away, &poor, &mut seeded_rng(seed));
+        poor_events += poor_report
+            .events
+            .iter()
+            .filter(|event| matches!(event.event_type, EventType::Foul | EventType::Injury))
+            .count() as u32;
+    }
+
+    assert!(
+        poor_events > excellent_events,
+        "Poor pitch should increase foul/injury events: poor={poor_events}, excellent={excellent_events}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Team/player stats aggregation tests
 // ---------------------------------------------------------------------------
 

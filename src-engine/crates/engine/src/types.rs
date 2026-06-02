@@ -323,6 +323,50 @@ impl TeamData {
 // MatchConfig — tuneable simulation parameters
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct RefereeProfile {
+    #[serde(default = "default_context_modifier")]
+    pub foul_modifier: f64,
+    #[serde(default = "default_context_modifier")]
+    pub card_modifier: f64,
+    #[serde(default = "default_context_modifier")]
+    pub penalty_modifier: f64,
+}
+
+impl Default for RefereeProfile {
+    fn default() -> Self {
+        Self {
+            foul_modifier: 1.0,
+            card_modifier: 1.0,
+            penalty_modifier: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum WeatherCondition {
+    #[default]
+    Clear,
+    Rain,
+    Wind,
+    Heat,
+    Cold,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum PitchCondition {
+    Excellent,
+    #[default]
+    Normal,
+    Wet,
+    Worn,
+    Poor,
+}
+
+fn default_context_modifier() -> f64 {
+    1.0
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatchConfig {
     /// Multiplier applied to the home team's ratings (e.g. 1.08 = 8% boost).
@@ -345,6 +389,12 @@ pub struct MatchConfig {
     pub stoppage_time_max: u8,
     /// Probability of an injury per foul event.
     pub injury_probability: f64,
+    #[serde(default)]
+    pub referee: RefereeProfile,
+    #[serde(default)]
+    pub weather: WeatherCondition,
+    #[serde(default)]
+    pub pitch: PitchCondition,
 }
 
 impl Default for MatchConfig {
@@ -360,6 +410,9 @@ impl Default for MatchConfig {
             penalty_probability: 0.08,
             stoppage_time_max: 4,
             injury_probability: 0.03,
+            referee: RefereeProfile::default(),
+            weather: WeatherCondition::default(),
+            pitch: PitchCondition::default(),
         }
     }
 }

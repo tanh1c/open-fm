@@ -2,7 +2,7 @@ use rand::{Rng, RngExt};
 
 use crate::shared::{
     PlayStylePhase, PlayerSnap, home_mod, play_style_modifier, tactical_fatigue_modifier,
-    tactical_press_modifier,
+    tactical_press_modifier, weather_fatigue_modifier,
 };
 use crate::types::{PlayerData, Position, Side, TeamData};
 
@@ -32,7 +32,8 @@ impl LiveMatchState {
             let depletion = fatigue_rate
                 * (1.0 - stamina_factor * 0.5)
                 * (1.3 - fitness_factor * 0.6)
-                * tactical_factor;
+                * tactical_factor
+                * weather_fatigue_modifier(&self.config);
             if let Some(cond) = self.player_conditions.get_mut(&p.id) {
                 *cond = (*cond - depletion).max(5.0);
             }

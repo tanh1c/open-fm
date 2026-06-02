@@ -1427,6 +1427,85 @@ fn hot_head_trait_increases_foul_likelihood() {
 }
 
 // ===========================================================================
+// Tests: Referee, weather, and pitch context
+// ===========================================================================
+
+#[test]
+fn live_strict_referee_increases_discipline_events() {
+    let strict = MatchConfig {
+        foul_probability: 0.30,
+        yellow_card_probability: 0.50,
+        referee: RefereeProfile {
+            foul_modifier: 1.35,
+            card_modifier: 1.45,
+            penalty_modifier: 1.0,
+        },
+        ..MatchConfig::default()
+    };
+    let lenient = MatchConfig {
+        foul_probability: 0.30,
+        yellow_card_probability: 0.50,
+        referee: RefereeProfile {
+            foul_modifier: 0.80,
+            card_modifier: 0.75,
+            penalty_modifier: 1.0,
+        },
+        ..MatchConfig::default()
+    };
+
+    let mut strict_events = 0u32;
+    let mut lenient_events = 0u32;
+    for seed in 0..100 {
+        let mut strict_state = LiveMatchState::new(
+            make_team("home", "Home FC", 70, PlayStyle::Balanced),
+            make_team("away", "Away FC", 70, PlayStyle::Balanced),
+            strict.clone(),
+            make_bench("home", 65),
+            make_bench("away", 65),
+            false,
+        );
+        run_to_finish(&mut strict_state, &mut seeded_rng(seed));
+        strict_events += strict_state
+            .snapshot()
+            .events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.event_type,
+                    EventType::Foul | EventType::YellowCard | EventType::SecondYellow | EventType::RedCard
+                )
+            })
+            .count() as u32;
+
+        let mut lenient_state = LiveMatchState::new(
+            make_team("home", "Home FC", 70, PlayStyle::Balanced),
+            make_team("away", "Away FC", 70, PlayStyle::Balanced),
+            lenient.clone(),
+            make_bench("home", 65),
+            make_bench("away", 65),
+            false,
+        );
+        run_to_finish(&mut lenient_state, &mut seeded_rng(seed));
+        lenient_events += lenient_state
+            .snapshot()
+            .events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.event_type,
+                    EventType::Foul | EventType::YellowCard | EventType::SecondYellow | EventType::RedCard
+                )
+            })
+            .count() as u32;
+    }
+
+    assert!(
+        strict_events > lenient_events,
+        "Strict live referee should increase discipline events: strict={strict_events}, lenient={lenient_events}"
+    );
+}
+
+// ===========================================================================
 // Tests: Discipline (cards, red cards, sent off)
 // ===========================================================================
 

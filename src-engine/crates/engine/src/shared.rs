@@ -1,4 +1,4 @@
-use crate::types::{MatchConfig, PlayStyle, PlayerData, Side, TeamData};
+use crate::types::{MatchConfig, PitchCondition, PlayStyle, PlayerData, Side, TeamData, WeatherCondition};
 
 // ---------------------------------------------------------------------------
 // PlayerSnap — lightweight snapshot of a player to avoid borrow conflicts
@@ -251,6 +251,113 @@ pub(crate) fn fitness_injury_risk_modifier(condition: u8, fitness: u8) -> f64 {
     let condition_delta = (50.0 - condition.clamp(0, 100) as f64) / 50.0;
     let fitness_delta = (50.0 - fitness.clamp(0, 100) as f64) / 50.0;
     (1.0 + condition_delta.max(0.0) * 0.14 + fitness_delta * 0.10).clamp(0.85, 1.25)
+}
+
+pub(crate) fn referee_foul_modifier(config: &MatchConfig) -> f64 {
+    config.referee.foul_modifier.clamp(0.80, 1.35)
+}
+
+pub(crate) fn referee_card_modifier(config: &MatchConfig) -> f64 {
+    config.referee.card_modifier.clamp(0.75, 1.45)
+}
+
+pub(crate) fn referee_penalty_modifier(config: &MatchConfig) -> f64 {
+    config.referee.penalty_modifier.clamp(0.75, 1.35)
+}
+
+pub(crate) fn weather_pass_modifier(config: &MatchConfig) -> f64 {
+    match config.weather {
+        WeatherCondition::Clear => 1.0,
+        WeatherCondition::Rain => 0.96,
+        WeatherCondition::Wind => 0.95,
+        WeatherCondition::Heat => 0.98,
+        WeatherCondition::Cold => 0.97,
+    }
+}
+
+pub(crate) fn weather_shot_accuracy_modifier(config: &MatchConfig) -> f64 {
+    match config.weather {
+        WeatherCondition::Clear => 1.0,
+        WeatherCondition::Rain => 0.96,
+        WeatherCondition::Wind => 0.93,
+        WeatherCondition::Heat => 0.98,
+        WeatherCondition::Cold => 0.97,
+    }
+}
+
+pub(crate) fn weather_conversion_modifier(config: &MatchConfig) -> f64 {
+    match config.weather {
+        WeatherCondition::Clear => 1.0,
+        WeatherCondition::Rain => 0.98,
+        WeatherCondition::Wind => 0.97,
+        WeatherCondition::Heat => 0.99,
+        WeatherCondition::Cold => 0.98,
+    }
+}
+
+pub(crate) fn weather_fatigue_modifier(config: &MatchConfig) -> f64 {
+    match config.weather {
+        WeatherCondition::Heat => 1.12,
+        WeatherCondition::Cold => 1.04,
+        WeatherCondition::Rain => 1.03,
+        _ => 1.0,
+    }
+}
+
+pub(crate) fn weather_foul_modifier(config: &MatchConfig) -> f64 {
+    match config.weather {
+        WeatherCondition::Rain => 1.05,
+        WeatherCondition::Cold => 1.03,
+        _ => 1.0,
+    }
+}
+
+pub(crate) fn weather_injury_modifier(config: &MatchConfig) -> f64 {
+    match config.weather {
+        WeatherCondition::Rain => 1.06,
+        WeatherCondition::Cold => 1.04,
+        WeatherCondition::Heat => 1.03,
+        _ => 1.0,
+    }
+}
+
+pub(crate) fn pitch_pass_modifier(config: &MatchConfig) -> f64 {
+    match config.pitch {
+        PitchCondition::Excellent => 1.02,
+        PitchCondition::Normal => 1.0,
+        PitchCondition::Wet => 0.96,
+        PitchCondition::Worn => 0.97,
+        PitchCondition::Poor => 0.94,
+    }
+}
+
+pub(crate) fn pitch_carry_modifier(config: &MatchConfig) -> f64 {
+    match config.pitch {
+        PitchCondition::Excellent => 1.02,
+        PitchCondition::Normal => 1.0,
+        PitchCondition::Wet => 0.95,
+        PitchCondition::Worn => 0.96,
+        PitchCondition::Poor => 0.93,
+    }
+}
+
+pub(crate) fn pitch_foul_modifier(config: &MatchConfig) -> f64 {
+    match config.pitch {
+        PitchCondition::Wet => 1.07,
+        PitchCondition::Worn => 1.04,
+        PitchCondition::Poor => 1.09,
+        _ => 1.0,
+    }
+}
+
+pub(crate) fn pitch_injury_modifier(config: &MatchConfig) -> f64 {
+    match config.pitch {
+        PitchCondition::Excellent => 0.95,
+        PitchCondition::Normal => 1.0,
+        PitchCondition::Wet => 1.08,
+        PitchCondition::Worn => 1.06,
+        PitchCondition::Poor => 1.12,
+    }
 }
 
 pub(crate) fn team_form_modifier(form: &[String]) -> f64 {

@@ -3,7 +3,9 @@ use rand::{Rng, RngExt};
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
     PlayerSnap, fitness_injury_risk_modifier, morale_performance_modifier, morale_risk_modifier,
-    trait_foul_risk_modifier, trait_shot_quality_modifier,
+    pitch_foul_modifier, pitch_injury_modifier, referee_card_modifier, referee_foul_modifier,
+    referee_penalty_modifier, trait_foul_risk_modifier, trait_shot_quality_modifier,
+    weather_foul_modifier, weather_injury_modifier,
 };
 use crate::types::{Position, Side, Zone};
 
@@ -25,7 +27,10 @@ pub(super) fn maybe_foul<R: Rng>(
     let foul_chance = ctx.config.foul_probability
         * (0.6 + aggression_mod * 0.8)
         * trait_foul_risk_modifier(fouler_snap)
-        * morale_risk_modifier(fouler_snap.morale);
+        * morale_risk_modifier(fouler_snap.morale)
+        * referee_foul_modifier(ctx.config)
+        * weather_foul_modifier(ctx.config)
+        * pitch_foul_modifier(ctx.config);
     if rng.random_range(0.0..1.0f64) >= foul_chance {
         return;
     }
@@ -38,7 +43,10 @@ pub(super) fn maybe_foul<R: Rng>(
 
     let att_side = fouling_side.opposite();
 
-    if zone.is_box_for(att_side) && rng.random_range(0.0..1.0f64) < ctx.config.penalty_probability {
+    if zone.is_box_for(att_side)
+        && rng.random_range(0.0..1.0f64)
+            < (ctx.config.penalty_probability * referee_penalty_modifier(ctx.config)).clamp(0.0, 1.0)
+    {
         ctx.emit(MatchEvent::new(
             minute,
             EventType::PenaltyAwarded,
@@ -53,7 +61,9 @@ pub(super) fn maybe_foul<R: Rng>(
     maybe_card(ctx, minute, fouling_side, fouler_snap, zone, rng);
 
     let injury_chance = ctx.config.injury_probability
-        * fitness_injury_risk_modifier(fouled_snap.condition, fouled_snap.fitness);
+        * fitness_injury_risk_modifier(fouled_snap.condition, fouled_snap.fitness)
+        * weather_injury_modifier(ctx.config)
+        * pitch_injury_modifier(ctx.config);
     if rng.random_range(0.0..1.0f64) < injury_chance {
         ctx.emit(
             MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled_snap.id),
@@ -73,15 +83,18 @@ fn maybe_card<R: Rng>(
     let card_chance = ctx.config.yellow_card_probability
         * (0.5 + aggression_factor)
         * trait_foul_risk_modifier(fouler).sqrt()
-        * morale_risk_modifier(fouler.morale).sqrt();
+        * morale_risk_modifier(fouler.morale).sqrt()
+        * referee_card_modifier(ctx.config);
     if rng.random_range(0.0..1.0f64) >= card_chance {
         return;
     }
 
     if rng.random_range(0.0..1.0f64)
-        < ctx.config.red_card_probability
+        < (ctx.config.red_card_probability
             * trait_foul_risk_modifier(fouler).sqrt()
             * morale_risk_modifier(fouler.morale).sqrt()
+            * referee_card_modifier(ctx.config))
+        .clamp(0.0, 1.0)
     {
         ctx.emit(MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(&fouler.id));
         ctx.sent_off.insert(fouler.id.clone());

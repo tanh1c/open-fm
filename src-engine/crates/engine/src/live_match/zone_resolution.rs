@@ -3,12 +3,16 @@ use rand::{Rng, RngExt};
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
     PlayStylePhase, PlayerSnap, TraitContext, fitness_injury_risk_modifier,
-    morale_performance_modifier, morale_risk_modifier, play_style_modifier, tactical_buildup_modifier,
+    morale_performance_modifier, morale_risk_modifier, pitch_carry_modifier, pitch_foul_modifier,
+    pitch_injury_modifier, pitch_pass_modifier, play_style_modifier, referee_card_modifier,
+    referee_foul_modifier, referee_penalty_modifier, tactical_buildup_modifier,
     tactical_midfield_modifier, tactical_press_modifier, tactical_shot_quality_modifier,
     tactical_space_creation_modifier, tactical_turnover_risk, team_cohesion_modifier, trait_bonus,
     trait_carry_modifier, trait_foul_risk_modifier, trait_pass_creativity_modifier,
     trait_pass_safety_modifier, trait_press_work_rate_modifier, trait_shot_quality_modifier,
-    trait_shot_tendency_modifier, trait_tackle_modifier,
+    trait_shot_tendency_modifier, trait_tackle_modifier, weather_conversion_modifier,
+    weather_foul_modifier, weather_injury_modifier, weather_pass_modifier,
+    weather_shot_accuracy_modifier,
 };
 use crate::types::{PlayerData, Position, Side, Zone};
 
@@ -120,6 +124,8 @@ impl LiveMatchState {
                 / 4.0,
         ) * trait_pass_safety_modifier(&passer)
             * morale_performance_modifier(passer.morale)
+            * weather_pass_modifier(&self.config)
+            * pitch_pass_modifier(&self.config)
             * tactical_buildup_modifier(att_team)
             * team_cohesion_modifier(att_team);
         let press = self.effective_press(def_side);
@@ -172,7 +178,9 @@ impl LiveMatchState {
         let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
             * trait_bonus(&attacker, TraitContext::Midfield)
             * trait_pass_safety_modifier(&attacker)
-            * morale_performance_modifier(attacker.morale);
+            * morale_performance_modifier(attacker.morale)
+            * weather_pass_modifier(&self.config)
+            * pitch_pass_modifier(&self.config);
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_tackle_modifier(&defender)
             * trait_press_work_rate_modifier(&defender)
@@ -259,7 +267,9 @@ impl LiveMatchState {
         let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
             * trait_carry_modifier(&attacker)
             * trait_pass_creativity_modifier(&attacker)
-            * morale_performance_modifier(attacker.morale);
+            * morale_performance_modifier(attacker.morale)
+            * weather_pass_modifier(&self.config)
+            * pitch_carry_modifier(&self.config);
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_tackle_modifier(&defender)
             * trait_press_work_rate_modifier(&defender)
@@ -337,7 +347,8 @@ impl LiveMatchState {
             (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
         let shoot_rating = self.condition_adjusted_skill(&shooter.id, shoot_raw)
             * trait_shot_quality_modifier(&shooter)
-            * morale_performance_modifier(shooter.morale);
+            * morale_performance_modifier(shooter.morale)
+            * pitch_carry_modifier(&self.config);
         let gk_raw = (goalkeeper.handling as f64
             + goalkeeper.reflexes as f64
             + goalkeeper.positioning as f64)
@@ -349,10 +360,11 @@ impl LiveMatchState {
         let shot_quality = tactical_shot_quality_modifier(&att_team, &def_team);
         let shape_attack = shape_attack_multiplier(&att_team) * shot_quality;
         let shape_defense = shape_defense_multiplier(&def_team);
-        let accuracy = (self.config.shot_accuracy_base
+        let accuracy = ((self.config.shot_accuracy_base
             + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0
             - 0.03)
-            .clamp(0.10, 0.50);
+            * weather_shot_accuracy_modifier(&self.config))
+        .clamp(0.10, 0.50);
         let zone = Zone::attacking_box(att_side);
 
         if rng.random_range(0.0..1.0f64) > accuracy {
@@ -372,10 +384,11 @@ impl LiveMatchState {
             return events;
         }
 
-        let conversion = (self.config.goal_conversion_base
+        let conversion = ((self.config.goal_conversion_base
             + (shoot_rating * shape_attack - gk_rating * shape_defense) / 280.0
             - 0.02)
-            .clamp(0.05, 0.36);
+            * weather_conversion_modifier(&self.config))
+        .clamp(0.05, 0.36);
 
         if rng.random_range(0.0..1.0f64) < conversion {
             let evt = MatchEvent::new(minute, EventType::Goal, att_side, zone)
@@ -415,7 +428,10 @@ impl LiveMatchState {
         let foul_chance = self.config.foul_probability
             * (0.6 + aggression_mod * 0.8)
             * trait_foul_risk_modifier(fouler)
-            * morale_risk_modifier(fouler.morale);
+            * morale_risk_modifier(fouler.morale)
+            * referee_foul_modifier(&self.config)
+            * weather_foul_modifier(&self.config)
+            * pitch_foul_modifier(&self.config);
         if rng.random_range(0.0..1.0f64) >= foul_chance {
             return events;
         }
@@ -429,7 +445,9 @@ impl LiveMatchState {
         let att_side = fouling_side.opposite();
 
         if zone.is_box_for(att_side)
-            && rng.random_range(0.0..1.0f64) < self.config.penalty_probability
+            && rng.random_range(0.0..1.0f64)
+                < (self.config.penalty_probability * referee_penalty_modifier(&self.config))
+                    .clamp(0.0, 1.0)
         {
             let evt = MatchEvent::new(minute, EventType::PenaltyAwarded, att_side, zone);
             self.events.push(evt.clone());
@@ -453,7 +471,9 @@ impl LiveMatchState {
             .round()
             .clamp(0.0, 100.0) as u8;
         let injury_chance = self.config.injury_probability
-            * fitness_injury_risk_modifier(injured_condition, fouled.fitness);
+            * fitness_injury_risk_modifier(injured_condition, fouled.fitness)
+            * weather_injury_modifier(&self.config)
+            * pitch_injury_modifier(&self.config);
         if rng.random_range(0.0..1.0f64) < injury_chance {
             let evt =
                 MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled.id);
@@ -478,15 +498,18 @@ impl LiveMatchState {
         let card_chance = self.config.yellow_card_probability
             * (0.5 + aggression_factor)
             * trait_foul_risk_modifier(fouler).sqrt()
-            * morale_risk_modifier(fouler.morale).sqrt();
+            * morale_risk_modifier(fouler.morale).sqrt()
+            * referee_card_modifier(&self.config);
         if rng.random_range(0.0..1.0f64) >= card_chance {
             return events;
         }
 
         if rng.random_range(0.0..1.0f64)
-            < self.config.red_card_probability
+            < (self.config.red_card_probability
                 * trait_foul_risk_modifier(fouler).sqrt()
                 * morale_risk_modifier(fouler.morale).sqrt()
+                * referee_card_modifier(&self.config))
+            .clamp(0.0, 1.0)
         {
             let evt =
                 MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(&fouler.id);

@@ -160,7 +160,7 @@ fn player_move_openness_score(
     owner_team: &domain::team::Team,
     buyer_team: &domain::team::Team,
 ) -> i32 {
-    let mut score = 0;
+    let mut score = (buyer_team.recruitment_power as i32 - owner_team.recruitment_power as i32) / 8;
 
     if player.morale <= 45 {
         score += 20;
@@ -213,8 +213,12 @@ fn apply_blocked_move_consequences(player: &mut domain::player::Player, openness
     });
 }
 
-fn incoming_interest_score(current_date: NaiveDate, player: &domain::player::Player) -> i32 {
-    let mut score = 0;
+fn incoming_interest_score(
+    current_date: NaiveDate,
+    player: &domain::player::Player,
+    buyer_team: &domain::team::Team,
+) -> i32 {
+    let mut score = (buyer_team.recruitment_power as i32 - 50) / 3;
 
     if player.transfer_listed {
         score += 30;
@@ -453,7 +457,7 @@ fn evaluate_transfer_market_internal(game: &mut Game, use_cadence: bool) {
                 continue;
             }
 
-            let score = incoming_interest_score(current_date, player);
+            let score = incoming_interest_score(current_date, player, &buyer_team);
             if score < 35 {
                 continue;
             }

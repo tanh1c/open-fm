@@ -30,6 +30,14 @@ pub struct Team {
     pub sponsorship: Option<Sponsorship>,
     #[serde(default)]
     pub facilities: Facilities,
+    #[serde(default = "default_club_development")]
+    pub youth_development: u8,
+    #[serde(default = "default_club_development")]
+    pub recruitment_power: u8,
+    #[serde(default = "default_club_development")]
+    pub tactical_level: u8,
+    #[serde(default = "default_club_volatility")]
+    pub volatility: u8,
 
     // Tactical
     pub formation: String,
@@ -135,6 +143,14 @@ pub enum TrainingSchedule {
 }
 
 fn default_tactical_familiarity() -> u8 {
+    50
+}
+
+fn default_club_development() -> u8 {
+    50
+}
+
+fn default_club_volatility() -> u8 {
     50
 }
 
@@ -306,6 +322,10 @@ impl Team {
             financial_ledger: Vec::new(),
             sponsorship: None,
             facilities: Facilities::default(),
+            youth_development: default_club_development(),
+            recruitment_power: default_club_development(),
+            tactical_level: default_club_development(),
+            volatility: default_club_volatility(),
             formation: "4-4-2".to_string(),
             play_style: PlayStyle::Balanced,
             training_focus: TrainingFocus::default(),

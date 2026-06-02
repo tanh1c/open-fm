@@ -262,12 +262,12 @@ pub fn process_retirements(game: &mut Game, season: u32) -> Vec<RetiredPlayer> {
 /// facilities and reputation so bigger clubs produce marginally more.
 fn youth_intake_count(team: &domain::team::Team, rng: &mut impl rand::Rng) -> usize {
     let mut count = MIN_YOUTH_INTAKE;
-    // Strong training facilities (>=3) add one prospect.
-    if team.facilities.training >= 3 {
+    if team.facilities.training >= 3 || team.youth_development >= 60 {
         count += 1;
     }
-    // High-reputation academies occasionally produce an extra graduate.
-    if team.reputation >= 600 && rng.random_range(0..100) < 50 {
+    if team.youth_development >= 82 && rng.random_range(0..100) < 60 {
+        count += 1;
+    } else if team.reputation >= 600 && rng.random_range(0..100) < 35 {
         count += 1;
     }
     count.clamp(MIN_YOUTH_INTAKE, MAX_YOUTH_INTAKE)

@@ -9,7 +9,7 @@ pub use world_io::*;
 use domain::player::{Player, Position};
 use domain::staff::{Staff, StaffRole};
 use domain::team::Team;
-use domain::team::TeamColors;
+use domain::team::{Facilities, TeamColors};
 use log::{debug, info};
 use rand::RngExt;
 use uuid::Uuid;
@@ -36,6 +36,40 @@ fn normalized_wage_budget(annual_wage_bill: i64, reputation: u32) -> i64 {
     let annual_wage_bill = annual_wage_bill.max(0);
     let usage_target = target_wage_usage_percent(reputation);
     ((annual_wage_bill * 100) + usage_target - 1) / usage_target
+}
+
+fn facility_level(score: u8) -> u8 {
+    match score {
+        85..=100 => 5,
+        70..=84 => 4,
+        55..=69 => 3,
+        40..=54 => 2,
+        _ => 1,
+    }
+}
+
+fn tactical_familiarity_from_level(tactical_level: u8, volatility: u8) -> u8 {
+    let base = 35_i16 + (tactical_level as i16 * 45 / 100);
+    let volatility_penalty = ((volatility as i16 - 45).max(0) * 12) / 55;
+    (base - volatility_penalty).clamp(35, 88) as u8
+}
+
+fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {
+    let strength = current_strength.unwrap_or((reputation / 10).clamp(1, 100) as u8);
+    let reputation_bonus = if reputation >= 850 {
+        5
+    } else if reputation >= 650 {
+        3
+    } else if reputation <= 350 {
+        -3
+    } else {
+        0
+    };
+    let strength_bonus = (strength as i16 - 70) / 8;
+    let volatility_swing = (volatility as i16 - 50) / 6;
+    let jitter = seed as i16 % 9 - 4;
+
+    (58 + reputation_bonus + strength_bonus + jitter - volatility_swing).clamp(35, 82) as u8
 }
 
 fn normalize_opening_contracts(players: &mut [Player]) {
@@ -188,6 +222,10 @@ pub fn generate_youth_academy_recruit_with_nationality(
         PlayerGenerationQuality {
             reputation: team.reputation,
             domestic_tier: team.domestic_tier,
+            current_strength: Some(team.youth_development),
+            expected_squad_avg_ovr: Some((58 + team.youth_development / 5).clamp(58, 76)),
+            expected_top_player_ovr: Some((66 + team.youth_development / 4).clamp(66, 88)),
+            squad_depth: Some(team.youth_development),
         },
         &mut rng,
     );
@@ -273,6 +311,16 @@ pub fn generate_world(
         team.domestic_tier = tdef.domestic_tier;
         team.finance = rng.random_range(fin_range[0]..fin_range[1]);
         team.reputation = rng.random_range(rep_range[0]..rep_range[1]);
+        team.youth_development = tdef.youth_development.unwrap_or(50).clamp(1, 100);
+        team.recruitment_power = tdef.recruitment_power.unwrap_or(50).clamp(1, 100);
+        team.tactical_level = tdef.tactical_level.unwrap_or(50).clamp(1, 100);
+        team.volatility = tdef.volatility.unwrap_or(50).clamp(1, 100);
+        team.facilities = Facilities {
+            training: facility_level(team.youth_development),
+            medical: facility_level((team.youth_development / 2).saturating_add(team.tactical_level / 2)),
+            scouting: facility_level(team.recruitment_power),
+        };
+        team.tactical_familiarity = tactical_familiarity_from_level(team.tactical_level, team.volatility);
         team.wage_budget = (team.finance as f64 * 0.45) as i64;
         team.transfer_budget = (team.finance as f64 * 0.25) as i64;
         team.founded_year = rng.random_range(1880..1960);
@@ -294,8 +342,18 @@ pub fn generate_world(
                 PlayerGenerationQuality {
                     reputation: team.reputation,
                     domestic_tier: team.domestic_tier,
+                    current_strength: tdef.current_strength,
+                    expected_squad_avg_ovr: tdef.expected_squad_avg_ovr,
+                    expected_top_player_ovr: tdef.expected_top_player_ovr,
+                    squad_depth: tdef.squad_depth,
                 },
                 &mut rng,
+            );
+            player.morale = opening_morale_from_context(
+                team.reputation,
+                tdef.current_strength,
+                team.volatility,
+                rng.random_range(0..100),
             );
             if rng.random_range(0..100) < 12 {
                 player.transfer_listed = true;
@@ -574,10 +632,18 @@ mod tests {
         let high_quality = PlayerGenerationQuality {
             reputation: 900,
             domestic_tier: Some(1),
+            current_strength: Some(93),
+            expected_squad_avg_ovr: Some(85),
+            expected_top_player_ovr: Some(95),
+            squad_depth: Some(93),
         };
         let low_quality = PlayerGenerationQuality {
             reputation: 300,
             domestic_tier: Some(4),
+            current_strength: Some(55),
+            expected_squad_avg_ovr: Some(64),
+            expected_top_player_ovr: Some(70),
+            squad_depth: Some(50),
         };
 
         let high_players = (0..22)
@@ -623,6 +689,47 @@ mod tests {
             top_three > bottom_three + 8.0,
             "top squad band {top_three} should clear backup band {bottom_three}"
         );
+    }
+
+    #[test]
+    fn test_default_world_uses_club_balancing_data() {
+        let (teams, players, _) = generate_world(None);
+        let team_by_name = |name: &str| {
+            teams
+                .iter()
+                .find(|team| team.name == name)
+                .unwrap_or_else(|| panic!("missing team {name}"))
+        };
+        let avg_ovr = |team_id: &str| {
+            let team_players = players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team_id))
+                .collect::<Vec<_>>();
+            team_players
+                .iter()
+                .map(|player| player.ovr as u32)
+                .sum::<u32>() as f64
+                / team_players.len() as f64
+        };
+
+        let arsenal = team_by_name("Arsenal");
+        let manchester_city = team_by_name("Manchester City");
+        let boulogne = team_by_name("Boulogne");
+        let carrarese = team_by_name("Carrarese");
+
+        assert!(arsenal.reputation >= 895, "Arsenal reputation should be elite");
+        assert_eq!(arsenal.youth_development, 84);
+        assert_eq!(arsenal.recruitment_power, 92);
+        assert_eq!(arsenal.tactical_level, 91);
+        assert_eq!(arsenal.volatility, 28);
+        assert_eq!(arsenal.facilities.training, 4);
+        assert_eq!(arsenal.facilities.scouting, 5);
+        assert!(arsenal.tactical_familiarity >= 75);
+        assert!(manchester_city.reputation > boulogne.reputation + 550);
+        assert!(arsenal.recruitment_power > boulogne.recruitment_power + 35);
+        assert!(arsenal.youth_development > carrarese.youth_development + 20);
+        assert!(avg_ovr(&arsenal.id) > avg_ovr(&boulogne.id) + 8.0);
+        assert!(avg_ovr(&manchester_city.id) > avg_ovr(&carrarese.id) + 8.0);
     }
 
     #[test]

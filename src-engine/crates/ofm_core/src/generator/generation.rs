@@ -190,6 +190,10 @@ fn attr(rng: &mut impl Rng, range: std::ops::Range<u8>) -> u8 {
 pub(super) struct PlayerGenerationQuality {
     pub reputation: u32,
     pub domestic_tier: Option<u8>,
+    pub current_strength: Option<u8>,
+    pub expected_squad_avg_ovr: Option<u8>,
+    pub expected_top_player_ovr: Option<u8>,
+    pub squad_depth: Option<u8>,
 }
 
 impl Default for PlayerGenerationQuality {
@@ -197,6 +201,10 @@ impl Default for PlayerGenerationQuality {
         Self {
             reputation: 500,
             domestic_tier: Some(2),
+            current_strength: None,
+            expected_squad_avg_ovr: None,
+            expected_top_player_ovr: None,
+            squad_depth: None,
         }
     }
 }
@@ -237,8 +245,26 @@ fn quality_offset(quality: PlayerGenerationQuality, index: usize) -> i16 {
         6..=8 | 13..=15 | 19..=20 => -1,
         _ => -6,
     };
+    let base_offset = reputation_offset + tier_offset + squad_offset;
 
-    (reputation_offset + tier_offset + squad_offset).clamp(-16, 12)
+    if let Some(target_avg) = quality.expected_squad_avg_ovr {
+        let strength = quality.current_strength.unwrap_or(target_avg).clamp(1, 100) as i16;
+        let depth = quality.squad_depth.unwrap_or(65).clamp(1, 100) as i16;
+        let top_target = quality.expected_top_player_ovr.unwrap_or(target_avg).max(target_avg) as i16;
+        let target_offset = (target_avg as i16 - 73) / 2;
+        let strength_offset = (strength - 70) / 8;
+        let depth_offset = (depth - 70) / 14;
+        let star_gap = (top_target - target_avg as i16).clamp(0, 14);
+        let squad_band = match index {
+            0 | 2..=5 | 9..=12 | 16..=18 => 2 + star_gap / 3,
+            6..=8 | 13..=15 | 19..=20 => (depth - 65) / 18,
+            _ => -5 + (depth - 65) / 20,
+        };
+
+        (target_offset + strength_offset + depth_offset + squad_band).clamp(-14, 15)
+    } else {
+        base_offset.clamp(-16, 12)
+    }
 }
 
 fn adjust_attr(value: u8, offset: i16, weight: i16) -> u8 {

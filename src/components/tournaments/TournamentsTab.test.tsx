@@ -34,6 +34,18 @@ vi.mock("react-i18next", () => ({
       if (key === "common.gd") return "GD";
       if (key === "common.pts") return "Pts";
       if (key === "common.position") return "Position";
+      if (key === "common.all") return "All";
+      if (key === "common.country") return "Country";
+      if (key === "tournaments.globalLeaderboardsTab") return params?.defaultValue?.toString() ?? "Global";
+      if (key === "tournaments.viewGlobalLeaderboard") return "View Global Leaderboard";
+      if (key === "tournaments.competitionType") return "Competition type";
+      if (key === "tournaments.domesticLeague") return "Domestic League";
+      if (key === "tournaments.domesticCup") return "Domestic Cup";
+      if (key === "tournaments.continental") return "Continental";
+      if (key === "positions.goalkeeper") return "Goalkeeper";
+      if (key === "positions.defender") return "Defender";
+      if (key === "positions.midfielder") return "Midfielder";
+      if (key === "positions.forward") return "Forward";
       if (key.startsWith("season.phases.")) return key.replace("season.phases.", "");
       return key;
     },
@@ -214,8 +226,61 @@ function createGameState(withLeague = true): GameStateData {
         ],
       }
       : null,
+    competitions: withLeague ? [
+      {
+        id: "league-1",
+        name: "Premier League",
+        season: 1,
+        kind: "DomesticLeague",
+        format: "RoundRobin",
+        country: "GB",
+        tier: 1,
+        team_ids: ["team-1", "team-2"],
+        fixtures: [createFixture({ competition: "DomesticLeague" })],
+        standings: [
+          {
+            team_id: "team-1",
+            played: 1,
+            won: 1,
+            drawn: 0,
+            lost: 0,
+            goals_for: 1,
+            goals_against: 0,
+            points: 3,
+          },
+          {
+            team_id: "team-2",
+            played: 1,
+            won: 0,
+            drawn: 0,
+            lost: 1,
+            goals_for: 0,
+            goals_against: 1,
+            points: 0,
+          },
+        ],
+      },
+    ] : [],
     scouting_assignments: [],
     board_objectives: [],
+  };
+}
+
+function globalLeaderboardResponse() {
+  return {
+    season: 1,
+    top_scorers: [
+      { player_id: "player-1", player_name: "John Smith", team_id: "team-1", team_name: "Alpha FC", value: 9 },
+    ],
+    top_assists: [],
+    top_clean_sheets: [],
+    appearances: [],
+    minutes: [],
+    yellow_cards: [],
+    red_cards: [],
+    average_ratings: [
+      { player_id: "player-1", player_name: "John Smith", team_id: "team-1", team_name: "Alpha FC", value: 7.82, appearances: 3, minutes: 270 },
+    ],
   };
 }
 
@@ -333,6 +398,70 @@ describe("TournamentsTab", () => {
     // The record value (41) is unique to the records panel.
     expect(screen.getByText("41")).toBeInTheDocument();
     expect(screen.getAllByText(/John Smith/).length).toBeGreaterThan(0);
+  });
+
+  it("loads global player leaderboards from the Global tab", async () => {
+    vi.mocked(invoke).mockResolvedValue(globalLeaderboardResponse());
+
+    render(<TournamentsTab gameState={createGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Global$/i }));
+
+    expect(await screen.findByText("John Smith")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("get_global_player_leaderboards", {
+      query: {
+        season: 1,
+        country: null,
+        competition_type: null,
+        position: null,
+        limit: 50,
+      },
+    });
+  });
+
+  it("reloads global player leaderboards when filters change", async () => {
+    vi.mocked(invoke).mockResolvedValue(globalLeaderboardResponse());
+
+    render(<TournamentsTab gameState={createGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Global$/i }));
+    await screen.findByText("John Smith");
+    fireEvent.change(screen.getByLabelText("Competition type"), { target: { value: "DomesticCup" } });
+    fireEvent.change(screen.getByLabelText("Position"), { target: { value: "Forward" } });
+
+    expect(await screen.findByText("John Smith")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("get_global_player_leaderboards", {
+      query: {
+        season: 1,
+        country: null,
+        competition_type: "DomesticCup",
+        position: "Forward",
+        limit: 50,
+      },
+    });
+  });
+
+  it("opens the Global leaderboard from the competition leaderboards panel", async () => {
+    vi.mocked(invoke).mockImplementation((command) => {
+      if (command === "get_competition_leaderboards") {
+        return Promise.resolve({
+          competition_id: "league-1",
+          season: 1,
+          top_scorers: [],
+          top_assists: [],
+          top_clean_sheets: [],
+        });
+      }
+      return Promise.resolve(globalLeaderboardResponse());
+    });
+
+    render(<TournamentsTab gameState={createGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /leaderboardsTab/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "View Global Leaderboard" }));
+
+    expect(await screen.findByText("John Smith")).toBeInTheDocument();
+    expect(invoke).toHaveBeenCalledWith("get_global_player_leaderboards", expect.any(Object));
   });
 
   it("shows retired legends on the hall of fame tab sorted by peak ovr", () => {

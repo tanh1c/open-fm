@@ -5,9 +5,12 @@
 
 use wasm_bindgen::prelude::*;
 
+use ofm_core::leaderboards::GlobalPlayerLeaderboardQuery;
+
 use crate::application::stats::{
-    get_player_match_history_internal, get_player_stats_overview_internal,
-    get_team_match_history_internal, get_team_stats_overview_internal,
+    get_global_player_leaderboards_internal, get_player_match_history_internal,
+    get_player_stats_overview_internal, get_team_match_history_internal,
+    get_team_stats_overview_internal,
 };
 
 use super::{to_js, to_js_value, AppHandle};
@@ -47,5 +50,14 @@ impl AppHandle {
         let entries =
             get_team_match_history_internal(&self.state, &team_id, limit).map_err(to_js)?;
         to_js_value(&entries)
+    }
+
+    #[wasm_bindgen(js_name = getGlobalPlayerLeaderboards)]
+    pub fn get_global_player_leaderboards(&self, query: JsValue) -> Result<JsValue, JsValue> {
+        let query: GlobalPlayerLeaderboardQuery = serde_wasm_bindgen::from_value(query)
+            .map_err(|error| to_js(format!("be.error.deserialize:{error}")))?;
+        let leaderboards =
+            get_global_player_leaderboards_internal(&self.state, query).map_err(to_js)?;
+        to_js_value(&leaderboards)
     }
 }

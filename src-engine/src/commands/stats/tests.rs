@@ -1,13 +1,15 @@
 use chrono::{TimeZone, Utc};
-use domain::league::FixtureCompetition;
+use domain::league::{Competition, CompetitionFormat, CompetitionKind, FixtureCompetition};
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, PlayerSeasonStats, Position};
 use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
+use ofm_core::leaderboards::GlobalPlayerLeaderboardQuery;
 use ofm_core::state::StateManager;
 
+use super::leaderboards::get_global_player_leaderboards_internal;
 use super::player::{get_player_match_history_internal, get_player_stats_overview_internal};
 use super::team::{get_team_match_history_internal, get_team_stats_overview_internal};
 
@@ -82,14 +84,43 @@ fn make_game(players: Vec<Player>) -> Game {
         18_000,
     );
 
-    Game::new(
+    let mut game = Game::new(
         clock,
         manager,
         vec![team, opponent],
         players,
         vec![],
         vec![],
-    )
+    );
+    game.competitions = vec![
+        Competition {
+            id: "league-1".to_string(),
+            name: "Test League".to_string(),
+            season: 2025,
+            kind: CompetitionKind::DomesticLeague,
+            format: CompetitionFormat::RoundRobin,
+            country: Some("England".to_string()),
+            tier: Some(1),
+            team_ids: vec!["team-1".to_string(), "team-2".to_string()],
+            fixtures: vec![],
+            standings: vec![],
+            transfer_log: vec![],
+        },
+        Competition {
+            id: "cup-1".to_string(),
+            name: "Test Cup".to_string(),
+            season: 2025,
+            kind: CompetitionKind::DomesticCup,
+            format: CompetitionFormat::Knockout,
+            country: Some("England".to_string()),
+            tier: None,
+            team_ids: vec!["team-1".to_string(), "team-2".to_string()],
+            fixtures: vec![],
+            standings: vec![],
+            transfer_log: vec![],
+        },
+    ];
+    game
 }
 
 fn sample_stats_state() -> StatsState {
@@ -584,6 +615,120 @@ fn get_player_match_history_returns_empty_when_stats_state_is_missing() {
     let history = get_player_match_history_internal(&state, "player-1", None).unwrap();
 
     assert!(history.is_empty());
+}
+
+#[test]
+fn get_global_player_leaderboards_filters_records() {
+    let state = StateManager::new();
+    state.set_game(make_game(vec![
+        make_player("player-1", "team-1", Position::Striker),
+        make_player("player-2", "team-1", Position::CentralMidfielder),
+    ]));
+    state.set_stats_state(StatsState {
+        player_matches: vec![
+            PlayerMatchStatsRecord {
+                fixture_id: "cup-match".to_string(),
+                season: 2025,
+                matchday: 1,
+                date: "2025-08-01".to_string(),
+                competition: FixtureCompetition::DomesticCup,
+                player_id: "player-1".to_string(),
+                team_id: "team-1".to_string(),
+                opponent_team_id: "team-2".to_string(),
+                home_team_id: "team-1".to_string(),
+                away_team_id: "team-2".to_string(),
+                home_goals: 2,
+                away_goals: 0,
+                minutes_played: 90,
+                goals: 2,
+                assists: 1,
+                shots: 5,
+                shots_on_target: 3,
+                passes_completed: 20,
+                passes_attempted: 25,
+                tackles_won: 1,
+                interceptions: 0,
+                fouls_committed: 1,
+                yellow_cards: 1,
+                red_cards: 0,
+                rating: 8.0,
+            },
+            PlayerMatchStatsRecord {
+                fixture_id: "league-match".to_string(),
+                season: 2025,
+                matchday: 1,
+                date: "2025-08-02".to_string(),
+                competition: FixtureCompetition::DomesticLeague,
+                player_id: "player-2".to_string(),
+                team_id: "team-1".to_string(),
+                opponent_team_id: "team-2".to_string(),
+                home_team_id: "team-1".to_string(),
+                away_team_id: "team-2".to_string(),
+                home_goals: 1,
+                away_goals: 0,
+                minutes_played: 90,
+                goals: 1,
+                assists: 2,
+                shots: 2,
+                shots_on_target: 1,
+                passes_completed: 45,
+                passes_attempted: 52,
+                tackles_won: 3,
+                interceptions: 2,
+                fouls_committed: 1,
+                yellow_cards: 0,
+                red_cards: 0,
+                rating: 7.4,
+            },
+        ],
+        team_matches: vec![],
+    });
+
+    let board = get_global_player_leaderboards_internal(
+        &state,
+        GlobalPlayerLeaderboardQuery {
+            season: Some(2025),
+            country: Some("England".to_string()),
+            competition_type: Some("DomesticCup".to_string()),
+            position: Some("Forward".to_string()),
+            limit: Some(10),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(board.top_scorers.len(), 1);
+    assert_eq!(board.top_scorers[0].player_id, "player-1");
+    assert_eq!(board.top_scorers[0].value, 2);
+    assert_eq!(board.top_assists[0].value, 1);
+    assert_eq!(board.yellow_cards[0].value, 1);
+    assert_eq!(board.average_ratings[0].player_id, "player-1");
+}
+
+#[test]
+fn get_global_player_leaderboards_returns_empty_for_unknown_filters() {
+    let state = StateManager::new();
+    state.set_game(make_game(vec![make_player(
+        "player-1",
+        "team-1",
+        Position::Striker,
+    )]));
+    state.set_stats_state(sample_stats_state());
+
+    let board = get_global_player_leaderboards_internal(
+        &state,
+        GlobalPlayerLeaderboardQuery {
+            season: Some(2025),
+            country: Some("Spain".to_string()),
+            competition_type: Some("DomesticCup".to_string()),
+            position: Some("Goalkeeper".to_string()),
+            limit: Some(10),
+        },
+    )
+    .unwrap();
+
+    assert!(board.top_scorers.is_empty());
+    assert!(board.top_assists.is_empty());
+    assert!(board.average_ratings.is_empty());
 }
 
 #[test]

@@ -665,12 +665,42 @@ export interface LeaderboardEntry {
   value: number;
 }
 
+export interface RatingLeaderboardEntry {
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  team_name: string;
+  value: number;
+  appearances: number;
+  minutes: number;
+}
+
 export interface CompetitionLeaderboards {
   competition_id: string;
   season: number;
   top_scorers: LeaderboardEntry[];
   top_assists: LeaderboardEntry[];
   top_clean_sheets: LeaderboardEntry[];
+}
+
+export interface GlobalPlayerLeaderboardQuery {
+  season?: number | null;
+  country?: string | null;
+  competition_type?: string | null;
+  position?: string | null;
+  limit?: number | null;
+}
+
+export interface GlobalPlayerLeaderboards {
+  season?: number | null;
+  top_scorers: LeaderboardEntry[];
+  top_assists: LeaderboardEntry[];
+  top_clean_sheets: LeaderboardEntry[];
+  appearances: LeaderboardEntry[];
+  minutes: LeaderboardEntry[];
+  yellow_cards: LeaderboardEntry[];
+  red_cards: LeaderboardEntry[];
+  average_ratings: RatingLeaderboardEntry[];
 }
 
 export function getCompetitionForTeam(gameState: GameStateData, teamId: string | null | undefined): CompetitionLikeData | null {

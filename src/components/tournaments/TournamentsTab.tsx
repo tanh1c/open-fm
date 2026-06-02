@@ -1,7 +1,16 @@
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData, getCompetitionDisplayName } from "../../store/gameStore";
-import type { SeasonHonours, GameRecords, RetiredPlayer, CompetitionLeaderboards, LeaderboardEntry } from "../../store/types";
+import type {
+  SeasonHonours,
+  GameRecords,
+  RetiredPlayer,
+  CompetitionLeaderboards,
+  LeaderboardEntry,
+  GlobalPlayerLeaderboardQuery,
+  GlobalPlayerLeaderboards,
+  RatingLeaderboardEntry,
+} from "../../store/types";
 import { getCompetitionForTeam } from "../../store/types";
 import ContextMenu from "../ContextMenu";
 import TeamLogo from "../common/TeamLogo";
@@ -84,7 +93,7 @@ interface SeasonAwards {
   young_player: AwardEntry[];
 }
 
-type TournamentView = "overview" | "fixtures" | "standings" | "bracket" | "awards" | "leaderboards" | "honours" | "records" | "halloffame";
+type TournamentView = "overview" | "global" | "fixtures" | "standings" | "bracket" | "awards" | "leaderboards" | "honours" | "records" | "halloffame";
 type StandingEntry = NonNullable<GameStateData["league"]>["standings"][number];
 type TopScorerEntry = { player: GameStateData["players"][number] | undefined; goals: number };
 
@@ -139,6 +148,16 @@ export default function TournamentsTab({
   const selectedLeaderboards = selectedCompetition
     ? leaderboardsByCompetition[selectedCompetition.id] ?? null
     : null;
+  const defaultGlobalSeason = selectedCompetition?.season ?? gameState.league?.season ?? null;
+  const [globalFilters, setGlobalFilters] = useState<GlobalPlayerLeaderboardQuery>({
+    season: defaultGlobalSeason,
+    country: null,
+    competition_type: null,
+    position: null,
+    limit: 50,
+  });
+  const [globalLeaderboards, setGlobalLeaderboards] = useState<GlobalPlayerLeaderboards | null>(null);
+  const [globalLeaderboardsLoadState, setGlobalLeaderboardsLoadState] = useState<"idle" | "loading" | "error">("idle");
 
   useEffect(() => {
     if (competitionOptions.length === 0) {
@@ -216,6 +235,33 @@ export default function TournamentsTab({
     };
   }, [view, selectedCompetition, selectedLeaderboards]);
 
+  useEffect(() => {
+    if (view !== "global") {
+      return;
+    }
+
+    let cancelled = false;
+    setGlobalLeaderboardsLoadState("loading");
+
+    invoke<GlobalPlayerLeaderboards>("get_global_player_leaderboards", { query: globalFilters })
+      .then((next) => {
+        if (cancelled) {
+          return;
+        }
+        setGlobalLeaderboards(next);
+        setGlobalLeaderboardsLoadState("idle");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGlobalLeaderboardsLoadState("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view, globalFilters]);
+
   if (!selectedCompetition) {
     return (
       <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
@@ -236,6 +282,24 @@ export default function TournamentsTab({
     "team_ids" in selectedCompetition && Array.isArray(selectedCompetition.team_ids)
       ? selectedCompetition.team_ids.length
       : selectedCompetition.standings.length;
+  const seasonOptions = Array.from(
+    new Set(
+      [
+        ...competitionOptions.map((competition) => competition.season),
+        gameState.league?.season,
+      ].filter((season): season is number => typeof season === "number"),
+    ),
+  ).sort((a, b) => b - a);
+  const countryOptions = Array.from(
+    new Set(
+      [
+        ...gameState.teams.map((team) => team.country).filter(Boolean),
+        ...competitionOptions
+          .map((competition) => ("country" in competition ? competition.country : null))
+          .filter((country): country is string => !!country),
+      ],
+    ),
+  ).sort((a, b) => a.localeCompare(b));
   const standings = [...selectedCompetition.standings].sort(
     (a, b) =>
       b.points - a.points ||
@@ -374,11 +438,15 @@ export default function TournamentsTab({
   const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
   const activeViewTitle = view === "overview"
     ? t("tournaments.overview")
-    : view === "standings"
-      ? t("schedule.standings")
-      : view === "awards"
-        ? t("tournaments.awardsTab")
-        : t("schedule.fixtures");
+    : view === "global"
+      ? t("tournaments.globalLeaderboardsTab", { defaultValue: "Global Leaderboard" })
+      : view === "standings"
+        ? t("schedule.standings")
+        : view === "awards"
+          ? t("tournaments.awardsTab")
+          : view === "leaderboards"
+            ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" })
+            : t("schedule.fixtures");
 
   const renderStandingsState = (compact = false) => {
     if (!hasStandings) {
@@ -457,7 +525,7 @@ export default function TournamentsTab({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
-        {(["overview", "standings", "bracket", "fixtures", "awards", "leaderboards", "honours", "records", "halloffame"] as const)
+        {(["overview", "global", "standings", "bracket", "fixtures", "awards", "leaderboards", "honours", "records", "halloffame"] as const)
           .filter((nextView) => nextView !== "bracket" || showBracketTab)
           .map((nextView) => (
           <button
@@ -471,8 +539,8 @@ export default function TournamentsTab({
                 : "border-transparent text-app-text-muted hover:text-app-text",
             )}
           >
-            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "bracket" ? <GitBranch className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "leaderboards" ? <ListOrdered className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-            {nextView === "overview" ? t("tournaments.overview") : nextView === "standings" ? t("schedule.standings") : nextView === "bracket" ? t("tournaments.bracketTab", { defaultValue: "Bracket" }) : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "leaderboards" ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" }) : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
+            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "global" ? <Users className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "bracket" ? <GitBranch className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "leaderboards" ? <ListOrdered className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            {nextView === "overview" ? t("tournaments.overview") : nextView === "global" ? t("tournaments.globalLeaderboardsTab", { defaultValue: "Global" }) : nextView === "standings" ? t("schedule.standings") : nextView === "bracket" ? t("tournaments.bracketTab", { defaultValue: "Bracket" }) : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "leaderboards" ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" }) : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
           </button>
         ))}
       </div>
@@ -606,12 +674,29 @@ export default function TournamentsTab({
                 />
               ) : null}
 
+              {view === "global" ? (
+                <GlobalLeaderboardsPanel
+                  leaderboards={globalLeaderboards}
+                  loadState={globalLeaderboardsLoadState}
+                  filters={globalFilters}
+                  seasonOptions={seasonOptions}
+                  countryOptions={countryOptions}
+                  onFiltersChange={(nextFilters) => {
+                    setGlobalLeaderboards(null);
+                    setGlobalFilters(nextFilters);
+                  }}
+                  onSelectPlayer={onSelectPlayer}
+                  onSelectTeam={onSelectTeam}
+                />
+              ) : null}
+
               {view === "leaderboards" ? (
                 <LeaderboardsPanel
                   leaderboards={selectedLeaderboards}
                   loadState={leaderboardsLoadState}
                   onSelectPlayer={onSelectPlayer}
                   onSelectTeam={onSelectTeam}
+                  onViewGlobal={() => setView("global")}
                 />
               ) : null}
 
@@ -1647,16 +1732,223 @@ function HallOfFamePanel({
   );
 }
 
+function GlobalLeaderboardsPanel({
+  leaderboards,
+  loadState,
+  filters,
+  seasonOptions,
+  countryOptions,
+  onFiltersChange,
+  onSelectPlayer,
+  onSelectTeam,
+}: {
+  leaderboards: GlobalPlayerLeaderboards | null;
+  loadState: "idle" | "loading" | "error";
+  filters: GlobalPlayerLeaderboardQuery;
+  seasonOptions: number[];
+  countryOptions: string[];
+  onFiltersChange: (filters: GlobalPlayerLeaderboardQuery) => void;
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const updateFilter = (key: keyof GlobalPlayerLeaderboardQuery, value: string) => {
+    onFiltersChange({
+      ...filters,
+      [key]: key === "season" ? (value ? Number(value) : null) : value || null,
+    });
+  };
+  const hasData = !!leaderboards && (
+    leaderboards.top_scorers.length > 0 ||
+    leaderboards.top_assists.length > 0 ||
+    leaderboards.top_clean_sheets.length > 0 ||
+    leaderboards.appearances.length > 0 ||
+    leaderboards.minutes.length > 0 ||
+    leaderboards.yellow_cards.length > 0 ||
+    leaderboards.red_cards.length > 0 ||
+    leaderboards.average_ratings.length > 0
+  );
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <TemplateCard className="p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <FilterSelect
+            label={t("schedule.season", { number: "" }).trim() || "Season"}
+            value={filters.season ? String(filters.season) : ""}
+            onChange={(value) => updateFilter("season", value)}
+            options={[
+              { value: "", label: t("common.all", { defaultValue: "All" }) },
+              ...seasonOptions.map((season) => ({ value: String(season), label: String(season) })),
+            ]}
+          />
+          <FilterSelect
+            label={t("common.country", { defaultValue: "Country" })}
+            value={filters.country ?? ""}
+            onChange={(value) => updateFilter("country", value)}
+            options={[
+              { value: "", label: t("common.all", { defaultValue: "All" }) },
+              ...countryOptions.map((country) => ({ value: country, label: country })),
+            ]}
+          />
+          <FilterSelect
+            label={t("tournaments.competitionType", { defaultValue: "Competition type" })}
+            value={filters.competition_type ?? ""}
+            onChange={(value) => updateFilter("competition_type", value)}
+            options={[
+              { value: "", label: t("common.all", { defaultValue: "All" }) },
+              { value: "DomesticLeague", label: t("tournaments.domesticLeague", { defaultValue: "Domestic League" }) },
+              { value: "DomesticCup", label: t("tournaments.domesticCup", { defaultValue: "Domestic Cup" }) },
+              { value: "ContinentalLeague", label: t("tournaments.continental", { defaultValue: "Continental" }) },
+            ]}
+          />
+          <FilterSelect
+            label={t("common.position", { defaultValue: "Position" })}
+            value={filters.position ?? ""}
+            onChange={(value) => updateFilter("position", value)}
+            options={[
+              { value: "", label: t("common.all", { defaultValue: "All" }) },
+              { value: "Goalkeeper", label: t("positions.goalkeeper", { defaultValue: "Goalkeeper" }) },
+              { value: "Defender", label: t("positions.defender", { defaultValue: "Defender" }) },
+              { value: "Midfielder", label: t("positions.midfielder", { defaultValue: "Midfielder" }) },
+              { value: "Forward", label: t("positions.forward", { defaultValue: "Forward" }) },
+            ]}
+          />
+        </div>
+      </TemplateCard>
+
+      {loadState === "loading" && !leaderboards ? (
+        <div className="flex min-h-[240px] items-center justify-center p-8 text-sm text-app-text-muted">
+          {t("tournaments.leaderboardsLoading", { defaultValue: "Loading leaderboards…" })}
+        </div>
+      ) : null}
+
+      {loadState === "error" ? (
+        <EmptyPanel
+          icon={<ListOrdered className="h-8 w-8" />}
+          title={t("common.error", { defaultValue: "Error" })}
+          description={t("tournaments.globalLeaderboardsError", { defaultValue: "Could not load global player leaderboards." })}
+        />
+      ) : null}
+
+      {loadState !== "error" && !hasData && loadState !== "loading" ? (
+        <EmptyPanel
+          icon={<Users className="h-8 w-8" />}
+          title={t("tournaments.globalLeaderboardsEmptyTitle", { defaultValue: "No global leaderboard data" })}
+          description={t("tournaments.globalLeaderboardsEmptyBody", { defaultValue: "No detailed player match stats were found for these filters." })}
+        />
+      ) : null}
+
+      {hasData && leaderboards ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <LeaderboardColumn title={t("tournaments.lbTopScorers", { defaultValue: "Top Scorers" })} unit={t("tournaments.lbGoals", { defaultValue: "Goals" })} entries={leaderboards.top_scorers} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <LeaderboardColumn title={t("tournaments.lbTopAssists", { defaultValue: "Top Assists" })} unit={t("tournaments.lbAssists", { defaultValue: "Assists" })} entries={leaderboards.top_assists} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <RatingLeaderboardColumn title={t("tournaments.lbAverageRating", { defaultValue: "Average Rating" })} entries={leaderboards.average_ratings} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <LeaderboardColumn title={t("tournaments.lbTopCleanSheets", { defaultValue: "Clean Sheets" })} unit={t("tournaments.lbCleanSheets", { defaultValue: "Clean sheets" })} entries={leaderboards.top_clean_sheets} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <LeaderboardColumn title={t("tournaments.lbAppearances", { defaultValue: "Appearances" })} unit={t("tournaments.lbApps", { defaultValue: "Apps" })} entries={leaderboards.appearances} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <LeaderboardColumn title={t("tournaments.lbMinutes", { defaultValue: "Minutes" })} unit={t("tournaments.lbMins", { defaultValue: "Mins" })} entries={leaderboards.minutes} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <LeaderboardColumn title={t("tournaments.lbYellowCards", { defaultValue: "Yellow Cards" })} unit={t("tournaments.lbCards", { defaultValue: "Cards" })} entries={leaderboards.yellow_cards} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+          <LeaderboardColumn title={t("tournaments.lbRedCards", { defaultValue: "Red Cards" })} unit={t("tournaments.lbCards", { defaultValue: "Cards" })} entries={leaderboards.red_cards} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-bold text-app-text outline-none transition-colors hover:border-app-green/50 focus:border-app-green"
+      >
+        {options.map((option) => (
+          <option key={option.value || "all"} value={option.value} className="bg-app-bg text-app-text">
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function RatingLeaderboardColumn({
+  title,
+  entries,
+  onSelectPlayer,
+  onSelectTeam,
+}: {
+  title: string;
+  entries: RatingLeaderboardEntry[];
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam: (id: string) => void;
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+        <span>{title}</span>
+        <span>Rating</span>
+      </h4>
+      <TemplateCard className="divide-y divide-app-border/30">
+        {entries.length === 0 ? (
+          <div className="px-4 py-6 text-center text-xs text-app-text-muted">—</div>
+        ) : (
+          entries.map((entry, index) => (
+            <div key={entry.player_id} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="w-5 shrink-0 text-center text-xs font-bold tabular-nums text-app-text-muted">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => onSelectPlayer?.(entry.player_id)}
+                  className="block truncate text-left text-sm font-bold text-app-text hover:text-app-green"
+                >
+                  {entry.player_name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => entry.team_id && onSelectTeam(entry.team_id)}
+                  className="block truncate text-left text-[11px] text-app-text-muted hover:text-app-green"
+                >
+                  {entry.team_name} · {entry.appearances} apps
+                </button>
+              </span>
+              <span className="shrink-0 font-heading text-sm font-bold tabular-nums text-app-green">
+                {entry.value.toFixed(2)}
+              </span>
+            </div>
+          ))
+        )}
+      </TemplateCard>
+    </div>
+  );
+}
+
 function LeaderboardsPanel({
   leaderboards,
   loadState,
   onSelectPlayer,
   onSelectTeam,
+  onViewGlobal,
 }: {
   leaderboards: CompetitionLeaderboards | null;
   loadState: "idle" | "loading" | "error";
   onSelectPlayer?: (id: string) => void;
   onSelectTeam: (id: string) => void;
+  onViewGlobal: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -1676,18 +1968,39 @@ function LeaderboardsPanel({
 
   if (!hasData) {
     return (
-      <EmptyPanel
-        icon={<ListOrdered className="h-8 w-8" />}
-        title={t("tournaments.leaderboardsEmptyTitle", { defaultValue: "No leaderboard data yet" })}
-        description={t("tournaments.leaderboardsEmptyBody", {
-          defaultValue: "Player leaderboards fill in as league matches are played.",
-        })}
-      />
+      <div className="flex flex-col gap-4 p-4">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onViewGlobal}
+            className="rounded-lg border border-app-green/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-green transition-colors hover:bg-app-green/10"
+          >
+            {t("tournaments.viewGlobalLeaderboard", { defaultValue: "View Global Leaderboard" })}
+          </button>
+        </div>
+        <EmptyPanel
+          icon={<ListOrdered className="h-8 w-8" />}
+          title={t("tournaments.leaderboardsEmptyTitle", { defaultValue: "No leaderboard data yet" })}
+          description={t("tournaments.leaderboardsEmptyBody", {
+            defaultValue: "Detailed player leaderboards fill in when this competition has recorded player match stats.",
+          })}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-3">
+    <div className="flex flex-col gap-4 p-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onViewGlobal}
+          className="rounded-lg border border-app-green/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-app-green transition-colors hover:bg-app-green/10"
+        >
+          {t("tournaments.viewGlobalLeaderboard", { defaultValue: "View Global Leaderboard" })}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       <LeaderboardColumn
         title={t("tournaments.lbTopScorers", { defaultValue: "Top Scorers" })}
         unit={t("tournaments.lbGoals", { defaultValue: "Goals" })}
@@ -1709,6 +2022,7 @@ function LeaderboardsPanel({
         onSelectPlayer={onSelectPlayer}
         onSelectTeam={onSelectTeam}
       />
+      </div>
     </div>
   );
 }

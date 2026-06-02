@@ -1,4 +1,4 @@
-use crate::types::{MatchConfig, PlayStyle, PlayerData, Side};
+use crate::types::{MatchConfig, PlayStyle, PlayerData, Side, TeamData};
 
 // ---------------------------------------------------------------------------
 // PlayerSnap — lightweight snapshot of a player to avoid borrow conflicts
@@ -204,4 +204,78 @@ pub(crate) fn home_mod(side: Side, config: &MatchConfig) -> f64 {
         Side::Home => config.home_advantage,
         Side::Away => 1.0,
     }
+}
+
+fn instruction_delta(value: f64) -> f64 {
+    (value.clamp(0.0, 1.0) - 0.5) * 2.0
+}
+
+pub(crate) fn tactical_press_modifier(team: &TeamData) -> f64 {
+    let instructions = team.tactical_profile.instructions;
+    let press = instruction_delta(instructions.pressing_intensity);
+    let line = instruction_delta(instructions.defensive_line);
+    let tempo = instruction_delta(instructions.tempo);
+    (1.0 + press * 0.10 + line * 0.035 + tempo * 0.025).clamp(0.88, 1.16)
+}
+
+pub(crate) fn tactical_buildup_modifier(team: &TeamData) -> f64 {
+    let instructions = team.tactical_profile.instructions;
+    let directness = instruction_delta(instructions.passing_directness);
+    let tempo = instruction_delta(instructions.tempo);
+    let risk = instruction_delta(instructions.risk_appetite);
+    (1.0 - directness * 0.055 - tempo * 0.025 - risk * 0.030).clamp(0.88, 1.12)
+}
+
+pub(crate) fn tactical_midfield_modifier(team: &TeamData) -> f64 {
+    let instructions = team.tactical_profile.instructions;
+    let tempo = instruction_delta(instructions.tempo);
+    let directness = instruction_delta(instructions.passing_directness);
+    let risk = instruction_delta(instructions.risk_appetite);
+    let central_control = instruction_delta(team.tactical_profile.width.central_density);
+    (1.0 + central_control * 0.04 + directness * 0.030 - risk * 0.010 + tempo * 0.040)
+        .clamp(0.88, 1.12)
+}
+
+pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
+    let att = att_team.tactical_profile.instructions;
+    let def = def_team.tactical_profile.instructions;
+    let tempo = instruction_delta(att.tempo);
+    let directness = instruction_delta(att.passing_directness);
+    let risk = instruction_delta(att.risk_appetite);
+    let width = instruction_delta(att.width);
+    let high_line_space = instruction_delta(def.defensive_line).max(0.0);
+    let defensive_compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
+    (1.0 + tempo * 0.050 + directness * 0.075 + risk * 0.070 + width * 0.025
+        + high_line_space * 0.055
+        - defensive_compactness * 0.030)
+        .clamp(0.88, 1.18)
+}
+
+pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
+    let att = att_team.tactical_profile.instructions;
+    let def = def_team.tactical_profile.instructions;
+    let risk = instruction_delta(att.risk_appetite);
+    let directness = instruction_delta(att.passing_directness);
+    let width = instruction_delta(att.width);
+    let defensive_line = instruction_delta(def.defensive_line);
+    let compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
+    (1.0 + risk * 0.035 + directness * 0.025 + width * 0.015 + defensive_line * 0.020
+        - compactness * 0.035)
+        .clamp(0.90, 1.12)
+}
+
+pub(crate) fn tactical_fatigue_modifier(team: &TeamData) -> f64 {
+    let instructions = team.tactical_profile.instructions;
+    let press = instruction_delta(instructions.pressing_intensity);
+    let tempo = instruction_delta(instructions.tempo);
+    let line = instruction_delta(instructions.defensive_line);
+    (1.0 + press * 0.08 + tempo * 0.055 + line.max(0.0) * 0.025).clamp(0.90, 1.15)
+}
+
+pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
+    let instructions = team.tactical_profile.instructions;
+    let directness = instruction_delta(instructions.passing_directness);
+    let tempo = instruction_delta(instructions.tempo);
+    let risk = instruction_delta(instructions.risk_appetite);
+    (1.0 + directness * 0.065 + tempo * 0.040 + risk * 0.060).clamp(0.88, 1.16)
 }

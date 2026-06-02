@@ -16,6 +16,6 @@ pub use live_match::{
 };
 pub use report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
 pub use types::{
-    LateralProfile, MatchConfig, PlayStyle, PlayerData, Position, ShapeProfile, Side, TacticalProfile,
-    TeamData, WidthProfile, Zone,
+    LateralProfile, MatchConfig, PlayStyle, PlayerData, Position, ShapeProfile, Side,
+    TacticalInstructionProfile, TacticalProfile, TeamData, WidthProfile, Zone,
 };

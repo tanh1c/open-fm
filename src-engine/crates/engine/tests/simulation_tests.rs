@@ -65,6 +65,26 @@ fn seeded_rng(seed: u64) -> StdRng {
     StdRng::seed_from_u64(seed)
 }
 
+fn with_instructions(
+    mut team: TeamData,
+    pressing_intensity: f64,
+    defensive_line: f64,
+    tempo: f64,
+    width: f64,
+    passing_directness: f64,
+    risk_appetite: f64,
+) -> TeamData {
+    team.tactical_profile.instructions = TacticalInstructionProfile {
+        pressing_intensity,
+        defensive_line,
+        tempo,
+        width,
+        passing_directness,
+        risk_appetite,
+    };
+    team
+}
+
 // ---------------------------------------------------------------------------
 // Types tests
 // ---------------------------------------------------------------------------
@@ -508,6 +528,130 @@ fn possession_style_has_more_possession() {
     assert!(
         avg_poss > 48.0,
         "Possession team avg possession should be >48%: {avg_poss:.1}%"
+    );
+}
+
+#[test]
+fn high_press_creates_more_opponent_turnovers() {
+    let high_press = with_instructions(
+        make_team("press", "Press FC", 68, PlayStyle::HighPress),
+        0.95,
+        0.85,
+        0.78,
+        0.55,
+        0.55,
+        0.62,
+    );
+    let balanced = make_team("bal", "Balanced FC", 68, PlayStyle::Balanced);
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut interceptions_against_balanced = 0u32;
+    let mut interceptions_against_press = 0u32;
+    for seed in 0..120 {
+        let pressed = simulate_with_rng(&high_press, &balanced, &config, &mut seeded_rng(seed));
+        interceptions_against_balanced += pressed.away_stats.passes_intercepted as u32;
+
+        let control = simulate_with_rng(&balanced, &high_press, &config, &mut seeded_rng(seed));
+        interceptions_against_press += control.home_stats.passes_intercepted as u32;
+    }
+
+    assert!(
+        interceptions_against_balanced > interceptions_against_press,
+        "High press should force more opponent turnovers: pressed={interceptions_against_balanced}, control={interceptions_against_press}"
+    );
+}
+
+#[test]
+fn direct_high_risk_tactics_lower_pass_safety() {
+    let direct = with_instructions(
+        make_team("direct", "Direct FC", 68, PlayStyle::Counter),
+        0.55,
+        0.45,
+        0.85,
+        0.62,
+        0.92,
+        0.90,
+    );
+    let control = with_instructions(
+        make_team("control", "Control FC", 68, PlayStyle::Possession),
+        0.45,
+        0.55,
+        0.38,
+        0.50,
+        0.15,
+        0.22,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut direct_completed = 0u32;
+    let mut direct_intercepted = 0u32;
+    let mut control_completed = 0u32;
+    let mut control_intercepted = 0u32;
+    for seed in 0..160 {
+        let report = simulate_with_rng(&direct, &control, &config, &mut seeded_rng(seed));
+        direct_completed += report.home_stats.passes_completed as u32;
+        direct_intercepted += report.home_stats.passes_intercepted as u32;
+        control_completed += report.away_stats.passes_completed as u32;
+        control_intercepted += report.away_stats.passes_intercepted as u32;
+    }
+
+    let direct_accuracy = direct_completed as f64 / (direct_completed + direct_intercepted) as f64;
+    let control_accuracy = control_completed as f64 / (control_completed + control_intercepted) as f64;
+    assert!(
+        direct_accuracy < control_accuracy,
+        "Direct high-risk tactics should be less pass-safe: direct={direct_accuracy:.3}, control={control_accuracy:.3}"
+    );
+}
+
+#[test]
+fn possession_control_improves_pass_accuracy() {
+    let possession = with_instructions(
+        make_team("poss", "Possession FC", 68, PlayStyle::Possession),
+        0.48,
+        0.55,
+        0.35,
+        0.48,
+        0.12,
+        0.18,
+    );
+    let direct = with_instructions(
+        make_team("direct", "Direct FC", 68, PlayStyle::Counter),
+        0.55,
+        0.45,
+        0.82,
+        0.58,
+        0.92,
+        0.82,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let mut possession_completed = 0u32;
+    let mut possession_intercepted = 0u32;
+    let mut direct_completed = 0u32;
+    let mut direct_intercepted = 0u32;
+    for seed in 0..160 {
+        let report = simulate_with_rng(&possession, &direct, &config, &mut seeded_rng(seed));
+        possession_completed += report.home_stats.passes_completed as u32;
+        possession_intercepted += report.home_stats.passes_intercepted as u32;
+        direct_completed += report.away_stats.passes_completed as u32;
+        direct_intercepted += report.away_stats.passes_intercepted as u32;
+    }
+
+    let possession_accuracy =
+        possession_completed as f64 / (possession_completed + possession_intercepted) as f64;
+    let direct_accuracy = direct_completed as f64 / (direct_completed + direct_intercepted) as f64;
+    assert!(
+        possession_accuracy > direct_accuracy,
+        "Possession control should improve pass accuracy: possession={possession_accuracy:.3}, direct={direct_accuracy:.3}"
     );
 }
 

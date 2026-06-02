@@ -1,6 +1,9 @@
 use rand::{Rng, RngExt};
 
-use crate::shared::{PlayStylePhase, PlayerSnap, home_mod, play_style_modifier};
+use crate::shared::{
+    PlayStylePhase, PlayerSnap, home_mod, play_style_modifier, tactical_fatigue_modifier,
+    tactical_press_modifier,
+};
 use crate::types::{PlayerData, Position, Side, TeamData};
 
 use super::{LiveMatchState, SetPieceTakers};
@@ -21,8 +24,15 @@ impl LiveMatchState {
             let fitness_factor = p.fitness as f64 / 100.0;
             // Higher stamina → less depletion; higher fitness → less depletion.
             // Fitness scales the base depletion more aggressively (unfit players tire much faster).
-            let depletion =
-                fatigue_rate * (1.0 - stamina_factor * 0.5) * (1.3 - fitness_factor * 0.6);
+            let tactical_factor = if self.home.players.iter().any(|player| player.id == p.id) {
+                tactical_fatigue_modifier(&self.home)
+            } else {
+                tactical_fatigue_modifier(&self.away)
+            };
+            let depletion = fatigue_rate
+                * (1.0 - stamina_factor * 0.5)
+                * (1.3 - fitness_factor * 0.6)
+                * tactical_factor;
             if let Some(cond) = self.player_conditions.get_mut(&p.id) {
                 *cond = (*cond - depletion).max(5.0);
             }
@@ -147,7 +157,10 @@ impl LiveMatchState {
             ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
         });
         let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
-        base * modifier * shape_midfield_multiplier(team) * home_mod(pressing_side, &self.config)
+        base * modifier
+            * shape_midfield_multiplier(team)
+            * tactical_press_modifier(team)
+            * home_mod(pressing_side, &self.config)
     }
 
     // -----------------------------------------------------------------------

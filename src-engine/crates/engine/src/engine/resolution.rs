@@ -2,7 +2,10 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, home_mod, play_style_modifier, trait_bonus,
+    PlayStylePhase, PlayerSnap, TraitContext, home_mod, play_style_modifier,
+    tactical_buildup_modifier, tactical_midfield_modifier, tactical_press_modifier,
+    tactical_shot_quality_modifier, tactical_space_creation_modifier, tactical_turnover_risk,
+    trait_bonus,
 };
 use crate::types::{Position, Side, TeamData, Zone};
 
@@ -107,16 +110,19 @@ fn resolve_buildup<R: Rng>(
     rng: &mut R,
 ) {
     let passer = snap_player(ctx, att_side, Position::Defender, rng);
+    let att_team = ctx.team(att_side);
     let pass_skill = (passer.passing as f64
         + passer.vision as f64
         + passer.composure as f64
         + passer.teamwork as f64)
         / 4.0
-        * trait_bonus(&passer, TraitContext::Passing);
+        * trait_bonus(&passer, TraitContext::Passing)
+        * tactical_buildup_modifier(att_team);
     let press = effective_press(ctx, def_side);
     let ball_zone = ctx.ball_zone;
 
-    let success_chance = (pass_skill * 1.3) / (pass_skill * 1.3 + press);
+    let success_chance =
+        (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(att_team));
     if rng.random_range(0.0..1.0f64) < success_chance {
         ctx.emit(
             MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
@@ -170,8 +176,14 @@ fn resolve_midfield<R: Rng>(
         PlayStylePhase::Midfield,
         false,
     );
-    let att_eff = att_rating * att_mod * home_mod(att_side, ctx.config);
-    let def_eff = def_rating * def_mod * home_mod(def_side, ctx.config);
+    let att_eff = att_rating
+        * att_mod
+        * tactical_midfield_modifier(ctx.team(att_side))
+        * home_mod(att_side, ctx.config);
+    let def_eff = def_rating
+        * def_mod
+        * tactical_press_modifier(ctx.team(def_side))
+        * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
 
     if rng.random_range(0.0..1.0f64) < success {
@@ -237,10 +249,16 @@ fn resolve_attacking_third<R: Rng>(
 
     let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
     let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
-    let att_eff =
-        att_rating * att_mod * shape_attack_multiplier(att_team) * home_mod(att_side, ctx.config);
-    let def_eff =
-        def_rating * def_mod * shape_defense_multiplier(def_team) * home_mod(def_side, ctx.config);
+    let att_eff = att_rating
+        * att_mod
+        * shape_attack_multiplier(att_team)
+        * tactical_space_creation_modifier(att_team, def_team)
+        * home_mod(att_side, ctx.config);
+    let def_eff = def_rating
+        * def_mod
+        * shape_defense_multiplier(def_team)
+        * tactical_press_modifier(def_team)
+        * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
     let zone = Zone::attacking_third(att_side);
 
@@ -296,7 +314,8 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
             / 3.0
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
-    let shape_attack = shape_attack_multiplier(att_team);
+    let shot_quality = tactical_shot_quality_modifier(att_team, def_team);
+    let shape_attack = shape_attack_multiplier(att_team) * shot_quality;
     let shape_defense = shape_defense_multiplier(def_team);
     let accuracy = (ctx.config.shot_accuracy_base
         + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0
@@ -354,7 +373,10 @@ fn effective_press(ctx: &MatchContext, pressing_side: Side) -> f64 {
         ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
     });
     let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
-    base * modifier * shape_midfield_multiplier(team) * home_mod(pressing_side, ctx.config)
+    base * modifier
+        * shape_midfield_multiplier(team)
+        * tactical_press_modifier(team)
+        * home_mod(pressing_side, ctx.config)
 }
 
 fn shape_defense_multiplier(team: &TeamData) -> f64 {

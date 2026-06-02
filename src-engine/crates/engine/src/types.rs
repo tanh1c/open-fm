@@ -172,10 +172,35 @@ impl Default for WidthProfile {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct TacticalInstructionProfile {
+    pub pressing_intensity: f64,
+    pub defensive_line: f64,
+    pub tempo: f64,
+    pub width: f64,
+    pub passing_directness: f64,
+    pub risk_appetite: f64,
+}
+
+impl Default for TacticalInstructionProfile {
+    fn default() -> Self {
+        Self {
+            pressing_intensity: 0.5,
+            defensive_line: 0.5,
+            tempo: 0.5,
+            width: 0.5,
+            passing_directness: 0.5,
+            risk_appetite: 0.5,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct TacticalProfile {
     pub lateral: LateralProfile,
     pub width: WidthProfile,
+    #[serde(default)]
+    pub instructions: TacticalInstructionProfile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

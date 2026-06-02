@@ -1,7 +1,11 @@
 use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
-use crate::shared::{PlayStylePhase, PlayerSnap, TraitContext, play_style_modifier, trait_bonus};
+use crate::shared::{
+    PlayStylePhase, PlayerSnap, TraitContext, play_style_modifier, tactical_buildup_modifier,
+    tactical_midfield_modifier, tactical_press_modifier, tactical_shot_quality_modifier,
+    tactical_space_creation_modifier, tactical_turnover_risk, trait_bonus,
+};
 use crate::types::{PlayerData, Position, Side, Zone};
 
 use super::LiveMatchState;
@@ -102,6 +106,7 @@ impl LiveMatchState {
     ) -> Vec<MatchEvent> {
         let mut events = Vec::new();
         let passer = self.snap_player(att_side, Position::Defender, rng);
+        let att_team = self.team_ref(att_side);
         let pass_skill = self.condition_adjusted_skill(
             &passer.id,
             (passer.passing as f64
@@ -109,11 +114,13 @@ impl LiveMatchState {
                 + passer.composure as f64
                 + passer.teamwork as f64)
                 / 4.0,
-        ) * trait_bonus(&passer, TraitContext::Passing);
+        ) * trait_bonus(&passer, TraitContext::Passing)
+            * tactical_buildup_modifier(att_team);
         let press = self.effective_press(def_side);
         let ball_zone = self.ball_zone;
 
-        let success_chance = (pass_skill * 1.3) / (pass_skill * 1.3 + press);
+        let success_chance =
+            (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(att_team));
         if rng.random_range(0.0..1.0f64) < success_chance {
             let evt = MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
                 .with_player(&passer.id);
@@ -171,8 +178,14 @@ impl LiveMatchState {
             PlayStylePhase::Midfield,
             false,
         );
-        let att_eff = att_rating * att_mod * crate::shared::home_mod(att_side, &self.config);
-        let def_eff = def_rating * def_mod * crate::shared::home_mod(def_side, &self.config);
+        let att_eff = att_rating
+            * att_mod
+            * tactical_midfield_modifier(self.team_ref(att_side))
+            * crate::shared::home_mod(att_side, &self.config);
+        let def_eff = def_rating
+            * def_mod
+            * tactical_press_modifier(self.team_ref(def_side))
+            * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
         if rng.random_range(0.0..1.0f64) < success {
@@ -241,10 +254,12 @@ impl LiveMatchState {
         let att_eff = att_rating
             * att_mod
             * shape_attack_multiplier(&att_team)
+            * tactical_space_creation_modifier(&att_team, &def_team)
             * crate::shared::home_mod(att_side, &self.config);
         let def_eff = def_rating
             * def_mod
             * shape_defense_multiplier(&def_team)
+            * tactical_press_modifier(&def_team)
             * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
         let zone = Zone::attacking_third(att_side);
@@ -311,7 +326,8 @@ impl LiveMatchState {
         let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw)
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
-        let shape_attack = shape_attack_multiplier(&att_team);
+        let shot_quality = tactical_shot_quality_modifier(&att_team, &def_team);
+        let shape_attack = shape_attack_multiplier(&att_team) * shot_quality;
         let shape_defense = shape_defense_multiplier(&def_team);
         let accuracy = (self.config.shot_accuracy_base
             + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0

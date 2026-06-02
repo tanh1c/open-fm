@@ -5,7 +5,7 @@ use domain::league::{
     MatchResult,
 };
 use domain::player::{
-    PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
+    Injury, PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
 };
 use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
 
@@ -160,6 +160,7 @@ pub fn apply_match_report_with_capture<F>(
     // Deplete stamina for players who played, scaled by minutes on pitch
     deplete_match_stamina(game, home_team_id, report);
     deplete_match_stamina(game, away_team_id, report);
+    persist_match_injuries(game, report, home_team_id, away_team_id);
 
     // Update morale based on result and individual performance
     update_post_match_morale(game, report, home_team_id, away_team_id);
@@ -689,23 +690,81 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str, report: &engine::MatchR
                 .map(|ps| ps.minutes_played)
                 .unwrap_or(0);
             if minutes == 0 {
-                continue; // Did not play, no depletion
+                continue;
             }
             let minutes_factor = minutes as f64 / 90.0;
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
+            let fitness_factor = player.fitness as f64 / 100.0;
             let base_depletion = 26.0 * (1.0 - stamina_factor * 0.35);
-            let depletion = (base_depletion * minutes_factor).round().max(4.0) as u8;
+            let fitness_modifier = (1.12 - fitness_factor * 0.22).clamp(0.90, 1.12);
+            let minimum_depletion = if minutes >= 85 { 8.0 } else { 4.0 };
+            let depletion = (base_depletion * fitness_modifier * minutes_factor)
+                .round()
+                .max(minimum_depletion) as u8;
             player.condition = player.condition.saturating_sub(depletion);
 
-            // Regular match play improves fitness for players with significant time.
-            // 60+ minutes builds sharpness; probabilistic to keep changes gradual.
             if minutes >= 60 {
                 use rand::RngExt;
                 let mut rng = rand::rng();
-                if rng.random_bool(0.3) && player.fitness < 100 {
+                if rng.random_bool(0.25) && player.fitness < 100 {
                     player.fitness = player.fitness.saturating_add(1);
                 }
             }
         }
     }
+}
+
+fn persist_match_injuries(
+    game: &mut Game,
+    report: &engine::MatchReport,
+    home_team_id: &str,
+    away_team_id: &str,
+) {
+    for event in report
+        .events
+        .iter()
+        .filter(|event| event.event_type == engine::EventType::Injury)
+    {
+        let Some(player_id) = event.player_id.as_ref() else {
+            continue;
+        };
+        let Some(player) = game.players.iter_mut().find(|player| {
+            player.id == *player_id
+                && player.injury.is_none()
+                && matches!(
+                    player.team_id.as_deref(),
+                    Some(team_id) if team_id == home_team_id || team_id == away_team_id
+                )
+        }) else {
+            continue;
+        };
+
+        let seed = deterministic_injury_seed(&player.id, event.minute);
+        let base_days = 3 + seed % 12;
+        let condition_extra = if player.condition < 35 {
+            6
+        } else if player.condition < 55 {
+            3
+        } else {
+            0
+        };
+        let fitness_extra = if player.fitness < 35 {
+            5
+        } else if player.fitness < 55 {
+            2
+        } else {
+            0
+        };
+        let names = ["Knock", "Muscle strain", "Ankle sprain", "Bruise"];
+        player.injury = Some(Injury {
+            name: names[(seed as usize) % names.len()].to_string(),
+            days_remaining: (base_days + condition_extra + fitness_extra).clamp(2, 28),
+        });
+    }
+}
+
+fn deterministic_injury_seed(player_id: &str, minute: u8) -> u32 {
+    player_id
+        .bytes()
+        .fold(minute as u32, |acc, byte| acc.wrapping_mul(31).wrapping_add(byte as u32))
 }

@@ -25,6 +25,8 @@ pub(crate) struct PlayerSnap {
     pub teamwork: u8,
     pub leadership: u8,
     pub morale: u8,
+    pub condition: u8,
+    pub fitness: u8,
     pub handling: u8,
     pub reflexes: u8,
     pub aerial: u8,
@@ -52,6 +54,8 @@ impl PlayerSnap {
             teamwork: p.teamwork,
             leadership: p.leadership,
             morale: p.morale,
+            condition: p.condition,
+            fitness: p.fitness,
             handling: p.handling,
             reflexes: p.reflexes,
             aerial: p.aerial,
@@ -241,6 +245,12 @@ pub(crate) fn morale_performance_modifier(morale: u8) -> f64 {
 pub(crate) fn morale_risk_modifier(morale: u8) -> f64 {
     let delta = (morale.clamp(0, 100) as f64 - 50.0) / 50.0;
     (1.0 - delta * 0.08).clamp(0.92, 1.08)
+}
+
+pub(crate) fn fitness_injury_risk_modifier(condition: u8, fitness: u8) -> f64 {
+    let condition_delta = (50.0 - condition.clamp(0, 100) as f64) / 50.0;
+    let fitness_delta = (50.0 - fitness.clamp(0, 100) as f64) / 50.0;
+    (1.0 + condition_delta.max(0.0) * 0.14 + fitness_delta * 0.10).clamp(0.85, 1.25)
 }
 
 pub(crate) fn team_form_modifier(form: &[String]) -> f64 {

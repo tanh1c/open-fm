@@ -2,8 +2,8 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayerSnap, morale_performance_modifier, morale_risk_modifier, trait_foul_risk_modifier,
-    trait_shot_quality_modifier,
+    PlayerSnap, fitness_injury_risk_modifier, morale_performance_modifier, morale_risk_modifier,
+    trait_foul_risk_modifier, trait_shot_quality_modifier,
 };
 use crate::types::{Position, Side, Zone};
 
@@ -52,7 +52,9 @@ pub(super) fn maybe_foul<R: Rng>(
 
     maybe_card(ctx, minute, fouling_side, fouler_snap, zone, rng);
 
-    if rng.random_range(0.0..1.0f64) < ctx.config.injury_probability {
+    let injury_chance = ctx.config.injury_probability
+        * fitness_injury_risk_modifier(fouled_snap.condition, fouled_snap.fitness);
+    if rng.random_range(0.0..1.0f64) < injury_chance {
         ctx.emit(
             MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled_snap.id),
         );

@@ -12,6 +12,15 @@ use engine::{
 // ---------------------------------------------------------------------------
 
 pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Vec<PlayerData>) {
+    let is_user_team = game.manager.team_id.as_deref() == Some(team_id);
+    build_team_with_bench_for_side(game, team_id, is_user_team)
+}
+
+fn build_team_with_bench_for_side(
+    game: &Game,
+    team_id: &str,
+    respect_manual_slots: bool,
+) -> (TeamData, Vec<PlayerData>) {
     let team = game.teams.iter().find(|t| t.id == team_id);
     let (name, formation, play_style, form, tactical_familiarity) = match team {
         Some(t) => (
@@ -46,12 +55,13 @@ pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
     let mut used_ids = std::collections::HashSet::new();
     let mut starting_xi = Vec::with_capacity(11);
 
-    if let Some(team) = team {
-        for slot in team
-            .custom_tactic_slots
-            .iter()
-            .filter(|slot| slot.player_id.is_some())
-        {
+    if respect_manual_slots {
+        if let Some(team) = team {
+            for slot in team
+                .custom_tactic_slots
+                .iter()
+                .filter(|slot| slot.player_id.is_some())
+            {
             let Some(player_id) = slot.player_id.as_ref() else {
                 continue;
             };
@@ -63,10 +73,11 @@ pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
                 continue;
             };
 
-            used_ids.insert(player.id.clone());
-            let mut engine_player = to_engine_player(player);
-            engine_player.position = to_engine_position_for_tactic_slot(&slot.role);
-            starting_xi.push(engine_player);
+                used_ids.insert(player.id.clone());
+                let mut engine_player = to_engine_player(player);
+                engine_player.position = to_engine_position_for_tactic_slot(&slot.role);
+                starting_xi.push(engine_player);
+            }
         }
     }
 
@@ -78,8 +89,8 @@ pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
                 .copied()
                 .filter(|player| !used_ids.contains(&player.id))
                 .max_by(|left, right| {
-                    effective_rating_for_assignment(left, slot)
-                        .partial_cmp(&effective_rating_for_assignment(right, slot))
+                    selection_score(left, slot, respect_manual_slots)
+                        .partial_cmp(&selection_score(right, slot, respect_manual_slots))
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
@@ -121,6 +132,39 @@ pub(crate) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
     };
 
     (team_data, bench)
+}
+
+fn selection_score(player: &domain::player::Player, slot: &DomainPosition, preserve_raw_rating: bool) -> f64 {
+    let rating = effective_rating_for_assignment(player, slot);
+    if preserve_raw_rating {
+        rating
+    } else {
+        rating * rotation_readiness(player)
+    }
+}
+
+fn rotation_readiness(player: &domain::player::Player) -> f64 {
+    let condition = player.condition as f64;
+    let fitness = player.fitness as f64;
+    let stamina = player.attributes.stamina as f64;
+
+    let condition_mult = if condition >= 80.0 {
+        1.0
+    } else if condition >= 70.0 {
+        0.94
+    } else if condition >= 50.0 {
+        0.82 + (condition - 50.0) * 0.006
+    } else {
+        0.58 + condition * 0.006
+    };
+    let fitness_mult = if fitness >= 65.0 {
+        1.0 + ((fitness - 65.0) / 35.0) * 0.04
+    } else {
+        0.82 + (fitness / 65.0) * 0.18
+    };
+    let stamina_mult = 0.92 + (stamina / 100.0) * 0.10;
+
+    (condition_mult * fitness_mult * stamina_mult).clamp(0.42, 1.08)
 }
 
 fn shape_profile_from_formation(formation: &str) -> ShapeProfile {

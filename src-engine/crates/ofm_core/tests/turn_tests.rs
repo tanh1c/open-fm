@@ -11,7 +11,7 @@ use domain::player::{
 };
 use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::Team;
-use engine::Side;
+use engine::{EventType, MatchEvent, Side};
 use engine::report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -1306,6 +1306,50 @@ fn stamina_depletion_varies_by_attribute() {
         high_stam.condition,
         low_stam.condition
     );
+}
+
+#[test]
+fn low_fitness_full_match_player_depletes_more_condition() {
+    let mut game = make_game_with_match();
+    for id in ["t1_mid0", "t1_mid1"] {
+        let player = game.players.iter_mut().find(|player| player.id == id).unwrap();
+        player.attributes.stamina = 70;
+        player.condition = 100;
+    }
+    game.players
+        .iter_mut()
+        .find(|player| player.id == "t1_mid0")
+        .unwrap()
+        .fitness = 95;
+    game.players
+        .iter_mut()
+        .find(|player| player.id == "t1_mid1")
+        .unwrap()
+        .fitness = 25;
+
+    let report = full_squad_report(1, 0);
+    turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
+
+    let high_fitness = game.players.iter().find(|player| player.id == "t1_mid0").unwrap();
+    let low_fitness = game.players.iter().find(|player| player.id == "t1_mid1").unwrap();
+    assert!(high_fitness.condition > low_fitness.condition);
+}
+
+#[test]
+fn injury_events_persist_to_player_injury() {
+    let mut game = make_game_with_match();
+    let report = MatchReport {
+        events: vec![MatchEvent::new(66, EventType::Injury, Side::Home, engine::Zone::Midfield)
+            .with_player("t1_mid0")],
+        ..empty_report(1, 0)
+    };
+
+    turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
+
+    let injured = game.players.iter().find(|player| player.id == "t1_mid0").unwrap();
+    let injury = injured.injury.as_ref().expect("injury event should persist");
+    assert!((2..=28).contains(&injury.days_remaining));
+    assert!(!injury.name.is_empty());
 }
 
 // ---------------------------------------------------------------------------

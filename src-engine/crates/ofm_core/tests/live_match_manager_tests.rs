@@ -2,7 +2,7 @@ use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, Position};
-use domain::team::Team;
+use domain::team::{CustomTacticSlot, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
@@ -483,6 +483,103 @@ fn slot_aware_xi_selection_prefers_true_fullback_for_fullback_slot() {
     let snap = session.snapshot();
 
     assert_eq!(snap.home_team.players[1].id, "team1_def0");
+}
+
+#[test]
+fn ai_team_rotates_out_exhausted_high_ovr_player_for_fit_backup() {
+    let mut game = make_game_with_fixture();
+    game.manager.team_id = Some("team1".to_string());
+
+    let exhausted = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == "team2_mid0")
+        .unwrap();
+    exhausted.ovr = 92;
+    exhausted.condition = 28;
+    exhausted.fitness = 35;
+    exhausted.attributes.stamina = 45;
+
+    let backup = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == "team2_mid1")
+        .unwrap();
+    backup.ovr = 84;
+    backup.condition = 95;
+    backup.fitness = 85;
+    backup.attributes.stamina = 82;
+
+    let session =
+        live_match_manager::create_live_match(&game, 0, MatchMode::Instant, false).unwrap();
+    let snap = session.snapshot();
+    let away_ids: Vec<&str> = snap.away_team.players.iter().map(|player| player.id.as_str()).collect();
+
+    assert!(!away_ids.contains(&"team2_mid0"));
+    assert!(away_ids.contains(&"team2_mid1"));
+}
+
+#[test]
+fn user_team_keeps_manual_slot_even_when_player_is_tired() {
+    let mut game = make_game_with_fixture();
+    let tired_player = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == "team1_mid0")
+        .unwrap();
+    tired_player.condition = 10;
+    tired_player.fitness = 20;
+
+    game.teams[0].custom_tactic_slots = vec![CustomTacticSlot {
+        slot_id: "slot-mid".to_string(),
+        player_id: Some("team1_mid0".to_string()),
+        role: "MID".to_string(),
+        x: 50,
+        y: 50,
+        tactical_role: None,
+        duty: None,
+    }];
+
+    let session =
+        live_match_manager::create_live_match(&game, 0, MatchMode::Instant, false).unwrap();
+    let snap = session.snapshot();
+
+    assert_eq!(snap.home_team.players[0].id, "team1_mid0");
+}
+
+#[test]
+fn ai_still_uses_exhausted_players_when_depth_is_insufficient() {
+    let mut game = make_game_with_fixture();
+    game.manager.team_id = Some("team1".to_string());
+
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|player| player.team_id.as_deref() == Some("team2"))
+    {
+        player.condition = 20;
+        player.fitness = 30;
+    }
+
+    let team2_ids: Vec<String> = game
+        .players
+        .iter()
+        .filter(|player| player.team_id.as_deref() == Some("team2"))
+        .map(|player| player.id.clone())
+        .collect();
+    for id in team2_ids.iter().skip(11) {
+        let player = game.players.iter_mut().find(|player| &player.id == id).unwrap();
+        player.injury = Some(domain::player::Injury {
+            name: "Knock".to_string(),
+            days_remaining: 3,
+        });
+    }
+
+    let session =
+        live_match_manager::create_live_match(&game, 0, MatchMode::Instant, false).unwrap();
+    let snap = session.snapshot();
+
+    assert_eq!(snap.away_team.players.len(), 11);
 }
 
 // ---------------------------------------------------------------------------

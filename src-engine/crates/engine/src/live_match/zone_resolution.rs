@@ -2,13 +2,13 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, morale_performance_modifier, morale_risk_modifier,
-    play_style_modifier, tactical_buildup_modifier, tactical_midfield_modifier,
-    tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
-    tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
-    trait_foul_risk_modifier, trait_pass_creativity_modifier, trait_pass_safety_modifier,
-    trait_press_work_rate_modifier, trait_shot_quality_modifier, trait_shot_tendency_modifier,
-    trait_tackle_modifier,
+    PlayStylePhase, PlayerSnap, TraitContext, fitness_injury_risk_modifier,
+    morale_performance_modifier, morale_risk_modifier, play_style_modifier, tactical_buildup_modifier,
+    tactical_midfield_modifier, tactical_press_modifier, tactical_shot_quality_modifier,
+    tactical_space_creation_modifier, tactical_turnover_risk, team_cohesion_modifier, trait_bonus,
+    trait_carry_modifier, trait_foul_risk_modifier, trait_pass_creativity_modifier,
+    trait_pass_safety_modifier, trait_press_work_rate_modifier, trait_shot_quality_modifier,
+    trait_shot_tendency_modifier, trait_tackle_modifier,
 };
 use crate::types::{PlayerData, Position, Side, Zone};
 
@@ -445,7 +445,16 @@ impl LiveMatchState {
         let card_events = self.maybe_card(minute, fouling_side, fouler, zone, rng);
         events.extend(card_events);
 
-        if rng.random_range(0.0..1.0f64) < self.config.injury_probability {
+        let injured_condition = self
+            .player_conditions
+            .get(&fouled.id)
+            .copied()
+            .unwrap_or(fouled.condition as f64)
+            .round()
+            .clamp(0.0, 100.0) as u8;
+        let injury_chance = self.config.injury_probability
+            * fitness_injury_risk_modifier(injured_condition, fouled.fitness);
+        if rng.random_range(0.0..1.0f64) < injury_chance {
             let evt =
                 MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled.id);
             self.events.push(evt.clone());

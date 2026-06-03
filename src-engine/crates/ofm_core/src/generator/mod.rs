@@ -14,6 +14,7 @@ use log::{debug, info};
 use rand::RngExt;
 use uuid::Uuid;
 
+use crate::player_rating::refresh_player_derived;
 use generation::*;
 
 const MAX_OPENING_EXPIRING_CONTRACTS: usize = 2;
@@ -235,8 +236,104 @@ pub fn generate_youth_academy_recruit_with_nationality(
     player
 }
 
-fn normalize_generated_team(team: &mut Team, players: &mut [Player]) {
+fn centered_reputation(reputation_range: [u32; 2], rng: &mut impl rand::Rng) -> u32 {
+    let center = (reputation_range[0] + reputation_range[1]) / 2;
+    let jitter = if center >= 850 { 8 } else { 12 };
+    let min = center.saturating_sub(jitter).max(reputation_range[0]);
+    let max = (center + jitter).min(reputation_range[1]);
+    rng.random_range(min..=max)
+}
+
+fn centered_finance(finance_range: [i64; 2], rng: &mut impl rand::Rng) -> i64 {
+    let center = finance_range[0] + (finance_range[1] - finance_range[0]) / 2;
+    let jitter = ((center as f64) * 0.08).round() as i64;
+    let min = center.saturating_sub(jitter).max(finance_range[0]);
+    let max = (center + jitter).min(finance_range[1]);
+    rng.random_range(min..=max)
+}
+
+fn adjust_player_attributes(player: &mut Player, delta: i16) {
+    if delta == 0 {
+        return;
+    }
+
+    let attrs = &mut player.attributes;
+    attrs.pace = (attrs.pace as i16 + delta).clamp(1, 99) as u8;
+    attrs.stamina = (attrs.stamina as i16 + delta).clamp(1, 99) as u8;
+    attrs.strength = (attrs.strength as i16 + delta).clamp(1, 99) as u8;
+    attrs.agility = (attrs.agility as i16 + delta).clamp(1, 99) as u8;
+    attrs.passing = (attrs.passing as i16 + delta).clamp(1, 99) as u8;
+    attrs.shooting = (attrs.shooting as i16 + delta).clamp(1, 99) as u8;
+    attrs.tackling = (attrs.tackling as i16 + delta).clamp(1, 99) as u8;
+    attrs.dribbling = (attrs.dribbling as i16 + delta).clamp(1, 99) as u8;
+    attrs.defending = (attrs.defending as i16 + delta).clamp(1, 99) as u8;
+    attrs.positioning = (attrs.positioning as i16 + delta).clamp(1, 99) as u8;
+    attrs.vision = (attrs.vision as i16 + delta).clamp(1, 99) as u8;
+    attrs.decisions = (attrs.decisions as i16 + delta).clamp(1, 99) as u8;
+    attrs.composure = (attrs.composure as i16 + delta).clamp(1, 99) as u8;
+    attrs.aggression = (attrs.aggression as i16 + delta / 2).clamp(1, 99) as u8;
+    attrs.teamwork = (attrs.teamwork as i16 + delta).clamp(1, 99) as u8;
+    attrs.leadership = (attrs.leadership as i16 + delta / 2).clamp(1, 99) as u8;
+    attrs.handling = (attrs.handling as i16 + delta).clamp(1, 99) as u8;
+    attrs.reflexes = (attrs.reflexes as i16 + delta).clamp(1, 99) as u8;
+    attrs.aerial = (attrs.aerial as i16 + delta).clamp(1, 99) as u8;
+
+    refresh_player_derived(player, 2026);
+}
+
+fn squad_avg_ovr(players: &[Player]) -> f64 {
+    players.iter().map(|player| player.ovr as u32).sum::<u32>() as f64 / players.len().max(1) as f64
+}
+
+fn normalize_squad_ovr(players: &mut [Player], target_avg: Option<u8>, target_top: Option<u8>) {
+    let Some(target_avg) = target_avg else {
+        return;
+    };
+    let target_avg = target_avg.clamp(45, 90) as f64;
+
+    for _ in 0..4 {
+        let delta = (target_avg - squad_avg_ovr(players)).round() as i16;
+        if delta.abs() <= 1 {
+            break;
+        }
+        for player in players.iter_mut() {
+            adjust_player_attributes(player, delta.clamp(-3, 3));
+        }
+    }
+
+    if let Some(target_top) = target_top {
+        if let Some(top_index) = players
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, player)| player.ovr)
+            .map(|(index, _)| index)
+        {
+            for _ in 0..4 {
+                let delta = target_top as i16 - players[top_index].ovr as i16;
+                if delta.abs() <= 1 {
+                    break;
+                }
+                adjust_player_attributes(&mut players[top_index], delta.clamp(-3, 3));
+            }
+        }
+    }
+
+    let delta = (target_avg - squad_avg_ovr(players)).round() as i16;
+    if delta.abs() > 1 {
+        for player in players.iter_mut() {
+            adjust_player_attributes(player, delta.clamp(-2, 2));
+        }
+    }
+}
+
+fn normalize_generated_team(
+    team: &mut Team,
+    players: &mut [Player],
+    target_avg: Option<u8>,
+    target_top: Option<u8>,
+) {
     seed_opening_youth_academy(players);
+    normalize_squad_ovr(players, target_avg, target_top);
     normalize_opening_contracts(players);
 
     let annual_wage_bill: i64 = players.iter().map(|player| player.wage as i64).sum();
@@ -309,8 +406,8 @@ pub fn generate_world(
             rng.random_range(10000..80000),
         );
         team.domestic_tier = tdef.domestic_tier;
-        team.finance = rng.random_range(fin_range[0]..fin_range[1]);
-        team.reputation = rng.random_range(rep_range[0]..rep_range[1]);
+        team.finance = centered_finance(fin_range, &mut rng);
+        team.reputation = centered_reputation(rep_range, &mut rng);
         team.youth_development = tdef.youth_development.unwrap_or(50).clamp(1, 100);
         team.recruitment_power = tdef.recruitment_power.unwrap_or(50).clamp(1, 100);
         team.tactical_level = tdef.tactical_level.unwrap_or(50).clamp(1, 100);
@@ -382,7 +479,12 @@ pub fn generate_world(
             staff.push(s);
         }
 
-        normalize_generated_team(&mut team, &mut players[team_player_start..]);
+        normalize_generated_team(
+            &mut team,
+            &mut players[team_player_start..],
+            tdef.expected_squad_avg_ovr,
+            tdef.expected_top_player_ovr,
+        );
         teams_out.push(team);
     }
 
@@ -700,16 +802,26 @@ mod tests {
                 .find(|team| team.name == name)
                 .unwrap_or_else(|| panic!("missing team {name}"))
         };
-        let avg_ovr = |team_id: &str| {
-            let team_players = players
+        let team_players = |team_id: &str| {
+            players
                 .iter()
                 .filter(|player| player.team_id.as_deref() == Some(team_id))
-                .collect::<Vec<_>>();
+                .collect::<Vec<_>>()
+        };
+        let avg_ovr = |team_id: &str| {
+            let team_players = team_players(team_id);
             team_players
                 .iter()
                 .map(|player| player.ovr as u32)
                 .sum::<u32>() as f64
                 / team_players.len() as f64
+        };
+        let top_ovr = |team_id: &str| {
+            team_players(team_id)
+                .iter()
+                .map(|player| player.ovr)
+                .max()
+                .unwrap_or_default()
         };
 
         let arsenal = team_by_name("Arsenal");
@@ -726,10 +838,55 @@ mod tests {
         assert_eq!(arsenal.facilities.scouting, 5);
         assert!(arsenal.tactical_familiarity >= 75);
         assert!(manchester_city.reputation > boulogne.reputation + 550);
+        assert!(arsenal.finance > boulogne.finance + 100_000_000);
         assert!(arsenal.recruitment_power > boulogne.recruitment_power + 35);
         assert!(arsenal.youth_development > carrarese.youth_development + 20);
-        assert!(avg_ovr(&arsenal.id) > avg_ovr(&boulogne.id) + 8.0);
-        assert!(avg_ovr(&manchester_city.id) > avg_ovr(&carrarese.id) + 8.0);
+        assert!((avg_ovr(&arsenal.id) - 85.0).abs() <= 2.0);
+        assert!(top_ovr(&arsenal.id) >= 93);
+        assert!((avg_ovr(&boulogne.id) - 64.0).abs() <= 2.0);
+        assert!(avg_ovr(&arsenal.id) > avg_ovr(&boulogne.id) + 15.0);
+        assert!(avg_ovr(&manchester_city.id) > avg_ovr(&carrarese.id) + 15.0);
+    }
+
+    #[test]
+    fn test_default_world_tracks_expected_squad_targets() {
+        let (_, teams_def) = (default_names_definition(), default_teams_definition());
+        let (teams, players, _) = generate_world(None);
+
+        for tdef in teams_def.teams.iter().filter(|team| team.expected_squad_avg_ovr.is_some()) {
+            let team = teams
+                .iter()
+                .find(|team| team.name == tdef.name && team.country == tdef.country)
+                .unwrap_or_else(|| panic!("missing generated team {}", tdef.name));
+            let team_players = players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
+                .collect::<Vec<_>>();
+            let avg_ovr = team_players
+                .iter()
+                .map(|player| player.ovr as u32)
+                .sum::<u32>() as f64
+                / team_players.len() as f64;
+            let top_ovr = team_players
+                .iter()
+                .map(|player| player.ovr)
+                .max()
+                .unwrap_or_default();
+            let target_avg = tdef.expected_squad_avg_ovr.unwrap() as f64;
+
+            assert!(
+                (avg_ovr - target_avg).abs() <= 2.5,
+                "{} avg ovr {avg_ovr:.1} should track target {target_avg:.1}",
+                team.name
+            );
+            if let Some(target_top) = tdef.expected_top_player_ovr {
+                assert!(
+                    top_ovr + 3 >= target_top,
+                    "{} top ovr {top_ovr} should track target {target_top}",
+                    team.name
+                );
+            }
+        }
     }
 
     #[test]

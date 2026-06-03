@@ -315,13 +315,6 @@ export function buildSidebarNextMatch(gameState: GameStateData, lang: string) {
   };
 }
 
-function injuryLabel(value: string): string {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function positionLabel(player: PlayerData): string {
   return player.natural_position || player.position;
 }

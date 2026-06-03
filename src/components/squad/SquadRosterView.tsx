@@ -229,6 +229,7 @@ export default function SquadRosterView({
   const totalWeeklyWage = roster.reduce((sum, player) => sum + player.wage, 0);
   const domesticRegistrationCount = Math.min(roster.length, 25);
   const hasActiveFilters = playerSearch.trim().length > 0 || positionFilter !== "All" || statusFilter !== "all";
+  const showTacticsCard = statusFilter === "all";
 
   const updateContractExitIntent = async (playerId: string, shouldLetExpire: boolean): Promise<void> => {
     setContractActionPlayerId(playerId);
@@ -339,45 +340,47 @@ export default function SquadRosterView({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(600px,_1fr)_340px] gap-4">
-        <TemplateCard className="flex flex-col h-[600px]">
-          <TemplateCardHeader title="TACTICS & FORMATION" />
-          <div className="p-4 pt-0">
-            <div className="flex items-center gap-2 cursor-pointer group mb-1">
-              <span className="font-bold text-sm text-app-text">{formation.toUpperCase()}</span>
-              <ChevronDown className="w-4 h-4 text-app-text-muted group-hover:text-white transition-colors" />
-            </div>
-            <div className="text-[11px] text-app-text-muted mb-4">{myTeam.play_style || "Balanced"} &bull; {myTeam.training_intensity || "Positive"}</div>
-
-            <div className="w-full aspect-[3/4] bg-[#1a2e25] border-2 border-emerald-900/50 rounded-xl relative overflow-hidden flex shadow-inner">
-              <div className="absolute inset-0">
-                <div className="absolute inset-x-0 top-1/2 border-t-2 border-emerald-900/50" />
-                <div className="absolute left-1/2 top-1/2 w-16 h-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-900/50" />
-                <div className="absolute top-0 left-1/2 h-16 w-32 -translate-x-1/2 border-2 border-t-0 border-emerald-900/50 flex justify-center">
-                  <div className="h-6 w-12 border-2 border-t-0 border-emerald-900/50" />
-                </div>
-                <div className="absolute bottom-0 left-1/2 h-16 w-32 -translate-x-1/2 border-2 border-b-0 border-emerald-900/50 flex justify-center items-end">
-                  <div className="h-6 w-12 border-2 border-b-0 border-emerald-900/50" />
-                </div>
+      <div className={showTacticsCard ? "grid grid-cols-1 xl:grid-cols-[300px_minmax(600px,_1fr)_340px] gap-4" : "grid grid-cols-1 xl:grid-cols-[minmax(760px,_1fr)_340px] gap-4"}>
+        {showTacticsCard ? (
+          <TemplateCard className="flex flex-col h-[600px]">
+            <TemplateCardHeader title="TACTICS & FORMATION" />
+            <div className="p-4 pt-0">
+              <div className="flex items-center gap-2 cursor-pointer group mb-1">
+                <span className="font-bold text-sm text-app-text">{formation.toUpperCase()}</span>
+                <ChevronDown className="w-4 h-4 text-app-text-muted group-hover:text-white transition-colors" />
               </div>
-              {pitchNodes.map((node) => (
-                <PlayerNode
-                  key={node.key}
-                  slot={node}
-                  placement={node.placement}
-                  onSelect={selectPlayer}
-                  label={translatePositionAbbreviation(t, node.position)}
-                />
-              ))}
+              <div className="text-[11px] text-app-text-muted mb-4">{myTeam.play_style || "Balanced"} &bull; {myTeam.training_intensity || "Positive"}</div>
+
+              <div className="w-full aspect-[3/4] bg-[#1a2e25] border-2 border-emerald-900/50 rounded-xl relative overflow-hidden flex shadow-inner">
+                <div className="absolute inset-0">
+                  <div className="absolute inset-x-0 top-1/2 border-t-2 border-emerald-900/50" />
+                  <div className="absolute left-1/2 top-1/2 w-16 h-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-emerald-900/50" />
+                  <div className="absolute top-0 left-1/2 h-16 w-32 -translate-x-1/2 border-2 border-t-0 border-emerald-900/50 flex justify-center">
+                    <div className="h-6 w-12 border-2 border-t-0 border-emerald-900/50" />
+                  </div>
+                  <div className="absolute bottom-0 left-1/2 h-16 w-32 -translate-x-1/2 border-2 border-b-0 border-emerald-900/50 flex justify-center items-end">
+                    <div className="h-6 w-12 border-2 border-b-0 border-emerald-900/50" />
+                  </div>
+                </div>
+                {pitchNodes.map((node) => (
+                  <PlayerNode
+                    key={node.key}
+                    slot={node}
+                    placement={node.placement}
+                    onSelect={selectPlayer}
+                    label={translatePositionAbbreviation(t, node.position)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="mt-auto border-t border-app-border/50 p-2">
-            <div className="w-full py-2.5 flex items-center justify-center gap-2 text-[11px] text-app-text-muted rounded-lg font-medium">
-              Team Instructions unavailable here
-              <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+            <div className="mt-auto border-t border-app-border/50 p-2">
+              <div className="w-full py-2.5 flex items-center justify-center gap-2 text-[11px] text-app-text-muted rounded-lg font-medium">
+                Team Instructions unavailable here
+                <ChevronRight className="w-3.5 h-3.5 opacity-40" />
+              </div>
             </div>
-          </div>
-        </TemplateCard>
+          </TemplateCard>
+        ) : null}
 
         <TemplateCard className="flex flex-col h-[600px] overflow-hidden">
           <div className="p-3 border-b border-app-border/50 flex items-center justify-between gap-4 flex-wrap">

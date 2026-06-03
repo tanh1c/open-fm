@@ -63,7 +63,7 @@ export interface TemplateDashboardProps {
     trainingRows: TemplateTrainingRow[];
     trainingScheduleLabel: string;
   };
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: string, context?: { messageId?: string }) => void;
 }
 
 export function TemplateDashboard({ briefingItems, clubBriefingSections, upcomingMatch, tactics, squad, form, goals, transferActivity, rightSidebar, onNavigate }: TemplateDashboardProps) {
@@ -86,7 +86,7 @@ export function TemplateDashboard({ briefingItems, clubBriefingSections, upcomin
             players={squad.players}
             activeTab={squad.activeTab}
             onTabChange={squad.onTabChange}
-            onPlayerClick={() => onNavigate?.("Squad")}
+            onPlayerClick={(playerId) => onNavigate?.("__selectPlayer", { messageId: playerId })}
             onViewFullSquad={() => onNavigate?.("Squad")}
           />
         </div>

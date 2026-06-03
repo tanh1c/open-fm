@@ -198,7 +198,7 @@ export function TemplateSquadOverview({ players, activeTab, onTabChange, onPlaye
           </thead>
           <tbody>
             {sortedPlayers.map((player) => (
-              <tr key={player.id} onClick={() => onPlayerClick?.(player.id)} className="border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors cursor-pointer">
+              <tr key={player.id} data-testid={`squad-overview-player-${player.id}`} onClick={() => onPlayerClick?.(player.id)} className="border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors cursor-pointer">
                 {columns.map((column) => (
                   <td key={`${player.id}-${column.key}`} className={cn("py-2.5", cellClassName(column))}>
                     {renderCell(player, column.key)}

@@ -37,9 +37,7 @@ interface BuildTemplateBriefingParams {
 }
 
 interface BuildTemplateClubBriefingParams {
-  leagueDigestArticles: NewsArticle[];
   recentResults: HomeRecentResult[];
-  rosterOverview: HomeRosterOverview;
   teams: TeamData[];
   onNavigate?: (tab: string) => void;
 }
@@ -125,20 +123,10 @@ export function buildTemplateBriefingItems({
 }
 
 export function buildTemplateClubBriefingSections({
-  leagueDigestArticles,
   recentResults,
-  rosterOverview,
   teams,
   onNavigate,
 }: BuildTemplateClubBriefingParams): TemplateDashboardProps["clubBriefingSections"] {
-  const unavailableRows = rosterOverview.unavailablePlayers.slice(0, 3).map((player) => ({
-    id: player.id,
-    title: player.match_name,
-    detail: player.injury ? `${injuryLabel(player.injury.name)} • ${player.injury.days_remaining} days` : "Unavailable",
-    meta: player.position,
-    tone: "danger" as const,
-  }));
-
   const resultRows = recentResults.slice(-3).map((result) => ({
     id: result.fixture.id,
     title: `${getTeamName(teams, result.opponentId)} ${result.isHome ? "(H)" : "(A)"}`,
@@ -147,39 +135,7 @@ export function buildTemplateClubBriefingSections({
     tone: result.resultCode === "W" ? "success" as const : result.resultCode === "L" ? "danger" as const : "warning" as const,
   }));
 
-  const momentumRows = [
-    ...rosterOverview.hotPlayers.map((player) => ({
-      id: `hot-${player.id}`,
-      title: player.match_name,
-      detail: "In form",
-      meta: `${Math.round(player.morale)}`,
-      tone: "success" as const,
-    })),
-    ...rosterOverview.coldPlayers.map((player) => ({
-      id: `cold-${player.id}`,
-      title: player.match_name,
-      detail: "Low morale",
-      meta: `${Math.round(player.morale)}`,
-      tone: "danger" as const,
-    })),
-  ];
-  const newsRows = leagueDigestArticles.slice(0, 3).map((article) => ({
-    id: article.id,
-    title: article.headline,
-    detail: article.source,
-    meta: formatDateShort(article.date, "en"),
-    tone: "neutral" as const,
-  }));
-
   return [
-    {
-      id: "unavailable",
-      title: "Unavailable Players",
-      emptyLabel: "No first-team injuries",
-      rows: unavailableRows,
-      actionLabel: "Squad",
-      onAction: () => onNavigate?.("Squad"),
-    },
     {
       id: "recent-results",
       title: "Recent Results",
@@ -187,14 +143,6 @@ export function buildTemplateClubBriefingSections({
       rows: resultRows,
       actionLabel: "Schedule",
       onAction: () => onNavigate?.("Schedule"),
-    },
-    {
-      id: "momentum-news",
-      title: momentumRows.length > 0 ? "Player Momentum" : "League Digest",
-      emptyLabel: "No squad momentum or league digest yet",
-      rows: momentumRows.length > 0 ? momentumRows.slice(0, 3) : newsRows,
-      actionLabel: momentumRows.length > 0 ? "Squad" : "News",
-      onAction: () => onNavigate?.(momentumRows.length > 0 ? "Squad" : "News"),
     },
   ];
 }

@@ -20,7 +20,6 @@ import { getTeamName, formatMatchDate } from "../../lib/helpers";
 import { getCompetitionTag } from "../../lib/competitionTag";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
-import DivisionLogo from "../common/DivisionLogo";
 import TeamLogo from "../common/TeamLogo";
 import MonthCalendar, { type CalendarEvent } from "../common/MonthCalendar";
 
@@ -53,15 +52,6 @@ function StatRow({ label, value, tone = "text-app-text" }: { label: string; valu
       <span className={cx("font-bold", tone)}>{value}</span>
     </div>
   );
-}
-
-function competitionLogoMeta(competition: unknown): { country: string | null; tier: number | null } {
-  if (!competition || typeof competition !== "object") return { country: null, tier: null };
-  const value = competition as { country?: unknown; tier?: unknown };
-  return {
-    country: typeof value.country === "string" ? value.country : null,
-    tier: typeof value.tier === "number" ? value.tier : null,
-  };
 }
 
 function FixtureTeamLine({ team, name }: { team?: TeamData; name: string }) {
@@ -119,7 +109,6 @@ export default function ScheduleTab({
   const isPreseason = seasonContext.phase === "Preseason";
   const canShowStandings = selectedCompetition?.standings.length > 0;
   const competitionLabel = selectedCompetition ? getCompetitionDisplayName(selectedCompetition) : "";
-  const { country: competitionCountry, tier: competitionTier } = competitionLogoMeta(selectedCompetition);
 
   useEffect(() => {
     if (competitionOptions.length === 0) {
@@ -384,16 +373,11 @@ export default function ScheduleTab({
   return (
     <div className="mx-auto flex min-h-max max-w-[1700px] flex-col gap-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex items-center gap-3">
-          {competitionCountry && competitionTier ? (
-            <DivisionLogo country={competitionCountry} leagueName={competitionLabel} size="sm" />
-          ) : null}
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
-            <p className="text-sm text-app-text-muted">
-              {competitionLabel} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-app-text">SCHEDULE</h1>
+          <p className="text-sm text-app-text-muted">
+            {competitionLabel} &bull; {t("schedule.season", { number: selectedCompetition.season })} &bull; {view === "fixtures" ? t("schedule.fixtures") : t("schedule.standings")}
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -4,7 +4,6 @@ import { isSeniorSquadPlayer } from "../../lib/playerSquad";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import {
   getHomeRosterOverview,
-  getLeagueDigestArticles,
   getOnboardingCompletionState,
   getRecentResultsForTeam,
 } from "./HomeTab.helpers";
@@ -102,7 +101,6 @@ export default function HomeTab({
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 4)
     .map(resolveMessage);
-  const leagueDigestArticles = getLeagueDigestArticles(gameState).map(resolveNewsArticle);
   const boardObjectives = (gameState.board_objectives || []).map(resolveBoardObjective);
   const onboardingState = getOnboardingCompletionState(gameState, visitedOnboardingTabs);
   const onboardingSteps = [
@@ -145,9 +143,7 @@ export default function HomeTab({
                 onNavigate,
               })}
               clubBriefingSections={buildTemplateClubBriefingSections({
-                leagueDigestArticles,
                 recentResults,
-                rosterOverview,
                 teams: gameState.teams,
                 onNavigate: (tab) => onNavigate?.(tab),
               })}
@@ -178,7 +174,7 @@ export default function HomeTab({
                 trainingRows: buildTemplateTrainingRows(myTeam),
                 trainingScheduleLabel: schedLabel,
               }}
-              onNavigate={(tab) => onNavigate?.(tab)}
+              onNavigate={(tab, context) => onNavigate?.(tab, context)}
             />
         ) : (
           <>

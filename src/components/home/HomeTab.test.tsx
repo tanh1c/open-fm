@@ -283,7 +283,7 @@ describe("HomeTab", function (): void {
     );
   });
 
-  it("renders template training overview in the right sidebar", function (): void {
+  it("omits template training overview from the right sidebar", function (): void {
     render(
       <HomeTab
         gameState={createGameState()}
@@ -292,8 +292,8 @@ describe("HomeTab", function (): void {
     );
 
     expect(screen.getByTestId("template-right-sidebar")).toBeInTheDocument();
-    expect(screen.getByText("TRAINING OVERVIEW")).toBeInTheDocument();
-    expect(screen.getByText("Training Calendar")).toBeInTheDocument();
+    expect(screen.queryByText("TRAINING OVERVIEW")).not.toBeInTheDocument();
+    expect(screen.queryByText("Training Calendar")).not.toBeInTheDocument();
   });
 
   it("renders real transfer activity from player offers", function (): void {
@@ -425,7 +425,7 @@ describe("HomeTab", function (): void {
     expect(screen.getByText("Review squad")).toBeInTheDocument();
   });
 
-  it("renders club briefing with unavailable players, recent results, and player momentum", function (): void {
+  it("renders only recent results in the club briefing sidebar", function (): void {
     render(
       <HomeTab
         gameState={createGameState({
@@ -468,36 +468,11 @@ describe("HomeTab", function (): void {
     );
 
     expect(screen.getByTestId("template-club-briefing")).toBeInTheDocument();
-    expect(screen.getByText("Unavailable Players")).toBeInTheDocument();
-    expect(screen.getAllByText("Senior Starter").length).toBeGreaterThan(0);
-    expect(screen.getByText("Hamstring Strain • 5 days")).toBeInTheDocument();
     expect(screen.getByText("Recent Results")).toBeInTheDocument();
     expect(screen.getAllByText("Beta FC (H)").length).toBeGreaterThan(0);
     expect(screen.getByText("2-1 • League")).toBeInTheDocument();
-    expect(screen.getByText("Player Momentum")).toBeInTheDocument();
-    expect(screen.getAllByText("Hot Prospect").length).toBeGreaterThan(0);
-  });
-
-  it("falls back to league digest in club briefing when no momentum rows exist", function (): void {
-    render(
-      <HomeTab
-        gameState={createGameState({
-          players: [createPlayer({ morale: 70 })],
-          news: [
-            createNewsArticle({
-              id: "digest-1",
-              headline: "League leaders hold firm",
-              category: "LeagueRoundup",
-              date: "2025-01-16",
-            }),
-          ],
-        })}
-        visitedOnboardingTabs={new Set<string>()}
-      />,
-    );
-
-    expect(screen.getByText("League Digest")).toBeInTheDocument();
-    expect(screen.getAllByText("League leaders hold firm").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Unavailable Players")).not.toBeInTheDocument();
+    expect(screen.queryByText("Player Momentum")).not.toBeInTheDocument();
   });
 
   it("keeps youth academy players out of first-team home summaries", function (): void {
@@ -533,6 +508,32 @@ describe("HomeTab", function (): void {
 
     expect(screen.getAllByText("J. Smith").length).toBeGreaterThan(0);
     expect(screen.queryByText("Youth Prospect")).not.toBeInTheDocument();
+  });
+
+  it("opens the clicked squad overview player profile", function (): void {
+    const onNavigate = vi.fn();
+
+    render(
+      <HomeTab
+        gameState={createGameState({
+          players: [
+            createPlayer({
+              id: "profile-player-1",
+              match_name: "Profile Target",
+              full_name: "Profile Target",
+            }),
+          ],
+        })}
+        visitedOnboardingTabs={new Set<string>()}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("squad-overview-player-profile-player-1"));
+
+    expect(onNavigate).toHaveBeenCalledWith("__selectPlayer", {
+      messageId: "profile-player-1",
+    });
   });
 
   it("switches squad overview tabs to real column views", function (): void {

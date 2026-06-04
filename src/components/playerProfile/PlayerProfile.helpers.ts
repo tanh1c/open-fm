@@ -22,8 +22,45 @@ interface PlayerAdvancedPassMetric {
     percentile: number | null;
 }
 
+export interface PlayerSeasonTotalsSummary {
+    appearances: number;
+    goals: number;
+    assists: number;
+    cleanSheets: number;
+    yellowCards: number;
+    redCards: number;
+    avgRating: number;
+    minutesPlayed: number;
+    shots: number;
+    shotsOnTarget: number;
+    passesCompleted: number;
+    passesAttempted: number;
+    tacklesWon: number;
+    interceptions: number;
+    foulsCommitted: number;
+}
+
+export interface PlayerCompetitionStatsSummary {
+    competition: string;
+    teamId: string;
+    teamName: string;
+    totals: PlayerSeasonTotalsSummary;
+}
+
+export interface PlayerTransferHistorySummary {
+    date: string;
+    fromTeamId: string;
+    fromTeamName: string;
+    toTeamId: string;
+    toTeamName: string;
+    fee: number;
+}
+
 export interface PlayerAdvancedStatsSummary {
     percentileEligible: boolean;
+    seasonTotals?: PlayerSeasonTotalsSummary | null;
+    competitionStats?: PlayerCompetitionStatsSummary[];
+    transferHistory?: PlayerTransferHistorySummary[];
     metrics: {
         shots: PlayerAdvancedMetric;
         shotsOnTarget: PlayerAdvancedMetric;
@@ -31,6 +68,28 @@ export interface PlayerAdvancedStatsSummary {
         tacklesWon: PlayerAdvancedMetric;
         interceptions: PlayerAdvancedMetric;
         foulsCommitted: PlayerAdvancedMetric;
+    };
+}
+
+export function seasonTotalsToPlayerStats(
+    totals: PlayerSeasonTotalsSummary,
+): PlayerSeasonStats {
+    return {
+        appearances: totals.appearances,
+        goals: totals.goals,
+        assists: totals.assists,
+        clean_sheets: totals.cleanSheets,
+        yellow_cards: totals.yellowCards,
+        red_cards: totals.redCards,
+        avg_rating: totals.avgRating,
+        minutes_played: totals.minutesPlayed,
+        shots: totals.shots,
+        shots_on_target: totals.shotsOnTarget,
+        passes_completed: totals.passesCompleted,
+        passes_attempted: totals.passesAttempted,
+        tackles_won: totals.tacklesWon,
+        interceptions: totals.interceptions,
+        fouls_committed: totals.foulsCommitted,
     };
 }
 

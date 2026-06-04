@@ -10,11 +10,29 @@ use crate::season_awards::SeasonAwards;
 
 /// The winner of a single competition in a given season.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct CompetitionChampion {
     pub competition_id: String,
     pub competition_name: String,
     pub team_id: String,
     pub team_name: String,
+    pub runner_up_team_id: Option<String>,
+    pub runner_up_team_name: Option<String>,
+    pub resolution_label: Option<String>,
+}
+
+impl Default for CompetitionChampion {
+    fn default() -> Self {
+        Self {
+            competition_id: String::new(),
+            competition_name: String::new(),
+            team_id: String::new(),
+            team_name: String::new(),
+            runner_up_team_id: None,
+            runner_up_team_name: None,
+            resolution_label: None,
+        }
+    }
 }
 
 /// Honours awarded at the end of one season: all competition champions plus

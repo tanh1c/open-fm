@@ -17,7 +17,7 @@
 
 use chrono::{DateTime, Datelike, Duration, Utc, Weekday};
 use domain::league::{
-    Competition, CompetitionKind, Fixture, FixtureCompetition, FixtureStatus,
+    Competition, CompetitionKind, Fixture, FixtureCompetition, FixtureStatus, MatchResolution,
 };
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -85,18 +85,63 @@ fn home_wins_shootout(seed_source: &str) -> bool {
     hash % 2 == 0
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnockoutResolution {
+    pub winner_team_id: String,
+    pub runner_up_team_id: String,
+    pub resolution: MatchResolution,
+    pub home_penalties: Option<u8>,
+    pub away_penalties: Option<u8>,
+}
+
+fn penalty_score(seed_source: &str, home_wins: bool) -> (u8, u8) {
+    let base = seed_source
+        .bytes()
+        .fold(0_u8, |acc, byte| acc.wrapping_add(byte));
+    let loser = 2 + (base % 3);
+    let winner = loser + 1;
+    if home_wins {
+        (winner, loser)
+    } else {
+        (loser, winner)
+    }
+}
+
 /// Winner of a single-leg knockout fixture (draws broken deterministically).
-fn single_leg_winner(fixture: &Fixture) -> Option<String> {
+pub fn single_leg_resolution(fixture: &Fixture) -> Option<KnockoutResolution> {
     let result = fixture.result.as_ref()?;
     if result.home_goals > result.away_goals {
-        Some(fixture.home_team_id.clone())
+        Some(KnockoutResolution {
+            winner_team_id: fixture.home_team_id.clone(),
+            runner_up_team_id: fixture.away_team_id.clone(),
+            resolution: MatchResolution::RegularTime,
+            home_penalties: None,
+            away_penalties: None,
+        })
     } else if result.away_goals > result.home_goals {
-        Some(fixture.away_team_id.clone())
-    } else if home_wins_shootout(&fixture.id) {
-        Some(fixture.home_team_id.clone())
+        Some(KnockoutResolution {
+            winner_team_id: fixture.away_team_id.clone(),
+            runner_up_team_id: fixture.home_team_id.clone(),
+            resolution: MatchResolution::RegularTime,
+            home_penalties: None,
+            away_penalties: None,
+        })
     } else {
-        Some(fixture.away_team_id.clone())
+        let home_wins = home_wins_shootout(&fixture.id);
+        let (home_penalties, away_penalties) = penalty_score(&fixture.id, home_wins);
+        Some(KnockoutResolution {
+            winner_team_id: if home_wins { fixture.home_team_id.clone() } else { fixture.away_team_id.clone() },
+            runner_up_team_id: if home_wins { fixture.away_team_id.clone() } else { fixture.home_team_id.clone() },
+            resolution: MatchResolution::AfterPenalties,
+            home_penalties: Some(home_penalties),
+            away_penalties: Some(away_penalties),
+        })
     }
+}
+
+/// Winner of a single-leg knockout fixture (draws broken deterministically).
+fn single_leg_winner(fixture: &Fixture) -> Option<String> {
+    single_leg_resolution(fixture).map(|resolution| resolution.winner_team_id)
 }
 
 /// Winner of a two-legged tie identified by `tie_id`. The first team listed in
@@ -609,6 +654,10 @@ mod tests {
                 home_scorers: vec![],
                 away_scorers: vec![],
                 report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
             }),
             stage: Some("r16".into()),
             leg: Some(1),
@@ -630,6 +679,10 @@ mod tests {
                 home_scorers: vec![],
                 away_scorers: vec![],
                 report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
             }),
             stage: Some("r16".into()),
             leg: Some(2),

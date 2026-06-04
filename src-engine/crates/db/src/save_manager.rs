@@ -77,7 +77,25 @@ impl SaveManager {
 
     pub fn load_saves(&mut self) -> Result<Vec<SaveEntry>, String> {
         self.ensure_save_index_ready()?;
-        Ok(self.save_index.list_saves())
+        let mut saves = self.save_index.list_saves();
+        for save in &mut saves {
+            save.size_bytes = self.database_size_bytes(&save.db_filename).ok();
+        }
+        Ok(saves)
+    }
+
+    fn database_size_bytes(&self, db_filename: &str) -> Result<u64, String> {
+        let db_path = self.saves_dir.join(db_filename);
+        let db = GameDatabase::open(&db_path)?;
+        let page_count = db
+            .conn()
+            .pragma_query_value(None, "page_count", |row| row.get::<_, i64>(0))
+            .map_err(|_| "be.error.saveSizeUnavailable".to_string())?;
+        let page_size = db
+            .conn()
+            .pragma_query_value(None, "page_size", |row| row.get::<_, i64>(0))
+            .map_err(|_| "be.error.saveSizeUnavailable".to_string())?;
+        Ok((page_count.max(0) as u64).saturating_mul(page_size.max(0) as u64))
     }
 
     /// Create a new save from the current in-memory Game state.
@@ -107,6 +125,7 @@ impl SaveManager {
             created_at: now.clone(),
             last_played_at: now,
             game_date: Some(game_calendar_date(game)),
+            size_bytes: None,
         };
 
         self.save_index.record_new_save(entry)?;
@@ -143,6 +162,7 @@ impl SaveManager {
             created_at: entry.created_at.clone(),
             last_played_at: now,
             game_date: Some(game_calendar_date(game)),
+            size_bytes: None,
         })?;
         Ok(())
     }
@@ -193,6 +213,7 @@ impl SaveManager {
             created_at,
             last_played_at: now,
             game_date: Some(game_calendar_date(game)),
+            size_bytes: None,
         })?;
         Ok(())
     }
@@ -220,6 +241,7 @@ impl SaveManager {
             created_at: entry.created_at,
             last_played_at: now,
             game_date: entry.game_date,
+            size_bytes: None,
         })?;
 
         Ok(())
@@ -334,6 +356,7 @@ impl SaveManager {
                 created_at: entry.created_at.clone(),
                 last_played_at: now,
                 game_date: Some(game_calendar_date(&game)),
+                size_bytes: None,
             })?;
         } else if entry.game_date.is_none() {
             // Backfill the in-game date for saves written before the game_date
@@ -348,6 +371,7 @@ impl SaveManager {
                 created_at: entry.created_at.clone(),
                 last_played_at: entry.last_played_at.clone(),
                 game_date: Some(game_calendar_date(&game)),
+                size_bytes: None,
             })?;
         }
 

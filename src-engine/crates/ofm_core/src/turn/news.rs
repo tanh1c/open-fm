@@ -742,6 +742,10 @@ mod tests {
                 home_scorers: vec![],
                 away_scorers: vec![],
                 report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
             }),
             stage: None,
             leg: None,
@@ -1235,6 +1239,10 @@ mod tests {
             home_scorers: vec![],
             away_scorers: vec![],
             report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
         });
         league.fixtures[1].competition = domain::league::FixtureCompetition::Friendly;
         league.fixtures[1].status = FixtureStatus::Completed;
@@ -1245,6 +1253,10 @@ mod tests {
             home_scorers: vec![],
             away_scorers: vec![],
             report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
         });
 
         generate_weekly_digest_news(&mut game, "2025-08-11");

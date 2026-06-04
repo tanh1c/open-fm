@@ -390,6 +390,10 @@ mod tests {
                 home_scorers: Vec::<GoalEvent>::new(),
                 away_scorers: Vec::<GoalEvent>::new(),
                 report: None,
+                winner_team_id: None,
+                resolution: None,
+                home_penalties: None,
+                away_penalties: None,
             }),
             stage: None,
             leg: None,
@@ -615,12 +619,35 @@ fn apply_fast_competition_result(
 
     let fixture = &mut competition.fixtures[fixture_index];
     fixture.status = FixtureStatus::Completed;
+    let knockout_resolution = if fixture.stage.is_some() || !fixture.counts_for_competition_standings() {
+        let resolution_fixture = Fixture {
+            result: Some(MatchResult {
+                home_goals,
+                away_goals,
+                home_scorers: Vec::<GoalEvent>::new(),
+                away_scorers: Vec::<GoalEvent>::new(),
+                report: None,
+                winner_team_id: None,
+                resolution: None,
+                home_penalties: None,
+                away_penalties: None,
+            }),
+            ..fixture.clone()
+        };
+        crate::knockout::single_leg_resolution(&resolution_fixture)
+    } else {
+        None
+    };
     fixture.result = Some(MatchResult {
         home_goals,
         away_goals,
         home_scorers: Vec::<GoalEvent>::new(),
         away_scorers: Vec::<GoalEvent>::new(),
         report: None,
+        winner_team_id: knockout_resolution.as_ref().map(|resolution| resolution.winner_team_id.clone()),
+        resolution: knockout_resolution.as_ref().map(|resolution| resolution.resolution.clone()),
+        home_penalties: knockout_resolution.as_ref().and_then(|resolution| resolution.home_penalties),
+        away_penalties: knockout_resolution.as_ref().and_then(|resolution| resolution.away_penalties),
     });
 
     if fixture.counts_for_competition_standings() {

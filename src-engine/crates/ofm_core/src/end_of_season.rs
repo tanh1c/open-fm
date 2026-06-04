@@ -364,22 +364,43 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     };
 
     // 4. Record team season history
-    for (idx, standing) in final_standings.iter().enumerate() {
+    let season_standings: Vec<(String, domain::league::StandingEntry)> = if game.competitions.is_empty() {
+        final_standings
+            .iter()
+            .enumerate()
+            .map(|(idx, standing)| ((idx + 1).to_string(), standing.clone()))
+            .collect()
+    } else {
+        game.competitions
+            .iter()
+            .filter(|competition| competition.kind == CompetitionKind::DomesticLeague)
+            .flat_map(|competition| {
+                sorted_competition_standings(competition)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(idx, standing)| ((idx + 1).to_string(), standing))
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    };
+
+    for (position_label, standing) in &season_standings {
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == standing.team_id) {
-            let position = (idx + 1) as u32;
+            let position = position_label.parse::<u32>().unwrap_or(0);
             let prize_money = prize_money_for_position(position);
 
-            team.history.push(TeamSeasonRecord {
-                season,
-                league_position: position,
-                played: standing.played,
-                won: standing.won,
-                drawn: standing.drawn,
-                lost: standing.lost,
-                goals_for: standing.goals_for,
-                goals_against: standing.goals_against,
-            });
-            // Reset form
+            if !team.history.iter().any(|record| record.season == season) {
+                team.history.push(TeamSeasonRecord {
+                    season,
+                    league_position: position,
+                    played: standing.played,
+                    won: standing.won,
+                    drawn: standing.drawn,
+                    lost: standing.lost,
+                    goals_for: standing.goals_for,
+                    goals_against: standing.goals_against,
+                });
+            }
             team.form.clear();
 
             if prize_money > 0 {
@@ -403,7 +424,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     // 5. Record player career entries and reset stats
     for player in game.players.iter_mut() {
-        if player.stats.appearances > 0 {
+        if player.stats.appearances > 0 && !player.career.iter().any(|entry| entry.season == season) {
             let team_name = player
                 .team_id
                 .as_ref()
@@ -731,31 +752,96 @@ fn record_season_honours_and_records(
             .unwrap_or_default()
     };
 
-    // Champions: winner (top of sorted standings) of each league competition.
     let mut champions: Vec<CompetitionChampion> = Vec::new();
     if game.competitions.is_empty() {
         if let Some(league) = &game.league {
-            if let Some(top) = league.sorted_standings().first() {
+            let standings = league.sorted_standings();
+            if let Some(top) = standings.first() {
+                let runner_up = standings.get(1);
                 champions.push(CompetitionChampion {
                     competition_id: league.id.clone(),
                     competition_name: league.name.clone(),
                     team_id: top.team_id.clone(),
                     team_name: team_name(game, &top.team_id),
+                    runner_up_team_id: runner_up.map(|standing| standing.team_id.clone()),
+                    runner_up_team_name: runner_up.map(|standing| team_name(game, &standing.team_id)),
+                    resolution_label: None,
                 });
             }
         }
     } else {
         for competition in &game.competitions {
-            if competition.kind != CompetitionKind::DomesticLeague {
-                continue;
-            }
-            if let Some(top) = sorted_competition_standings(competition).first() {
-                champions.push(CompetitionChampion {
-                    competition_id: competition.id.clone(),
-                    competition_name: competition.name.clone(),
-                    team_id: top.team_id.clone(),
-                    team_name: team_name(game, &top.team_id),
-                });
+            match competition.kind {
+                CompetitionKind::DomesticLeague => {
+                    let standings = sorted_competition_standings(competition);
+                    if let Some(top) = standings.first() {
+                        let runner_up = standings.get(1);
+                        champions.push(CompetitionChampion {
+                            competition_id: competition.id.clone(),
+                            competition_name: competition.name.clone(),
+                            team_id: top.team_id.clone(),
+                            team_name: team_name(game, &top.team_id),
+                            runner_up_team_id: runner_up.map(|standing| standing.team_id.clone()),
+                            runner_up_team_name: runner_up.map(|standing| team_name(game, &standing.team_id)),
+                            resolution_label: None,
+                        });
+                    }
+                }
+                CompetitionKind::DomesticCup => {
+                    let Some(final_fixture) = competition
+                        .fixtures
+                        .iter()
+                        .max_by_key(|fixture| fixture.matchday)
+                    else {
+                        continue;
+                    };
+                    if final_fixture.status != FixtureStatus::Completed {
+                        continue;
+                    }
+                    if let Some(resolution) = crate::knockout::single_leg_resolution(final_fixture) {
+                        champions.push(CompetitionChampion {
+                            competition_id: competition.id.clone(),
+                            competition_name: competition.name.clone(),
+                            team_id: resolution.winner_team_id.clone(),
+                            team_name: team_name(game, &resolution.winner_team_id),
+                            runner_up_team_id: Some(resolution.runner_up_team_id.clone()),
+                            runner_up_team_name: Some(team_name(game, &resolution.runner_up_team_id)),
+                            resolution_label: match resolution.resolution {
+                                domain::league::MatchResolution::AfterPenalties => Some("AfterPenalties".to_string()),
+                                domain::league::MatchResolution::AfterExtraTime => Some("AfterExtraTime".to_string()),
+                                domain::league::MatchResolution::RegularTime => None,
+                            },
+                        });
+                    }
+                }
+                CompetitionKind::ContinentalLeague => {
+                    let Some(final_fixture) = competition
+                        .fixtures
+                        .iter()
+                        .find(|fixture| fixture.stage.as_deref() == Some("final"))
+                    else {
+                        continue;
+                    };
+                    if final_fixture.status != FixtureStatus::Completed {
+                        continue;
+                    }
+                    if let Some(resolution) = crate::knockout::single_leg_resolution(final_fixture) {
+                        champions.push(CompetitionChampion {
+                            competition_id: competition.id.clone(),
+                            competition_name: competition.name.clone(),
+                            team_id: resolution.winner_team_id.clone(),
+                            team_name: team_name(game, &resolution.winner_team_id),
+                            runner_up_team_id: Some(resolution.runner_up_team_id.clone()),
+                            runner_up_team_name: Some(team_name(game, &resolution.runner_up_team_id)),
+                            resolution_label: match resolution.resolution {
+                                domain::league::MatchResolution::AfterPenalties => Some("AfterPenalties".to_string()),
+                                domain::league::MatchResolution::AfterExtraTime => Some("AfterExtraTime".to_string()),
+                                domain::league::MatchResolution::RegularTime => None,
+                            },
+                        });
+                    }
+                }
+                CompetitionKind::Friendly | CompetitionKind::PreseasonTournament => {}
             }
         }
     }
@@ -975,11 +1061,21 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+                    winner_team_id: None,
+                    resolution: None,
+                    home_penalties: None,
+                    away_penalties: None,
                 });
             }
 
-            for standing in competition.standings.iter_mut() {
+            for (index, standing) in competition.standings.iter_mut().enumerate() {
                 standing.played = 2;
+                standing.won = if index == 0 { 2 } else { 0 };
+                standing.drawn = 0;
+                standing.lost = if index == 0 { 0 } else { 2 };
+                standing.goals_for = if competition.country.as_deref() == Some("Spain") && index == 0 { 99 } else { 2 };
+                standing.goals_against = 0;
+                standing.points = standing.won * 3;
             }
         }
 
@@ -1099,7 +1195,7 @@ mod tests {
             season: 2026,
             team_id: team_id.to_string(),
             team_name: "English Three".to_string(),
-            appearances: 30,
+            appearances: 50,
             goals: 12,
             assists: 5,
             clean_sheets: 0,
@@ -1113,6 +1209,58 @@ mod tests {
             interceptions: 0,
         });
         p
+    }
+
+    #[test]
+    fn process_end_of_season_records_foreign_player_career_and_global_team_records() {
+        let mut game = completed_multi_competition_game("eng-3");
+        let mut foreign_player = lifecycle_player("spanish-star", "esp-1", 1996);
+        foreign_player.career.clear();
+        foreign_player.stats.appearances = 34;
+        foreign_player.stats.goals = 40;
+        foreign_player.stats.assists = 11;
+        game.players.push(foreign_player);
+
+        process_end_of_season(&mut game);
+
+        let player = game
+            .players
+            .iter()
+            .find(|player| player.id == "spanish-star")
+            .expect("foreign player should remain active");
+        let career_entry = player
+            .career
+            .iter()
+            .find(|entry| entry.season == 2026)
+            .expect("foreign player career entry should be recorded");
+        assert_eq!(career_entry.team_id, "esp-1");
+        assert_eq!(career_entry.team_name, "Spanish One");
+        assert_eq!(career_entry.goals, 40);
+
+        assert_eq!(
+            game.records
+                .most_goals_in_season
+                .as_ref()
+                .expect("goal record should be promoted")
+                .player_id,
+            "spanish-star"
+        );
+        assert_eq!(
+            game.records
+                .most_goals_team_in_season
+                .as_ref()
+                .expect("team goal record should be promoted")
+                .team_name,
+            "Spanish One"
+        );
+        assert_eq!(
+            game.records
+                .most_goals_team_in_season
+                .as_ref()
+                .unwrap()
+                .value,
+            99
+        );
     }
 
     #[test]
@@ -1142,7 +1290,7 @@ mod tests {
             .find(|r| r.id == "ancient")
             .unwrap();
         assert_eq!(record.total_goals, 12);
-        assert_eq!(record.total_appearances, 30);
+        assert_eq!(record.total_appearances, 50);
 
         // The young prospect survives.
         assert!(game.players.iter().any(|p| p.id == "prospect"));

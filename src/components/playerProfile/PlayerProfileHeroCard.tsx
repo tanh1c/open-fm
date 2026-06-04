@@ -1,7 +1,7 @@
-import { RotateCcw, Shield, TimerOff, Trash2 } from "lucide-react";
+import { RotateCcw, TimerOff, Trash2 } from "lucide-react";
 import { countryName } from "../../lib/countries";
 import { formatDate, getContractRiskBadgeVariant, getContractYearsRemaining, positionBadgeVariant } from "../../lib/helpers";
-import type { PlayerData } from "../../store/gameStore";
+import type { PlayerData, TeamData } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
 import { buildViewTeamMenuItem } from "../playerActions/playerContextMenuItems";
 import { translatePositionLabel } from "../squad/SquadTab.helpers";
@@ -12,6 +12,7 @@ import type {
 } from "./PlayerProfile.scouting";
 import PlayerProfileScoutAction from "./PlayerProfileScoutAction";
 import { TraitList } from "../TraitBadge";
+import TeamLogo from "../common/TeamLogo";
 import { Badge, Button, Card, CountryFlag } from "../ui";
 
 type TranslateFn = (
@@ -25,6 +26,7 @@ interface PlayerProfileHeroCardProps {
     primaryPosition: string;
     age: number;
     teamName: string;
+    team: TeamData | null;
     footednessLabel: string;
     weakFootValue: number;
     weeklySuffix: string;
@@ -53,6 +55,7 @@ export default function PlayerProfileHeroCard({
     primaryPosition,
     age,
     teamName,
+    team,
     footednessLabel,
     weakFootValue,
     weeklySuffix,
@@ -79,7 +82,7 @@ export default function PlayerProfileHeroCard({
         : [];
 
     return (
-        <Card accent="primary">
+        <Card>
             <div className="bg-linear-to-r from-surface-700 to-surface-800 p-5 rounded-t-xl">
                 <div className="flex items-start gap-4">
                     <div
@@ -126,8 +129,8 @@ export default function PlayerProfileHeroCard({
                                 {t("common.weakFoot")}: {weakFootValue}/5
                             </span>
                         </div>
-                        <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5" />
+                        <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                            {team ? <TeamLogo team={team} size="sm" className="h-6 w-6 rounded-md p-0.5" /> : null}
                             {player.team_id && onSelectTeam ? (
                                 <ContextMenu items={teamContextItems}>
                                     <button
@@ -141,7 +144,7 @@ export default function PlayerProfileHeroCard({
                             ) : (
                                 <span>{teamName}</span>
                             )}
-                        </p>
+                        </div>
                         {player.traits && player.traits.length > 0 ? (
                             <div className="mt-2">
                                 <TraitList traits={player.traits} size="sm" />

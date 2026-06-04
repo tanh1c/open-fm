@@ -507,6 +507,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -529,6 +533,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -602,6 +610,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -624,6 +636,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -702,6 +718,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -724,6 +744,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -777,6 +801,10 @@ mod tests {
                     home_scorers: vec![],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -930,6 +958,10 @@ mod tests {
             home_scorers: vec![],
             away_scorers: vec![],
             report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
         });
         game.league = Some(league);
 

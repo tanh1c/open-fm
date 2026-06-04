@@ -38,6 +38,8 @@ pub struct SaveEntry {
     /// legacy saves written before this column existed; backfilled on next save.
     #[serde(default)]
     pub game_date: Option<String>,
+    #[serde(default)]
+    pub size_bytes: Option<u64>,
 }
 
 /// AppDatabase manages the save_index table. One instance per process.
@@ -206,6 +208,7 @@ fn row_to_save_entry(row: &rusqlite::Row) -> rusqlite::Result<SaveEntry> {
         created_at: row.get(4)?,
         last_played_at: row.get(5)?,
         game_date: row.get(6)?,
+        size_bytes: None,
     })
 }
 
@@ -222,6 +225,7 @@ mod tests {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             last_played_at: last_played.to_string(),
             game_date: Some("2026-08-15".to_string()),
+            size_bytes: None,
         }
     }
 

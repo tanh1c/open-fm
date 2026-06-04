@@ -74,7 +74,25 @@ interface SquadRosterViewProps {
 }
 
 type FilterScope = "all" | "xi" | "bench" | "outOfPosition" | "injured";
-type SortKey = "pos" | "name" | "age" | "condition" | "morale" | "ovr";
+type SortKey =
+  | "pos"
+  | "number"
+  | "name"
+  | "age"
+  | "nationality"
+  | "condition"
+  | "sharpness"
+  | "morale"
+  | "wage"
+  | "marketValue"
+  | "appearances"
+  | "goals"
+  | "assists"
+  | "avgRating"
+  | "status"
+  | "actions"
+  | "ovr"
+  | "potential";
 
 export default function SquadRosterView({
   gameState,
@@ -135,7 +153,7 @@ export default function SquadRosterView({
       return;
     }
     setSortKey(key);
-    setSortDir(key === "ovr" ? "desc" : "asc");
+    setSortDir(defaultSortDirection(key));
   };
 
   const isOutOfPosition = (player: PlayerData): boolean => {
@@ -199,23 +217,46 @@ export default function SquadRosterView({
       switch (sortKey) {
         case "pos":
           return (posOrder[getPos(a)] || 99) - (posOrder[getPos(b)] || 99) || getPlayerOvr(b) - getPlayerOvr(a);
+        case "number":
+          return squadNumber(a, xiIds) - squadNumber(b, xiIds);
         case "name":
           return a.full_name.localeCompare(b.full_name);
         case "age":
           return calcAge(a.date_of_birth) - calcAge(b.date_of_birth);
+        case "nationality":
+          return a.nationality.localeCompare(b.nationality) || a.full_name.localeCompare(b.full_name);
         case "condition":
+        case "sharpness":
           return a.condition - b.condition;
         case "morale":
           return a.morale - b.morale;
+        case "wage":
+          return a.wage - b.wage;
+        case "marketValue":
+          return a.market_value - b.market_value;
+        case "appearances":
+          return a.stats.appearances - b.stats.appearances;
+        case "goals":
+          return a.stats.goals - b.stats.goals;
+        case "assists":
+          return a.stats.assists - b.stats.assists;
+        case "avgRating":
+          return a.stats.avg_rating - b.stats.avg_rating;
+        case "status":
+          return playerStatusLabel(a, gameState.clock.current_date, t).localeCompare(playerStatusLabel(b, gameState.clock.current_date, t));
+        case "actions":
+          return contractActionRank(a, gameState.clock.current_date) - contractActionRank(b, gameState.clock.current_date);
         case "ovr":
           return getPlayerOvr(a) - getPlayerOvr(b);
+        case "potential":
+          return (a.potential ?? getPlayerOvr(a)) - (b.potential ?? getPlayerOvr(b));
         default:
           return 0;
       }
     });
 
     return sortDir === "desc" ? sorted.reverse() : sorted;
-  }, [roster, sortKey, sortDir, playerSearch, positionFilter, statusFilter]);
+  }, [roster, sortKey, sortDir, playerSearch, positionFilter, statusFilter, gameState.clock.current_date, t]);
 
   const selectedPlayer = playersById.get(selectedPlayerId ?? "") ?? filteredRoster[0] ?? roster[0];
   const substitutes = roster.filter((player) => !xiIds.has(player.id) && !player.injury).slice(0, 7);
@@ -455,23 +496,23 @@ export default function SquadRosterView({
               <thead className="sticky top-0 bg-app-card z-10 before:content-[''] before:absolute before:inset-x-0 before:bottom-0 before:border-b before:border-app-border/50 text-app-text-muted uppercase">
                 <tr>
                   <SortHeader col="pos" label="POS" className="pl-4 w-12" />
-                  <th className="font-semibold py-2.5 w-8 text-app-text-muted">#</th>
+                  <SortHeader col="number" label="#" className="w-8" />
                   <SortHeader col="name" label="PLAYER" className="min-w-[150px]" />
                   <SortHeader col="age" label="AGE" className="w-10 text-center" />
-                  <th className="font-semibold py-2.5 w-12 text-center text-app-text-muted">NAT</th>
+                  <SortHeader col="nationality" label="NAT" className="w-12 text-center" />
                   <SortHeader col="condition" label="CON" className="w-16 text-center" />
-                  <th className="font-semibold py-2.5 w-16 text-center text-app-text-muted">SHP</th>
+                  <SortHeader col="sharpness" label="SHP" className="w-16 text-center" />
                   <SortHeader col="morale" label="MORALE" className="w-20 text-center" />
-                  <th className="font-semibold py-2.5 w-24 text-app-text-muted">WAGE</th>
-                  <th className="font-semibold py-2.5 w-20 text-app-text-muted">VALUE</th>
-                  <th className="font-semibold py-2.5 w-12 text-center text-app-text-muted">APPS</th>
-                  <th className="font-semibold py-2.5 w-10 text-center text-app-text-muted">GLS</th>
-                  <th className="font-semibold py-2.5 w-10 text-center text-app-text-muted">AST</th>
-                  <th className="font-semibold py-2.5 w-14 text-center text-app-text-muted">AV RAT</th>
-                  <th className="font-semibold py-2.5 w-24 pr-4 text-app-text-muted">STATUS</th>
-                  <th className="font-semibold py-2.5 w-24 pr-4 text-app-text-muted">ACTIONS</th>
+                  <SortHeader col="wage" label="WAGE" className="w-24" />
+                  <SortHeader col="marketValue" label="VALUE" className="w-20" />
+                  <SortHeader col="appearances" label="APPS" className="w-12 text-center" />
+                  <SortHeader col="goals" label="GLS" className="w-10 text-center" />
+                  <SortHeader col="assists" label="AST" className="w-10 text-center" />
+                  <SortHeader col="avgRating" label="AV RAT" className="w-14 text-center" />
+                  <SortHeader col="status" label="STATUS" className="w-24 pr-4" />
+                  <SortHeader col="actions" label="ACTIONS" className="w-24 pr-4" />
                   <SortHeader col="ovr" label="OVR" className="w-12 text-center" />
-                  <th className="font-semibold py-2.5 w-12 pr-4 text-center text-app-text-muted">POT</th>
+                  <SortHeader col="potential" label="POT" className="w-12 pr-4 text-center" />
                 </tr>
               </thead>
               <tbody>
@@ -1036,6 +1077,27 @@ function CircleChart({ pct, color }: { pct: number; color: string }) {
       <circle r={r} cx="5" cy="5" fill="transparent" stroke={color} strokeWidth="2.5" strokeDasharray={circ} strokeDashoffset={strokePct} />
     </svg>
   );
+}
+
+function defaultSortDirection(key: SortKey): "asc" | "desc" {
+  return ["condition", "sharpness", "morale", "wage", "marketValue", "appearances", "goals", "assists", "avgRating", "ovr", "potential"].includes(key) ? "desc" : "asc";
+}
+
+function squadNumber(player: PlayerData, xiIds: Set<string>): number {
+  return xiIds.has(player.id) ? 0 : 1;
+}
+
+function playerStatusLabel(player: PlayerData, currentDate: string, t: TFunction): string {
+  const contractRiskLevel = getContractRiskLevel(player.contract_end, currentDate);
+  if (player.injury) return player.injury.name;
+  if (contractRiskLevel === "critical") return t("finances.contractRiskCritical");
+  if (contractRiskLevel === "warning") return t("finances.contractRiskWarning");
+  return t("finances.contractRiskStable");
+}
+
+function contractActionRank(player: PlayerData, currentDate: string): number {
+  const contractRiskLevel = getContractRiskLevel(player.contract_end, currentDate);
+  return player.contract_end && contractRiskLevel !== "stable" ? 0 : 1;
 }
 
 function moraleLabel(value: number): string {

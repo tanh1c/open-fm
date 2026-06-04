@@ -1642,6 +1642,10 @@ fn make_round_summary_game() -> Game {
                         minute: 77,
                     }],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,
@@ -1673,6 +1677,10 @@ fn make_round_summary_game() -> Game {
                     ],
                     away_scorers: vec![],
                     report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
                 }),
             
                 stage: None,

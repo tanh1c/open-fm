@@ -62,10 +62,7 @@ impl AppHandle {
     }
 
     #[wasm_bindgen(js_name = getCompetitionLeaderboards)]
-    pub fn get_competition_leaderboards(
-        &self,
-        competition_id: String,
-    ) -> Result<JsValue, JsValue> {
+    pub fn get_competition_leaderboards(&self, competition_id: String) -> Result<JsValue, JsValue> {
         let game = self.snapshot_game()?;
         let leaderboards = self
             .state

@@ -139,9 +139,15 @@ impl AppHandle {
     /// fired (action "fired"), which ends employment; otherwise it returns
     /// action "arrived" at (or just past) the target.
     #[wasm_bindgen(js_name = advanceToDate)]
-    pub fn advance_to_date(&self, target_date: String, settings: JsValue) -> Result<JsValue, JsValue> {
-        let settings: VacationSettings = serde_wasm_bindgen::from_value(settings).unwrap_or_default();
-        let response = advance_to_date_service(&self.state, &target_date, settings).map_err(super::to_js)?;
+    pub fn advance_to_date(
+        &self,
+        target_date: String,
+        settings: JsValue,
+    ) -> Result<JsValue, JsValue> {
+        let settings: VacationSettings =
+            serde_wasm_bindgen::from_value(settings).unwrap_or_default();
+        let response =
+            advance_to_date_service(&self.state, &target_date, settings).map_err(super::to_js)?;
         to_js_value(&response)
     }
 }

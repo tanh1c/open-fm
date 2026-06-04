@@ -107,6 +107,13 @@ pub enum FixtureStatus {
     Completed,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MatchResolution {
+    RegularTime,
+    AfterExtraTime,
+    AfterPenalties,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatchResult {
     pub home_goals: u8,
@@ -115,6 +122,14 @@ pub struct MatchResult {
     pub away_scorers: Vec<GoalEvent>,
     #[serde(default)]
     pub report: Option<CompactMatchReport>,
+    #[serde(default)]
+    pub winner_team_id: Option<String>,
+    #[serde(default)]
+    pub resolution: Option<MatchResolution>,
+    #[serde(default)]
+    pub home_penalties: Option<u8>,
+    #[serde(default)]
+    pub away_penalties: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

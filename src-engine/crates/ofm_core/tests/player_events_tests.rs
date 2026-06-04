@@ -286,6 +286,10 @@ fn bench_complaint_after_5_missed_matches() {
                 }],
                 away_scorers: vec![],
                 report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
             }),
         
             stage: None,
@@ -348,6 +352,10 @@ fn bench_complaint_not_for_gk() {
                 home_scorers: vec![],
                 away_scorers: vec![],
                 report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
             }),
         
             stage: None,
@@ -399,6 +407,10 @@ fn bench_complaint_not_with_fewer_than_5_fixtures() {
                 home_scorers: vec![],
                 away_scorers: vec![],
                 report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
             }),
         
             stage: None,

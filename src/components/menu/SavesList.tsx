@@ -1,6 +1,24 @@
 import { useTranslation } from "react-i18next";
 import { formatDate } from "../../lib/helpers";
-import { Play, Clock, CalendarDays, Trash2, X, Loader2 } from "lucide-react";
+import { Play, Clock, CalendarDays, Trash2, X, Loader2, HardDrive } from "lucide-react";
+
+function formatSaveSize(bytes?: number | null): string | null {
+  if (bytes === undefined || bytes === null) {
+    return null;
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = value >= 10 || unitIndex === 0 ? 0 : 1;
+  return `${value.toFixed(digits)} ${units[unitIndex]}`;
+}
 
 interface SaveEntry {
   id: string;
@@ -11,6 +29,7 @@ interface SaveEntry {
   created_at: string;
   last_played_at: string;
   game_date?: string | null;
+  size_bytes?: number | null;
 }
 
 interface SavesListProps {
@@ -48,7 +67,10 @@ export default function SavesList({ saves, isLoading, loadingSaveId, confirmDele
         ) : saves.length === 0 ? (
           <div className="text-gray-500 dark:text-gray-400 text-center py-8">{t('menu.noSaves')}</div>
         ) : (
-          saves.map(save => (
+          saves.map(save => {
+            const saveSize = formatSaveSize(save.size_bytes);
+
+            return (
             <div key={save.id} className="group relative flex flex-col gap-2 w-full p-4 bg-white dark:bg-surface-700 hover:bg-primary-50 dark:hover:bg-surface-600 text-left rounded-xl transition-all duration-200 border border-gray-200 dark:border-surface-600 hover:border-primary-400 dark:hover:border-primary-500 shadow-sm">
               {confirmDeleteId === save.id ? (
                 <div className="flex flex-col gap-2">
@@ -87,6 +109,12 @@ export default function SavesList({ saves, isLoading, loadingSaveId, confirmDele
                             <span>{formatDate(save.game_date, i18n.language)}</span>
                           </div>
                         ) : null}
+                        {saveSize ? (
+                          <div className="flex items-center gap-1" title={t('menu.saveSize', { defaultValue: 'Save size' })}>
+                            <HardDrive className="w-3 h-3" />
+                            <span>{saveSize}</span>
+                          </div>
+                        ) : null}
                         <div className="flex items-center gap-1" title={t('menu.lastPlayed', { defaultValue: 'Last played' })}>
                           <Clock className="w-3 h-3" />
                           <span>{formatDate(save.last_played_at, i18n.language)}</span>
@@ -104,7 +132,8 @@ export default function SavesList({ saves, isLoading, loadingSaveId, confirmDele
                 </div>
               )}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

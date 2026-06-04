@@ -1,4 +1,4 @@
-import { ChevronRight, Goal, MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal } from "lucide-react";
 import type { TeamData } from "../../../store/gameStore";
 import TeamLogo from "../../common/TeamLogo";
 import { TemplateCard, TemplateCardHeader } from "../Card";
@@ -55,12 +55,9 @@ export function TemplateRightSidebar({
   leagueRows,
   squadStatus,
   fixtures,
-  trainingRows,
-  trainingScheduleLabel,
   clubBriefingSections,
   onViewTable,
   onViewSchedule,
-  onViewTraining,
 }: TemplateRightSidebarProps) {
   return (
     <>
@@ -68,7 +65,6 @@ export function TemplateRightSidebar({
       <SquadStatusWidget status={squadStatus} />
       <SidebarClubBriefing sections={clubBriefingSections} />
       <UpcomingFixturesWidget fixtures={fixtures} onViewSchedule={onViewSchedule} />
-      <TrainingOverviewWidget rows={trainingRows} scheduleLabel={trainingScheduleLabel} onViewTraining={onViewTraining} />
     </>
   );
 }
@@ -232,46 +228,3 @@ function UpcomingFixturesWidget({ fixtures, onViewSchedule }: { fixtures: Templa
   );
 }
 
-function TrainingOverviewWidget({ rows, scheduleLabel, onViewTraining }: { rows: TemplateTrainingRow[]; scheduleLabel: string; onViewTraining?: () => void }) {
-  return (
-    <TemplateCard className="flex flex-col">
-      <TemplateCardHeader
-        title="TRAINING OVERVIEW"
-        action={
-          <div className="text-[10px] text-app-text-muted flex items-center gap-1 cursor-pointer">
-            <span>{scheduleLabel}</span>
-            <ChevronRight className="w-3 h-3 rotate-90" />
-          </div>
-        }
-      />
-      <div className="p-4 pt-2 flex flex-col gap-3">
-        {rows.map((row) => <TrainingRow key={row.label} {...row} />)}
-      </div>
-      <button type="button" onClick={onViewTraining} className="h-8 border-t border-app-border/50 flex items-center justify-center gap-2 text-[10px] font-semibold text-app-green hover:bg-app-green/5 transition-colors mt-auto">
-        <span>Training Calendar</span>
-        <ChevronRight className="w-3 h-3" />
-      </button>
-    </TemplateCard>
-  );
-}
-
-function TrainingRow({ label, value, color, stars }: TemplateTrainingRow) {
-  return (
-    <div className="flex items-center gap-3 text-[11px]">
-      <div className="flex items-center gap-2 w-20">
-        <Goal className="w-3.5 h-3.5 text-app-text-muted" />
-        <span className="text-app-text-muted">{label}</span>
-      </div>
-      <div className="flex-1 h-1.5 bg-app-bg rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full shadow-[0_0_6px_rgba(0,0,0,0.5)]", color)} style={{ width: `${value}%` }} />
-      </div>
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <svg key={star} viewBox="0 0 24 24" fill={star <= stars ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" className={cn("w-2.5 h-2.5", star <= stars ? "text-app-text" : "text-app-border")}>
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
-        ))}
-      </div>
-    </div>
-  );
-}

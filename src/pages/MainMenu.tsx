@@ -31,6 +31,7 @@ interface SaveEntry {
   created_at: string;
   last_played_at: string;
   game_date?: string | null;
+  size_bytes?: number | null;
 }
 
 /**

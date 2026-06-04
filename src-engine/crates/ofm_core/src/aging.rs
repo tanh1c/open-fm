@@ -206,6 +206,13 @@ fn retired_record(player: &Player, age: u32, season: u32, teams: &[domain::team:
     }
 }
 
+fn qualifies_for_hall_of_fame(record: &RetiredPlayer) -> bool {
+    record.total_appearances >= 50
+        || record.total_goals >= 25
+        || record.total_assists >= 25
+        || (record.total_appearances > 0 && record.peak_ovr >= 82)
+}
+
 /// Retire eligible players: append a Hall of Fame summary, remove the full
 /// `Player`, and scrub their ids from team lineups/training groups.
 ///
@@ -229,7 +236,10 @@ pub fn process_retirements(game: &mut Game, season: u32) -> Vec<RetiredPlayer> {
     for player in game.players.iter() {
         let age = player.age(current_year);
         if should_retire(player, age, &mut rng) {
-            new_records.push(retired_record(player, age, season, &teams));
+            let record = retired_record(player, age, season, &teams);
+            if qualifies_for_hall_of_fame(&record) {
+                new_records.push(record);
+            }
             retiring_ids.insert(player.id.clone());
         }
     }
@@ -383,6 +393,32 @@ mod tests {
             }
         }
         assert!(retired > 100, "many ~38yo players should retire, got {retired}/400");
+    }
+
+    #[test]
+    fn hall_of_fame_excludes_zero_appearance_retirees() {
+        let zero = RetiredPlayer {
+            id: "zero".into(),
+            full_name: "Zero Apps".into(),
+            nationality: "ENG".into(),
+            position: Position::Forward,
+            last_team_id: "team".into(),
+            last_team_name: "Team".into(),
+            retired_season: 2026,
+            age_at_retirement: 36,
+            peak_ovr: 81,
+            total_appearances: 0,
+            total_goals: 0,
+            total_assists: 0,
+            career_seasons: 0,
+        };
+        let notable = RetiredPlayer {
+            total_appearances: 50,
+            ..zero.clone()
+        };
+
+        assert!(!qualifies_for_hall_of_fame(&zero));
+        assert!(qualifies_for_hall_of_fame(&notable));
     }
 
     #[test]

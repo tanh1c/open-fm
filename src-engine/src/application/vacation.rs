@@ -154,7 +154,11 @@ pub fn advance_to_date(
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("be.error.noActiveGameSession")?;
-    let user_team_id = game.manager.team_id.clone().ok_or("be.error.noTeamAssigned")?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned")?;
     let started_at = game.clock.current_date.format("%Y-%m-%d").to_string();
     let mut days_advanced = 0u32;
     let mut initial_snapshot = capture_snapshot(&game, &user_team_id);
@@ -181,11 +185,33 @@ pub fn advance_to_date(
 
         let before = capture_snapshot(&game, &user_team_id);
         if (!settings.handle_matches || settings.return_for_user_match) && before.user_match_today {
-            return finish(state, game, started_at, days_advanced, "match_day", match_results, initial_snapshot, before.blockers, delegated_renewal_reports, assistant_transfer_actions);
+            return finish(
+                state,
+                game,
+                started_at,
+                days_advanced,
+                "match_day",
+                match_results,
+                initial_snapshot,
+                before.blockers,
+                delegated_renewal_reports,
+                assistant_transfer_actions,
+            );
         }
 
         if !settings.ignore_soft_blockers && !before.blockers.is_empty() {
-            return finish(state, game, started_at, days_advanced, "blocked", match_results, initial_snapshot, before.blockers, delegated_renewal_reports, assistant_transfer_actions);
+            return finish(
+                state,
+                game,
+                started_at,
+                days_advanced,
+                "blocked",
+                match_results,
+                initial_snapshot,
+                before.blockers,
+                delegated_renewal_reports,
+                assistant_transfer_actions,
+            );
         }
 
         let mut captures = Vec::new();
@@ -197,11 +223,26 @@ pub fn advance_to_date(
         }
         days_advanced += 1;
 
-        match_results.extend(collect_new_match_results(&game, &user_team_id, &match_results));
+        match_results.extend(collect_new_match_results(
+            &game,
+            &user_team_id,
+            &match_results,
+        ));
 
         if game.manager.team_id.is_none() {
             let blockers = compute_blocking_actions_service(&game);
-            return finish(state, game, started_at, days_advanced, "fired", match_results, initial_snapshot, blockers, delegated_renewal_reports, assistant_transfer_actions);
+            return finish(
+                state,
+                game,
+                started_at,
+                days_advanced,
+                "fired",
+                match_results,
+                initial_snapshot,
+                blockers,
+                delegated_renewal_reports,
+                assistant_transfer_actions,
+            );
         }
 
         run_assistant_actions(
@@ -215,18 +256,53 @@ pub fn advance_to_date(
 
         let after = capture_snapshot(&game, &user_team_id);
         if settings.return_for_contract_decision
-            && delegated_renewal_reports.iter().any(|report| report.stalled_count > 0)
+            && delegated_renewal_reports
+                .iter()
+                .any(|report| report.stalled_count > 0)
         {
-            return finish(state, game, started_at, days_advanced, "contract_decision", match_results, initial_snapshot, after.blockers, delegated_renewal_reports, assistant_transfer_actions);
+            return finish(
+                state,
+                game,
+                started_at,
+                days_advanced,
+                "contract_decision",
+                match_results,
+                initial_snapshot,
+                after.blockers,
+                delegated_renewal_reports,
+                assistant_transfer_actions,
+            );
         }
         if let Some(reason) = stop_reason_after_day(&settings, &before, &after) {
-            return finish(state, game, started_at, days_advanced, reason, match_results, initial_snapshot, after.blockers, delegated_renewal_reports, assistant_transfer_actions);
+            return finish(
+                state,
+                game,
+                started_at,
+                days_advanced,
+                reason,
+                match_results,
+                initial_snapshot,
+                after.blockers,
+                delegated_renewal_reports,
+                assistant_transfer_actions,
+            );
         }
         initial_snapshot = merge_seen_snapshot(initial_snapshot, &after);
     }
 
     let blockers = compute_blocking_actions_service(&game);
-    finish(state, game, started_at, days_advanced, "arrived", match_results, initial_snapshot, blockers, delegated_renewal_reports, assistant_transfer_actions)
+    finish(
+        state,
+        game,
+        started_at,
+        days_advanced,
+        "arrived",
+        match_results,
+        initial_snapshot,
+        blockers,
+        delegated_renewal_reports,
+        assistant_transfer_actions,
+    )
 }
 
 pub fn has_scheduled_user_match(game: &Game, date: &str, user_team_id: &str) -> bool {
@@ -254,12 +330,19 @@ fn capture_snapshot(game: &Game, user_team_id: &str) -> VacationDaySnapshot {
         urgent_message_ids: game
             .messages
             .iter()
-            .filter(|message| !message.read && message.priority == domain::message::MessagePriority::Urgent)
+            .filter(|message| {
+                !message.read && message.priority == domain::message::MessagePriority::Urgent
+            })
             .map(|message| message.id.clone())
             .collect(),
         blocker_ids: blockers
             .iter()
-            .filter_map(|blocker| blocker.get("id").and_then(serde_json::Value::as_str).map(str::to_string))
+            .filter_map(|blocker| {
+                blocker
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+            })
             .collect(),
         blockers,
     }
@@ -291,7 +374,10 @@ fn stop_reason_after_day(
     }
 
     if settings.return_for_transfer_offer
-        && has_new_items(&before.pending_transfer_offer_ids, &after.pending_transfer_offer_ids)
+        && has_new_items(
+            &before.pending_transfer_offer_ids,
+            &after.pending_transfer_offer_ids,
+        )
     {
         return Some("transfer_offer");
     }
@@ -340,7 +426,8 @@ fn merge_seen_snapshot(
         .extend(snapshot.job_offer_message_ids.iter().cloned());
     seen.urgent_message_ids
         .extend(snapshot.urgent_message_ids.iter().cloned());
-    seen.blocker_ids.extend(snapshot.blocker_ids.iter().cloned());
+    seen.blocker_ids
+        .extend(snapshot.blocker_ids.iter().cloned());
     seen
 }
 
@@ -444,7 +531,10 @@ fn collect_new_match_results(
     user_team_id: &str,
     existing: &[VacationMatchResult],
 ) -> Vec<VacationMatchResult> {
-    let known: HashSet<&str> = existing.iter().map(|result| result.fixture_id.as_str()).collect();
+    let known: HashSet<&str> = existing
+        .iter()
+        .map(|result| result.fixture_id.as_str())
+        .collect();
     game.league
         .as_ref()
         .map(|league| {
@@ -453,7 +543,8 @@ fn collect_new_match_results(
                 .iter()
                 .filter(|fixture| {
                     !known.contains(fixture.id.as_str())
-                        && (fixture.home_team_id == user_team_id || fixture.away_team_id == user_team_id)
+                        && (fixture.home_team_id == user_team_id
+                            || fixture.away_team_id == user_team_id)
                         && fixture.status == domain::league::FixtureStatus::Completed
                 })
                 .filter_map(|fixture| {
@@ -487,7 +578,12 @@ fn finish(
     let ended_at = game.clock.current_date.format("%Y-%m-%d").to_string();
     let blocker_ids = blockers
         .iter()
-        .filter_map(|blocker| blocker.get("id").and_then(serde_json::Value::as_str).map(str::to_string))
+        .filter_map(|blocker| {
+            blocker
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
         .collect();
     let report = VacationReport {
         started_at,

@@ -77,6 +77,7 @@ mod tests {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             last_played_at: "2026-01-02T00:00:00Z".to_string(),
             game_date: None,
+            size_bytes: None,
         }
     }
 

@@ -174,6 +174,10 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
         sponsorship: serde_json::from_str::<Option<Sponsorship>>(&sponsorship_json)
             .unwrap_or_default(),
         facilities: serde_json::from_str::<Facilities>(&facilities_json).unwrap_or_default(),
+        youth_development: 50,
+        recruitment_power: 50,
+        tactical_level: 50,
+        volatility: 50,
         formation: row.get(15)?,
         play_style: parse_play_style(&play_style_str),
         training_focus: parse_training_focus(&training_focus_str),

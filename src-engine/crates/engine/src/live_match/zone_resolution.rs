@@ -2,7 +2,7 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, fitness_injury_risk_modifier,
+    PlayStylePhase, PlayerSnap, TraitContext, compress_skill, fitness_injury_risk_modifier,
     morale_performance_modifier, morale_risk_modifier, pitch_carry_modifier, pitch_foul_modifier,
     pitch_injury_modifier, pitch_pass_modifier, play_style_modifier, referee_card_modifier,
     referee_foul_modifier, referee_penalty_modifier, tactical_buildup_modifier,
@@ -115,14 +115,14 @@ impl LiveMatchState {
         let mut events = Vec::new();
         let passer = self.snap_player(att_side, Position::Defender, rng);
         let att_team = self.team_ref(att_side);
-        let pass_skill = self.condition_adjusted_skill(
+        let pass_skill = compress_skill(self.condition_adjusted_skill(
             &passer.id,
             (passer.passing as f64
                 + passer.vision as f64
                 + passer.composure as f64
                 + passer.teamwork as f64)
                 / 4.0,
-        ) * trait_pass_safety_modifier(&passer)
+        )) * trait_pass_safety_modifier(&passer)
             * morale_performance_modifier(passer.morale)
             * weather_pass_modifier(&self.config)
             * pitch_pass_modifier(&self.config)
@@ -175,13 +175,13 @@ impl LiveMatchState {
             + defender.decisions as f64
             + defender.teamwork as f64)
             / 4.0;
-        let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
+        let att_rating = compress_skill(self.condition_adjusted_skill(&attacker.id, att_raw))
             * trait_bonus(&attacker, TraitContext::Midfield)
             * trait_pass_safety_modifier(&attacker)
             * morale_performance_modifier(attacker.morale)
             * weather_pass_modifier(&self.config)
             * pitch_pass_modifier(&self.config);
-        let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
+        let def_rating = compress_skill(self.condition_adjusted_skill(&defender.id, def_raw))
             * trait_tackle_modifier(&defender)
             * trait_press_work_rate_modifier(&defender)
             * morale_performance_modifier(defender.morale);
@@ -264,13 +264,13 @@ impl LiveMatchState {
             + defender.positioning as f64
             + defender.aerial as f64)
             / 4.0;
-        let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
+        let att_rating = compress_skill(self.condition_adjusted_skill(&attacker.id, att_raw))
             * trait_carry_modifier(&attacker)
             * trait_pass_creativity_modifier(&attacker)
             * morale_performance_modifier(attacker.morale)
             * weather_pass_modifier(&self.config)
             * pitch_carry_modifier(&self.config);
-        let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
+        let def_rating = compress_skill(self.condition_adjusted_skill(&defender.id, def_raw))
             * trait_tackle_modifier(&defender)
             * trait_press_work_rate_modifier(&defender)
             * morale_performance_modifier(defender.morale);
@@ -345,7 +345,7 @@ impl LiveMatchState {
 
         let shoot_raw =
             (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
-        let shoot_rating = self.condition_adjusted_skill(&shooter.id, shoot_raw)
+        let shoot_rating = compress_skill(self.condition_adjusted_skill(&shooter.id, shoot_raw))
             * trait_shot_quality_modifier(&shooter)
             * morale_performance_modifier(shooter.morale)
             * pitch_carry_modifier(&self.config);
@@ -353,7 +353,7 @@ impl LiveMatchState {
             + goalkeeper.reflexes as f64
             + goalkeeper.positioning as f64)
             / 3.0;
-        let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw)
+        let gk_rating = compress_skill(self.condition_adjusted_skill(&goalkeeper.id, gk_raw))
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
             * morale_performance_modifier(goalkeeper.morale);
 

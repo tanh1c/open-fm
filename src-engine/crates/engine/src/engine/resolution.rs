@@ -2,7 +2,7 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, home_mod, pitch_carry_modifier, pitch_pass_modifier,
+    PlayStylePhase, PlayerSnap, TraitContext, compress_skill, home_mod, pitch_carry_modifier, pitch_pass_modifier,
     play_style_modifier, tactical_buildup_modifier, tactical_midfield_modifier,
     tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
     tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
@@ -115,12 +115,13 @@ fn resolve_buildup<R: Rng>(
 ) {
     let passer = snap_player(ctx, att_side, Position::Defender, rng);
     let att_team = ctx.team(att_side);
-    let pass_skill = (passer.passing as f64
-        + passer.vision as f64
-        + passer.composure as f64
-        + passer.teamwork as f64)
-        / 4.0
-        * trait_pass_safety_modifier(&passer)
+    let pass_skill = compress_skill(
+        (passer.passing as f64
+            + passer.vision as f64
+            + passer.composure as f64
+            + passer.teamwork as f64)
+            / 4.0,
+    ) * trait_pass_safety_modifier(&passer)
         * morale_performance_modifier(passer.morale)
         * weather_pass_modifier(ctx.config)
         * pitch_pass_modifier(ctx.config)
@@ -161,22 +162,24 @@ fn resolve_midfield<R: Rng>(
     let attacker = snap_player(ctx, att_side, Position::Midfielder, rng);
     let defender = snap_player(ctx, def_side, Position::Midfielder, rng);
 
-    let att_rating = (attacker.dribbling as f64
-        + attacker.passing as f64
-        + attacker.vision as f64
-        + attacker.teamwork as f64)
-        / 4.0
-        * trait_bonus(&attacker, TraitContext::Midfield)
+    let att_rating = compress_skill(
+        (attacker.dribbling as f64
+            + attacker.passing as f64
+            + attacker.vision as f64
+            + attacker.teamwork as f64)
+            / 4.0,
+    ) * trait_bonus(&attacker, TraitContext::Midfield)
         * trait_pass_safety_modifier(&attacker)
         * morale_performance_modifier(attacker.morale)
         * weather_pass_modifier(ctx.config)
         * pitch_pass_modifier(ctx.config);
-    let def_rating = (defender.tackling as f64
-        + defender.positioning as f64
-        + defender.decisions as f64
-        + defender.teamwork as f64)
-        / 4.0
-        * trait_tackle_modifier(&defender)
+    let def_rating = compress_skill(
+        (defender.tackling as f64
+            + defender.positioning as f64
+            + defender.decisions as f64
+            + defender.teamwork as f64)
+            / 4.0,
+    ) * trait_tackle_modifier(&defender)
         * trait_press_work_rate_modifier(&defender)
         * morale_performance_modifier(defender.morale);
 
@@ -250,22 +253,24 @@ fn resolve_attacking_third<R: Rng>(
     let attacker = snap_player(ctx, att_side, Position::Forward, rng);
     let defender = snap_player(ctx, def_side, Position::Defender, rng);
 
-    let att_rating = (attacker.dribbling as f64
-        + attacker.pace as f64
-        + attacker.agility as f64
-        + attacker.composure as f64)
-        / 4.0
-        * trait_carry_modifier(&attacker)
+    let att_rating = compress_skill(
+        (attacker.dribbling as f64
+            + attacker.pace as f64
+            + attacker.agility as f64
+            + attacker.composure as f64)
+            / 4.0,
+    ) * trait_carry_modifier(&attacker)
         * trait_pass_creativity_modifier(&attacker)
         * morale_performance_modifier(attacker.morale)
         * weather_pass_modifier(ctx.config)
         * pitch_carry_modifier(ctx.config);
-    let def_rating = (defender.defending as f64
-        + defender.tackling as f64
-        + defender.positioning as f64
-        + defender.aerial as f64)
-        / 4.0
-        * trait_tackle_modifier(&defender)
+    let def_rating = compress_skill(
+        (defender.defending as f64
+            + defender.tackling as f64
+            + defender.positioning as f64
+            + defender.aerial as f64)
+            / 4.0,
+    ) * trait_tackle_modifier(&defender)
         * trait_press_work_rate_modifier(&defender)
         * morale_performance_modifier(defender.morale);
 
@@ -330,15 +335,15 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     let assister = weighted_attacker(ctx, att_side, rng, assister_weight);
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
 
-    let shoot_rating =
-        (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0
-            * trait_shot_quality_modifier(&shooter)
+    let shoot_rating = compress_skill(
+        (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0,
+    ) * trait_shot_quality_modifier(&shooter)
             * morale_performance_modifier(shooter.morale)
             * pitch_carry_modifier(ctx.config);
-    let gk_rating =
+    let gk_rating = compress_skill(
         (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64)
-            / 3.0
-            * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
+            / 3.0,
+    ) * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
             * morale_performance_modifier(goalkeeper.morale);
 
     let shot_quality = tactical_shot_quality_modifier(att_team, def_team);
@@ -393,7 +398,7 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
 pub(super) fn effective_midfield(ctx: &MatchContext, side: Side) -> f64 {
     let base = ctx.team(side).midfield_rating();
     let modifier = play_style_modifier(ctx.team(side).play_style, PlayStylePhase::Midfield, true);
-    base * modifier * home_mod(side, ctx.config)
+    compress_skill(base) * modifier * home_mod(side, ctx.config)
 }
 
 fn effective_press(ctx: &MatchContext, pressing_side: Side) -> f64 {
@@ -402,7 +407,7 @@ fn effective_press(ctx: &MatchContext, pressing_side: Side) -> f64 {
         ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
     });
     let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
-    base * modifier
+    compress_skill(base) * modifier
         * shape_midfield_multiplier(team)
         * tactical_press_modifier(team)
         * team_cohesion_modifier(team)

@@ -180,9 +180,8 @@ function Scoreboard({ detail }: { detail: MatchDetailData }) {
         </div>
 
         {(homeGoals.length > 0 || awayGoals.length > 0) ? (
-          <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-3 border-t border-app-border/50 pt-4 text-xs md:gap-8">
+          <div className="grid w-full grid-cols-2 gap-6 border-t border-app-border/50 pt-4 text-xs md:gap-10">
             <ScoreboardScorers events={homeGoals} align="right" />
-            <FootballIcon className="mt-1 h-4 w-4 text-app-text" />
             <ScoreboardScorers events={awayGoals} align="left" />
           </div>
         ) : null}
@@ -211,20 +210,6 @@ function ScoreboardScorers({ events, align }: { events: MatchDetailEventData[]; 
         </div>
       ))}
     </div>
-  );
-}
-
-function FootballIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
-      <circle cx="12" cy="12" r="10" className="text-white" />
-      <path d="M12 5.6 15.2 8l-1.2 3.8h-4L8.8 8 12 5.6Z" className="text-surface-900" />
-      <path d="m6.3 9.1 2.5-1.2 1.2 3.9-3.1 2.2-2.1-1.7.5-2.1 1-.1Z" className="text-surface-900" />
-      <path d="m17.7 9.1-2.5-1.2-1.2 3.9 3.1 2.2 2.1-1.7-.5-2.1-1-.1Z" className="text-surface-900" />
-      <path d="m8.4 18.1 1.6-2.8h4l1.6 2.8-1.3 1.5a8.1 8.1 0 0 1-4.6 0l-1.3-1.5Z" className="text-surface-900" />
-      <path d="M6.9 14 10 11.8h4L17.1 14l-1.5 4.1H8.4L6.9 14Z" className="text-white" />
-      <path d="M12 5.6V2.4M4.8 12.3 2.5 14m16.7-1.7 2.3 1.7M8.4 18.1l-1.8 2.1m9-2.1 1.8 2.1" stroke="currentColor" strokeWidth="1" fill="none" className="text-surface-900" />
-    </svg>
   );
 }
 

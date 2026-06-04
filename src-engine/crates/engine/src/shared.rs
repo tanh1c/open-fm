@@ -237,9 +237,13 @@ pub(crate) fn trait_press_work_rate_modifier(snap: &PlayerSnap) -> f64 {
     modifier.clamp(0.85, 1.18)
 }
 
+pub(crate) fn compress_skill(skill: f64) -> f64 {
+    50.0 + (skill - 50.0) * 0.82
+}
+
 pub(crate) fn morale_performance_modifier(morale: u8) -> f64 {
     let delta = (morale.clamp(0, 100) as f64 - 50.0) / 50.0;
-    (1.0 + delta * 0.06).clamp(0.94, 1.06)
+    (1.0 + delta * 0.085).clamp(0.915, 1.085)
 }
 
 pub(crate) fn morale_risk_modifier(morale: u8) -> f64 {
@@ -378,17 +382,17 @@ pub(crate) fn team_form_modifier(form: &[String]) -> f64 {
             }
         })
         .sum::<f64>();
-    (1.0 + weighted_score * 0.009).clamp(0.96, 1.05)
+    (1.0 + weighted_score * 0.013).clamp(0.93, 1.08)
 }
 
 pub(crate) fn tactical_familiarity_modifier(familiarity: f64) -> f64 {
     let delta = (familiarity.clamp(0.0, 1.0) - 0.5) * 2.0;
-    (1.0 + delta * 0.06).clamp(0.94, 1.06)
+    (1.0 + delta * 0.085).clamp(0.915, 1.085)
 }
 
 pub(crate) fn team_cohesion_modifier(team: &TeamData) -> f64 {
     (team_form_modifier(&team.form) * tactical_familiarity_modifier(team.tactical_familiarity))
-        .clamp(0.92, 1.10)
+        .clamp(0.86, 1.18)
 }
 
 fn trait_midfield_modifier(snap: &PlayerSnap) -> f64 {
@@ -480,7 +484,7 @@ pub(crate) fn tactical_press_modifier(team: &TeamData) -> f64 {
     let press = instruction_delta(instructions.pressing_intensity);
     let line = instruction_delta(instructions.defensive_line);
     let tempo = instruction_delta(instructions.tempo);
-    (1.0 + press * 0.10 + line * 0.035 + tempo * 0.025).clamp(0.88, 1.16)
+    (1.0 + press * 0.14 + line * 0.050 + tempo * 0.035).clamp(0.82, 1.24)
 }
 
 pub(crate) fn tactical_buildup_modifier(team: &TeamData) -> f64 {
@@ -488,7 +492,9 @@ pub(crate) fn tactical_buildup_modifier(team: &TeamData) -> f64 {
     let directness = instruction_delta(instructions.passing_directness);
     let tempo = instruction_delta(instructions.tempo);
     let risk = instruction_delta(instructions.risk_appetite);
-    (1.0 - directness * 0.055 - tempo * 0.025 - risk * 0.030).clamp(0.88, 1.12)
+    let central_control = instruction_delta(team.tactical_profile.width.central_density);
+    (1.0 + central_control * 0.035 - directness * 0.075 - tempo * 0.035 - risk * 0.045)
+        .clamp(0.82, 1.18)
 }
 
 pub(crate) fn tactical_midfield_modifier(team: &TeamData) -> f64 {
@@ -497,8 +503,8 @@ pub(crate) fn tactical_midfield_modifier(team: &TeamData) -> f64 {
     let directness = instruction_delta(instructions.passing_directness);
     let risk = instruction_delta(instructions.risk_appetite);
     let central_control = instruction_delta(team.tactical_profile.width.central_density);
-    (1.0 + central_control * 0.04 + directness * 0.030 - risk * 0.010 + tempo * 0.040)
-        .clamp(0.88, 1.12)
+    (1.0 + central_control * 0.070 + directness * 0.040 - risk * 0.020 + tempo * 0.055)
+        .clamp(0.82, 1.20)
 }
 
 pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
@@ -509,11 +515,23 @@ pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &T
     let risk = instruction_delta(att.risk_appetite);
     let width = instruction_delta(att.width);
     let high_line_space = instruction_delta(def.defensive_line).max(0.0);
+    let deep_block_space = (-instruction_delta(def.defensive_line)).max(0.0);
     let defensive_compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
-    (1.0 + tempo * 0.050 + directness * 0.075 + risk * 0.070 + width * 0.025
+    let counter_matchup = if matches!(att_team.play_style, PlayStyle::Counter) {
+        high_line_space * (0.075 + directness.max(0.0) * 0.045)
+    } else {
+        0.0
+    };
+    let compact_block_penalty = if deep_block_space > 0.0 {
+        defensive_compactness.max(0.0) * 0.065 + deep_block_space * 0.040
+    } else {
+        defensive_compactness.max(0.0) * 0.030
+    };
+    (1.0 + tempo * 0.060 + directness * 0.095 + risk * 0.090 + width * 0.035
         + high_line_space * 0.055
-        - defensive_compactness * 0.030)
-        .clamp(0.88, 1.18)
+        + counter_matchup
+        - compact_block_penalty)
+        .clamp(0.78, 1.28)
 }
 
 pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
@@ -524,9 +542,15 @@ pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &Tea
     let width = instruction_delta(att.width);
     let defensive_line = instruction_delta(def.defensive_line);
     let compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
-    (1.0 + risk * 0.035 + directness * 0.025 + width * 0.015 + defensive_line * 0.020
-        - compactness * 0.035)
-        .clamp(0.90, 1.12)
+    let counter_bonus = if matches!(att_team.play_style, PlayStyle::Counter) {
+        defensive_line.max(0.0) * 0.045
+    } else {
+        0.0
+    };
+    (1.0 + risk * 0.045 + directness * 0.035 + width * 0.020 + defensive_line * 0.025
+        + counter_bonus
+        - compactness.max(0.0) * 0.055)
+        .clamp(0.84, 1.18)
 }
 
 pub(crate) fn tactical_fatigue_modifier(team: &TeamData) -> f64 {
@@ -534,7 +558,7 @@ pub(crate) fn tactical_fatigue_modifier(team: &TeamData) -> f64 {
     let press = instruction_delta(instructions.pressing_intensity);
     let tempo = instruction_delta(instructions.tempo);
     let line = instruction_delta(instructions.defensive_line);
-    (1.0 + press * 0.08 + tempo * 0.055 + line.max(0.0) * 0.025).clamp(0.90, 1.15)
+    (1.0 + press * 0.11 + tempo * 0.075 + line.max(0.0) * 0.040).clamp(0.86, 1.22)
 }
 
 pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
@@ -542,5 +566,5 @@ pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
     let directness = instruction_delta(instructions.passing_directness);
     let tempo = instruction_delta(instructions.tempo);
     let risk = instruction_delta(instructions.risk_appetite);
-    (1.0 + directness * 0.065 + tempo * 0.040 + risk * 0.060).clamp(0.88, 1.16)
+    (1.0 + directness * 0.085 + tempo * 0.055 + risk * 0.080).clamp(0.82, 1.24)
 }

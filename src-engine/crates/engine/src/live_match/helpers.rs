@@ -1,8 +1,8 @@
 use rand::{Rng, RngExt};
 
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, home_mod, play_style_modifier, tactical_fatigue_modifier,
-    tactical_press_modifier, weather_fatigue_modifier,
+    PlayStylePhase, PlayerSnap, compress_skill, home_mod, play_style_modifier,
+    tactical_fatigue_modifier, tactical_press_modifier, weather_fatigue_modifier,
 };
 use crate::types::{PlayerData, Position, Side, TeamData};
 
@@ -149,7 +149,7 @@ impl LiveMatchState {
             PlayStylePhase::Midfield,
             true,
         );
-        base * modifier * home_mod(side, &self.config)
+        compress_skill(base) * modifier * home_mod(side, &self.config)
     }
 
     pub(super) fn effective_press(&self, pressing_side: Side) -> f64 {
@@ -158,7 +158,7 @@ impl LiveMatchState {
             ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
         });
         let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
-        base * modifier
+        compress_skill(base) * modifier
             * shape_midfield_multiplier(team)
             * tactical_press_modifier(team)
             * home_mod(pressing_side, &self.config)

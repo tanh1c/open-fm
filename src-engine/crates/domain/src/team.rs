@@ -46,6 +46,8 @@ pub struct Team {
     pub custom_tactic_slots: Vec<CustomTacticSlot>,
     #[serde(default)]
     pub saved_tactic_presets: Vec<TacticPreset>,
+    #[serde(default)]
+    pub tactical_instructions: TacticalInstructions,
 
     // Training
     #[serde(default)]
@@ -93,12 +95,50 @@ pub struct CustomTacticSlot {
     pub duty: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TacticPreset {
     pub id: String,
     pub name: String,
     pub formation: String,
     pub slots: Vec<CustomTacticSlot>,
+    #[serde(default)]
+    pub tactical_instructions: TacticalInstructions,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct TacticalInstructions {
+    pub pressing_intensity: f64,
+    pub defensive_line: f64,
+    pub tempo: f64,
+    pub width: f64,
+    pub passing_directness: f64,
+    pub risk_appetite: f64,
+}
+
+impl Default for TacticalInstructions {
+    fn default() -> Self {
+        Self {
+            pressing_intensity: 0.5,
+            defensive_line: 0.5,
+            tempo: 0.5,
+            width: 0.5,
+            passing_directness: 0.5,
+            risk_appetite: 0.5,
+        }
+    }
+}
+
+impl TacticalInstructions {
+    pub fn clamped(self) -> Self {
+        Self {
+            pressing_intensity: self.pressing_intensity.clamp(0.0, 1.0),
+            defensive_line: self.defensive_line.clamp(0.0, 1.0),
+            tempo: self.tempo.clamp(0.0, 1.0),
+            width: self.width.clamp(0.0, 1.0),
+            passing_directness: self.passing_directness.clamp(0.0, 1.0),
+            risk_appetite: self.risk_appetite.clamp(0.0, 1.0),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -340,6 +380,7 @@ impl Team {
             starting_xi_ids: Vec::new(),
             custom_tactic_slots: Vec::new(),
             saved_tactic_presets: Vec::new(),
+            tactical_instructions: TacticalInstructions::default(),
             match_roles: MatchRoles::default(),
             form: Vec::new(),
             tactical_familiarity: default_tactical_familiarity(),

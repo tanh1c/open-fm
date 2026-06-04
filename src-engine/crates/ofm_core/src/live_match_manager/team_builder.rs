@@ -202,7 +202,7 @@ fn tactical_profile_from_slots(team: &domain::team::Team) -> TacticalProfile {
 
     if occupied_slots.is_empty() {
         return TacticalProfile {
-            instructions: instructions_from_play_style(&team.play_style),
+            instructions: to_engine_tactical_instructions(team.tactical_instructions),
             ..TacticalProfile::default()
         };
     }
@@ -258,46 +258,18 @@ fn tactical_profile_from_slots(team: &domain::team::Team) -> TacticalProfile {
     }
 }
 
-fn instructions_from_play_style(play_style: &domain::team::PlayStyle) -> TacticalInstructionProfile {
-    let mut profile = TacticalInstructionProfile::default();
-    match play_style {
-        domain::team::PlayStyle::Attacking => {
-            profile.pressing_intensity = 0.62;
-            profile.defensive_line = 0.64;
-            profile.tempo = 0.62;
-            profile.risk_appetite = 0.68;
-        }
-        domain::team::PlayStyle::Defensive => {
-            profile.pressing_intensity = 0.36;
-            profile.defensive_line = 0.30;
-            profile.tempo = 0.40;
-            profile.passing_directness = 0.42;
-            profile.risk_appetite = 0.28;
-        }
-        domain::team::PlayStyle::Possession => {
-            profile.pressing_intensity = 0.52;
-            profile.defensive_line = 0.55;
-            profile.tempo = 0.46;
-            profile.passing_directness = 0.25;
-            profile.risk_appetite = 0.36;
-        }
-        domain::team::PlayStyle::Counter => {
-            profile.pressing_intensity = 0.42;
-            profile.defensive_line = 0.34;
-            profile.tempo = 0.64;
-            profile.passing_directness = 0.74;
-            profile.risk_appetite = 0.58;
-        }
-        domain::team::PlayStyle::HighPress => {
-            profile.pressing_intensity = 0.82;
-            profile.defensive_line = 0.74;
-            profile.tempo = 0.68;
-            profile.passing_directness = 0.54;
-            profile.risk_appetite = 0.62;
-        }
-        domain::team::PlayStyle::Balanced => {}
+fn to_engine_tactical_instructions(
+    instructions: domain::team::TacticalInstructions,
+) -> TacticalInstructionProfile {
+    let instructions = instructions.clamped();
+    TacticalInstructionProfile {
+        pressing_intensity: instructions.pressing_intensity,
+        defensive_line: instructions.defensive_line,
+        tempo: instructions.tempo,
+        width: instructions.width,
+        passing_directness: instructions.passing_directness,
+        risk_appetite: instructions.risk_appetite,
     }
-    profile
 }
 
 fn tactical_instructions_from_slots(
@@ -306,7 +278,7 @@ fn tactical_instructions_from_slots(
     width: f64,
     mean_y: f64,
 ) -> TacticalInstructionProfile {
-    let mut profile = instructions_from_play_style(&team.play_style);
+    let mut profile = to_engine_tactical_instructions(team.tactical_instructions);
     let vertical_aggression = ((62.0 - mean_y) / 50.0).clamp(-0.3, 0.3);
     let attack_duties = occupied_slots
         .iter()

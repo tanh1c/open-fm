@@ -844,6 +844,98 @@ fn possession_control_improves_pass_accuracy() {
 }
 
 #[test]
+fn counter_setup_is_stronger_against_high_line_than_low_block() {
+    let counter = with_instructions(
+        with_shape(make_team("counter", "Counter FC", 66, PlayStyle::Counter), 4, 4, 2),
+        0.48,
+        0.38,
+        0.78,
+        0.64,
+        0.88,
+        0.68,
+    );
+    let high_line = with_instructions(
+        with_shape(make_team("high", "High Line FC", 70, PlayStyle::Attacking), 3, 4, 3),
+        0.78,
+        0.86,
+        0.74,
+        0.68,
+        0.62,
+        0.72,
+    );
+    let low_block = with_instructions(
+        with_shape(make_team("low", "Low Block FC", 70, PlayStyle::Defensive), 5, 4, 1),
+        0.34,
+        0.28,
+        0.38,
+        0.40,
+        0.36,
+        0.24,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let versus_high_line = summarize_trials(&counter, &high_line, &config, 240);
+    let versus_low_block = summarize_trials(&counter, &low_block, &config, 240);
+
+    assert!(
+        versus_high_line.home_goals >= versus_low_block.home_goals
+            || versus_high_line.home_shots + 50 >= versus_low_block.home_shots,
+        "Counter should find comparable or better own output into high-line space: high_line goals={} shots={} goal_share={:.3}, low_block goals={} shots={} goal_share={:.3}",
+        versus_high_line.home_goals,
+        versus_high_line.home_shots,
+        versus_high_line.home_goal_share(),
+        versus_low_block.home_goals,
+        versus_low_block.home_shots,
+        versus_low_block.home_goal_share()
+    );
+}
+
+#[test]
+fn defensive_low_risk_setup_suppresses_shot_quality() {
+    let aggressive = with_instructions(
+        with_shape(make_team("agg", "Aggressive FC", 68, PlayStyle::Attacking), 3, 4, 3),
+        0.74,
+        0.78,
+        0.76,
+        0.70,
+        0.68,
+        0.78,
+    );
+    let low_risk = with_instructions(
+        with_shape(make_team("def", "Defensive FC", 68, PlayStyle::Defensive), 5, 4, 1),
+        0.34,
+        0.28,
+        0.34,
+        0.36,
+        0.28,
+        0.18,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let open_game = summarize_trials(&aggressive, &aggressive, &config, 240);
+    let protected_game = summarize_trials(&aggressive, &low_risk, &config, 240);
+    let open_sot_rate = open_game.away_shots as f64 / (open_game.home_shots + open_game.away_shots).max(1) as f64;
+    let protected_sot_rate = protected_game.home_goals as f64 / protected_game.home_shots.max(1) as f64;
+    let open_goal_rate = open_game.home_goals as f64 / open_game.home_shots.max(1) as f64;
+
+    assert!(
+        protected_game.away_points() > 0,
+        "Defensive setup should still produce playable football, not a guaranteed collapse"
+    );
+    assert!(
+        protected_sot_rate < open_goal_rate || protected_game.home_shot_share() < open_sot_rate + 0.2,
+        "Low-risk setup should lower favorite shot quality/output: protected_goal_per_shot={protected_sot_rate:.3}, open_goal_per_shot={open_goal_rate:.3}, protected_shot_share={:.3}",
+        protected_game.home_shot_share()
+    );
+}
+
+#[test]
 fn playmaker_traits_improve_pass_safety() {
     let playmakers = with_traits(
         make_team("play", "Playmaker FC", 68, PlayStyle::Balanced),

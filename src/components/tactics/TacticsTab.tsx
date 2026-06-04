@@ -1,11 +1,8 @@
 import type { DragEvent, JSX, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type {
-  GameStateData,
-  PlayerData,
-  PlayerSelectionOptions,
-} from "../../store/gameStore";
+import type { GameStateData, PlayerData, PlayerSelectionOptions } from "../../store/gameStore";
+import type { TacticalInstructionsData } from "../../store/types";
 import { useTranslation } from "react-i18next";
 import {
   Activity,
@@ -69,6 +66,60 @@ interface TacticsTabProps {
 }
 
 type TacticsViewTab = "overview" | "roles" | "instructions" | "setPieces" | "analysis";
+type TacticalInstructionKey = keyof TacticalInstructionsData;
+
+const DEFAULT_TACTICAL_INSTRUCTIONS: TacticalInstructionsData = {
+  pressing_intensity: 0.5,
+  defensive_line: 0.5,
+  tempo: 0.5,
+  width: 0.5,
+  passing_directness: 0.5,
+  risk_appetite: 0.5,
+};
+
+const PLAY_STYLE_INSTRUCTION_PROFILES: Record<string, TacticalInstructionsData> = {
+  Balanced: DEFAULT_TACTICAL_INSTRUCTIONS,
+  Attacking: {
+    pressing_intensity: 0.68,
+    defensive_line: 0.66,
+    tempo: 0.72,
+    width: 0.68,
+    passing_directness: 0.62,
+    risk_appetite: 0.78,
+  },
+  Defensive: {
+    pressing_intensity: 0.36,
+    defensive_line: 0.32,
+    tempo: 0.38,
+    width: 0.42,
+    passing_directness: 0.42,
+    risk_appetite: 0.28,
+  },
+  Possession: {
+    pressing_intensity: 0.62,
+    defensive_line: 0.58,
+    tempo: 0.56,
+    width: 0.54,
+    passing_directness: 0.28,
+    risk_appetite: 0.46,
+  },
+  Counter: {
+    pressing_intensity: 0.48,
+    defensive_line: 0.42,
+    tempo: 0.74,
+    width: 0.64,
+    passing_directness: 0.78,
+    risk_appetite: 0.58,
+  },
+  HighPress: {
+    pressing_intensity: 0.9,
+    defensive_line: 0.78,
+    tempo: 0.76,
+    width: 0.56,
+    passing_directness: 0.58,
+    risk_appetite: 0.68,
+  },
+};
 
 interface TemplateCardProps {
   children: ReactNode;
@@ -280,24 +331,105 @@ function OpponentTrait({ icon, color, title, desc }: { icon: string; color: stri
 function PhaseCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }): JSX.Element {
   return (
     <TemplateCard className="flex flex-col p-3">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-          {icon}
-          <span>{title}</span>
-        </div>
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-app-text-muted">Later</span>
+      <div className="mb-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+        {icon}
+        <span>{title}</span>
       </div>
       {children}
-      <button type="button" disabled className="group flex w-fit cursor-not-allowed items-center gap-1 text-[10px] text-app-text-muted opacity-50">
-        <ChevronRight className="h-3 w-3" />
-        Engine pending
-      </button>
     </TemplateCard>
   );
 }
 
 function PhaseItem({ text }: { text: string }): JSX.Element {
-  return <div className="truncate pr-2 text-[11px] text-app-text-muted">{text}</div>;
+  return <div className="rounded border border-app-border/60 bg-black/10 px-2 py-1.5 text-[11px] text-app-text-muted">{text}</div>;
+}
+
+function clampInstructionValue(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function getInstructionProfile(playStyle: string): TacticalInstructionsData {
+  return PLAY_STYLE_INSTRUCTION_PROFILES[playStyle] ?? DEFAULT_TACTICAL_INSTRUCTIONS;
+}
+
+function normalizeInstructions(instructions?: TacticalInstructionsData): TacticalInstructionsData {
+  return {
+    pressing_intensity: clampInstructionValue(instructions?.pressing_intensity ?? DEFAULT_TACTICAL_INSTRUCTIONS.pressing_intensity),
+    defensive_line: clampInstructionValue(instructions?.defensive_line ?? DEFAULT_TACTICAL_INSTRUCTIONS.defensive_line),
+    tempo: clampInstructionValue(instructions?.tempo ?? DEFAULT_TACTICAL_INSTRUCTIONS.tempo),
+    width: clampInstructionValue(instructions?.width ?? DEFAULT_TACTICAL_INSTRUCTIONS.width),
+    passing_directness: clampInstructionValue(instructions?.passing_directness ?? DEFAULT_TACTICAL_INSTRUCTIONS.passing_directness),
+    risk_appetite: clampInstructionValue(instructions?.risk_appetite ?? DEFAULT_TACTICAL_INSTRUCTIONS.risk_appetite),
+  };
+}
+
+function instructionPercent(value: number): number {
+  return Math.round(clampInstructionValue(value) * 100);
+}
+
+function getInstructionBand(value: number, low: string, mid: string, high: string): string {
+  if (value < 0.34) return low;
+  if (value < 0.67) return mid;
+  return high;
+}
+
+function getTransitionLabels(instructions: TacticalInstructionsData): string[] {
+  const labels = [
+    instructions.pressing_intensity >= 0.65 ? "Counter-press after loss" : instructions.risk_appetite <= 0.35 ? "Regroup into shape" : "Selective counter-press",
+    instructions.tempo >= 0.65 || instructions.passing_directness >= 0.65 ? "Counter quickly into space" : "Recycle before attacking",
+    instructions.defensive_line >= 0.65 ? "Hold a high rest defence" : instructions.defensive_line <= 0.35 ? "Recover into a lower block" : "Keep a balanced rest defence",
+  ];
+
+  return labels;
+}
+
+function getInstructionSummary(instructions: TacticalInstructionsData): { focusPlay: string; defensiveShape: string; tempo: string } {
+  return {
+    focusPlay: getInstructionBand(instructions.passing_directness, "Short build-up", "Mixed routes", "Direct into space"),
+    defensiveShape: getInstructionBand(instructions.defensive_line, "Lower block", "Mid block", "High line"),
+    tempo: getInstructionBand(instructions.tempo, "Patient", "Balanced", "Fast"),
+  };
+}
+
+function InstructionSlider({
+  description,
+  label,
+  leftLabel,
+  rightLabel,
+  value,
+  onChange,
+}: {
+  description: string;
+  label: string;
+  leftLabel: string;
+  rightLabel: string;
+  value: number;
+  onChange: (value: number) => void;
+}): JSX.Element {
+  return (
+    <div className="rounded-lg border border-app-border/70 bg-black/10 p-3">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-app-text">{label}</div>
+          <div className="mt-0.5 text-[10px] leading-relaxed text-app-text-muted">{description}</div>
+        </div>
+        <span className="rounded bg-app-green/10 px-2 py-1 text-[10px] font-bold text-app-green">{instructionPercent(value)}%</span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={instructionPercent(value)}
+        onChange={(event) => onChange(Number(event.target.value) / 100)}
+        className="h-1.5 w-full accent-app-green"
+      />
+      <div className="mt-2 flex justify-between text-[9px] font-semibold uppercase tracking-wider text-app-text-muted">
+        <span>{leftLabel}</span>
+        <span>{rightLabel}</span>
+      </div>
+    </div>
+  );
 }
 
 function InstructionQuickStat({ icon, title, val }: { icon: ReactNode; title: string; val: string }): JSX.Element {
@@ -572,6 +704,7 @@ export default function TacticsTab({
 
   const formation = myTeam.formation || "4-4-2";
   const activePlayStyle = myTeam.play_style || "Balanced";
+  const tacticalInstructions = normalizeInstructions(myTeam.tactical_instructions);
   const savedStartingXiKey = (myTeam.starting_xi_ids || []).join(",");
   const playersById = useMemo(
     () => new Map(roster.map((player) => [player.id, player])),
@@ -750,13 +883,37 @@ export default function TacticsTab({
     }
   }
 
+  async function persistTacticalInstructions(instructions: TacticalInstructionsData): Promise<GameStateData | null> {
+    try {
+      const updated = await invoke<GameStateData>("set_tactical_instructions", {
+        instructions: normalizeInstructions(instructions),
+      });
+      onGameUpdate(updated);
+      return updated;
+    } catch (error) {
+      console.error("Failed to set tactical instructions:", error);
+      return null;
+    }
+  }
+
+  async function handleTacticalInstructionChange(key: TacticalInstructionKey, value: number): Promise<void> {
+    await persistTacticalInstructions({
+      ...tacticalInstructions,
+      [key]: clampInstructionValue(value),
+    });
+  }
+
   async function handlePlayStyleChange(playStyle: string): Promise<void> {
-    await setPlayStyle(playStyle);
+    const updated = await setPlayStyle(playStyle);
+    if (updated) {
+      await persistTacticalInstructions(getInstructionProfile(playStyle));
+    }
   }
 
   async function handleTacticalPresetSelect(preset: { formation: string; playStyle: string }): Promise<void> {
     await handleFormationChange(preset.formation);
     await setPlayStyle(preset.playStyle);
+    await persistTacticalInstructions(getInstructionProfile(preset.playStyle));
   }
 
   async function handleResetShape(): Promise<void> {
@@ -841,6 +998,7 @@ export default function TacticsTab({
                   .map((slot) => slot.player_id)
                   .filter((playerId): playerId is string => Boolean(playerId)),
                 formation: preset.formation,
+                tactical_instructions: normalizeInstructions(preset.tactical_instructions),
               }
             : team,
         ),
@@ -1045,11 +1203,13 @@ export default function TacticsTab({
     : null;
   const nextOpponentStanding = opponentPosition ? `${opponentName} (${opponentPosition})` : opponentName;
   const playStyleInstructions = getPlayStyleInstructions(activePlayStyle);
+  const transitionInstructions = getTransitionLabels(tacticalInstructions);
   const tacticalProfile = getTacticalProfile(activePlayStyle, outOfPositionCount);
   const familiarity = getFamiliarity(startingXI, outOfPositionCount);
-  const focusPlay = activePlayStyle === "WingPlay" ? "Down Both Flanks" : activePlayStyle === "Possession" ? "Central Overloads" : activePlayStyle === "Counter" ? "Into Space" : "Mixed";
-  const defensiveWidth = activePlayStyle === "Defensive" ? "Narrow" : activePlayStyle === "Attacking" ? "Wide" : "Standard";
-  const tempo = activePlayStyle === "Possession" || activePlayStyle === "Defensive" ? "Lower" : activePlayStyle === "Balanced" ? "Standard" : "Higher";
+  const instructionSummary = getInstructionSummary(tacticalInstructions);
+  const focusPlay = instructionSummary.focusPlay;
+  const defensiveWidth = instructionSummary.defensiveShape;
+  const tempo = instructionSummary.tempo;
   const tacticalPresetRows = [
     { name: "Gegenpress", desc: "4-3-3 High Press", formation: "4-3-3", playStyle: "HighPress", helper: "Applies a high-pressing 4-3-3 shape and increases pressing/direct vertical play." },
     { name: "Control Possession", desc: "4-3-3 Possession", formation: "4-3-3", playStyle: "Possession", helper: "Applies a possession 4-3-3 shape focused on patient build-up and central control." },
@@ -1151,26 +1311,68 @@ export default function TacticsTab({
 
   const instructionsContent = (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,_1fr)_360px]">
-      <div className="grid gap-4 lg:grid-cols-3 xl:grid-cols-1">
+      <div className="grid gap-4 xl:grid-cols-1">
         <PhaseCard title="IN POSSESSION" icon={<Goal className="h-4 w-4" />}>
-          <div className="mb-3 grid grid-cols-2 gap-x-2 gap-y-1.5">
-            {playStyleInstructions.inPossession.map((instruction) => (
-              <PhaseItem key={instruction} text={instruction} />
-            ))}
+          <div className="grid gap-3 md:grid-cols-2">
+            <InstructionSlider
+              label="Attacking Width"
+              description="How far the team stretches the pitch when building attacks. Wider shapes create wing threat but can reduce central compactness."
+              leftLabel="Narrow"
+              rightLabel="Wide"
+              value={tacticalInstructions.width}
+              onChange={(value) => void handleTacticalInstructionChange("width", value)}
+            />
+            <InstructionSlider
+              label="Tempo"
+              description="How quickly players circulate the ball and move attacks forward. Higher tempo increases threat and fatigue risk."
+              leftLabel="Patient"
+              rightLabel="Fast"
+              value={tacticalInstructions.tempo}
+              onChange={(value) => void handleTacticalInstructionChange("tempo", value)}
+            />
+            <InstructionSlider
+              label="Passing Directness"
+              description="How often the side looks forward early instead of recycling possession. Direct teams attack space faster but lose the ball more."
+              leftLabel="Short"
+              rightLabel="Direct"
+              value={tacticalInstructions.passing_directness}
+              onChange={(value) => void handleTacticalInstructionChange("passing_directness", value)}
+            />
+            <InstructionSlider
+              label="Risk Appetite"
+              description="How aggressively players commit runs, passes, and numbers forward. More risk creates chances and transition exposure."
+              leftLabel="Safe"
+              rightLabel="Brave"
+              value={tacticalInstructions.risk_appetite}
+              onChange={(value) => void handleTacticalInstructionChange("risk_appetite", value)}
+            />
           </div>
         </PhaseCard>
         <PhaseCard title="IN TRANSITION" icon={<ArrowRightLeft className="h-4 w-4" />}>
-          <div className="mb-3 grid grid-cols-2 gap-x-2 gap-y-1.5">
-            {playStyleInstructions.inTransition.map((instruction) => (
+          <div className="grid gap-2 md:grid-cols-3">
+            {transitionInstructions.map((instruction) => (
               <PhaseItem key={instruction} text={instruction} />
             ))}
           </div>
         </PhaseCard>
         <PhaseCard title="OUT OF POSSESSION" icon={<ShieldAlert className="h-4 w-4" />}>
-          <div className="mb-3 grid grid-cols-2 gap-x-2 gap-y-1.5">
-            {playStyleInstructions.outOfPossession.map((instruction) => (
-              <PhaseItem key={instruction} text={instruction} />
-            ))}
+          <div className="grid gap-3 md:grid-cols-2">
+            <InstructionSlider
+              label="Pressing Intensity"
+              description="How often the team closes down and tries to force turnovers. High press raises pressure, fouls, and fatigue."
+              leftLabel="Contain"
+              rightLabel="Press"
+              value={tacticalInstructions.pressing_intensity}
+              onChange={(value) => void handleTacticalInstructionChange("pressing_intensity", value)}
+            />
+            <InstructionSlider
+              label="Defensive Line"
+              description="How high the back line holds its position. A high line supports pressing but leaves space behind."
+              leftLabel="Low block"
+              rightLabel="High line"
+              value={tacticalInstructions.defensive_line}
+              onChange={(value) => void handleTacticalInstructionChange("defensive_line", value)}
+            />
           </div>
         </PhaseCard>
       </div>
@@ -1178,14 +1380,22 @@ export default function TacticsTab({
         <div className="flex items-center justify-between border-b border-app-border/50 p-3">
           <div className="flex flex-col">
             <span className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">TEAM INSTRUCTIONS</span>
-            <span className="text-[10px] text-app-text-muted">{t("tactics.playStyles." + activePlayStyle, activePlayStyle)} profile</span>
+            <span className="text-[10px] text-app-text-muted">{t("tactics.playStyles." + activePlayStyle, activePlayStyle)} profile · changes auto-save</span>
           </div>
-          <ChevronRight className="h-4 w-4 text-app-text-muted" />
+          <Settings2 className="h-4 w-4 text-app-text-muted" />
         </div>
         <div className="grid grid-cols-3 divide-x divide-app-border/50 bg-white/[0.01]">
-          <InstructionQuickStat icon={<Target className="h-3.5 w-3.5" />} title="Focus Play" val={focusPlay} />
-          <InstructionQuickStat icon={<ArrowRightLeft className="h-3.5 w-3.5" />} title="Defensive Width" val={defensiveWidth} />
+          <InstructionQuickStat icon={<Target className="h-3.5 w-3.5" />} title="Build-up" val={focusPlay} />
+          <InstructionQuickStat icon={<ArrowRightLeft className="h-3.5 w-3.5" />} title="Block" val={defensiveWidth} />
           <InstructionQuickStat icon={<Activity className="h-3.5 w-3.5" />} title="Tempo" val={tempo} />
+        </div>
+        <div className="flex flex-col gap-2 p-3">
+          {playStyleInstructions.inPossession.concat(playStyleInstructions.outOfPossession).slice(0, 5).map((instruction) => (
+            <div key={instruction} className="flex items-center gap-2 rounded-lg border border-app-border/60 bg-black/10 px-2.5 py-2 text-[10px] text-app-text-muted">
+              <div className="h-1.5 w-1.5 rounded-full bg-app-green" />
+              <span>{instruction}</span>
+            </div>
+          ))}
         </div>
       </TemplateCard>
     </div>

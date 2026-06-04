@@ -518,20 +518,20 @@ pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &T
     let deep_block_space = (-instruction_delta(def.defensive_line)).max(0.0);
     let defensive_compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
     let counter_matchup = if matches!(att_team.play_style, PlayStyle::Counter) {
-        high_line_space * (0.075 + directness.max(0.0) * 0.045)
+        high_line_space * (0.48 + directness.max(0.0) * 0.24) - deep_block_space * 0.180
     } else {
         0.0
     };
     let compact_block_penalty = if deep_block_space > 0.0 {
-        defensive_compactness.max(0.0) * 0.065 + deep_block_space * 0.040
+        defensive_compactness.max(0.0) * 0.090 + deep_block_space * 0.090
     } else {
         defensive_compactness.max(0.0) * 0.030
     };
     (1.0 + tempo * 0.060 + directness * 0.095 + risk * 0.090 + width * 0.035
-        + high_line_space * 0.055
+        + high_line_space * 0.070
         + counter_matchup
         - compact_block_penalty)
-        .clamp(0.78, 1.28)
+        .clamp(0.76, 1.30)
 }
 
 pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
@@ -543,14 +543,15 @@ pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &Tea
     let defensive_line = instruction_delta(def.defensive_line);
     let compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
     let counter_bonus = if matches!(att_team.play_style, PlayStyle::Counter) {
-        defensive_line.max(0.0) * 0.045
+        defensive_line.max(0.0) * (0.160 + directness.max(0.0) * 0.090)
+            - (-defensive_line).max(0.0) * 0.130
     } else {
         0.0
     };
-    (1.0 + risk * 0.045 + directness * 0.035 + width * 0.020 + defensive_line * 0.025
+    (1.0 + risk * 0.045 + directness * 0.035 + width * 0.020 + defensive_line * 0.030
         + counter_bonus
-        - compactness.max(0.0) * 0.055)
-        .clamp(0.84, 1.18)
+        - compactness.max(0.0) * 0.065)
+        .clamp(0.82, 1.20)
 }
 
 pub(crate) fn tactical_fatigue_modifier(team: &TeamData) -> f64 {
@@ -567,4 +568,111 @@ pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
     let tempo = instruction_delta(instructions.tempo);
     let risk = instruction_delta(instructions.risk_appetite);
     (1.0 + directness * 0.085 + tempo * 0.055 + risk * 0.080).clamp(0.82, 1.24)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn match_state_adapted_team(
+    team: &TeamData,
+    side: Side,
+    minute: u8,
+    home_score: u8,
+    away_score: u8,
+    sent_off_count: usize,
+    average_condition: f64,
+) -> TeamData {
+    let mut adapted = team.clone();
+    let instructions = &mut adapted.tactical_profile.instructions;
+    let score_delta = match side {
+        Side::Home => home_score as i16 - away_score as i16,
+        Side::Away => away_score as i16 - home_score as i16,
+    };
+    let late_factor = ((minute.saturating_sub(55) as f64) / 35.0).clamp(0.0, 1.0);
+    let fatigue_factor = ((68.0 - average_condition) / 28.0).clamp(0.0, 1.0);
+    let red_card_factor = (sent_off_count as f64).clamp(0.0, 2.0);
+
+    if score_delta > 0 {
+        instructions.risk_appetite -= 0.12 * late_factor;
+        instructions.tempo -= 0.08 * late_factor;
+        instructions.defensive_line -= 0.10 * late_factor;
+        instructions.pressing_intensity -= 0.07 * late_factor;
+    } else if score_delta < 0 {
+        let urgency = late_factor * (-score_delta as f64).clamp(1.0, 2.0);
+        instructions.risk_appetite += 0.13 * urgency;
+        instructions.tempo += 0.10 * urgency;
+        instructions.pressing_intensity += 0.10 * urgency;
+        instructions.passing_directness += 0.08 * urgency;
+        instructions.defensive_line += 0.05 * urgency;
+    }
+
+    if red_card_factor > 0.0 {
+        instructions.pressing_intensity -= 0.10 * red_card_factor;
+        instructions.risk_appetite -= 0.08 * red_card_factor;
+        instructions.defensive_line -= 0.07 * red_card_factor;
+        instructions.tempo -= 0.05 * red_card_factor;
+    }
+
+    if fatigue_factor > 0.0 {
+        instructions.pressing_intensity -= 0.09 * fatigue_factor;
+        instructions.tempo -= 0.07 * fatigue_factor;
+    }
+
+    instructions.pressing_intensity = instructions.pressing_intensity.clamp(0.0, 1.0);
+    instructions.defensive_line = instructions.defensive_line.clamp(0.0, 1.0);
+    instructions.tempo = instructions.tempo.clamp(0.0, 1.0);
+    instructions.width = instructions.width.clamp(0.0, 1.0);
+    instructions.passing_directness = instructions.passing_directness.clamp(0.0, 1.0);
+    instructions.risk_appetite = instructions.risk_appetite.clamp(0.0, 1.0);
+    adapted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{ShapeProfile, TacticalProfile};
+
+    fn team_with_balanced_instructions() -> TeamData {
+        TeamData {
+            id: "team".to_string(),
+            name: "Team".to_string(),
+            formation: "4-4-2".to_string(),
+            play_style: PlayStyle::Balanced,
+            players: Vec::new(),
+            shape_profile: ShapeProfile::default(),
+            tactical_profile: TacticalProfile::default(),
+            form: Vec::new(),
+            tactical_familiarity: 0.5,
+        }
+    }
+
+    #[test]
+    fn match_state_adaptation_protects_late_leads_without_mutating_original() {
+        let team = team_with_balanced_instructions();
+        let adapted = match_state_adapted_team(&team, Side::Home, 82, 2, 1, 0, 82.0);
+
+        assert!(adapted.tactical_profile.instructions.risk_appetite < team.tactical_profile.instructions.risk_appetite);
+        assert!(adapted.tactical_profile.instructions.tempo < team.tactical_profile.instructions.tempo);
+        assert!(adapted.tactical_profile.instructions.defensive_line < team.tactical_profile.instructions.defensive_line);
+        assert_eq!(team.tactical_profile.instructions.risk_appetite, 0.5);
+    }
+
+    #[test]
+    fn match_state_adaptation_adds_urgency_when_trailing_late() {
+        let team = team_with_balanced_instructions();
+        let adapted = match_state_adapted_team(&team, Side::Away, 80, 2, 1, 0, 82.0);
+
+        assert!(adapted.tactical_profile.instructions.risk_appetite > team.tactical_profile.instructions.risk_appetite);
+        assert!(adapted.tactical_profile.instructions.tempo > team.tactical_profile.instructions.tempo);
+        assert!(adapted.tactical_profile.instructions.pressing_intensity > team.tactical_profile.instructions.pressing_intensity);
+        assert!(adapted.tactical_profile.instructions.passing_directness > team.tactical_profile.instructions.passing_directness);
+    }
+
+    #[test]
+    fn match_state_adaptation_reduces_intensity_for_red_cards_and_fatigue() {
+        let team = team_with_balanced_instructions();
+        let adapted = match_state_adapted_team(&team, Side::Home, 70, 1, 1, 1, 50.0);
+
+        assert!(adapted.tactical_profile.instructions.pressing_intensity < team.tactical_profile.instructions.pressing_intensity);
+        assert!(adapted.tactical_profile.instructions.risk_appetite < team.tactical_profile.instructions.risk_appetite);
+        assert!(adapted.tactical_profile.instructions.tempo < team.tactical_profile.instructions.tempo);
+    }
 }

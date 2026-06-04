@@ -83,6 +83,7 @@ export const ENGINE_COMMANDS: Readonly<Record<string, CommandSpec>> = Object.fre
   set_player_training_focus: { method: "setPlayerTrainingFocus", args: ["playerId", "focus"] as const },
   set_starting_xi: { method: "setStartingXi", args: ["playerIds"] as const },
   set_tactic_slots: { method: "setTacticSlots", args: ["slots"] as const },
+  set_tactical_instructions: { method: "setTacticalInstructions", args: ["instructions"] as const },
   set_team_match_roles: { method: "setTeamMatchRoles", args: ["matchRoles"] as const },
   set_training: { method: "setTraining", args: ["focus", "intensity"] as const },
   set_training_groups: { method: "setTrainingGroups", args: ["groups"] as const },

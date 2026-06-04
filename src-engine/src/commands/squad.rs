@@ -5,6 +5,30 @@ use tauri::State;
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
+#[derive(serde::Deserialize)]
+pub struct TacticalInstructionsInput {
+    pressing_intensity: f64,
+    defensive_line: f64,
+    tempo: f64,
+    width: f64,
+    passing_directness: f64,
+    risk_appetite: f64,
+}
+
+impl From<TacticalInstructionsInput> for domain::team::TacticalInstructions {
+    fn from(input: TacticalInstructionsInput) -> Self {
+        Self {
+            pressing_intensity: input.pressing_intensity,
+            defensive_line: input.defensive_line,
+            tempo: input.tempo,
+            width: input.width,
+            passing_directness: input.passing_directness,
+            risk_appetite: input.risk_appetite,
+        }
+        .clamped()
+    }
+}
+
 fn parse_squad_role(squad_role: &str) -> Option<domain::player::SquadRole> {
     match squad_role {
         "Senior" => Some(domain::player::SquadRole::Senior),
@@ -145,6 +169,30 @@ pub fn set_play_style(state: State<'_, StateManager>, play_style: String) -> Res
 
     if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
         team.play_style = style;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+pub fn set_tactical_instructions(
+    state: State<'_, StateManager>,
+    instructions: TacticalInstructionsInput,
+) -> Result<Game, String> {
+    info!("[cmd] set_tactical_instructions");
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+
+    if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
+        team.tactical_instructions = instructions.into();
     }
 
     state.set_game(game.clone());

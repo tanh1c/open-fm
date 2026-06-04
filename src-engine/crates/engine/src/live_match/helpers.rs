@@ -1,8 +1,8 @@
 use rand::{Rng, RngExt};
 
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, compress_skill, home_mod, play_style_modifier,
-    tactical_fatigue_modifier, tactical_press_modifier, weather_fatigue_modifier,
+    PlayStylePhase, PlayerSnap, compress_skill, home_mod, match_state_adapted_team,
+    play_style_modifier, tactical_fatigue_modifier, tactical_press_modifier, weather_fatigue_modifier,
 };
 use crate::types::{PlayerData, Position, Side, TeamData};
 
@@ -143,24 +143,21 @@ impl LiveMatchState {
     // -----------------------------------------------------------------------
 
     pub(super) fn effective_midfield(&self, side: Side) -> f64 {
-        let base = self.team_ref(side).midfield_rating();
-        let modifier = play_style_modifier(
-            self.team_ref(side).play_style,
-            PlayStylePhase::Midfield,
-            true,
-        );
+        let team = self.adapted_team(side);
+        let base = team.midfield_rating();
+        let modifier = play_style_modifier(team.play_style, PlayStylePhase::Midfield, true);
         compress_skill(base) * modifier * home_mod(side, &self.config)
     }
 
     pub(super) fn effective_press(&self, pressing_side: Side) -> f64 {
-        let team = self.team_ref(pressing_side);
+        let team = self.adapted_team(pressing_side);
         let base = team.position_attr_avg(Position::Midfielder, |p| {
             ((p.stamina as u16 + p.tackling as u16 + p.pace as u16) / 3) as u8
         });
         let modifier = play_style_modifier(team.play_style, PlayStylePhase::Press, true);
         compress_skill(base) * modifier
-            * shape_midfield_multiplier(team)
-            * tactical_press_modifier(team)
+            * shape_midfield_multiplier(&team)
+            * tactical_press_modifier(&team)
             * home_mod(pressing_side, &self.config)
     }
 
@@ -173,6 +170,42 @@ impl LiveMatchState {
             Side::Home => &self.home,
             Side::Away => &self.away,
         }
+    }
+
+    pub(super) fn adapted_team(&self, side: Side) -> TeamData {
+        let sent_off_count = self
+            .team_ref(side)
+            .players
+            .iter()
+            .filter(|player| self.sent_off.contains(&player.id))
+            .count();
+        let available = self
+            .team_ref(side)
+            .players
+            .iter()
+            .filter(|player| !self.sent_off.contains(&player.id));
+        let (condition_sum, condition_count) = available.fold((0.0, 0usize), |(sum, count), player| {
+            let condition = self
+                .player_conditions
+                .get(&player.id)
+                .copied()
+                .unwrap_or(player.condition as f64);
+            (sum + condition, count + 1)
+        });
+        let average_condition = if condition_count == 0 {
+            100.0
+        } else {
+            condition_sum / condition_count as f64
+        };
+        match_state_adapted_team(
+            self.team_ref(side),
+            side,
+            self.current_minute,
+            self.home_score,
+            self.away_score,
+            sent_off_count,
+            average_condition,
+        )
     }
 
     pub(super) fn team_mut(&mut self, side: Side) -> &mut TeamData {

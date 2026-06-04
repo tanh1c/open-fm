@@ -114,7 +114,7 @@ impl LiveMatchState {
     ) -> Vec<MatchEvent> {
         let mut events = Vec::new();
         let passer = self.snap_player(att_side, Position::Defender, rng);
-        let att_team = self.team_ref(att_side);
+        let att_team = self.adapted_team(att_side);
         let pass_skill = compress_skill(self.condition_adjusted_skill(
             &passer.id,
             (passer.passing as f64
@@ -126,13 +126,13 @@ impl LiveMatchState {
             * morale_performance_modifier(passer.morale)
             * weather_pass_modifier(&self.config)
             * pitch_pass_modifier(&self.config)
-            * tactical_buildup_modifier(att_team)
-            * team_cohesion_modifier(att_team);
+            * tactical_buildup_modifier(&att_team)
+            * team_cohesion_modifier(&att_team);
         let press = self.effective_press(def_side);
         let ball_zone = self.ball_zone;
 
         let success_chance =
-            (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(att_team));
+            (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(&att_team));
         if rng.random_range(0.0..1.0f64) < success_chance {
             let evt = MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
                 .with_player(&passer.id);
@@ -186,25 +186,19 @@ impl LiveMatchState {
             * trait_press_work_rate_modifier(&defender)
             * morale_performance_modifier(defender.morale);
 
-        let att_mod = play_style_modifier(
-            self.team_ref(att_side).play_style,
-            PlayStylePhase::Midfield,
-            true,
-        );
-        let def_mod = play_style_modifier(
-            self.team_ref(def_side).play_style,
-            PlayStylePhase::Midfield,
-            false,
-        );
+        let att_team = self.adapted_team(att_side);
+        let def_team = self.adapted_team(def_side);
+        let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Midfield, true);
+        let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Midfield, false);
         let att_eff = att_rating
             * att_mod
-            * tactical_midfield_modifier(self.team_ref(att_side))
-            * team_cohesion_modifier(self.team_ref(att_side))
+            * tactical_midfield_modifier(&att_team)
+            * team_cohesion_modifier(&att_team)
             * crate::shared::home_mod(att_side, &self.config);
         let def_eff = def_rating
             * def_mod
-            * tactical_press_modifier(self.team_ref(def_side))
-            * team_cohesion_modifier(self.team_ref(def_side))
+            * tactical_press_modifier(&def_team)
+            * team_cohesion_modifier(&def_team)
             * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
@@ -249,8 +243,8 @@ impl LiveMatchState {
         rng: &mut R,
     ) -> Vec<MatchEvent> {
         let mut events = Vec::new();
-        let att_team = self.team_ref(att_side).clone();
-        let def_team = self.team_ref(def_side).clone();
+        let att_team = self.adapted_team(att_side);
+        let def_team = self.adapted_team(def_side);
         let attacker = self.snap_player(att_side, Position::Forward, rng);
         let defender = self.snap_player(def_side, Position::Defender, rng);
 
@@ -276,7 +270,7 @@ impl LiveMatchState {
             * morale_performance_modifier(defender.morale);
 
         let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
-        let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
+        let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, true);
         let att_eff = att_rating
             * att_mod
             * shape_attack_multiplier(&att_team)
@@ -337,8 +331,8 @@ impl LiveMatchState {
     fn resolve_shot<R: Rng>(&mut self, minute: u8, att_side: Side, rng: &mut R) -> Vec<MatchEvent> {
         let mut events = Vec::new();
         let def_side = att_side.opposite();
-        let att_team = self.team_ref(att_side).clone();
-        let def_team = self.team_ref(def_side).clone();
+        let att_team = self.adapted_team(att_side);
+        let def_team = self.adapted_team(def_side);
         let shooter = self.weighted_attacker(att_side, rng, shooter_weight);
         let assister = self.weighted_attacker(att_side, rng, assister_weight);
         let goalkeeper = self.snap_player(def_side, Position::Goalkeeper, rng);

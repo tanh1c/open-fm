@@ -5,7 +5,7 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::report::MatchReport;
-use crate::shared::PlayerSnap;
+use crate::shared::{match_state_adapted_team, PlayerSnap};
 use crate::types::{MatchConfig, PlayerData, Position, Side, TeamData, Zone};
 
 // ---------------------------------------------------------------------------
@@ -101,6 +101,7 @@ pub(crate) struct MatchContext<'a> {
     pub(crate) ball_zone: Zone,
     pub(crate) possession: Side,
     pub(crate) events: Vec<MatchEvent>,
+    pub(crate) current_minute: u8,
     pub(crate) home_possession_ticks: u32,
     pub(crate) away_possession_ticks: u32,
     pub(crate) yellows: std::collections::HashMap<String, u8>,
@@ -118,6 +119,7 @@ impl<'a> MatchContext<'a> {
             ball_zone: Zone::Midfield,
             possession: Side::Home,
             events: Vec::with_capacity(200),
+            current_minute: 0,
             home_possession_ticks: 0,
             away_possession_ticks: 0,
             yellows: std::collections::HashMap::new(),
@@ -134,6 +136,37 @@ impl<'a> MatchContext<'a> {
             Side::Home => self.home,
             Side::Away => self.away,
         }
+    }
+
+    pub(crate) fn adapted_team(&self, side: Side) -> TeamData {
+        let sent_off_count = self
+            .team(side)
+            .players
+            .iter()
+            .filter(|player| self.sent_off.contains(&player.id))
+            .count();
+        let available = self
+            .team(side)
+            .players
+            .iter()
+            .filter(|player| !self.sent_off.contains(&player.id));
+        let (condition_sum, condition_count) = available.fold((0.0, 0usize), |(sum, count), player| {
+            (sum + player.condition as f64, count + 1)
+        });
+        let average_condition = if condition_count == 0 {
+            100.0
+        } else {
+            condition_sum / condition_count as f64
+        };
+        match_state_adapted_team(
+            self.team(side),
+            side,
+            self.current_minute,
+            self.home_score,
+            self.away_score,
+            sent_off_count,
+            average_condition,
+        )
     }
 
     pub(crate) fn add_goal(&mut self, side: Side) {
@@ -182,6 +215,7 @@ fn snap_player<R: Rng>(
 // ---------------------------------------------------------------------------
 
 fn simulate_minute<R: Rng>(ctx: &mut MatchContext, minute: u8, rng: &mut R) {
+    ctx.current_minute = minute;
     match ctx.possession {
         Side::Home => ctx.home_possession_ticks += 1,
         Side::Away => ctx.away_possession_ticks += 1,

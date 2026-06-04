@@ -24,6 +24,30 @@ struct SaveTacticPresetInput {
     slots: Vec<CustomTacticSlotInput>,
 }
 
+#[derive(serde::Deserialize)]
+struct TacticalInstructionsInput {
+    pressing_intensity: f64,
+    defensive_line: f64,
+    tempo: f64,
+    width: f64,
+    passing_directness: f64,
+    risk_appetite: f64,
+}
+
+impl From<TacticalInstructionsInput> for domain::team::TacticalInstructions {
+    fn from(input: TacticalInstructionsInput) -> Self {
+        Self {
+            pressing_intensity: input.pressing_intensity,
+            defensive_line: input.defensive_line,
+            tempo: input.tempo,
+            width: input.width,
+            passing_directness: input.passing_directness,
+            risk_appetite: input.risk_appetite,
+        }
+        .clamped()
+    }
+}
+
 const NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 
 fn parse_squad_role(squad_role: &str) -> Option<domain::player::SquadRole> {
@@ -302,6 +326,7 @@ impl AppHandle {
                     .into_iter()
                     .map(to_domain_tactic_slot)
                     .collect(),
+                tactical_instructions: team.tactical_instructions,
             });
         }
 
@@ -332,6 +357,7 @@ impl AppHandle {
                 .filter_map(|slot| slot.player_id.clone())
                 .collect();
             team.formation = preset.formation;
+            team.tactical_instructions = preset.tactical_instructions.clamped();
         }
 
         self.state.set_game(game.clone());
@@ -374,6 +400,23 @@ impl AppHandle {
         };
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
             team.play_style = style;
+        }
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = setTacticalInstructions)]
+    pub fn set_tactical_instructions(&self, instructions: JsValue) -> Result<JsValue, JsValue> {
+        let instructions: TacticalInstructionsInput = serde_wasm_bindgen::from_value(instructions)
+            .map_err(|e| to_js(format!("be.error.deserialize:{e}")))?;
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+        if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
+            team.tactical_instructions = instructions.into();
         }
         self.state.set_game(game.clone());
         to_js_value(&game)

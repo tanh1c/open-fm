@@ -48,11 +48,21 @@ export interface TeamMatchRolesData {
   corner_taker: string | null;
 }
 
+export interface TacticalInstructionsData {
+  pressing_intensity: number;
+  defensive_line: number;
+  tempo: number;
+  width: number;
+  passing_directness: number;
+  risk_appetite: number;
+}
+
 export interface TacticPresetData {
   id: string;
   name: string;
   formation: string;
   slots: CustomTacticSlotData[];
+  tactical_instructions?: TacticalInstructionsData;
 }
 
 export interface CustomTacticSlotData {
@@ -86,6 +96,7 @@ export interface TeamData {
   play_style: string;
   custom_tactic_slots?: CustomTacticSlotData[];
   saved_tactic_presets?: TacticPresetData[];
+  tactical_instructions?: TacticalInstructionsData;
   training_focus: string;
   training_intensity: string;
   training_schedule: string;

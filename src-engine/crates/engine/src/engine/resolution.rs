@@ -114,7 +114,7 @@ fn resolve_buildup<R: Rng>(
     rng: &mut R,
 ) {
     let passer = snap_player(ctx, att_side, Position::Defender, rng);
-    let att_team = ctx.team(att_side);
+    let att_team = ctx.adapted_team(att_side);
     let pass_skill = compress_skill(
         (passer.passing as f64
             + passer.vision as f64
@@ -125,13 +125,13 @@ fn resolve_buildup<R: Rng>(
         * morale_performance_modifier(passer.morale)
         * weather_pass_modifier(ctx.config)
         * pitch_pass_modifier(ctx.config)
-        * tactical_buildup_modifier(att_team)
-        * team_cohesion_modifier(att_team);
+        * tactical_buildup_modifier(&att_team)
+        * team_cohesion_modifier(&att_team);
     let press = effective_press(ctx, def_side);
     let ball_zone = ctx.ball_zone;
 
     let success_chance =
-        (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(att_team));
+        (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(&att_team));
     if rng.random_range(0.0..1.0f64) < success_chance {
         ctx.emit(
             MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
@@ -183,25 +183,19 @@ fn resolve_midfield<R: Rng>(
         * trait_press_work_rate_modifier(&defender)
         * morale_performance_modifier(defender.morale);
 
-    let att_mod = play_style_modifier(
-        ctx.team(att_side).play_style,
-        PlayStylePhase::Midfield,
-        true,
-    );
-    let def_mod = play_style_modifier(
-        ctx.team(def_side).play_style,
-        PlayStylePhase::Midfield,
-        false,
-    );
+    let att_team = ctx.adapted_team(att_side);
+    let def_team = ctx.adapted_team(def_side);
+    let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Midfield, true);
+    let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Midfield, false);
     let att_eff = att_rating
         * att_mod
-        * tactical_midfield_modifier(ctx.team(att_side))
-        * team_cohesion_modifier(ctx.team(att_side))
+        * tactical_midfield_modifier(&att_team)
+        * team_cohesion_modifier(&att_team)
         * home_mod(att_side, ctx.config);
     let def_eff = def_rating
         * def_mod
-        * tactical_press_modifier(ctx.team(def_side))
-        * team_cohesion_modifier(ctx.team(def_side))
+        * tactical_press_modifier(&def_team)
+        * team_cohesion_modifier(&def_team)
         * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
 
@@ -248,8 +242,8 @@ fn resolve_attacking_third<R: Rng>(
     def_side: Side,
     rng: &mut R,
 ) {
-    let att_team = ctx.team(att_side);
-    let def_team = ctx.team(def_side);
+    let att_team = ctx.adapted_team(att_side);
+    let def_team = ctx.adapted_team(def_side);
     let attacker = snap_player(ctx, att_side, Position::Forward, rng);
     let defender = snap_player(ctx, def_side, Position::Defender, rng);
 
@@ -275,18 +269,18 @@ fn resolve_attacking_third<R: Rng>(
         * morale_performance_modifier(defender.morale);
 
     let att_mod = play_style_modifier(att_team.play_style, PlayStylePhase::Attack, true);
-    let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, false);
+    let def_mod = play_style_modifier(def_team.play_style, PlayStylePhase::Defense, true);
     let att_eff = att_rating
         * att_mod
-        * shape_attack_multiplier(att_team)
-        * tactical_space_creation_modifier(att_team, def_team)
-        * team_cohesion_modifier(att_team)
+        * shape_attack_multiplier(&att_team)
+        * tactical_space_creation_modifier(&att_team, &def_team)
+        * team_cohesion_modifier(&att_team)
         * home_mod(att_side, ctx.config);
     let def_eff = def_rating
         * def_mod
-        * shape_defense_multiplier(def_team)
-        * tactical_press_modifier(def_team)
-        * team_cohesion_modifier(def_team)
+        * shape_defense_multiplier(&def_team)
+        * tactical_press_modifier(&def_team)
+        * team_cohesion_modifier(&def_team)
         * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
     let zone = Zone::attacking_third(att_side);
@@ -329,8 +323,8 @@ fn resolve_attacking_third<R: Rng>(
 
 fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng: &mut R) {
     let def_side = att_side.opposite();
-    let att_team = ctx.team(att_side);
-    let def_team = ctx.team(def_side);
+    let att_team = ctx.adapted_team(att_side);
+    let def_team = ctx.adapted_team(def_side);
     let shooter = weighted_attacker(ctx, att_side, rng, shooter_weight);
     let assister = weighted_attacker(ctx, att_side, rng, assister_weight);
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
@@ -346,9 +340,9 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     ) * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
             * morale_performance_modifier(goalkeeper.morale);
 
-    let shot_quality = tactical_shot_quality_modifier(att_team, def_team);
-    let shape_attack = shape_attack_multiplier(att_team) * shot_quality;
-    let shape_defense = shape_defense_multiplier(def_team);
+    let shot_quality = tactical_shot_quality_modifier(&att_team, &def_team);
+    let shape_attack = shape_attack_multiplier(&att_team) * shot_quality;
+    let shape_defense = shape_defense_multiplier(&def_team);
     let accuracy = ((ctx.config.shot_accuracy_base
         + (shoot_rating * shape_attack - gk_rating * shape_defense) / 340.0
         - 0.03)

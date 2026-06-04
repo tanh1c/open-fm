@@ -9,7 +9,7 @@ pub use world_io::*;
 use domain::player::{Player, Position};
 use domain::staff::{Staff, StaffRole};
 use domain::team::Team;
-use domain::team::{Facilities, PlayStyle, TeamColors};
+use domain::team::{Facilities, PlayStyle, TacticalInstructions, TeamColors};
 use log::{debug, info};
 use rand::RngExt;
 use uuid::Uuid;
@@ -72,6 +72,97 @@ fn default_formation_for_team(play_style: &PlayStyle, tactical_level: u8, volati
     };
 
     formation.to_string()
+}
+
+fn clamp_instruction(value: f64) -> f64 {
+    value.clamp(0.0, 1.0)
+}
+
+fn avg_attr(players: &[Player], f: impl Fn(&domain::player::Player) -> u8) -> f64 {
+    players.iter().map(|player| f(player) as u32).sum::<u32>() as f64 / players.len().max(1) as f64
+}
+
+fn generated_tactical_instructions_for_team(
+    team: &Team,
+    players: &[Player],
+) -> TacticalInstructions {
+    let technical = (avg_attr(players, |player| player.attributes.passing)
+        + avg_attr(players, |player| player.attributes.vision)
+        + avg_attr(players, |player| player.attributes.decisions)
+        + avg_attr(players, |player| player.attributes.composure))
+        / 4.0;
+    let physical = (avg_attr(players, |player| player.attributes.stamina)
+        + avg_attr(players, |player| player.attributes.pace)
+        + avg_attr(players, |player| player.attributes.aggression))
+        / 3.0;
+    let defensive = (avg_attr(players, |player| player.attributes.defending)
+        + avg_attr(players, |player| player.attributes.tackling)
+        + avg_attr(players, |player| player.attributes.positioning))
+        / 3.0;
+    let attacking = (avg_attr(players, |player| player.attributes.shooting)
+        + avg_attr(players, |player| player.attributes.dribbling)
+        + avg_attr(players, |player| player.attributes.positioning))
+        / 3.0;
+    let technical_bias = ((technical - 70.0) / 100.0).clamp(-0.12, 0.12);
+    let physical_bias = ((physical - 70.0) / 100.0).clamp(-0.12, 0.12);
+    let defensive_bias = ((defensive - 70.0) / 100.0).clamp(-0.10, 0.10);
+    let attacking_bias = ((attacking - 70.0) / 100.0).clamp(-0.10, 0.10);
+    let tactical_bias = ((team.tactical_level as f64 - 55.0) / 100.0).clamp(-0.08, 0.12);
+    let volatility_bias = ((team.volatility as f64 - 50.0) / 100.0).clamp(-0.08, 0.12);
+
+    let base = match team.play_style {
+        PlayStyle::Attacking => TacticalInstructions {
+            pressing_intensity: 0.64,
+            defensive_line: 0.62,
+            tempo: 0.70,
+            width: 0.66,
+            passing_directness: 0.58,
+            risk_appetite: 0.74,
+        },
+        PlayStyle::Defensive => TacticalInstructions {
+            pressing_intensity: 0.34,
+            defensive_line: 0.30,
+            tempo: 0.38,
+            width: 0.42,
+            passing_directness: 0.44,
+            risk_appetite: 0.28,
+        },
+        PlayStyle::Possession => TacticalInstructions {
+            pressing_intensity: 0.58,
+            defensive_line: 0.56,
+            tempo: 0.54,
+            width: 0.54,
+            passing_directness: 0.30,
+            risk_appetite: 0.44,
+        },
+        PlayStyle::Counter => TacticalInstructions {
+            pressing_intensity: 0.46,
+            defensive_line: 0.40,
+            tempo: 0.72,
+            width: 0.62,
+            passing_directness: 0.76,
+            risk_appetite: 0.56,
+        },
+        PlayStyle::HighPress => TacticalInstructions {
+            pressing_intensity: 0.86,
+            defensive_line: 0.74,
+            tempo: 0.74,
+            width: 0.56,
+            passing_directness: 0.56,
+            risk_appetite: 0.66,
+        },
+        PlayStyle::Balanced => TacticalInstructions::default(),
+    };
+
+    TacticalInstructions {
+        pressing_intensity: clamp_instruction(base.pressing_intensity + physical_bias + tactical_bias - volatility_bias * 0.2),
+        defensive_line: clamp_instruction(base.defensive_line + defensive_bias * 0.4 + tactical_bias - volatility_bias * 0.15),
+        tempo: clamp_instruction(base.tempo + physical_bias * 0.6 + attacking_bias * 0.4 + volatility_bias * 0.35),
+        width: clamp_instruction(base.width + attacking_bias * 0.4 - defensive_bias * 0.15),
+        passing_directness: clamp_instruction(base.passing_directness - technical_bias * 0.7 + physical_bias * 0.25 + volatility_bias * 0.2),
+        risk_appetite: clamp_instruction(base.risk_appetite + attacking_bias * 0.7 + tactical_bias * 0.4 + volatility_bias * 0.35),
+    }
+    .clamped()
 }
 
 fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {
@@ -505,6 +596,10 @@ pub fn generate_world(
             tdef.expected_squad_avg_ovr,
             tdef.expected_top_player_ovr,
         );
+        team.tactical_instructions = generated_tactical_instructions_for_team(
+            &team,
+            &players[team_player_start..],
+        );
         teams_out.push(team);
     }
 
@@ -909,6 +1004,45 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_generated_world_assigns_varied_tactical_instructions() {
+        let (teams, _, _) = generate_world(None);
+        let profile_key = |team: &Team| {
+            let instructions = team.tactical_instructions;
+            format!(
+                "{}-{}-{}-{}-{}-{}",
+                (instructions.pressing_intensity * 20.0).round() as u8,
+                (instructions.defensive_line * 20.0).round() as u8,
+                (instructions.tempo * 20.0).round() as u8,
+                (instructions.width * 20.0).round() as u8,
+                (instructions.passing_directness * 20.0).round() as u8,
+                (instructions.risk_appetite * 20.0).round() as u8,
+            )
+        };
+        let unique_profiles = teams
+            .iter()
+            .map(profile_key)
+            .collect::<std::collections::HashSet<_>>();
+        let high_press = teams
+            .iter()
+            .find(|team| matches!(team.play_style, PlayStyle::HighPress))
+            .expect("high press team");
+        let defensive = teams
+            .iter()
+            .find(|team| matches!(team.play_style, PlayStyle::Defensive))
+            .expect("defensive team");
+        let possession = teams
+            .iter()
+            .find(|team| matches!(team.play_style, PlayStyle::Possession))
+            .expect("possession team");
+
+        assert!(unique_profiles.len() >= 8, "expected varied tactical profiles");
+        assert!(high_press.tactical_instructions.pressing_intensity > defensive.tactical_instructions.pressing_intensity + 0.25);
+        assert!(high_press.tactical_instructions.defensive_line > defensive.tactical_instructions.defensive_line + 0.25);
+        assert!(possession.tactical_instructions.passing_directness < defensive.tactical_instructions.passing_directness + 0.05);
+        assert!(possession.tactical_instructions.passing_directness < high_press.tactical_instructions.passing_directness);
     }
 
     #[test]

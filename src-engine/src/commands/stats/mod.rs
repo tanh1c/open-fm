@@ -19,6 +19,7 @@ use self::dto::{
 use self::leaderboards::get_global_player_leaderboards_internal;
 use self::player::{get_player_match_history_internal, get_player_stats_overview_internal};
 use self::team::{get_team_match_history_internal, get_team_stats_overview_internal};
+use crate::application::stats::{dto::MatchDetailDto, get_match_detail_internal};
 
 #[tauri::command]
 pub fn get_player_match_history(
@@ -52,6 +53,14 @@ pub fn get_team_match_history(
     limit: Option<usize>,
 ) -> Result<Vec<TeamMatchHistoryEntryDto>, String> {
     get_team_match_history_internal(&state, &team_id, limit)
+}
+
+#[tauri::command]
+pub fn get_match_detail(
+    state: State<'_, StateManager>,
+    fixture_id: String,
+) -> Result<Option<MatchDetailDto>, String> {
+    get_match_detail_internal(&state, &fixture_id)
 }
 
 #[tauri::command]

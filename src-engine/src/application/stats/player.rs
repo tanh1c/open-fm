@@ -5,8 +5,9 @@ use domain::stats::PlayerMatchStatsRecord;
 use ofm_core::state::StateManager;
 
 use super::dto::{
-    PlayerAdvancedMetricDto, PlayerAdvancedPassMetricDto, PlayerMatchHistoryEntryDto,
-    PlayerStatsOverviewDto, PlayerStatsOverviewMetricsDto,
+    PlayerAdvancedMetricDto, PlayerAdvancedPassMetricDto, PlayerCompetitionStatsDto,
+    PlayerMatchHistoryEntryDto, PlayerSeasonTotalsDto, PlayerStatsOverviewDto,
+    PlayerStatsOverviewMetricsDto, PlayerTransferHistoryDto,
 };
 use super::shared::{
     calculate_pass_accuracy, calculate_per90, competition_label, opponent_name, percentile_rank,
@@ -29,6 +30,14 @@ struct PlayerAggregate {
 
 fn position_key(player: &Player) -> &Position {
     &player.natural_position
+}
+
+fn is_competitive_fixture(competition: &domain::league::FixtureCompetition) -> bool {
+    !matches!(
+        competition,
+        domain::league::FixtureCompetition::Friendly
+            | domain::league::FixtureCompetition::PreseasonTournament
+    )
 }
 
 fn aggregate_from_history(records: &[PlayerMatchStatsRecord]) -> Option<PlayerAggregate> {
@@ -80,9 +89,279 @@ where
     percentile_rank(&values, selector(player_aggregate))
 }
 
+fn season_totals_from_history(records: &[PlayerMatchStatsRecord]) -> Option<PlayerSeasonTotalsDto> {
+    if records.is_empty() {
+        return None;
+    }
+
+    let appearances = records
+        .iter()
+        .filter(|record| record.minutes_played > 0)
+        .count() as u32;
+    let rating_count = records.iter().filter(|record| record.rating > 0.0).count() as f32;
+    let rating_total = records.iter().map(|record| record.rating).sum::<f32>();
+
+    Some(PlayerSeasonTotalsDto {
+        appearances,
+        goals: records.iter().map(|record| record.goals as u32).sum(),
+        assists: records.iter().map(|record| record.assists as u32).sum(),
+        clean_sheets: 0,
+        yellow_cards: records
+            .iter()
+            .map(|record| record.yellow_cards as u32)
+            .sum(),
+        red_cards: records.iter().map(|record| record.red_cards as u32).sum(),
+        avg_rating: if rating_count > 0.0 {
+            rating_total / rating_count
+        } else {
+            0.0
+        },
+        minutes_played: records
+            .iter()
+            .map(|record| record.minutes_played as u32)
+            .sum(),
+        shots: records.iter().map(|record| record.shots as u32).sum(),
+        shots_on_target: records
+            .iter()
+            .map(|record| record.shots_on_target as u32)
+            .sum(),
+        passes_completed: records
+            .iter()
+            .map(|record| record.passes_completed as u32)
+            .sum(),
+        passes_attempted: records
+            .iter()
+            .map(|record| record.passes_attempted as u32)
+            .sum(),
+        tackles_won: records.iter().map(|record| record.tackles_won as u32).sum(),
+        interceptions: records
+            .iter()
+            .map(|record| record.interceptions as u32)
+            .sum(),
+        fouls_committed: records
+            .iter()
+            .map(|record| record.fouls_committed as u32)
+            .sum(),
+    })
+}
+
+fn season_totals_from_season_stats(stats: &PlayerSeasonStats) -> PlayerSeasonTotalsDto {
+    PlayerSeasonTotalsDto {
+        appearances: stats.appearances,
+        goals: stats.goals,
+        assists: stats.assists,
+        clean_sheets: stats.clean_sheets,
+        yellow_cards: stats.yellow_cards,
+        red_cards: stats.red_cards,
+        avg_rating: stats.avg_rating,
+        minutes_played: stats.minutes_played,
+        shots: stats.shots,
+        shots_on_target: stats.shots_on_target,
+        passes_completed: stats.passes_completed,
+        passes_attempted: stats.passes_attempted,
+        tackles_won: stats.tackles_won,
+        interceptions: stats.interceptions,
+        fouls_committed: stats.fouls_committed,
+    }
+}
+
+fn add_record_to_totals(totals: &mut PlayerSeasonTotalsDto, record: &PlayerMatchStatsRecord) {
+    let previous_rating_matches = if totals.avg_rating > 0.0 {
+        totals.appearances
+    } else {
+        0
+    };
+    let record_played = u32::from(record.minutes_played > 0);
+    let rating_matches =
+        previous_rating_matches + u32::from(record.rating > 0.0 && record_played > 0);
+    let rating_total = totals.avg_rating * previous_rating_matches as f32
+        + if record.rating > 0.0 && record_played > 0 {
+            record.rating
+        } else {
+            0.0
+        };
+
+    totals.appearances += record_played;
+    totals.goals += record.goals as u32;
+    totals.assists += record.assists as u32;
+    totals.yellow_cards += record.yellow_cards as u32;
+    totals.red_cards += record.red_cards as u32;
+    totals.minutes_played += record.minutes_played as u32;
+    totals.shots += record.shots as u32;
+    totals.shots_on_target += record.shots_on_target as u32;
+    totals.passes_completed += record.passes_completed as u32;
+    totals.passes_attempted += record.passes_attempted as u32;
+    totals.tackles_won += record.tackles_won as u32;
+    totals.interceptions += record.interceptions as u32;
+    totals.fouls_committed += record.fouls_committed as u32;
+    totals.avg_rating = if rating_matches > 0 {
+        rating_total / rating_matches as f32
+    } else {
+        0.0
+    };
+}
+
+fn team_name(state: &StateManager, team_id: &str) -> String {
+    state
+        .get_game(|game| {
+            game.teams
+                .iter()
+                .find(|team| team.id == team_id)
+                .map(|team| team.name.clone())
+        })
+        .flatten()
+        .unwrap_or_else(|| team_id.to_string())
+}
+
+fn competition_name(state: &StateManager, record: &PlayerMatchStatsRecord) -> String {
+    state
+        .get_game(|game| {
+            game.competitions
+                .iter()
+                .find(|competition| {
+                    competition
+                        .fixtures
+                        .iter()
+                        .any(|fixture| fixture.id == record.fixture_id)
+                })
+                .map(|competition| competition.name.clone())
+                .or_else(|| {
+                    game.league.as_ref().and_then(|league| {
+                        league
+                            .fixtures
+                            .iter()
+                            .any(|fixture| fixture.id == record.fixture_id)
+                            .then(|| league.name.clone())
+                    })
+                })
+        })
+        .flatten()
+        .unwrap_or_else(|| competition_label(&record.competition))
+}
+
+fn competition_stats_from_history(
+    state: &StateManager,
+    records: &[PlayerMatchStatsRecord],
+) -> Vec<PlayerCompetitionStatsDto> {
+    let mut grouped: HashMap<(String, String), PlayerCompetitionStatsDto> = HashMap::new();
+
+    for record in records {
+        let competition = competition_name(state, record);
+        let key = (competition.clone(), record.team_id.clone());
+        let entry = grouped
+            .entry(key)
+            .or_insert_with(|| PlayerCompetitionStatsDto {
+                competition: competition.clone(),
+                team_id: record.team_id.clone(),
+                team_name: team_name(state, &record.team_id),
+                totals: PlayerSeasonTotalsDto {
+                    appearances: 0,
+                    goals: 0,
+                    assists: 0,
+                    clean_sheets: 0,
+                    yellow_cards: 0,
+                    red_cards: 0,
+                    avg_rating: 0.0,
+                    minutes_played: 0,
+                    shots: 0,
+                    shots_on_target: 0,
+                    passes_completed: 0,
+                    passes_attempted: 0,
+                    tackles_won: 0,
+                    interceptions: 0,
+                    fouls_committed: 0,
+                },
+            });
+        add_record_to_totals(&mut entry.totals, record);
+    }
+
+    let mut rows = grouped.into_values().collect::<Vec<_>>();
+    rows.sort_by(|left, right| {
+        left.competition
+            .cmp(&right.competition)
+            .then(left.team_name.cmp(&right.team_name))
+    });
+    rows
+}
+
+fn transfer_history_for_player(
+    state: &StateManager,
+    player_id: &str,
+) -> Vec<PlayerTransferHistoryDto> {
+    let Some(transfers) = state.get_game(|game| {
+        let mut rows = game
+            .competitions
+            .iter()
+            .flat_map(|competition| competition.transfer_log.iter())
+            .filter(|transfer| transfer.player_id == player_id)
+            .map(|transfer| PlayerTransferHistoryDto {
+                date: transfer.date.clone(),
+                from_team_id: transfer.from_team_id.clone(),
+                from_team_name: game
+                    .teams
+                    .iter()
+                    .find(|team| team.id == transfer.from_team_id)
+                    .map(|team| team.name.clone())
+                    .unwrap_or_else(|| transfer.from_team_id.clone()),
+                to_team_id: transfer.to_team_id.clone(),
+                to_team_name: game
+                    .teams
+                    .iter()
+                    .find(|team| team.id == transfer.to_team_id)
+                    .map(|team| team.name.clone())
+                    .unwrap_or_else(|| transfer.to_team_id.clone()),
+                fee: transfer.fee,
+            })
+            .collect::<Vec<_>>();
+
+        if let Some(league) = &game.league {
+            rows.extend(
+                league
+                    .transfer_log
+                    .iter()
+                    .filter(|transfer| transfer.player_id == player_id)
+                    .map(|transfer| PlayerTransferHistoryDto {
+                        date: transfer.date.clone(),
+                        from_team_id: transfer.from_team_id.clone(),
+                        from_team_name: game
+                            .teams
+                            .iter()
+                            .find(|team| team.id == transfer.from_team_id)
+                            .map(|team| team.name.clone())
+                            .unwrap_or_else(|| transfer.from_team_id.clone()),
+                        to_team_id: transfer.to_team_id.clone(),
+                        to_team_name: game
+                            .teams
+                            .iter()
+                            .find(|team| team.id == transfer.to_team_id)
+                            .map(|team| team.name.clone())
+                            .unwrap_or_else(|| transfer.to_team_id.clone()),
+                        fee: transfer.fee,
+                    }),
+            );
+        }
+
+        rows.sort_by(|left, right| right.date.cmp(&left.date));
+        rows.dedup_by(|left, right| {
+            left.date == right.date
+                && left.from_team_id == right.from_team_id
+                && left.to_team_id == right.to_team_id
+                && left.fee == right.fee
+        });
+        rows
+    }) else {
+        return Vec::new();
+    };
+
+    transfers
+}
+
 fn build_overview_from_aggregate(
     player_aggregate: &PlayerAggregate,
     peers: &[PlayerAggregate],
+    season_totals: Option<PlayerSeasonTotalsDto>,
+    competition_stats: Vec<PlayerCompetitionStatsDto>,
+    transfer_history: Vec<PlayerTransferHistoryDto>,
 ) -> PlayerStatsOverviewDto {
     let eligible_peers = peers
         .iter()
@@ -93,6 +372,9 @@ fn build_overview_from_aggregate(
 
     PlayerStatsOverviewDto {
         percentile_eligible: can_compute_percentiles,
+        season_totals,
+        competition_stats,
+        transfer_history,
         metrics: PlayerStatsOverviewMetricsDto {
             shots: PlayerAdvancedMetricDto {
                 total: player_aggregate.shots,
@@ -227,7 +509,7 @@ fn build_history_overview(
         .map(|candidate| candidate.id.clone())
         .collect::<Vec<_>>();
 
-    let Some(history_aggregates) = state.get_stats_state(|stats| {
+    let Some((history_aggregates, player_records)) = state.get_stats_state(|stats| {
         let mut records_by_player: HashMap<String, Vec<PlayerMatchStatsRecord>> = HashMap::new();
 
         for record in &stats.player_matches {
@@ -242,12 +524,23 @@ fn build_history_overview(
             }
         }
 
-        records_by_player
+        let player_records = records_by_player
+            .get(player_id)
+            .cloned()
+            .unwrap_or_default();
+        let aggregates = records_by_player
             .into_iter()
             .filter_map(|(candidate_id, records)| {
-                aggregate_from_history(&records).map(|aggregate| (candidate_id, aggregate))
+                let competitive_records = records
+                    .into_iter()
+                    .filter(|record| is_competitive_fixture(&record.competition))
+                    .collect::<Vec<_>>();
+                aggregate_from_history(&competitive_records)
+                    .map(|aggregate| (candidate_id, aggregate))
             })
-            .collect::<HashMap<_, _>>()
+            .collect::<HashMap<_, _>>();
+
+        (aggregates, player_records)
     }) else {
         return Ok(None);
     };
@@ -261,9 +554,18 @@ fn build_history_overview(
         .filter_map(|candidate_id| history_aggregates.get(candidate_id).cloned())
         .collect::<Vec<_>>();
 
+    let competitive_player_records = player_records
+        .iter()
+        .filter(|record| is_competitive_fixture(&record.competition))
+        .cloned()
+        .collect::<Vec<_>>();
+
     Ok(Some(build_overview_from_aggregate(
         player_aggregate,
         &peers,
+        season_totals_from_history(&competitive_player_records),
+        competition_stats_from_history(state, &player_records),
+        transfer_history_for_player(state, player_id),
     )))
 }
 
@@ -289,9 +591,23 @@ fn build_legacy_overview(
         .map(|candidate| aggregate_from_season_stats(&candidate.stats))
         .collect::<Vec<_>>();
 
+    let season_totals = season_totals_from_season_stats(&player.stats);
+
     Ok(build_overview_from_aggregate(
         &aggregate_from_season_stats(&player.stats),
         &peers,
+        Some(season_totals.clone()),
+        vec![PlayerCompetitionStatsDto {
+            competition: "All Competitions".to_string(),
+            team_id: player.team_id.clone().unwrap_or_default(),
+            team_name: player
+                .team_id
+                .as_deref()
+                .map(|team_id| team_name(state, team_id))
+                .unwrap_or_else(|| "Free Agent".to_string()),
+            totals: season_totals,
+        }],
+        transfer_history_for_player(state, player_id),
     ))
 }
 
@@ -310,7 +626,7 @@ fn to_dto(state: &StateManager, record: &PlayerMatchStatsRecord) -> PlayerMatchH
     PlayerMatchHistoryEntryDto {
         fixture_id: record.fixture_id.clone(),
         date: record.date.clone(),
-        competition: competition_label(&record.competition),
+        competition: competition_name(state, record),
         matchday: record.matchday,
         opponent_team_id: record.opponent_team_id.clone(),
         opponent_name: opponent_name(state, &record.opponent_team_id),

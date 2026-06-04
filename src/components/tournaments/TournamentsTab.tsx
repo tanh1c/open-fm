@@ -12,7 +12,7 @@ import type {
   RatingLeaderboardEntry,
 } from "../../store/types";
 import { getCompetitionForTeam } from "../../store/types";
-import ContextMenu from "../ContextMenu";
+import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import TeamLogo from "../common/TeamLogo";
 import {
   Trophy,
@@ -37,6 +37,7 @@ import {
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import { formatExactMoney } from "../../lib/valueFormatting";
 import { useTranslation } from "react-i18next";
+import MatchDetailModal from "../match/MatchDetailModal";
 import {
   buildViewProfileMenuItem,
   buildViewTeamMenuItem,
@@ -77,6 +78,26 @@ function HeaderChip({ icon, label, value }: { icon: ReactNode; label: string; va
   );
 }
 
+function knockoutResolutionText(fixture: FixtureData, teamById: Map<string, GameStateData["teams"][number]>, teams: GameStateData["teams"], t: (key: string, options?: Record<string, unknown>) => string): string | null {
+  const result = fixture.result;
+  if (!result?.winner_team_id || result.resolution !== "AfterPenalties") {
+    return null;
+  }
+
+  const winner = teamById.get(result.winner_team_id)?.name ?? getTeamName(teams, result.winner_team_id);
+  const homePenalties = result.home_penalties;
+  const awayPenalties = result.away_penalties;
+  const penalties = typeof homePenalties === "number" && typeof awayPenalties === "number"
+    ? `${homePenalties}-${awayPenalties}`
+    : "";
+
+  return t("tournaments.wonOnPenalties", {
+    defaultValue: penalties ? `${winner} won ${penalties} on penalties` : `${winner} won on penalties`,
+    team: winner,
+    score: penalties,
+  });
+}
+
 interface AwardEntry {
   player_id: string;
   player_name: string;
@@ -93,7 +114,7 @@ interface SeasonAwards {
   young_player: AwardEntry[];
 }
 
-type TournamentView = "overview" | "global" | "fixtures" | "standings" | "bracket" | "awards" | "leaderboards" | "honours" | "records" | "halloffame";
+type TournamentView = "overview" | "global" | "fixtures" | "standings" | "bracket" | "awards" | "leaderboards" | "history" | "records" | "halloffame";
 type StandingEntry = NonNullable<GameStateData["league"]>["standings"][number];
 type TopScorerEntry = { player: GameStateData["players"][number] | undefined; goals: number };
 
@@ -135,6 +156,7 @@ export default function TournamentsTab({
   const seasonContext = resolveSeasonContext(gameState);
   const isPreseason = seasonContext.phase === "Preseason";
   const [view, setView] = useState<TournamentView>("overview");
+  const [selectedMatchFixtureId, setSelectedMatchFixtureId] = useState<string | null>(null);
   const [awardsByCompetition, setAwardsByCompetition] = useState<Record<string, SeasonAwards>>({});
   const [awardsLoadState, setAwardsLoadState] = useState<"idle" | "loading" | "error">("idle");
   const [awardsRetryCount, setAwardsRetryCount] = useState(0);
@@ -405,6 +427,14 @@ export default function TournamentsTab({
   );
 
   const buildFixtureMenuItems = (fixture: FixtureData) => [
+    ...(fixture.status === "Completed"
+      ? [
+        {
+          label: t("match.viewDetails", { defaultValue: "View match details" }),
+          onClick: () => setSelectedMatchFixtureId(fixture.id),
+        },
+      ]
+      : []),
     {
       ...buildViewTeamMenuItem(t, () => onSelectTeam(fixture.home_team_id)),
       label: `${t("common.viewTeam")}: ${getTeamName(gameState.teams, fixture.home_team_id)}`,
@@ -442,11 +472,19 @@ export default function TournamentsTab({
       ? t("tournaments.globalLeaderboardsTab", { defaultValue: "Global Leaderboard" })
       : view === "standings"
         ? t("schedule.standings")
-        : view === "awards"
-          ? t("tournaments.awardsTab")
-          : view === "leaderboards"
-            ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" })
-            : t("schedule.fixtures");
+        : view === "bracket"
+          ? t("tournaments.bracketTab", { defaultValue: "Bracket" })
+          : view === "awards"
+            ? t("tournaments.awardsTab")
+            : view === "leaderboards"
+              ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" })
+              : view === "history"
+                ? t("tournaments.historyTab", { defaultValue: "History" })
+                : view === "records"
+                  ? t("tournaments.recordsTab", { defaultValue: "Records" })
+                  : view === "halloffame"
+                    ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" })
+                    : t("schedule.fixtures");
 
   const renderStandingsState = (compact = false) => {
     if (!hasStandings) {
@@ -525,7 +563,7 @@ export default function TournamentsTab({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-app-border/50 px-2">
-        {(["overview", "global", "standings", "bracket", "fixtures", "awards", "leaderboards", "honours", "records", "halloffame"] as const)
+        {(["overview", "global", "standings", "bracket", "fixtures", "awards", "leaderboards", "history", "records", "halloffame"] as const)
           .filter((nextView) => nextView !== "bracket" || showBracketTab)
           .map((nextView) => (
           <button
@@ -539,8 +577,8 @@ export default function TournamentsTab({
                 : "border-transparent text-app-text-muted hover:text-app-text",
             )}
           >
-            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "global" ? <Users className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "bracket" ? <GitBranch className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "leaderboards" ? <ListOrdered className="h-4 w-4" /> : nextView === "honours" ? <Crown className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
-            {nextView === "overview" ? t("tournaments.overview") : nextView === "global" ? t("tournaments.globalLeaderboardsTab", { defaultValue: "Global" }) : nextView === "standings" ? t("schedule.standings") : nextView === "bracket" ? t("tournaments.bracketTab", { defaultValue: "Bracket" }) : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "leaderboards" ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" }) : nextView === "honours" ? t("tournaments.honoursTab", { defaultValue: "Honours" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
+            {nextView === "overview" ? <Trophy className="h-4 w-4" /> : nextView === "global" ? <Users className="h-4 w-4" /> : nextView === "standings" ? <TableProperties className="h-4 w-4" /> : nextView === "bracket" ? <GitBranch className="h-4 w-4" /> : nextView === "awards" ? <Award className="h-4 w-4" /> : nextView === "leaderboards" ? <ListOrdered className="h-4 w-4" /> : nextView === "history" ? <History className="h-4 w-4" /> : nextView === "records" ? <Star className="h-4 w-4" /> : nextView === "halloffame" ? <History className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+            {nextView === "overview" ? t("tournaments.overview") : nextView === "global" ? t("tournaments.globalLeaderboardsTab", { defaultValue: "Global" }) : nextView === "standings" ? t("schedule.standings") : nextView === "bracket" ? t("tournaments.bracketTab", { defaultValue: "Bracket" }) : nextView === "awards" ? t("tournaments.awardsTab") : nextView === "leaderboards" ? t("tournaments.leaderboardsTab", { defaultValue: "Leaderboards" }) : nextView === "history" ? t("tournaments.historyTab", { defaultValue: "History" }) : nextView === "records" ? t("tournaments.recordsTab", { defaultValue: "Records" }) : nextView === "halloffame" ? t("tournaments.hallOfFameTab", { defaultValue: "Hall of Fame" }) : t("schedule.fixtures")}
           </button>
         ))}
       </div>
@@ -582,38 +620,50 @@ export default function TournamentsTab({
                     />
                     {latestResults.length > 0 ? (
                       <div className="divide-y divide-app-border/30">
-                        {latestResults.map((fixture) => (
-                          <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
-                            <div
-                              className="flex items-center gap-2 px-4 py-2.5 text-xs transition-colors hover:bg-white/5"
-                              data-testid={`tournaments-result-${fixture.id}`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => onSelectTeam(fixture.home_team_id)}
-                                className={cx(
-                                  "min-w-0 flex-1 truncate text-right font-semibold hover:text-app-green",
-                                  fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
-                                )}
+                        {latestResults.map((fixture) => {
+                          const resolutionText = knockoutResolutionText(fixture, teamById, gameState.teams, t);
+                          return (
+                            <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
+                              <div
+                                className="px-4 py-2.5 text-xs transition-colors hover:bg-white/5"
+                                data-testid={`tournaments-result-${fixture.id}`}
                               >
-                                {teamById.get(fixture.home_team_id)?.name ?? getTeamName(gameState.teams, fixture.home_team_id)}
-                              </button>
-                              <span className="shrink-0 rounded bg-app-bg px-2 py-1 font-heading text-sm font-bold tabular-nums text-app-text">
-                                {fixture.result!.home_goals} - {fixture.result!.away_goals}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => onSelectTeam(fixture.away_team_id)}
-                                className={cx(
-                                  "min-w-0 flex-1 truncate text-left font-semibold hover:text-app-green",
-                                  fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
-                                )}
-                              >
-                                {teamById.get(fixture.away_team_id)?.name ?? getTeamName(gameState.teams, fixture.away_team_id)}
-                              </button>
-                            </div>
-                          </ContextMenu>
-                        ))}
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectTeam(fixture.home_team_id)}
+                                    className={cx(
+                                      "min-w-0 flex-1 truncate text-right font-semibold hover:text-app-green",
+                                      fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                                    )}
+                                  >
+                                    {teamById.get(fixture.home_team_id)?.name ?? getTeamName(gameState.teams, fixture.home_team_id)}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedMatchFixtureId(fixture.id)}
+                                    className="shrink-0 rounded bg-app-bg px-2 py-1 font-heading text-sm font-bold tabular-nums text-app-text transition hover:text-app-green"
+                                  >
+                                    {fixture.result!.home_goals} - {fixture.result!.away_goals}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelectTeam(fixture.away_team_id)}
+                                    className={cx(
+                                      "min-w-0 flex-1 truncate text-left font-semibold hover:text-app-green",
+                                      fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
+                                    )}
+                                  >
+                                    {teamById.get(fixture.away_team_id)?.name ?? getTeamName(gameState.teams, fixture.away_team_id)}
+                                  </button>
+                                </div>
+                                {resolutionText ? (
+                                  <p className="mt-1 text-center text-[10px] font-semibold text-app-green">{resolutionText}</p>
+                                ) : null}
+                              </div>
+                            </ContextMenu>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="p-4 text-center text-sm text-app-text-muted">
@@ -661,6 +711,7 @@ export default function TournamentsTab({
                   getFixtureRoundLabel={getFixtureRoundLabel}
                   buildFixtureMenuItems={buildFixtureMenuItems}
                   onSelectTeam={onSelectTeam}
+                  onSelectMatch={setSelectedMatchFixtureId}
                 />
               ) : null}
 
@@ -700,8 +751,9 @@ export default function TournamentsTab({
                 />
               ) : null}
 
-              {view === "honours" ? (
-                <HonoursPanel
+              {view === "history" ? (
+                <CompetitionHistoryPanel
+                  competitionId={selectedCompetition.id}
                   honours={gameState.season_honours ?? []}
                   onSelectTeam={onSelectTeam}
                   onSelectPlayer={onSelectPlayer}
@@ -744,6 +796,11 @@ export default function TournamentsTab({
           />
         </aside>
       </div>
+
+      <MatchDetailModal
+        fixtureId={selectedMatchFixtureId}
+        onClose={() => setSelectedMatchFixtureId(null)}
+      />
     </div>
   );
 }
@@ -858,14 +915,16 @@ function FixturesList({
   getFixtureRoundLabel,
   buildFixtureMenuItems,
   onSelectTeam,
+  onSelectMatch,
 }: {
   sortedMatchdays: Array<[number, FixtureData[]]>;
   teamById: Map<string, GameStateData["teams"][number]>;
   teams: GameStateData["teams"];
   userTeamId: string | null;
   getFixtureRoundLabel: (fixture: FixtureData) => string;
-  buildFixtureMenuItems: (fixture: FixtureData) => Array<ReturnType<typeof buildViewTeamMenuItem>>;
+  buildFixtureMenuItems: (fixture: FixtureData) => ContextMenuItem[];
   onSelectTeam: (id: string) => void;
+  onSelectMatch: (fixtureId: string) => void;
 }) {
   const { t } = useTranslation();
 
@@ -958,6 +1017,7 @@ function FixturesList({
             const homeTeam = teamById.get(fixture.home_team_id);
             const awayTeam = teamById.get(fixture.away_team_id);
             const completed = fixture.status === "Completed";
+            const resolutionText = knockoutResolutionText(fixture, teamById, teams, t);
             return (
               <ContextMenu items={buildFixtureMenuItems(fixture)} key={fixture.id}>
                 <div
@@ -979,10 +1039,21 @@ function FixturesList({
                       {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
                     </span>
                   </span>
-                  <div className="mx-3 w-24 text-center">
+                  <div className="mx-3 w-32 text-center">
                     {completed && fixture.result ? (
-                      <span className="font-heading text-lg font-bold text-app-text">
-                        {fixture.result.home_goals} - {fixture.result.away_goals}
+                      <span>
+                        <button
+                          type="button"
+                          onClick={() => onSelectMatch(fixture.id)}
+                          className="block w-full font-heading text-lg font-bold text-app-text transition hover:text-app-green"
+                        >
+                          {fixture.result.home_goals} - {fixture.result.away_goals}
+                        </button>
+                        {resolutionText ? (
+                          <span className="mt-0.5 block text-[9px] font-semibold leading-tight text-app-green">
+                            {resolutionText}
+                          </span>
+                        ) : null}
                       </span>
                     ) : (
                       <span className="rounded bg-app-card px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">vs</span>
@@ -1133,7 +1204,7 @@ function BracketPanel({
     const agg = tieAggregate(tie);
     if (agg.home > agg.away) return tie.homeTeamId;
     if (agg.away > agg.home) return tie.awayTeamId;
-    return null; // level — engine breaks it, but we don't surface a coin-flip here
+    return tie.legs.find((leg) => leg.result?.winner_team_id)?.result?.winner_team_id ?? null;
   };
 
   return (
@@ -1151,6 +1222,9 @@ function BracketPanel({
                   const agg = tieAggregate(tie);
                   const winner = tieWinner(tie);
                   const twoLegged = tie.legs.length > 1;
+                  const resolutionText = tie.legs.length === 1
+                    ? knockoutResolutionText(tie.legs[0], teamById, teams, t)
+                    : null;
                   return (
                     <div
                       key={tie.key}
@@ -1181,9 +1255,9 @@ function BracketPanel({
                         );
                       })}
                       <div className="mt-1 border-t border-app-border/40 pt-1 text-center text-[9px] uppercase tracking-wider text-app-text-muted">
-                        {twoLegged
+                        {resolutionText ?? (twoLegged
                           ? t("tournaments.bracketTwoLegged", { defaultValue: "Two legs · aggregate" })
-                          : t("tournaments.bracketSingleLeg", { defaultValue: "Single match" })}
+                          : t("tournaments.bracketSingleLeg", { defaultValue: "Single match" }))}
                       </div>
                     </div>
                   );
@@ -1434,122 +1508,132 @@ function SnapshotCard({
   );
 }
 
-function HonoursPanel({
+function CompetitionHistoryPanel({
+  competitionId,
   honours,
   onSelectTeam,
   onSelectPlayer,
 }: {
+  competitionId: string;
   honours: SeasonHonours[];
   onSelectTeam: (id: string) => void;
   onSelectPlayer?: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  const rows = honours
+    .flatMap((entry) => entry.champions.map((champion) => ({ season: entry.season, champion, awards: entry.awards })))
+    .filter((row) => row.champion.competition_id === competitionId)
+    .sort((a, b) => b.season - a.season);
 
-  if (honours.length === 0) {
+  const resolutionLabel = (label?: string | null): string | null => {
+    if (label === "AfterPenalties") {
+      return t("tournaments.historyAfterPenalties", { defaultValue: "won on penalties" });
+    }
+    if (label === "AfterExtraTime") {
+      return t("tournaments.historyAfterExtraTime", { defaultValue: "won after extra time" });
+    }
+    return null;
+  };
+
+  if (rows.length === 0) {
     return (
       <EmptyPanel
-        icon={<Crown className="h-8 w-8" />}
-        title={t("tournaments.honoursEmptyTitle", { defaultValue: "No honours yet" })}
-        description={t("tournaments.honoursEmptyBody", {
-          defaultValue: "Champions and award winners are recorded at the end of each season.",
+        icon={<History className="h-8 w-8" />}
+        title={t("tournaments.historyEmptyTitle", { defaultValue: "No history yet" })}
+        description={t("tournaments.historyEmptyBody", {
+          defaultValue: "Champions and runners-up are recorded when a season finishes.",
         })}
       />
     );
   }
 
-  const seasons = [...honours].sort((a, b) => b.season - a.season);
-
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {seasons.map((entry) => {
-        const goldenBoot = entry.awards.golden_boot[0];
-        const playerOfYear = entry.awards.player_of_year[0];
-        return (
-          <TemplateCard key={entry.season} className="overflow-hidden">
-            <PanelHeader
-              title={t("schedule.season", { number: entry.season })}
-              action={t("tournaments.nChampions", {
-                defaultValue: "{{count}} champions",
-                count: entry.champions.length,
-              })}
-            />
-            <div className="flex flex-col gap-4 p-4">
-              <div>
-                <h4 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-                  {t("tournaments.champions", { defaultValue: "Champions" })}
-                </h4>
-                {entry.champions.length === 0 ? (
-                  <p className="text-xs text-app-text-muted">—</p>
-                ) : (
-                  <div className="flex flex-col gap-1.5">
-                    {entry.champions.map((champion) => (
-                      <button
-                        key={champion.competition_id}
-                        type="button"
-                        onClick={() => onSelectTeam(champion.team_id)}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-left transition-colors hover:bg-white/5"
-                      >
-                        <span className="flex items-center gap-2 text-xs text-app-text-muted">
-                          <Trophy className="h-4 w-4 text-app-green" />
-                          {champion.competition_name}
-                        </span>
-                        <span className="truncate text-sm font-bold text-app-text">{champion.team_name}</span>
+    <div className="p-4">
+      <TemplateCard className="overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full min-w-[980px] text-left text-xs">
+            <thead className="border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+              <tr>
+                <th className="px-4 py-3">{t("schedule.season", { number: "" }).trim() || "Season"}</th>
+                <th className="px-4 py-3">{t("tournaments.champion", { defaultValue: "Champion" })}</th>
+                <th className="px-4 py-3">{t("tournaments.runnerUp", { defaultValue: "Runner-up" })}</th>
+                <th className="px-4 py-3">{t("tournaments.goldenBoot", { defaultValue: "Golden Boot" })}</th>
+                <th className="px-4 py-3">{t("tournaments.assistKing", { defaultValue: "Assist King" })}</th>
+                <th className="px-4 py-3">{t("tournaments.playerOfYear", { defaultValue: "Player of the Year" })}</th>
+                <th className="px-4 py-3">{t("tournaments.goldenGlove", { defaultValue: "Golden Glove" })}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-border/30 text-app-text">
+              {rows.map(({ season, champion, awards }) => {
+                const note = resolutionLabel(champion.resolution_label);
+                const goldenBoot = awards.golden_boot[0];
+                const assistKing = awards.assist_king[0];
+                const playerOfYear = awards.player_of_year[0];
+                const cleanSheetKing = awards.clean_sheet_king[0];
+                return (
+                  <tr key={`${season}-${champion.competition_id}`} className="transition-colors hover:bg-white/5">
+                    <td className="px-4 py-3 font-heading text-sm font-bold tabular-nums text-app-text-muted">
+                      {t("schedule.season", { number: season })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button type="button" onClick={() => onSelectTeam(champion.team_id)} className="font-bold hover:text-app-green">
+                        {champion.team_name}
                       </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-3 border-t border-app-border/50 pt-3 sm:grid-cols-2">
-                <HonourAwardRow
-                  label={t("tournaments.goldenBoot", { defaultValue: "Golden Boot" })}
-                  name={goldenBoot?.player_name}
-                  detail={goldenBoot ? t("endOfSeason.nGoals", { count: goldenBoot.value }) : undefined}
-                  onClick={goldenBoot && onSelectPlayer ? () => onSelectPlayer(goldenBoot.player_id) : undefined}
-                />
-                <HonourAwardRow
-                  label={t("tournaments.playerOfYear", { defaultValue: "Player of the Year" })}
-                  name={playerOfYear?.player_name}
-                  detail={playerOfYear ? playerOfYear.value.toFixed(2) : undefined}
-                  onClick={playerOfYear && onSelectPlayer ? () => onSelectPlayer(playerOfYear.player_id) : undefined}
-                />
-              </div>
-            </div>
-          </TemplateCard>
-        );
-      })}
+                      {note ? <span className="mt-0.5 block text-[10px] text-app-green">{note}</span> : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      {champion.runner_up_team_id && champion.runner_up_team_name ? (
+                        <button type="button" onClick={() => onSelectTeam(champion.runner_up_team_id!)} className="font-semibold hover:text-app-green">
+                          {champion.runner_up_team_name}
+                        </button>
+                      ) : "—"}
+                    </td>
+                    <HistoryAwardCell entry={goldenBoot} suffix={t("tournaments.awards.units.goals", { defaultValue: "goals" })} onSelectPlayer={onSelectPlayer} />
+                    <HistoryAwardCell entry={assistKing} suffix={t("tournaments.awards.units.assists", { defaultValue: "assists" })} onSelectPlayer={onSelectPlayer} />
+                    <HistoryAwardCell entry={playerOfYear} suffix={t("tournaments.awards.units.rating", { defaultValue: "rating" })} decimal onSelectPlayer={onSelectPlayer} />
+                    <HistoryAwardCell entry={cleanSheetKing} suffix={t("tournaments.awards.units.cleanSheets", { defaultValue: "clean sheets" })} onSelectPlayer={onSelectPlayer} />
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </TemplateCard>
     </div>
   );
 }
 
-function HonourAwardRow({
-  label,
-  name,
-  detail,
-  onClick,
+function HistoryAwardCell({
+  entry,
+  suffix,
+  decimal,
+  onSelectPlayer,
 }: {
-  label: string;
-  name?: string;
-  detail?: string;
-  onClick?: () => void;
+  entry?: AwardEntry;
+  suffix: string;
+  decimal?: boolean;
+  onSelectPlayer?: (id: string) => void;
 }) {
+  if (!entry) {
+    return <td className="px-4 py-3 text-app-text-muted">—</td>;
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-left transition-colors enabled:hover:bg-white/5 disabled:cursor-default"
-    >
-      <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-app-text-muted">
-        <Award className="h-3.5 w-3.5 text-app-green" />
-        {label}
+    <td className="px-4 py-3">
+      <button
+        type="button"
+        onClick={() => onSelectPlayer?.(entry.player_id)}
+        className="block max-w-[180px] truncate font-semibold hover:text-app-green"
+      >
+        {entry.player_name}
+      </button>
+      <span className="text-[10px] text-app-text-muted">
+        {decimal ? entry.value.toFixed(2) : entry.value} {suffix}
       </span>
-      <span className="min-w-0 text-right">
-        <span className="block truncate text-sm font-bold text-app-text">{name ?? "—"}</span>
-        {detail ? <span className="block text-[10px] text-app-text-muted">{detail}</span> : null}
-      </span>
-    </button>
+    </td>
   );
 }
+
 
 function RecordsPanel({ records }: { records: GameRecords | null }) {
   const { t } = useTranslation();
@@ -1670,7 +1754,14 @@ function HallOfFamePanel({
 }) {
   const { t } = useTranslation();
 
-  if (retired.length === 0) {
+  const notableRetired = retired.filter((player) =>
+    player.total_appearances >= 50 ||
+    player.total_goals >= 25 ||
+    player.total_assists >= 25 ||
+    (player.total_appearances > 0 && player.peak_ovr >= 82),
+  );
+
+  if (notableRetired.length === 0) {
     return (
       <EmptyPanel
         icon={<History className="h-8 w-8" />}
@@ -1682,7 +1773,7 @@ function HallOfFamePanel({
     );
   }
 
-  const sorted = [...retired].sort(
+  const sorted = [...notableRetired].sort(
     (a, b) => b.peak_ovr - a.peak_ovr || b.retired_season - a.retired_season,
   );
 

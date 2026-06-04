@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -41,6 +41,23 @@ vi.mock("react-i18next", () => ({
       if (key === "tournaments.competitionType") return "Competition type";
       if (key === "tournaments.allCompetitions") return "All competitions";
       if (key === "tournaments.globalLeaderboardsScope") return "Season totals across all selected competitions.";
+      if (key === "tournaments.wonOnPenalties") return `${params?.team} won ${params?.score} on penalties`;
+      if (key === "tournaments.historyTab") return "History";
+      if (key === "tournaments.honoursTab") return "Honours";
+      if (key === "tournaments.seasonHonours") return "Season honours";
+      if (key === "tournaments.champions") return "Champions";
+      if (key === "tournaments.goldenBoot") return "Golden Boot";
+      if (key === "tournaments.playerOfYear") return "Player of the Year";
+      if (key === "tournaments.assistKing") return "Assist King";
+      if (key === "tournaments.goldenGlove") return "Golden Glove";
+      if (key === "tournaments.awards.units.goals") return "goals";
+      if (key === "tournaments.awards.units.assists") return "assists";
+      if (key === "tournaments.awards.units.rating") return "rating";
+      if (key === "tournaments.awards.units.cleanSheets") return "clean sheets";
+      if (key === "endOfSeason.nGoals") return `${params?.count} goals`;
+      if (key === "tournaments.champion") return "Champion";
+      if (key === "tournaments.runnerUp") return "Runner-up";
+      if (key === "tournaments.historyAfterPenalties") return "won on penalties";
       if (key === "tournaments.domesticLeague") return "Domestic League";
       if (key === "tournaments.domesticCup") return "Domestic Cup";
       if (key === "tournaments.continental") return "Continental";
@@ -320,6 +337,19 @@ describe("TournamentsTab", () => {
     expect(onSelectTeam).toHaveBeenCalledWith("team-2");
   });
 
+  it("opens match detail from a completed fixture", async () => {
+    vi.mocked(invoke).mockResolvedValue(null);
+
+    render(<TournamentsTab gameState={createGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Fixtures/i }));
+    fireEvent.click(screen.getByRole("button", { name: "1 - 0" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_match_detail", { fixtureId: "fixture-1" });
+    });
+  });
+
   it("offers a top-scorer context menu action to view the player profile", () => {
     const onSelectPlayer = vi.fn();
 
@@ -337,7 +367,7 @@ describe("TournamentsTab", () => {
     expect(onSelectPlayer).toHaveBeenCalledWith("player-1");
   });
 
-  it("shows recorded champions on the honours tab", () => {
+  it("replaces Honours with a single History table", () => {
     const gameState = createGameState(true);
     gameState.season_honours = [
       {
@@ -354,8 +384,12 @@ describe("TournamentsTab", () => {
           golden_boot: [
             { player_id: "player-1", player_name: "John Smith", team_id: "team-1", team_name: "Alpha FC", value: 24 },
           ],
-          assist_king: [],
-          player_of_year: [],
+          assist_king: [
+            { player_id: "player-2", player_name: "Alex Beta", team_id: "team-2", team_name: "Beta FC", value: 15 },
+          ],
+          player_of_year: [
+            { player_id: "player-1", player_name: "John Smith", team_id: "team-1", team_name: "Alpha FC", value: 7.9 },
+          ],
           clean_sheet_king: [],
           most_appearances: [],
           young_player: [],
@@ -366,19 +400,104 @@ describe("TournamentsTab", () => {
 
     render(<TournamentsTab gameState={gameState} onSelectTeam={onSelectTeam} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /honoursTab/i }));
-    // The champion row is a button containing both the competition and team name.
-    const championButton = screen
-      .getAllByRole("button")
-      .find(
-        (button) =>
-          button.textContent?.includes("Premier League") &&
-          button.textContent?.includes("Alpha FC"),
-      );
-    expect(championButton).toBeDefined();
-    fireEvent.click(championButton!);
+    expect(screen.queryByRole("button", { name: /^Honours$/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^History$/i }));
+
+    expect(screen.getByText("Champion")).toBeInTheDocument();
+    expect(screen.getByText("Runner-up")).toBeInTheDocument();
+    expect(screen.getByText("Golden Boot")).toBeInTheDocument();
+    expect(screen.getByText("Assist King")).toBeInTheDocument();
+    expect(screen.getByText("Player of the Year")).toBeInTheDocument();
+    expect(screen.getByText("Golden Glove")).toBeInTheDocument();
+    expect(screen.getAllByText("John Smith").length).toBeGreaterThan(0);
+    expect(screen.getByText("24 goals")).toBeInTheDocument();
+    expect(screen.getByText("Alex Beta")).toBeInTheDocument();
+    expect(screen.getByText("15 assists")).toBeInTheDocument();
+    expect(screen.getByText("7.90 rating")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Alpha FC" })[0]);
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-1");
+  });
+
+  it("shows penalty resolution for a drawn knockout fixture", () => {
+    const gameState = createGameState(true);
+    const cupFinal = createFixture({
+      id: "cup-final",
+      competition: "DomesticCup",
+      matchday: 3,
+      stage: "final",
+      result: {
+        home_goals: 2,
+        away_goals: 2,
+        home_scorers: [],
+        away_scorers: [],
+        winner_team_id: "team-1",
+        resolution: "AfterPenalties",
+        home_penalties: 4,
+        away_penalties: 3,
+      },
+    });
+    gameState.competitions = [
+      {
+        id: "cup-1",
+        name: "FA Cup",
+        season: 1,
+        kind: "DomesticCup",
+        format: "Knockout",
+        country: "GB",
+        tier: null,
+        team_ids: ["team-1", "team-2"],
+        fixtures: [cupFinal],
+        standings: [],
+      },
+    ];
+
+    render(<TournamentsTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    expect(screen.getByText("Alpha FC won 4-3 on penalties")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Fixtures/i }));
+    expect(screen.getByText("Alpha FC won 4-3 on penalties")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Bracket/i }));
+    expect(screen.getByText("Alpha FC won 4-3 on penalties")).toBeInTheDocument();
+  });
+
+  it("shows selected competition champions and runners-up on the history tab", () => {
+    const gameState = createGameState(true);
+    gameState.season_honours = [
+      {
+        season: 1,
+        champions: [
+          {
+            competition_id: "league-1",
+            competition_name: "Premier League",
+            team_id: "team-1",
+            team_name: "Alpha FC",
+            runner_up_team_id: "team-2",
+            runner_up_team_name: "Beta FC",
+            resolution_label: null,
+          },
+        ],
+        awards: {
+          golden_boot: [],
+          assist_king: [],
+          player_of_year: [],
+          clean_sheet_king: [],
+          most_appearances: [],
+          young_player: [],
+        },
+      },
+    ];
+
+    render(<TournamentsTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^History$/i }));
+
+    expect(screen.getByText("Champion")).toBeInTheDocument();
+    expect(screen.getByText("Runner-up")).toBeInTheDocument();
+    expect(screen.getAllByText("Alpha FC").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Beta FC").length).toBeGreaterThan(0);
+    expect(invoke).not.toHaveBeenCalledWith("get_competition_awards", { competitionId: "league-1" });
   });
 
   it("shows all-time records on the records tab", () => {
@@ -501,6 +620,21 @@ describe("TournamentsTab", () => {
         total_assists: 120,
         career_seasons: 18,
       },
+      {
+        id: "random-zero",
+        full_name: "Random Reserve",
+        nationality: "GB",
+        position: "Midfielder",
+        last_team_id: "team-1",
+        last_team_name: "Alpha FC",
+        retired_season: 6,
+        age_at_retirement: 36,
+        peak_ovr: 80,
+        total_appearances: 0,
+        total_goals: 0,
+        total_assists: 0,
+        career_seasons: 0,
+      },
     ];
     const onSelectTeam = vi.fn();
 
@@ -513,6 +647,7 @@ describe("TournamentsTab", () => {
     const journeyman = screen.getByText("Older Journeyman");
     expect(star).toBeInTheDocument();
     expect(journeyman).toBeInTheDocument();
+    expect(screen.queryByText("Random Reserve")).not.toBeInTheDocument();
     expect(star.compareDocumentPosition(journeyman) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("92")).toBeInTheDocument();
 

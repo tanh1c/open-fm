@@ -6,7 +6,7 @@ use ofm_core::state::StateManager;
 
 use super::dto::{
     PlayerAdvancedMetricDto, PlayerAdvancedPassMetricDto, PlayerMatchHistoryEntryDto,
-    PlayerStatsOverviewDto, PlayerStatsOverviewMetricsDto,
+    PlayerSeasonTotalsDto, PlayerStatsOverviewDto, PlayerStatsOverviewMetricsDto,
 };
 use super::shared::{
     calculate_pass_accuracy, calculate_per90, competition_label, opponent_name, percentile_rank,
@@ -80,9 +80,58 @@ where
     percentile_rank(&values, selector(player_aggregate))
 }
 
+fn season_totals_from_history(records: &[PlayerMatchStatsRecord]) -> Option<PlayerSeasonTotalsDto> {
+    if records.is_empty() {
+        return None;
+    }
+
+    let appearances = records.iter().filter(|record| record.minutes_played > 0).count() as u32;
+    let rating_count = records.iter().filter(|record| record.rating > 0.0).count() as f32;
+    let rating_total = records.iter().map(|record| record.rating).sum::<f32>();
+
+    Some(PlayerSeasonTotalsDto {
+        appearances,
+        goals: records.iter().map(|record| record.goals as u32).sum(),
+        assists: records.iter().map(|record| record.assists as u32).sum(),
+        clean_sheets: 0,
+        yellow_cards: records.iter().map(|record| record.yellow_cards as u32).sum(),
+        red_cards: records.iter().map(|record| record.red_cards as u32).sum(),
+        avg_rating: if rating_count > 0.0 { rating_total / rating_count } else { 0.0 },
+        minutes_played: records.iter().map(|record| record.minutes_played as u32).sum(),
+        shots: records.iter().map(|record| record.shots as u32).sum(),
+        shots_on_target: records.iter().map(|record| record.shots_on_target as u32).sum(),
+        passes_completed: records.iter().map(|record| record.passes_completed as u32).sum(),
+        passes_attempted: records.iter().map(|record| record.passes_attempted as u32).sum(),
+        tackles_won: records.iter().map(|record| record.tackles_won as u32).sum(),
+        interceptions: records.iter().map(|record| record.interceptions as u32).sum(),
+        fouls_committed: records.iter().map(|record| record.fouls_committed as u32).sum(),
+    })
+}
+
+fn season_totals_from_season_stats(stats: &PlayerSeasonStats) -> PlayerSeasonTotalsDto {
+    PlayerSeasonTotalsDto {
+        appearances: stats.appearances,
+        goals: stats.goals,
+        assists: stats.assists,
+        clean_sheets: stats.clean_sheets,
+        yellow_cards: stats.yellow_cards,
+        red_cards: stats.red_cards,
+        avg_rating: stats.avg_rating,
+        minutes_played: stats.minutes_played,
+        shots: stats.shots,
+        shots_on_target: stats.shots_on_target,
+        passes_completed: stats.passes_completed,
+        passes_attempted: stats.passes_attempted,
+        tackles_won: stats.tackles_won,
+        interceptions: stats.interceptions,
+        fouls_committed: stats.fouls_committed,
+    }
+}
+
 fn build_overview_from_aggregate(
     player_aggregate: &PlayerAggregate,
     peers: &[PlayerAggregate],
+    season_totals: Option<PlayerSeasonTotalsDto>,
 ) -> PlayerStatsOverviewDto {
     let eligible_peers = peers
         .iter()
@@ -93,6 +142,7 @@ fn build_overview_from_aggregate(
 
     PlayerStatsOverviewDto {
         percentile_eligible: can_compute_percentiles,
+        season_totals,
         metrics: PlayerStatsOverviewMetricsDto {
             shots: PlayerAdvancedMetricDto {
                 total: player_aggregate.shots,
@@ -227,7 +277,7 @@ fn build_history_overview(
         .map(|candidate| candidate.id.clone())
         .collect::<Vec<_>>();
 
-    let Some(history_aggregates) = state.get_stats_state(|stats| {
+    let Some((history_aggregates, player_records)) = state.get_stats_state(|stats| {
         let mut records_by_player: HashMap<String, Vec<PlayerMatchStatsRecord>> = HashMap::new();
 
         for record in &stats.player_matches {
@@ -242,12 +292,15 @@ fn build_history_overview(
             }
         }
 
-        records_by_player
+        let player_records = records_by_player.get(player_id).cloned().unwrap_or_default();
+        let aggregates = records_by_player
             .into_iter()
             .filter_map(|(candidate_id, records)| {
                 aggregate_from_history(&records).map(|aggregate| (candidate_id, aggregate))
             })
-            .collect::<HashMap<_, _>>()
+            .collect::<HashMap<_, _>>();
+
+        (aggregates, player_records)
     }) else {
         return Ok(None);
     };
@@ -264,6 +317,7 @@ fn build_history_overview(
     Ok(Some(build_overview_from_aggregate(
         player_aggregate,
         &peers,
+        season_totals_from_history(&player_records),
     )))
 }
 
@@ -292,6 +346,7 @@ fn build_legacy_overview(
     Ok(build_overview_from_aggregate(
         &aggregate_from_season_stats(&player.stats),
         &peers,
+        Some(season_totals_from_season_stats(&player.stats)),
     ))
 }
 

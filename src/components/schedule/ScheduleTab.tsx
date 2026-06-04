@@ -22,6 +22,7 @@ import { resolveSeasonContext } from "../../lib/seasonContext";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import TeamLogo from "../common/TeamLogo";
 import MonthCalendar, { type CalendarEvent } from "../common/MonthCalendar";
+import MatchDetailModal from "../match/MatchDetailModal";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
@@ -82,6 +83,7 @@ export default function ScheduleTab({
   );
   // My Club fixtures can be shown as a flat list or a month calendar grid.
   const [fixtureLayout, setFixtureLayout] = useState<"list" | "calendar">("list");
+  const [selectedMatchFixtureId, setSelectedMatchFixtureId] = useState<string | null>(null);
   const competitionOptions = gameState.competitions?.length
     ? gameState.competitions
     : gameState.league
@@ -306,6 +308,14 @@ export default function ScheduleTab({
     const isUserMatch = fixtureIncludesTeam(fixture, userTeamId);
     const completed = fixture.status === "Completed";
     const contextItems = [
+      ...(completed
+        ? [
+          {
+            label: t("match.viewDetails", { defaultValue: "View match details" }),
+            onClick: () => setSelectedMatchFixtureId(fixture.id),
+          },
+        ]
+        : []),
       buildTeamMenuItem(
         `${t("common.viewTeam")}: ${homeName}`,
         fixture.home_team_id,
@@ -337,9 +347,13 @@ export default function ScheduleTab({
           </span>
           <div className="mx-3 flex w-24 shrink-0 justify-center text-center">
             {completed && fixture.result ? (
-              <span className="rounded-lg border border-app-border bg-app-bg px-3 py-1 font-heading text-base font-bold text-app-text">
+              <button
+                type="button"
+                onClick={() => setSelectedMatchFixtureId(fixture.id)}
+                className="rounded-lg border border-app-border bg-app-bg px-3 py-1 font-heading text-base font-bold text-app-text transition hover:border-app-green hover:text-app-green"
+              >
                 {fixture.result.home_goals} - {fixture.result.away_goals}
-              </span>
+              </button>
             ) : (
               <span className="rounded border border-app-border bg-app-bg px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
                 vs
@@ -732,10 +746,15 @@ export default function ScheduleTab({
               {recentUserFixtures.length > 0 ? (
                 <div className="divide-y divide-app-border/30">
                   {recentUserFixtures.map((fixture) => (
-                    <div key={fixture.id} className="px-4 py-3 text-xs">
+                    <button
+                      key={fixture.id}
+                      type="button"
+                      onClick={() => setSelectedMatchFixtureId(fixture.id)}
+                      className="block w-full px-4 py-3 text-left text-xs transition-colors hover:bg-white/5"
+                    >
                       <p className="font-semibold text-app-text">{renderResultSummary(fixture)}</p>
                       <p className="mt-1 text-[10px] text-app-text-muted">{getFixtureGroupLabel(fixture)}</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -756,6 +775,11 @@ export default function ScheduleTab({
           </div>
         </aside>
       </div>
+
+      <MatchDetailModal
+        fixtureId={selectedMatchFixtureId}
+        onClose={() => setSelectedMatchFixtureId(null)}
+      />
     </div>
   );
 }

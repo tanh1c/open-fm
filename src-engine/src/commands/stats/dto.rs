@@ -30,8 +30,29 @@ pub struct PlayerStatsOverviewMetricsDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct PlayerSeasonTotalsDto {
+    pub appearances: u32,
+    pub goals: u32,
+    pub assists: u32,
+    pub clean_sheets: u32,
+    pub yellow_cards: u32,
+    pub red_cards: u32,
+    pub avg_rating: f32,
+    pub minutes_played: u32,
+    pub shots: u32,
+    pub shots_on_target: u32,
+    pub passes_completed: u32,
+    pub passes_attempted: u32,
+    pub tackles_won: u32,
+    pub interceptions: u32,
+    pub fouls_committed: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct PlayerStatsOverviewDto {
     pub percentile_eligible: bool,
+    pub season_totals: Option<PlayerSeasonTotalsDto>,
     pub metrics: PlayerStatsOverviewMetricsDto,
 }
 

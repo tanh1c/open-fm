@@ -94,11 +94,17 @@ pub fn compute_competition_leaderboards(
 ) -> CompetitionLeaderboards {
     // Resolve the competition's team set + season (competitions first, then the
     // legacy league fallback for older saves).
-    let (team_ids, season): (Vec<String>, u32) = game
+    let Some((team_ids, season, competition_kind)) = game
         .competitions
         .iter()
         .find(|competition| competition.id == competition_id)
-        .map(|competition| (competition.team_ids.clone(), competition.season))
+        .map(|competition| {
+            (
+                competition.team_ids.clone(),
+                competition.season,
+                competition.kind.clone(),
+            )
+        })
         .or_else(|| {
             game.league
                 .as_ref()
@@ -109,10 +115,14 @@ pub fn compute_competition_leaderboards(
                         .iter()
                         .map(|standing| standing.team_id.clone())
                         .collect();
-                    (ids, league.season)
+                    (ids, league.season, CompetitionKind::DomesticLeague)
                 })
-        })
-        .unwrap_or_default();
+        }) else {
+        return CompetitionLeaderboards {
+            competition_id: competition_id.to_string(),
+            ..Default::default()
+        };
+    };
 
     let mut result = CompetitionLeaderboards {
         competition_id: competition_id.to_string(),
@@ -120,7 +130,7 @@ pub fn compute_competition_leaderboards(
         ..Default::default()
     };
 
-    if team_ids.is_empty() {
+    if team_ids.is_empty() || !is_competitive_kind(&competition_kind) {
         return result;
     }
 
@@ -139,6 +149,9 @@ pub fn compute_competition_leaderboards(
 
     for record in &stats.player_matches {
         if record.season != season {
+            continue;
+        }
+        if competition_kind_from_fixture(&record.competition) != competition_kind {
             continue;
         }
         if !team_id_set.contains(record.team_id.as_str()) {
@@ -241,6 +254,9 @@ pub fn compute_global_player_leaderboards(
         }
 
         let competition_kind = competition_kind_from_fixture(&record.competition);
+        if !is_competitive_kind(&competition_kind) {
+            continue;
+        }
         if let Some(competition_type) = competition_filter.as_deref() {
             if !competition_type_matches(competition_type, &competition_kind) {
                 continue;
@@ -319,6 +335,13 @@ fn competition_kind_from_fixture(competition: &FixtureCompetition) -> Competitio
         FixtureCompetition::Friendly => CompetitionKind::Friendly,
         FixtureCompetition::PreseasonTournament => CompetitionKind::PreseasonTournament,
     }
+}
+
+fn is_competitive_kind(kind: &CompetitionKind) -> bool {
+    !matches!(
+        kind,
+        CompetitionKind::Friendly | CompetitionKind::PreseasonTournament
+    )
 }
 
 fn competition_type_matches(filter: &str, kind: &CompetitionKind) -> bool {
@@ -591,7 +614,7 @@ mod tests {
     }
 
     #[test]
-    fn competition_leaderboards_include_non_league_records() {
+    fn competition_leaderboards_include_matching_non_league_records() {
         let game = test_game();
         let mut stats = StatsState::default();
         stats.player_matches.push(player_match(
@@ -605,8 +628,64 @@ mod tests {
             2,
             1,
         ));
+        stats.player_matches.push(player_match(
+            FixtureCompetition::DomesticLeague,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            5,
+            0,
+            5,
+            2,
+        ));
 
         let board = compute_competition_leaderboards(&game, &stats, "cup-1");
+
+        assert_eq!(board.top_scorers[0].player_id, "striker");
+        assert_eq!(board.top_scorers[0].value, 2);
+        assert_eq!(board.top_assists[0].value, 1);
+    }
+
+    #[test]
+    fn competition_leaderboards_exclude_other_competition_types_for_same_teams() {
+        let game = test_game();
+        let mut stats = StatsState::default();
+        stats.player_matches.push(player_match(
+            FixtureCompetition::DomesticLeague,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            2,
+            0,
+            2,
+            1,
+        ));
+        stats.player_matches.push(player_match(
+            FixtureCompetition::DomesticCup,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            4,
+            0,
+            4,
+            2,
+        ));
+        stats.player_matches.push(player_match(
+            FixtureCompetition::ContinentalLeague,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            3,
+            0,
+            3,
+            1,
+        ));
+
+        let board = compute_competition_leaderboards(&game, &stats, "comp-1");
 
         assert_eq!(board.top_scorers[0].player_id, "striker");
         assert_eq!(board.top_scorers[0].value, 2);
@@ -747,6 +826,87 @@ mod tests {
         assert_eq!(cup_board.top_assists[0].value, 2);
         assert_eq!(cup_board.appearances[0].value, 1);
         assert_eq!(cup_board.minutes[0].value, 90);
+    }
+
+    #[test]
+    fn global_leaderboards_exclude_friendlies_from_official_totals() {
+        let game = test_game();
+        let mut stats = StatsState::default();
+        stats.player_matches.push(player_match(
+            FixtureCompetition::DomesticLeague,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            1,
+            0,
+            1,
+            0,
+        ));
+        stats.player_matches.push(player_match(
+            FixtureCompetition::Friendly,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            4,
+            0,
+            4,
+            3,
+        ));
+
+        let board = compute_global_player_leaderboards(
+            &game,
+            &stats,
+            GlobalPlayerLeaderboardQuery {
+                season: Some(2026),
+                country: None,
+                competition_type: None,
+                position: None,
+                limit: Some(10),
+            },
+        );
+
+        assert_eq!(board.top_scorers[0].value, 1);
+        assert!(board.top_assists.is_empty());
+        assert_eq!(board.appearances[0].value, 1);
+        assert_eq!(board.minutes[0].value, 90);
+    }
+
+    #[test]
+    fn friendly_competition_leaderboards_are_not_official_boards() {
+        let mut game = test_game();
+        game.competitions.push(domain::league::Competition {
+            id: "friendly-1".to_string(),
+            name: "Friendly".to_string(),
+            season: 2026,
+            kind: domain::league::CompetitionKind::Friendly,
+            format: domain::league::CompetitionFormat::Knockout,
+            country: Some("England".to_string()),
+            tier: None,
+            team_ids: vec!["t1".to_string(), "t2".to_string()],
+            fixtures: vec![],
+            standings: vec![],
+            transfer_log: vec![],
+        });
+        let mut stats = StatsState::default();
+        stats.player_matches.push(player_match(
+            FixtureCompetition::Friendly,
+            "striker",
+            "t1",
+            "t1",
+            "t2",
+            4,
+            0,
+            4,
+            3,
+        ));
+
+        let board = compute_competition_leaderboards(&game, &stats, "friendly-1");
+
+        assert!(board.top_scorers.is_empty());
+        assert!(board.top_assists.is_empty());
+        assert!(board.top_clean_sheets.is_empty());
     }
 
     #[test]

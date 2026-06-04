@@ -1,8 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FixtureData, GameStateData, TeamData } from "../../store/gameStore";
 import ScheduleTab from "./ScheduleTab";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+}));
 
 vi.mock("../../lib/seasonContext", () => ({
   resolveSeasonContext: () => ({
@@ -155,6 +160,11 @@ function createGameState(withLeague: boolean): GameStateData {
 }
 
 describe("ScheduleTab", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockResolvedValue(null);
+  });
+
   it("renders the empty state when there is no league", () => {
     render(<ScheduleTab gameState={createGameState(false)} onSelectTeam={vi.fn()} />);
 
@@ -181,6 +191,16 @@ describe("ScheduleTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "View team: Beta FC" }));
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-2");
+  });
+
+  it("opens match detail for completed fixtures", async () => {
+    render(<ScheduleTab gameState={createGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "2 - 1" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_match_detail", { fixtureId: "fixture-1" });
+    });
   });
 
   it("defaults the fixtures view to the user's club and only lists their matches", () => {

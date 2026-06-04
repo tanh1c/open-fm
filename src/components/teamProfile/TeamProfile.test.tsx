@@ -46,6 +46,9 @@ vi.mock("react-i18next", () => ({
         "teamProfile.foulsCommitted": "Fouls Committed",
         "teamProfile.perMatch": "Per Match",
         "teamProfile.passAccuracy": "Pass Accuracy",
+        "teamProfile.recentMatches": "Recent Matches",
+        "teamProfile.noRecentMatches": "No recent matches yet",
+        "finances.contractRiskStable": "Stable",
         "finances.wageBudget": "Wage Budget",
         "finances.transferBudget": "Transfer Budget",
         "finances.squadValue": "Squad Value",
@@ -153,14 +156,14 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
     wage: 12000,
     market_value: 350000,
     stats: {
-      appearances: 0,
-      goals: 0,
-      assists: 0,
+      appearances: 11,
+      goals: 7,
+      assists: 3,
       clean_sheets: 0,
-      yellow_cards: 0,
+      yellow_cards: 1,
       red_cards: 0,
-      avg_rating: 0,
-      minutes_played: 0,
+      avg_rating: 7.2,
+      minutes_played: 900,
     },
     career: [],
     transfer_listed: false,
@@ -231,6 +234,24 @@ describe("TeamProfile", () => {
     vi.mocked(invoke).mockResolvedValue(null);
   });
 
+  it("renders the requested overview sections by default", () => {
+    const team = createTeam();
+
+    render(
+      <TeamProfile
+        team={team}
+        gameState={createGameState(team)}
+        isOwnTeam
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Squad Overview")).toBeInTheDocument();
+    expect(screen.getByText("Club Information")).toBeInTheDocument();
+    expect(screen.getByText("League Standing")).toBeInTheDocument();
+    expect(screen.getByText("Team Stats")).toBeInTheDocument();
+  });
+
   it("loads and renders team stats overview from the backend", async () => {
     const team = createTeam();
     vi.mocked(invoke).mockImplementation(async (command: string) => {
@@ -272,7 +293,7 @@ describe("TeamProfile", () => {
       expect(screen.getByText("24")).toBeInTheDocument();
       expect(screen.getByText("57.5%")).toBeInTheDocument();
       expect(screen.getByText("5400 / 6300")).toBeInTheDocument();
-      expect(screen.getByText("85.7%")).toBeInTheDocument();
+      expect(screen.getByText("Pass Accuracy: 85.7%")).toBeInTheDocument();
     });
   });
 
@@ -318,10 +339,74 @@ describe("TeamProfile", () => {
         teamId: "team-1",
         limit: 5,
       });
-      expect(screen.getByText("Bravo FC")).toBeInTheDocument();
-      expect(screen.getByText("3-1")).toBeInTheDocument();
-      expect(screen.getByText("62.0%")).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Recent Matches" }));
+
+    expect(screen.getByText("Bravo FC")).toBeInTheDocument();
+    expect(screen.getByText("3-1")).toBeInTheDocument();
+    expect(screen.getByText("62.0%")).toBeInTheDocument();
+  });
+
+  it("opens match detail from a recent match row", async () => {
+    const team = createTeam();
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_team_match_history") {
+        return [
+          {
+            fixtureId: "fixture-2",
+            date: "2026-08-01",
+            competition: "League",
+            matchday: 1,
+            opponentTeamId: "team-2",
+            opponentName: "Bravo FC",
+            goalsFor: 3,
+            goalsAgainst: 1,
+            possessionPct: 62,
+            shots: 16,
+            shotsOnTarget: 7,
+          },
+        ];
+      }
+
+      return null;
+    });
+
+    render(
+      <TeamProfile
+        team={team}
+        gameState={createGameState(team)}
+        isOwnTeam
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Recent Matches" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Bravo FC/ }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_match_detail", { fixtureId: "fixture-2" });
+    });
+  });
+
+  it("shows detailed squad data for non-owned clubs", async () => {
+    const team = createTeam();
+
+    render(
+      <TeamProfile
+        team={team}
+        gameState={createGameState(team)}
+        isOwnTeam={false}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Squad" }));
+
+    expect(screen.getByText("John Smith")).toBeInTheDocument();
+    expect(screen.getByText("7.2")).toBeInTheDocument();
+    expect(screen.getByText("11")).toBeInTheDocument();
+    expect(screen.queryByText("??")).not.toBeInTheDocument();
   });
 
   it("offers a roster context menu action to view the player profile", async () => {
@@ -347,6 +432,8 @@ describe("TeamProfile", () => {
         limit: 5,
       });
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Squad" }));
 
     fireEvent.contextMenu(screen.getByTestId("team-profile-roster-player-1"));
     fireEvent.click(screen.getByRole("button", { name: "View profile" }));

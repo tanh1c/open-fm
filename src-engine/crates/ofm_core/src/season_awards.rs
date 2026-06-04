@@ -176,7 +176,25 @@ pub fn compute_season_awards(game: &Game) -> SeasonAwards {
     }
 }
 
+fn is_competitive_kind(kind: &CompetitionKind) -> bool {
+    !matches!(
+        kind,
+        CompetitionKind::Friendly | CompetitionKind::PreseasonTournament
+    )
+}
+
+fn is_competitive_fixture(competition: &FixtureCompetition) -> bool {
+    !matches!(
+        competition,
+        FixtureCompetition::Friendly | FixtureCompetition::PreseasonTournament
+    )
+}
+
 fn fixture_competition_matches_kind(competition: &FixtureCompetition, kind: Option<&CompetitionKind>) -> bool {
+    if !is_competitive_fixture(competition) {
+        return false;
+    }
+
     match kind {
         Some(CompetitionKind::DomesticLeague) => matches!(
             competition,
@@ -186,10 +204,7 @@ fn fixture_competition_matches_kind(competition: &FixtureCompetition, kind: Opti
         Some(CompetitionKind::ContinentalLeague) => {
             matches!(competition, FixtureCompetition::ContinentalLeague)
         }
-        Some(CompetitionKind::Friendly) => matches!(competition, FixtureCompetition::Friendly),
-        Some(CompetitionKind::PreseasonTournament) => {
-            matches!(competition, FixtureCompetition::PreseasonTournament)
-        }
+        Some(CompetitionKind::Friendly | CompetitionKind::PreseasonTournament) => false,
         None => true,
     }
 }
@@ -246,7 +261,7 @@ pub fn compute_competition_awards(
         })
         .unwrap_or_default();
 
-    if team_ids.is_empty() {
+    if team_ids.is_empty() || competition_kind.as_ref().is_some_and(|kind| !is_competitive_kind(kind)) {
         return SeasonAwards {
             golden_boot: Vec::new(),
             assist_king: Vec::new(),
@@ -785,5 +800,74 @@ mod tests {
         // Must report only the 11 league goals, not the 14 season aggregate.
         assert_eq!(awards.golden_boot[0].player_id, "striker");
         assert_eq!(awards.golden_boot[0].value, 11.0);
+    }
+
+    #[test]
+    fn friendly_competition_awards_are_not_official_awards() {
+        use super::compute_competition_awards;
+        use domain::league::{
+            Competition, CompetitionFormat, CompetitionKind, FixtureCompetition,
+        };
+        use domain::stats::{PlayerMatchStatsRecord, StatsState};
+
+        let team = make_team("team1", "Test FC");
+        let striker = make_player(
+            "striker",
+            "Striker",
+            Some("team1"),
+            Position::Forward,
+            "2000-01-01",
+            PlayerSeasonStats::default(),
+        );
+        let mut game = make_game(vec![striker], vec![team]);
+        let season = chrono::Datelike::year(&game.clock.current_date.date_naive()) as u32;
+        game.competitions = vec![Competition {
+            id: "friendly-1".to_string(),
+            name: "Friendly".to_string(),
+            season,
+            kind: CompetitionKind::Friendly,
+            format: CompetitionFormat::Knockout,
+            country: Some("England".to_string()),
+            tier: None,
+            team_ids: vec!["team1".to_string()],
+            fixtures: vec![],
+            standings: vec![],
+            transfer_log: vec![],
+        }];
+
+        let mut stats = StatsState::default();
+        stats.player_matches.push(PlayerMatchStatsRecord {
+            fixture_id: "friendly-fixture".to_string(),
+            season,
+            matchday: 1,
+            date: "2026-09-01".to_string(),
+            competition: FixtureCompetition::Friendly,
+            player_id: "striker".to_string(),
+            team_id: "team1".to_string(),
+            opponent_team_id: "team2".to_string(),
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            home_goals: 4,
+            away_goals: 0,
+            minutes_played: 90,
+            goals: 4,
+            assists: 3,
+            shots: 0,
+            shots_on_target: 0,
+            passes_completed: 0,
+            passes_attempted: 0,
+            tackles_won: 0,
+            interceptions: 0,
+            fouls_committed: 0,
+            yellow_cards: 0,
+            red_cards: 0,
+            rating: 8.8,
+        });
+
+        let awards = compute_competition_awards(&game, &stats, "friendly-1");
+
+        assert!(awards.golden_boot.is_empty());
+        assert!(awards.assist_king.is_empty());
+        assert!(awards.player_of_year.is_empty());
     }
 }

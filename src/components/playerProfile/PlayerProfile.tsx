@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatExactMoney, getContractRiskLevel, getPlayerOvr } from "../../lib/helpers";
-import { PlayerData, GameStateData } from "../../store/gameStore";
+import { PlayerData, GameStateData, type CareerEntry, type PlayerSeasonStats } from "../../store/gameStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -20,19 +20,22 @@ import {
   buildPlayerAdvancedStats,
   getPlayerAge,
   getPlayerTeamName,
+  seasonTotalsToPlayerStats,
   type PlayerAdvancedStatsSummary,
+  type PlayerCompetitionStatsSummary,
+  type PlayerTransferHistorySummary,
 } from "./PlayerProfile.helpers";
 import { buildPlayerAttributeGroups } from "./PlayerProfile.attributes";
 import PlayerProfileAttributesCard from "./PlayerProfileAttributesCard";
 import PlayerProfileAttributeEditor from "./PlayerProfileAttributeEditor";
 import PlayerProfileCareerHistoryCard from "./PlayerProfileCareerHistoryCard";
+import PlayerProfileContractCard from "./PlayerProfileContractCard";
 import PlayerProfileHeroCard from "./PlayerProfileHeroCard";
 import PlayerProfileInjuryBanner from "./PlayerProfileInjuryBanner";
 import PlayerProfileRecentMatchesCard, {
   type PlayerRecentMatchEntry,
 } from "./PlayerProfileRecentMatchesCard";
 import PlayerProfileRenewalModal from "./PlayerProfileRenewalModal";
-import PlayerProfileStatsCard from "./PlayerProfileStatsCard";
 import {
   type DelegatedRenewalCaseData,
   type DelegatedRenewalResponseData,
@@ -67,6 +70,22 @@ function areAdvancedStatsEqual(
 ): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
+
+type PlayerProfileTab = "attributes" | "statistics" | "career" | "contract" | "achievements";
+
+function translateWithFallback(
+  t: (key: string, options?: Record<string, string | number>) => string,
+  key: string,
+  fallback: string,
+): string {
+  const translated = t(key, { defaultValue: fallback });
+  return translated === key ? fallback : translated;
+}
+
+type TranslateFn = (
+  key: string,
+  options?: Record<string, string | number>,
+) => string;
 
 export default function PlayerProfile({
   player,
@@ -122,6 +141,8 @@ export default function PlayerProfile({
   const [showTerminationModal, setShowTerminationModal] = useState(false);
   const [advancedStatsOverride, setAdvancedStatsOverride] =
     useState<PlayerAdvancedStatsSummary | null>(null);
+  const [seasonStatsOverride, setSeasonStatsOverride] =
+    useState<PlayerSeasonStats | null>(null);
   const [recentMatches, setRecentMatches] = useState<PlayerRecentMatchEntry[]>([]);
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
     useState(false);
@@ -130,6 +151,7 @@ export default function PlayerProfile({
   const [godModeSubmitting, setGodModeSubmitting] = useState(false);
   const [godModeError, setGodModeError] = useState<string | null>(null);
   const [showGodModeEditor, setShowGodModeEditor] = useState(false);
+  const [activeTab, setActiveTab] = useState<PlayerProfileTab>("attributes");
   const canEditPlayer = godMode && Boolean(onGameUpdate);
   const ovr = getPlayerOvr(player);
   const age = getPlayerAge(player.date_of_birth);
@@ -190,8 +212,17 @@ export default function PlayerProfile({
   const attrGroups = buildPlayerAttributeGroups(player, t);
   const fallbackAdvancedStats = buildPlayerAdvancedStats(player, gameState.players);
   const advancedStats = advancedStatsOverride ?? fallbackAdvancedStats;
+  const displayStats = seasonStatsOverride ?? player.stats;
   const hasLetExpireIntent =
     player.morale_core?.renewal_state?.exit_intent?.kind === "let_expire";
+  const currentTeam = gameState.teams.find((team) => team.id === player.team_id) ?? null;
+  const profileTabs: { id: PlayerProfileTab; label: string }[] = [
+    { id: "attributes", label: translateWithFallback(t, "playerProfile.tabs.attributes", "Attributes") },
+    { id: "statistics", label: translateWithFallback(t, "playerProfile.tabs.statistics", "Statistics") },
+    { id: "career", label: translateWithFallback(t, "playerProfile.tabs.career", "Career") },
+    { id: "contract", label: translateWithFallback(t, "playerProfile.tabs.contract", "Contract & Transfers") },
+    { id: "achievements", label: translateWithFallback(t, "playerProfile.tabs.achievements", "Achievements") },
+  ];
 
   function openRenewalModal(): void {
     setRenewalWage(String(player.wage));
@@ -299,6 +330,7 @@ export default function PlayerProfile({
     let cancelled = false;
 
     setAdvancedStatsOverride((current) => (current === null ? current : null));
+    setSeasonStatsOverride((current) => (current === null ? current : null));
 
     const loadAdvancedStats = async (): Promise<void> => {
       try {
@@ -309,12 +341,21 @@ export default function PlayerProfile({
           },
         );
 
-        if (!cancelled && !areAdvancedStatsEqual(result, fallbackAdvancedStats)) {
+        if (cancelled) {
+          return;
+        }
+
+        if (result.seasonTotals) {
+          setSeasonStatsOverride(seasonTotalsToPlayerStats(result.seasonTotals));
+        }
+
+        if (!areAdvancedStatsEqual(result, fallbackAdvancedStats)) {
           setAdvancedStatsOverride(result);
         }
       } catch {
         if (!cancelled) {
           setAdvancedStatsOverride((current) => (current === null ? current : null));
+          setSeasonStatsOverride((current) => (current === null ? current : null));
         }
       }
     };
@@ -649,6 +690,7 @@ export default function PlayerProfile({
         primaryPosition={primaryPosition}
         age={age}
         teamName={teamName}
+        team={currentTeam}
         footednessLabel={footednessLabel}
         weakFootValue={weakFootValue}
         weeklySuffix={weeklySuffix}
@@ -704,7 +746,26 @@ export default function PlayerProfile({
         </div>
       ) : null}
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      <div className="rounded-xl border border-app-border bg-app-card/80 p-1 shadow-sm">
+        <div className="flex gap-1 overflow-x-auto custom-scrollbar">
+          {profileTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`shrink-0 rounded-lg px-4 py-2 font-heading text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                activeTab === tab.id
+                  ? "bg-app-green text-black shadow-[0_0_18px_rgba(34,197,94,0.18)]"
+                  : "text-app-text-muted hover:bg-white/5 hover:text-app-text"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "attributes" ? (
         <PlayerProfileAttributesCard
           attrGroups={attrGroups}
           isOwnClub={isOwnClub}
@@ -714,13 +775,49 @@ export default function PlayerProfile({
           hiddenTitle={t("playerProfile.attributesHidden")}
           hiddenBody={t("playerProfile.scoutToView")}
         />
-        <PlayerProfileStatsCard stats={player.stats} advancedStats={advancedStats} t={t} />
-      </div>
+      ) : null}
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-        <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
+      {activeTab === "statistics" ? (
+        <div className="flex min-w-0 flex-col gap-4">
+          <PlayerProfileStatisticsTable stats={displayStats} advancedStats={advancedStats} t={t} />
+          <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
+        </div>
+      ) : null}
+
+      {activeTab === "career" ? (
         <PlayerProfileCareerHistoryCard career={player.career} t={t} />
-      </div>
+      ) : null}
+
+      {activeTab === "contract" ? (
+        <PlayerProfileContractCard
+          dateOfBirth={player.date_of_birth}
+          contractEnd={player.contract_end}
+          currentDate={gameState.clock.current_date}
+          condition={player.condition}
+          morale={player.morale}
+          marketValue={player.market_value}
+          wage={player.wage}
+          weeklySuffix={weeklySuffix}
+          language={i18n.language}
+          contractRiskLevel={contractRiskLevel}
+          contractRiskLabel={contractRiskLabel}
+          isOwnClub={isOwnClub}
+          hasLetExpireIntent={hasLetExpireIntent}
+          actionSubmitting={contractActionSubmitting}
+          onOpenRenewal={openRenewalModal}
+          onMarkLetExpire={() => void handleMarkLetExpire()}
+          onClearLetExpire={() => void handleClearLetExpire()}
+          onOpenTermination={() => void openTerminationModal()}
+          t={t}
+        />
+      ) : null}
+
+      {activeTab === "achievements" ? (
+        <div className="flex min-w-0 flex-col gap-4">
+          <PlayerTransferHistoryTable transfers={advancedStats.transferHistory ?? []} t={t} />
+          <PlayerProfileCareerHistoryTable career={player.career} t={t} />
+        </div>
+      ) : null}
 
       <PlayerProfileRenewalModal
         show={showRenewalModal}
@@ -839,6 +936,246 @@ export default function PlayerProfile({
           </div>
         </DashboardModalFrame>
       ) : null}
+    </div>
+  );
+}
+
+function PlayerProfileStatisticsTable({
+  stats,
+  advancedStats,
+  t,
+}: {
+  stats: PlayerSeasonStats;
+  advancedStats: PlayerAdvancedStatsSummary;
+  t: TranslateFn;
+}) {
+  const competitionRows = advancedStats.competitionStats?.length
+    ? advancedStats.competitionStats
+    : [{
+        competition: translateWithFallback(t, "playerProfile.allCompetitions", "All Competitions"),
+        teamId: "",
+        teamName: "",
+        totals: {
+          appearances: stats.appearances,
+          goals: stats.goals,
+          assists: stats.assists,
+          cleanSheets: stats.clean_sheets,
+          yellowCards: stats.yellow_cards,
+          redCards: stats.red_cards,
+          avgRating: stats.avg_rating,
+          minutesPlayed: stats.minutes_played,
+          shots: stats.shots ?? 0,
+          shotsOnTarget: stats.shots_on_target ?? 0,
+          passesCompleted: stats.passes_completed ?? 0,
+          passesAttempted: stats.passes_attempted ?? 0,
+          tacklesWon: stats.tackles_won ?? 0,
+          interceptions: stats.interceptions ?? 0,
+          foulsCommitted: stats.fouls_committed ?? 0,
+        },
+      }];
+  const totalRow: PlayerCompetitionStatsSummary = {
+    competition: "Competitive Total",
+    teamId: "",
+    teamName: "",
+    totals: {
+      appearances: stats.appearances,
+      goals: stats.goals,
+      assists: stats.assists,
+      cleanSheets: stats.clean_sheets,
+      yellowCards: stats.yellow_cards,
+      redCards: stats.red_cards,
+      avgRating: stats.avg_rating,
+      minutesPlayed: stats.minutes_played,
+      shots: advancedStats.metrics.shots.total,
+      shotsOnTarget: advancedStats.metrics.shotsOnTarget.total,
+      passesCompleted: advancedStats.metrics.passes.completed,
+      passesAttempted: advancedStats.metrics.passes.attempted,
+      tacklesWon: advancedStats.metrics.tacklesWon.total,
+      interceptions: advancedStats.metrics.interceptions.total,
+      foulsCommitted: advancedStats.metrics.foulsCommitted.total,
+    },
+  };
+
+  return (
+    <CompetitionStatTable
+      title={translateWithFallback(t, "playerProfile.tabs.statistics", "Statistics")}
+      rows={[...competitionRows, totalRow]}
+      t={t}
+    />
+  );
+}
+
+function CompetitionStatTable({
+  title,
+  rows,
+  t,
+}: {
+  title: string;
+  rows: PlayerCompetitionStatsSummary[];
+  t: TranslateFn;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-app-border bg-app-card shadow-sm">
+      <div className="border-b border-app-border px-4 py-3">
+        <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-app-text">
+          {title}
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1180px] text-left text-sm">
+          <thead className="bg-app-bg/80 text-[10px] uppercase tracking-wider text-app-text-muted">
+            <tr>
+              <th className="px-4 py-3 font-heading font-bold">Competition</th>
+              <th className="px-4 py-3 font-heading font-bold">Club</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.apps")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.goals")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.assists")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.mins")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.cleanSheets")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.yellows")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.reds")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">{t("playerProfile.avgRating")}</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">Shots</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">SOT</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">Passes</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">Tackles</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">Ints</th>
+              <th className="px-4 py-3 text-right font-heading font-bold">Fouls</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-app-border">
+            {rows.map((row, index) => {
+              const isTotal = index === rows.length - 1;
+              return (
+                <tr key={`${row.competition}-${row.teamId}-${index}`} className={isTotal ? "bg-app-green/10 font-bold" : "hover:bg-white/[0.03]"}>
+                  <td className="px-4 py-3 font-heading text-xs font-bold uppercase tracking-wider text-app-text">
+                    {row.competition}
+                  </td>
+                  <td className="px-4 py-3 text-app-text-muted">{row.teamName || "—"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.appearances}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.goals}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.assists}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.minutesPlayed}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.cleanSheets}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.yellowCards}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.redCards}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.avgRating > 0 ? row.totals.avgRating.toFixed(1) : "-"}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.shots}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.shotsOnTarget}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.passesCompleted}/{row.totals.passesAttempted}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.tacklesWon}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.interceptions}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{row.totals.foulsCommitted}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PlayerTransferHistoryTable({
+  transfers,
+  t,
+}: {
+  transfers: PlayerTransferHistorySummary[];
+  t: TranslateFn;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-app-border bg-app-card shadow-sm">
+      <div className="border-b border-app-border px-4 py-3">
+        <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-app-text">
+          {translateWithFallback(t, "playerProfile.transferHistory", "Transfer History")}
+        </h3>
+      </div>
+      {transfers.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-app-bg/80 text-[10px] uppercase tracking-wider text-app-text-muted">
+              <tr>
+                <th className="px-4 py-3 font-heading font-bold">Date</th>
+                <th className="px-4 py-3 font-heading font-bold">Out</th>
+                <th className="px-4 py-3 font-heading font-bold">In</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Fee</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-border">
+              {transfers.map((transfer, index) => (
+                <tr key={`${transfer.date}-${transfer.fromTeamId}-${transfer.toTeamId}-${index}`} className="hover:bg-white/[0.03]">
+                  <td className="px-4 py-3 font-heading text-xs font-bold tabular-nums text-app-text-muted">{transfer.date}</td>
+                  <td className="px-4 py-3 font-semibold text-app-text">{transfer.fromTeamName}</td>
+                  <td className="px-4 py-3 font-semibold text-app-text">{transfer.toTeamName}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{formatExactMoney(transfer.fee)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="px-4 py-6 text-center text-sm text-app-text-muted">
+          {translateWithFallback(t, "playerProfile.noTransferHistory", "No transfer history yet")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PlayerProfileCareerHistoryTable({
+  career,
+  t,
+}: {
+  career: CareerEntry[];
+  t: TranslateFn;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-app-border bg-app-card shadow-sm">
+      <div className="border-b border-app-border px-4 py-3">
+        <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-app-text">
+          {t("playerProfile.careerHistory")}
+        </h3>
+      </div>
+      {career.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="bg-app-bg/80 text-[10px] uppercase tracking-wider text-app-text-muted">
+              <tr>
+                <th className="px-4 py-3 font-heading font-bold">Season</th>
+                <th className="px-4 py-3 font-heading font-bold">Team</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Apps</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Goals</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Assists</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Clean Sheets</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Yellows</th>
+                <th className="px-4 py-3 text-right font-heading font-bold">Reds</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-app-border">
+              {career.map((entry, index) => (
+                <tr key={`${entry.season}-${entry.team_name}-${index}`} className="hover:bg-white/[0.03]">
+                  <td className="px-4 py-3 font-heading text-xs font-bold tabular-nums text-app-text-muted">
+                    {entry.season}/{entry.season + 1}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-app-text">
+                    {entry.team_name}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{entry.appearances}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{entry.goals}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{entry.assists}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{entry.clean_sheets ?? 0}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{entry.yellow_cards ?? 0}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-app-text">{entry.red_cards ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="px-4 py-6 text-center text-sm text-app-text-muted">
+          {t("playerProfile.noCareer")}
+        </p>
+      )}
     </div>
   );
 }

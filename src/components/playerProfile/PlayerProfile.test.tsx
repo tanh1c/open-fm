@@ -106,6 +106,11 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.attributes") return "Attributes";
       if (key === "playerProfile.seasonStats") return "Season Stats";
       if (key === "playerProfile.advancedStats") return "Advanced Stats";
+      if (key === "playerProfile.tabs.attributes") return "Attributes";
+      if (key === "playerProfile.tabs.statistics") return "Statistics";
+      if (key === "playerProfile.tabs.career") return "Career";
+      if (key === "playerProfile.tabs.contract") return "Contract & Transfers";
+      if (key === "playerProfile.tabs.achievements") return "Achievements";
       if (key === "playerProfile.shots") return "Shots";
       if (key === "playerProfile.shotsOnTarget") return "Shots On Target";
       if (key === "playerProfile.passes") return "Passes";
@@ -503,11 +508,127 @@ describe("PlayerProfile contract surfaces", () => {
       });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Advanced Stats" }));
+    fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
 
+    expect(screen.getByRole("heading", { name: "Statistics" })).toBeInTheDocument();
     expect(screen.getByText("Shots")).toBeInTheDocument();
     expect(screen.getAllByText("33").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Pass Accuracy 80%/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("80%").length).toBeGreaterThan(0);
+  });
+
+  it("uses backend competitive totals while keeping friendly rows visible", async () => {
+    const player = createPlayer({
+      stats: {
+        appearances: 8,
+        goals: 3,
+        assists: 2,
+        clean_sheets: 0,
+        yellow_cards: 1,
+        red_cards: 0,
+        avg_rating: 6.8,
+        minutes_played: 520,
+        shots: 18,
+        shots_on_target: 8,
+        passes_completed: 64,
+        passes_attempted: 90,
+        tackles_won: 5,
+        interceptions: 4,
+        fouls_committed: 3,
+      },
+    });
+
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_player_stats_overview") {
+        return {
+          ...createAdvancedStatsSummary(),
+          seasonTotals: {
+            appearances: 15,
+            goals: 11,
+            assists: 7,
+            cleanSheets: 1,
+            yellowCards: 2,
+            redCards: 0,
+            avgRating: 7.4,
+            minutesPlayed: 1180,
+            shots: 42,
+            shotsOnTarget: 21,
+            passesCompleted: 180,
+            passesAttempted: 240,
+            tacklesWon: 12,
+            interceptions: 9,
+            foulsCommitted: 6,
+          },
+          competitionStats: [
+            {
+              competition: "Premier League",
+              teamId: "team-1",
+              teamName: "Alpha FC",
+              totals: {
+                appearances: 15,
+                goals: 11,
+                assists: 7,
+                cleanSheets: 1,
+                yellowCards: 2,
+                redCards: 0,
+                avgRating: 7.4,
+                minutesPlayed: 1180,
+                shots: 42,
+                shotsOnTarget: 21,
+                passesCompleted: 180,
+                passesAttempted: 240,
+                tacklesWon: 12,
+                interceptions: 9,
+                foulsCommitted: 6,
+              },
+            },
+            {
+              competition: "Friendly",
+              teamId: "team-1",
+              teamName: "Alpha FC",
+              totals: {
+                appearances: 2,
+                goals: 4,
+                assists: 1,
+                cleanSheets: 0,
+                yellowCards: 0,
+                redCards: 0,
+                avgRating: 8.1,
+                minutesPlayed: 180,
+                shots: 9,
+                shotsOnTarget: 6,
+                passesCompleted: 30,
+                passesAttempted: 40,
+                tacklesWon: 1,
+                interceptions: 1,
+                foulsCommitted: 0,
+              },
+            },
+          ],
+        };
+      }
+
+      return defaultInvokeResponse(command);
+    });
+
+    render(
+      <PlayerProfile
+        player={player}
+        gameState={createGameState(player)}
+        isOwnClub
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Premier League")).toBeInTheDocument();
+      expect(screen.getByText("Friendly")).toBeInTheDocument();
+      expect(screen.getByText("Competitive Total")).toBeInTheDocument();
+      expect(screen.getAllByText("15").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("11").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("1180").length).toBeGreaterThan(0);
+    });
   });
 
   it("loads and renders recent player match history", async () => {
@@ -563,6 +684,8 @@ describe("PlayerProfile contract surfaces", () => {
         onClose={vi.fn()}
       />,
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Statistics" }));
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("get_player_match_history", {

@@ -1,8 +1,8 @@
 use crate::game::Game;
 use crate::messages;
 use domain::league::{
-    CompactMatchEvent, CompactMatchReport, CompactTeamMatchStats, FixtureStatus, GoalEvent,
-    MatchResult,
+    CompactMatchEvent, CompactMatchReport, CompactTeamMatchStats, FixtureCompetition, FixtureStatus,
+    GoalEvent, MatchResult,
 };
 use domain::player::{
     Injury, PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
@@ -114,6 +114,10 @@ pub fn apply_match_report_with_capture<F>(
         home_scorers,
         away_scorers,
         report: Some(compact_match_report(report)),
+        winner_team_id: None,
+        resolution: None,
+        home_penalties: None,
+        away_penalties: None,
     };
     let mut counts_for_standings = false;
     let mut generates_match_news = false;
@@ -145,16 +149,22 @@ pub fn apply_match_report_with_capture<F>(
         fixture.result = Some(result);
     }
 
-    on_capture(build_stats_state_capture(
+    let stats_capture = build_stats_state_capture(
         game,
         fixture_index,
         home_team_id,
         away_team_id,
         report,
-    ));
+    );
+    let counts_for_official_player_stats = stats_capture
+        .player_matches
+        .first()
+        .is_some_and(|record| is_competitive_fixture(&record.competition));
+    on_capture(stats_capture);
 
-    // Update player season stats from the engine report
-    apply_player_stats(game, report, home_team_id, away_team_id);
+    if counts_for_official_player_stats {
+        apply_player_stats(game, report, home_team_id, away_team_id);
+    }
     resolve_post_match_promises(game, report, home_team_id, away_team_id);
 
     // Deplete stamina for players who played, scaled by minutes on pitch
@@ -399,6 +409,13 @@ fn build_stats_state_capture(
 // ---------------------------------------------------------------------------
 // Post-match: feed engine report stats back into domain Player models
 // ---------------------------------------------------------------------------
+
+fn is_competitive_fixture(competition: &FixtureCompetition) -> bool {
+    !matches!(
+        competition,
+        FixtureCompetition::Friendly | FixtureCompetition::PreseasonTournament
+    )
+}
 
 fn apply_player_stats(
     game: &mut Game,

@@ -399,6 +399,10 @@ export interface FixtureData {
     home_scorers: { player_id: string; minute: number }[];
     away_scorers: { player_id: string; minute: number }[];
     report?: CompactMatchReportData | null;
+    winner_team_id?: string | null;
+    resolution?: "RegularTime" | "AfterExtraTime" | "AfterPenalties" | null;
+    home_penalties?: number | null;
+    away_penalties?: number | null;
   };
   /** Knockout stage id ("round_1", "playoff", "r16", "qf", "sf", "final"); null for league matches. */
   stage?: string | null;
@@ -431,6 +435,76 @@ export interface CompactMatchReportData {
   home_stats: CompactTeamMatchStatsData;
   away_stats: CompactTeamMatchStatsData;
   events: CompactMatchEventData[];
+}
+
+export interface MatchDetailEventData {
+  minute: number;
+  eventType: string;
+  side: "Home" | "Away";
+  playerId: string | null;
+  playerName: string | null;
+  secondaryPlayerId: string | null;
+  secondaryPlayerName: string | null;
+}
+
+export interface MatchDetailTeamStatsData {
+  teamId: string;
+  teamName: string;
+  possessionPct: number;
+  shots: number;
+  shotsOnTarget: number;
+  passesCompleted: number | null;
+  passesAttempted: number | null;
+  tacklesWon: number | null;
+  interceptions: number | null;
+  fouls: number;
+  corners: number | null;
+  yellowCards: number;
+  redCards: number;
+}
+
+export interface MatchDetailPlayerStatsData {
+  playerId: string;
+  playerName: string;
+  teamId: string;
+  teamName: string;
+  side: "Home" | "Away";
+  minutesPlayed: number;
+  goals: number;
+  assists: number;
+  shots: number;
+  shotsOnTarget: number;
+  passesCompleted: number;
+  passesAttempted: number;
+  tacklesWon: number;
+  interceptions: number;
+  foulsCommitted: number;
+  yellowCards: number;
+  redCards: number;
+  rating: number;
+}
+
+export interface MatchDetailData {
+  fixtureId: string;
+  date: string;
+  competition: string;
+  matchday: number;
+  stage: string | null;
+  leg: number | null;
+  homeTeamId: string;
+  homeTeamName: string;
+  awayTeamId: string;
+  awayTeamName: string;
+  homeGoals: number;
+  awayGoals: number;
+  resolution: string | null;
+  homePenalties: number | null;
+  awayPenalties: number | null;
+  totalMinutes: number | null;
+  events: MatchDetailEventData[];
+  homeStats: MatchDetailTeamStatsData | null;
+  awayStats: MatchDetailTeamStatsData | null;
+  playerStats: MatchDetailPlayerStatsData[];
 }
 
 export interface StandingData {
@@ -596,6 +670,9 @@ export interface CompetitionChampion {
   competition_name: string;
   team_id: string;
   team_name: string;
+  runner_up_team_id?: string | null;
+  runner_up_team_name?: string | null;
+  resolution_label?: string | null;
 }
 
 export interface SeasonHonours {

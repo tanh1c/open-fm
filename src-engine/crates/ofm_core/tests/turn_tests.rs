@@ -225,6 +225,22 @@ fn make_game_without_match_today() -> Game {
     game
 }
 
+fn add_bench_players(game: &mut Game, team_id: &str, prefix: &str) {
+    for i in 0..5 {
+        let position = match i {
+            0 => Position::Defender,
+            1 | 2 => Position::Midfielder,
+            _ => Position::Forward,
+        };
+        game.players.push(make_player(
+            &format!("{}_sub{}", prefix, i),
+            &format!("{} Sub{}", prefix, i),
+            team_id,
+            position,
+        ));
+    }
+}
+
 fn empty_report(home_goals: u8, away_goals: u8) -> MatchReport {
     MatchReport {
         home_goals,
@@ -644,6 +660,30 @@ fn simulate_other_matches_processes_all() {
 
     let fixture = &game.league.as_ref().unwrap().fixtures[0];
     assert_eq!(fixture.status, FixtureStatus::Completed);
+}
+
+#[test]
+fn simulate_other_matches_records_ai_substitutions() {
+    let mut game = make_game_with_match();
+    add_bench_players(&mut game, "team1", "t1");
+    add_bench_players(&mut game, "team2", "t2");
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+
+    turn::simulate_other_matches(&mut game, &today, None);
+
+    let report = game
+        .league
+        .as_ref()
+        .unwrap()
+        .fixtures[0]
+        .result
+        .as_ref()
+        .and_then(|result| result.report.as_ref())
+        .expect("autosim should persist a compact match report");
+    assert!(
+        report.events.iter().any(|event| event.event_type == "Substitution"),
+        "AI-managed autosim should record substitution events"
+    );
 }
 
 #[test]

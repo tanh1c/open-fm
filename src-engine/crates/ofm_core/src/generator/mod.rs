@@ -9,7 +9,7 @@ pub use world_io::*;
 use domain::player::{Player, Position};
 use domain::staff::{Staff, StaffRole};
 use domain::team::Team;
-use domain::team::{Facilities, TeamColors};
+use domain::team::{Facilities, PlayStyle, TeamColors};
 use log::{debug, info};
 use rand::RngExt;
 use uuid::Uuid;
@@ -53,6 +53,25 @@ fn tactical_familiarity_from_level(tactical_level: u8, volatility: u8) -> u8 {
     let base = 35_i16 + (tactical_level as i16 * 45 / 100);
     let volatility_penalty = ((volatility as i16 - 45).max(0) * 12) / 55;
     (base - volatility_penalty).clamp(35, 88) as u8
+}
+
+fn default_formation_for_team(play_style: &PlayStyle, tactical_level: u8, volatility: u8) -> String {
+    let formation = match play_style {
+        PlayStyle::Possession if tactical_level >= 70 => "4-3-3",
+        PlayStyle::Possession => "4-2-3-1",
+        PlayStyle::HighPress if tactical_level >= 70 => "4-3-3",
+        PlayStyle::HighPress => "4-2-3-1",
+        PlayStyle::Attacking if volatility >= 65 => "3-4-3",
+        PlayStyle::Attacking => "4-2-3-1",
+        PlayStyle::Counter => "4-2-3-1",
+        PlayStyle::Defensive if tactical_level >= 65 => "3-5-2",
+        PlayStyle::Defensive => "5-3-2",
+        PlayStyle::Balanced if tactical_level >= 75 => "4-3-3",
+        PlayStyle::Balanced if volatility >= 70 => "4-4-2",
+        PlayStyle::Balanced => "4-2-3-1",
+    };
+
+    formation.to_string()
 }
 
 fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {
@@ -426,6 +445,7 @@ pub fn generate_world(
             secondary: tdef.colors.secondary.clone(),
         };
         team.play_style = play_style_from_str(&tdef.play_style);
+        team.formation = default_formation_for_team(&team.play_style, team.tactical_level, team.volatility);
         let team_player_start = players.len();
 
         // Generate 22 players
@@ -837,6 +857,8 @@ mod tests {
         assert_eq!(arsenal.facilities.training, 4);
         assert_eq!(arsenal.facilities.scouting, 5);
         assert!(arsenal.tactical_familiarity >= 75);
+        assert_eq!(arsenal.formation, "4-3-3");
+        assert_ne!(manchester_city.formation, "4-4-2");
         assert!(manchester_city.reputation > boulogne.reputation + 550);
         assert!(arsenal.finance > boulogne.finance + 100_000_000);
         assert!(arsenal.recruitment_power > boulogne.recruitment_power + 35);

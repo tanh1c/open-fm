@@ -286,6 +286,8 @@ impl MatchReport {
         } else {
             50.0
         };
+        normalize_realistic_team_totals(&mut home_stats, home_possession, total_minutes, 17);
+        normalize_realistic_team_totals(&mut away_stats, 100.0 - home_possession, total_minutes, 43);
 
         Self {
             home_goals: home_stats.goals,
@@ -298,6 +300,37 @@ impl MatchReport {
             home_possession,
             total_minutes,
         }
+    }
+}
+
+fn normalize_realistic_team_totals(stats: &mut TeamStats, possession_pct: f64, total_minutes: u8, seed: u16) {
+    let minutes_scale = (total_minutes as f64 / 90.0).clamp(0.85, 1.35);
+    let possession_delta = possession_pct - 50.0;
+    let completed_target = ((405.0 + possession_delta * 5.8 + seed as f64) * minutes_scale)
+        .round()
+        .clamp(250.0, 680.0) as u16;
+    let accuracy = (0.79 + possession_delta * 0.0018).clamp(0.70, 0.91);
+    let attempted_target = ((completed_target as f64 / accuracy).round() as u16).max(completed_target);
+
+    stats.passes_completed = stats.passes_completed.max(completed_target);
+    stats.passes_intercepted = stats
+        .passes_intercepted
+        .max(attempted_target.saturating_sub(stats.passes_completed));
+
+    let foul_target = ((10.5 - possession_delta * 0.045 + (seed % 4) as f64) * minutes_scale)
+        .round()
+        .clamp(5.0, 20.0) as u16;
+    stats.fouls = stats.fouls.max(foul_target);
+
+    let yellow_target = match stats.fouls {
+        0..=8 => 1,
+        9..=13 => 2,
+        14..=17 => 3,
+        _ => 4,
+    };
+    stats.yellow_cards = stats.yellow_cards.max(yellow_target).min(6);
+    if stats.fouls >= 16 && seed % 11 == 0 {
+        stats.red_cards = stats.red_cards.max(1);
     }
 }
 

@@ -13,7 +13,11 @@ use crate::transfers;
 use chrono::Datelike;
 use domain::league::{Fixture, FixtureStatus, GoalEvent, MatchResult};
 use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
+use engine::ai::{self, AiProfile};
+use engine::{LiveMatchState, MatchConfig, MatchPhase, Side};
 use log::{debug, info};
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use std::collections::HashMap;
 
 // Re-export public items
@@ -1213,7 +1217,71 @@ fn simulate_single_match_with_capture<F>(
 ) where
     F: FnMut(StatsState),
 {
-    let config = engine::MatchConfig::default();
-    let report = engine::simulate(&home_data, &away_data, &config);
+    let (home_bench, away_bench) = {
+        let (_, home_bench) = build_team_with_bench(game, home_team_id);
+        let (_, away_bench) = build_team_with_bench(game, away_team_id);
+        (home_bench, away_bench)
+    };
+    let report = simulate_ai_managed_match(game, home_team_id, away_team_id, home_data, away_data, home_bench, away_bench);
     apply_match_report_with_capture(game, idx, home_team_id, away_team_id, &report, on_capture);
+}
+
+fn simulate_ai_managed_match(
+    game: &Game,
+    home_team_id: &str,
+    away_team_id: &str,
+    home_data: engine::TeamData,
+    away_data: engine::TeamData,
+    home_bench: Vec<engine::PlayerData>,
+    away_bench: Vec<engine::PlayerData>,
+) -> engine::MatchReport {
+    let mut rng = StdRng::from_rng(&mut rand::rng());
+    let mut match_state = LiveMatchState::new(
+        home_data,
+        away_data,
+        MatchConfig::default(),
+        home_bench,
+        away_bench,
+        false,
+    );
+    let home_ai = ai_profile_for_team(game, home_team_id);
+    let away_ai = ai_profile_for_team(game, away_team_id);
+
+    loop {
+        let result = match_state.step_minute(&mut rng);
+        if result.is_finished {
+            break;
+        }
+
+        if matches!(
+            result.phase,
+            MatchPhase::FirstHalf
+                | MatchPhase::SecondHalf
+                | MatchPhase::ExtraTimeFirstHalf
+                | MatchPhase::ExtraTimeSecondHalf
+        ) {
+            for command in ai::ai_decide(&match_state, Side::Home, &home_ai, &mut rng) {
+                let _ = match_state.apply_command(command);
+            }
+            for command in ai::ai_decide(&match_state, Side::Away, &away_ai, &mut rng) {
+                let _ = match_state.apply_command(command);
+            }
+        }
+    }
+
+    match_state.into_report()
+}
+
+fn ai_profile_for_team(game: &Game, team_id: &str) -> AiProfile {
+    let reputation = game
+        .teams
+        .iter()
+        .find(|team| team.id == team_id)
+        .map(|team| team.reputation)
+        .unwrap_or(500);
+
+    AiProfile {
+        reputation,
+        experience: (reputation / 10).min(100) as u8,
+    }
 }

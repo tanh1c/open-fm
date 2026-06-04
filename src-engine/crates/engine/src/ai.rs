@@ -148,6 +148,38 @@ fn consider_substitution<R: Rng>(
         }
     }
 
+    // --- Planned rotation substitutions ---
+    if minute >= 58 + subs_made.saturating_mul(9) {
+        let chance = (0.28 + experience_factor * 0.22 + (minute.saturating_sub(58) as f64 * 0.015))
+            .clamp(0.0, 0.85);
+        if rng.random_range(0.0..1.0f64) < chance {
+            let mut candidates: Vec<&PlayerData> = team
+                .players
+                .iter()
+                .filter(|player| {
+                    player.position != Position::Goalkeeper && !snap.sent_off.contains(&player.id)
+                })
+                .collect();
+            candidates.sort_by(|left, right| {
+                left.condition
+                    .cmp(&right.condition)
+                    .then_with(|| left.ovr.cmp(&right.ovr))
+            });
+
+            for player_off in candidates {
+                if let Some(player_on) =
+                    find_best_bench_replacement(bench, player_off.position, &snap.sent_off)
+                {
+                    return Some(MatchCommand::Substitute {
+                        side,
+                        player_off_id: player_off.id.clone(),
+                        player_on_id: player_on.id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
     // --- Tactical substitutions (losing and past 65') ---
     if goal_diff < 0 && minute >= 65 && subs_made < 3 {
         // Bring on an attacker if losing

@@ -21,11 +21,30 @@ import { ENGINE_COMMANDS } from "./engineCommands.generated";
 let workerProxy: Remote<EngineApi> | null = null;
 let bootstrapPromise: Promise<void> | null = null;
 
+const ENGINE_WORKER_KEY = "__ofmEngineWorker";
+
+type WindowWithEngineWorker = Window & {
+  [ENGINE_WORKER_KEY]?: Worker;
+};
+
+function terminateExistingWorker(): void {
+  const globalWindow = typeof window === "undefined" ? null : (window as WindowWithEngineWorker);
+  globalWindow?.[ENGINE_WORKER_KEY]?.terminate();
+  if (globalWindow) {
+    delete globalWindow[ENGINE_WORKER_KEY];
+  }
+}
+
 function spawnWorker(): Worker {
-  return new Worker(new URL("./engineWorker.ts", import.meta.url), {
+  terminateExistingWorker();
+  const worker = new Worker(new URL("./engineWorker.ts", import.meta.url), {
     type: "module",
     name: "ofm-engine",
   });
+  if (typeof window !== "undefined") {
+    (window as WindowWithEngineWorker)[ENGINE_WORKER_KEY] = worker;
+  }
+  return worker;
 }
 
 export async function bootstrap(): Promise<void> {

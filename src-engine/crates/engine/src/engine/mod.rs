@@ -75,19 +75,16 @@ pub fn simulate_with_rng<R: Rng>(
         Zone::Midfield,
     ));
 
-    let tracked_player_ids = home
-        .players
-        .iter()
-        .chain(away.players.iter())
-        .map(|player| player.id.clone())
-        .collect();
+    let home_player_ids = home.players.iter().map(|player| player.id.clone()).collect();
+    let away_player_ids = away.players.iter().map(|player| player.id.clone()).collect();
 
-    MatchReport::from_events_with_players(
+    MatchReport::from_events_with_player_sides(
         ctx.events,
         ctx.home_possession_ticks,
         ctx.away_possession_ticks,
         total_minutes,
-        tracked_player_ids,
+        home_player_ids,
+        away_player_ids,
     )
 }
 

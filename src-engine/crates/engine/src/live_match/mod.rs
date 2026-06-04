@@ -337,20 +337,16 @@ impl LiveMatchState {
 
     /// Convert the finished match into a MatchReport.
     pub fn into_report(self) -> MatchReport {
-        let tracked_player_ids = self
-            .home
-            .players
-            .iter()
-            .chain(self.away.players.iter())
-            .map(|player| player.id.clone())
-            .collect();
+        let home_player_ids = self.home.players.iter().map(|player| player.id.clone()).collect();
+        let away_player_ids = self.away.players.iter().map(|player| player.id.clone()).collect();
 
-        MatchReport::from_events_with_players(
+        MatchReport::from_events_with_player_sides(
             self.events,
             self.home_possession_ticks,
             self.away_possession_ticks,
             self.current_minute,
-            tracked_player_ids,
+            home_player_ids,
+            away_player_ids,
         )
     }
 

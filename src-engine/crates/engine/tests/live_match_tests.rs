@@ -933,6 +933,92 @@ fn report_has_team_stats() {
     assert!(report.away_stats.shots > 0 || report.away_stats.shots == 0);
 }
 
+#[test]
+fn report_allocates_team_aggregate_stats_to_players() {
+    let mut state = make_live_match(false);
+    let home_off_id = state.snapshot().home_team.players[5].id.clone();
+    let home_on_id = state.bench(Side::Home)[0].id.clone();
+    let mut setup_rng = seeded_rng(1);
+    for _ in 0..10 {
+        state.step_minute(&mut setup_rng);
+    }
+    state
+        .apply_command(MatchCommand::Substitute {
+            side: Side::Home,
+            player_off_id: home_off_id.clone(),
+            player_on_id: home_on_id.clone(),
+        })
+        .unwrap();
+
+    let mut rng = seeded_rng(42);
+    run_to_finish(&mut state, &mut rng);
+
+    let report = state.into_report();
+    let home_player_ids: Vec<String> = report
+        .player_stats
+        .iter()
+        .filter_map(|(player_id, stats)| {
+            if player_id.starts_with("home_") && stats.minutes_played > 0 {
+                Some(player_id.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let away_player_ids: Vec<String> = report
+        .player_stats
+        .iter()
+        .filter_map(|(player_id, stats)| {
+            if player_id.starts_with("away_") && stats.minutes_played > 0 {
+                Some(player_id.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert!(home_player_ids.contains(&home_off_id));
+    assert!(home_player_ids.contains(&home_on_id));
+    for (team_stats, player_ids) in [
+        (&report.home_stats, home_player_ids),
+        (&report.away_stats, away_player_ids),
+    ] {
+        let player_passes_completed: u16 = player_ids
+            .iter()
+            .map(|id| report.player_stats[id].passes_completed as u16)
+            .sum();
+        let player_passes_attempted: u16 = player_ids
+            .iter()
+            .map(|id| report.player_stats[id].passes_attempted as u16)
+            .sum();
+        let player_fouls: u16 = player_ids
+            .iter()
+            .map(|id| report.player_stats[id].fouls_committed as u16)
+            .sum();
+        let player_yellows: u8 = player_ids
+            .iter()
+            .map(|id| report.player_stats[id].yellow_cards)
+            .sum();
+        let player_reds: u8 = player_ids
+            .iter()
+            .map(|id| report.player_stats[id].red_cards)
+            .sum();
+
+        assert_eq!(player_passes_completed, team_stats.passes_completed);
+        assert_eq!(
+            player_passes_attempted,
+            team_stats.passes_completed + team_stats.passes_intercepted
+        );
+        assert_eq!(player_fouls, team_stats.fouls);
+        assert_eq!(player_yellows, team_stats.yellow_cards);
+        assert_eq!(player_reds, team_stats.red_cards);
+        for player_id in player_ids {
+            let stats = &report.player_stats[&player_id];
+            assert!(stats.passes_attempted >= stats.passes_completed);
+            assert!((4.0..=10.0).contains(&stats.rating));
+        }
+    }
+}
+
 // ===========================================================================
 // Tests: Pre-match swaps
 // ===========================================================================

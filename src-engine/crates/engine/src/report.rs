@@ -117,6 +117,30 @@ impl MatchReport {
         total_minutes: u8,
         tracked_player_ids: Vec<String>,
     ) -> Self {
+        Self::from_events_with_player_sides(
+            events,
+            home_possession_ticks,
+            away_possession_ticks,
+            total_minutes,
+            tracked_player_ids,
+            Vec::new(),
+        )
+    }
+
+    pub fn from_events_with_player_sides(
+        events: Vec<MatchEvent>,
+        home_possession_ticks: u32,
+        away_possession_ticks: u32,
+        total_minutes: u8,
+        mut home_player_ids: Vec<String>,
+        mut away_player_ids: Vec<String>,
+    ) -> Self {
+        include_substitution_players_by_side(&events, &mut home_player_ids, &mut away_player_ids);
+        let tracked_player_ids: Vec<String> = home_player_ids
+            .iter()
+            .chain(away_player_ids.iter())
+            .cloned()
+            .collect();
         let mut home_stats = TeamStats::default();
         let mut away_stats = TeamStats::default();
         let mut goals = Vec::new();
@@ -278,7 +302,6 @@ impl MatchReport {
             &tracked_player_ids,
             &mut player_stats,
         );
-        compute_player_ratings(&mut player_stats);
 
         let total_poss = home_possession_ticks + away_possession_ticks;
         let home_possession = if total_poss > 0 {
@@ -288,6 +311,9 @@ impl MatchReport {
         };
         normalize_realistic_team_totals(&mut home_stats, home_possession, total_minutes, 17);
         normalize_realistic_team_totals(&mut away_stats, 100.0 - home_possession, total_minutes, 43);
+        allocate_team_totals_to_players(&home_stats, &home_player_ids, &mut player_stats, 17);
+        allocate_team_totals_to_players(&away_stats, &away_player_ids, &mut player_stats, 43);
+        compute_player_ratings(&mut player_stats);
 
         Self {
             home_goals: home_stats.goals,
@@ -332,6 +358,200 @@ fn normalize_realistic_team_totals(stats: &mut TeamStats, possession_pct: f64, t
     if stats.fouls >= 16 && seed % 11 == 0 {
         stats.red_cards = stats.red_cards.max(1);
     }
+}
+
+fn include_substitution_players_by_side(
+    events: &[MatchEvent],
+    home_player_ids: &mut Vec<String>,
+    away_player_ids: &mut Vec<String>,
+) {
+    for event in events {
+        if event.event_type != EventType::Substitution {
+            continue;
+        }
+        let side_player_ids = match event.side {
+            Side::Home => &mut *home_player_ids,
+            Side::Away => &mut *away_player_ids,
+        };
+        for player_id in [event.player_id.as_ref(), event.secondary_player_id.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            if !side_player_ids.contains(player_id) {
+                side_player_ids.push(player_id.clone());
+            }
+        }
+    }
+}
+
+fn allocate_team_totals_to_players(
+    team_stats: &TeamStats,
+    player_ids: &[String],
+    player_stats: &mut HashMap<String, PlayerMatchStats>,
+    seed: u16,
+) {
+    let eligible_ids: Vec<String> = player_ids
+        .iter()
+        .filter(|player_id| {
+            player_stats
+                .get(*player_id)
+                .is_some_and(|stats| stats.minutes_played > 0)
+        })
+        .cloned()
+        .collect();
+    if eligible_ids.is_empty() {
+        return;
+    }
+
+    distribute_u16_deficit(
+        &eligible_ids,
+        player_stats,
+        team_stats.passes_completed,
+        seed,
+        |stats| stats.passes_completed as u16,
+        |stats, amount| {
+            stats.passes_completed = stats.passes_completed.saturating_add(amount as u8);
+            stats.passes_attempted = stats.passes_attempted.max(stats.passes_completed);
+        },
+    );
+
+    let team_passes_attempted = team_stats.passes_completed + team_stats.passes_intercepted;
+    distribute_u16_deficit(
+        &eligible_ids,
+        player_stats,
+        team_passes_attempted,
+        seed.wrapping_add(11),
+        |stats| stats.passes_attempted as u16,
+        |stats, amount| {
+            stats.passes_attempted = stats.passes_attempted.saturating_add(amount as u8);
+            stats.passes_attempted = stats.passes_attempted.max(stats.passes_completed);
+        },
+    );
+
+    distribute_u16_deficit(
+        &eligible_ids,
+        player_stats,
+        team_stats.fouls,
+        seed.wrapping_add(23),
+        |stats| stats.fouls_committed as u16,
+        |stats, amount| stats.fouls_committed = stats.fouls_committed.saturating_add(amount as u8),
+    );
+
+    distribute_u8_deficit(
+        &eligible_ids,
+        player_stats,
+        team_stats.yellow_cards,
+        seed.wrapping_add(31),
+        |stats| stats.yellow_cards,
+        |stats| stats.yellow_cards = stats.yellow_cards.saturating_add(1),
+    );
+
+    distribute_u8_deficit(
+        &eligible_ids,
+        player_stats,
+        team_stats.red_cards,
+        seed.wrapping_add(37),
+        |stats| stats.red_cards,
+        |stats| stats.red_cards = stats.red_cards.saturating_add(1),
+    );
+}
+
+fn distribute_u16_deficit(
+    player_ids: &[String],
+    player_stats: &mut HashMap<String, PlayerMatchStats>,
+    target_total: u16,
+    seed: u16,
+    value: impl Fn(&PlayerMatchStats) -> u16,
+    mut add: impl FnMut(&mut PlayerMatchStats, u16),
+) {
+    let current_total: u16 = player_ids
+        .iter()
+        .filter_map(|player_id| player_stats.get(player_id))
+        .map(&value)
+        .sum();
+    let mut deficit = target_total.saturating_sub(current_total);
+    if deficit == 0 {
+        return;
+    }
+
+    let weights = allocation_weights(player_ids, player_stats, seed);
+    let total_weight: u32 = weights.iter().map(|(_, weight)| *weight).sum();
+    if total_weight == 0 {
+        return;
+    }
+
+    for (index, (player_id, weight)) in weights.iter().enumerate() {
+        let is_last = index + 1 == weights.len();
+        let amount = if is_last {
+            deficit
+        } else {
+            ((target_total.saturating_sub(current_total) as u32 * *weight) / total_weight) as u16
+        };
+        if amount == 0 {
+            continue;
+        }
+        if let Some(stats) = player_stats.get_mut(player_id) {
+            add(stats, amount.min(deficit));
+        }
+        deficit = deficit.saturating_sub(amount);
+        if deficit == 0 {
+            break;
+        }
+    }
+}
+
+fn distribute_u8_deficit(
+    player_ids: &[String],
+    player_stats: &mut HashMap<String, PlayerMatchStats>,
+    target_total: u8,
+    seed: u16,
+    value: impl Fn(&PlayerMatchStats) -> u8,
+    mut add: impl FnMut(&mut PlayerMatchStats),
+) {
+    let current_total: u8 = player_ids
+        .iter()
+        .filter_map(|player_id| player_stats.get(player_id))
+        .map(&value)
+        .sum();
+    let mut deficit = target_total.saturating_sub(current_total);
+    if deficit == 0 {
+        return;
+    }
+
+    let mut weights = allocation_weights(player_ids, player_stats, seed);
+    weights.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    for (player_id, _) in weights.iter().cycle().take(deficit as usize) {
+        if let Some(stats) = player_stats.get_mut(player_id) {
+            add(stats);
+            deficit = deficit.saturating_sub(1);
+        }
+        if deficit == 0 {
+            break;
+        }
+    }
+}
+
+fn allocation_weights(
+    player_ids: &[String],
+    player_stats: &HashMap<String, PlayerMatchStats>,
+    seed: u16,
+) -> Vec<(String, u32)> {
+    player_ids
+        .iter()
+        .filter_map(|player_id| {
+            let stats = player_stats.get(player_id)?;
+            if stats.minutes_played == 0 {
+                return None;
+            }
+            let id_bias = player_id
+                .bytes()
+                .fold(seed as u32, |acc, byte| acc.wrapping_mul(31).wrapping_add(byte as u32));
+            Some((
+                player_id.clone(),
+                stats.minutes_played as u32 * 100 + id_bias % 29,
+            ))
+        })
+        .collect()
 }
 
 fn compute_player_ratings(player_stats: &mut HashMap<String, PlayerMatchStats>) {

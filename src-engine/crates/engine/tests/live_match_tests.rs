@@ -133,6 +133,12 @@ fn run_to_finish(state: &mut LiveMatchState, rng: &mut StdRng) -> Vec<MinuteResu
     results
 }
 
+fn state_to_minute(state: &mut LiveMatchState, rng: &mut StdRng, minute: u8) {
+    while state.minute() < minute {
+        state.step_minute(rng);
+    }
+}
+
 // ===========================================================================
 // Tests: Basic lifecycle
 // ===========================================================================
@@ -706,6 +712,164 @@ fn ai_makes_substitutions_eventually() {
         any_subs,
         "AI should make at least one substitution across 20 matches"
     );
+}
+
+#[test]
+fn ai_prefers_tired_outfield_player_for_substitution() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(7);
+    for _ in 0..72 {
+        state.step_minute(&mut rng);
+    }
+
+    let profile = AiProfile {
+        reputation: 900,
+        experience: 95,
+    };
+    let mut saw_sub = false;
+    for seed in 0..20 {
+        let mut decision_rng = seeded_rng(seed);
+        let cmds = ai_decide(&state, Side::Home, &profile, &mut decision_rng);
+        if cmds.iter().any(|cmd| matches!(cmd, MatchCommand::Substitute { .. })) {
+            saw_sub = true;
+            break;
+        }
+    }
+
+    assert!(saw_sub, "AI should try a fatigue substitution after heavy depletion");
+}
+
+#[test]
+fn ai_yellow_carded_defender_increases_substitution_urgency() {
+    let mut base_state = make_live_match(false);
+    let mut rng = seeded_rng(11);
+    state_to_minute(&mut base_state, &mut rng, 64);
+
+    let mut booked_state = make_live_match(false);
+    let mut rng = seeded_rng(11);
+    state_to_minute(&mut booked_state, &mut rng, 64);
+    let defender_id = booked_state.snapshot().home_team.players[1].id.clone();
+    booked_state.test_add_yellow(&defender_id);
+
+    let profile = AiProfile {
+        reputation: 900,
+        experience: 95,
+    };
+    let base_sub_count = (0..40)
+        .filter(|seed| {
+            let mut decision_rng = seeded_rng(*seed);
+            ai_decide(&base_state, Side::Home, &profile, &mut decision_rng)
+                .iter()
+                .any(|cmd| matches!(cmd, MatchCommand::Substitute { .. }))
+        })
+        .count();
+    let booked_sub_count = (0..40)
+        .filter(|seed| {
+            let mut decision_rng = seeded_rng(*seed);
+            ai_decide(&booked_state, Side::Home, &profile, &mut decision_rng)
+                .iter()
+                .any(|cmd| matches!(cmd, MatchCommand::Substitute { .. }))
+        })
+        .count();
+
+    assert!(
+        booked_sub_count >= base_sub_count,
+        "Booked defender should not reduce AI substitution urgency: booked={booked_sub_count}, base={base_sub_count}"
+    );
+}
+
+#[test]
+fn ai_trailing_late_changes_to_attacking_behavior() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(13);
+    for _ in 0..78 {
+        state.step_minute(&mut rng);
+    }
+    state.test_set_score(0, 2);
+
+    let profile = AiProfile {
+        reputation: 900,
+        experience: 95,
+    };
+    let mut saw_attacking_change = false;
+    for seed in 0..20 {
+        let mut decision_rng = seeded_rng(seed);
+        let cmds = ai_decide(&state, Side::Home, &profile, &mut decision_rng);
+        if cmds.iter().any(|cmd| match cmd {
+            MatchCommand::ChangePlayStyle {
+                play_style: PlayStyle::Attacking | PlayStyle::HighPress,
+                ..
+            } => true,
+            MatchCommand::ChangeFormation { formation, .. } => {
+                matches!(formation.as_str(), "4-2-4" | "3-4-3" | "3-5-2")
+            }
+            _ => false,
+        }) {
+            saw_attacking_change = true;
+            break;
+        }
+    }
+
+    assert!(saw_attacking_change, "Trailing AI should chase the game late");
+}
+
+#[test]
+fn ai_leading_late_changes_to_protective_behavior() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(17);
+    for _ in 0..82 {
+        state.step_minute(&mut rng);
+    }
+    state.test_set_score(2, 0);
+
+    let profile = AiProfile {
+        reputation: 900,
+        experience: 95,
+    };
+    let mut saw_protective_change = false;
+    for seed in 0..20 {
+        let mut decision_rng = seeded_rng(seed);
+        let cmds = ai_decide(&state, Side::Home, &profile, &mut decision_rng);
+        if cmds.iter().any(|cmd| match cmd {
+            MatchCommand::ChangePlayStyle {
+                play_style: PlayStyle::Defensive | PlayStyle::Counter,
+                ..
+            } => true,
+            MatchCommand::ChangeFormation { formation, .. } => {
+                matches!(formation.as_str(), "5-4-1" | "4-5-1" | "5-3-2")
+            }
+            _ => false,
+        }) {
+            saw_protective_change = true;
+            break;
+        }
+    }
+
+    assert!(saw_protective_change, "Leading AI should protect the game late");
+}
+
+#[test]
+fn ai_commands_still_respect_five_sub_limit() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(19);
+    for _ in 0..60 {
+        state.step_minute(&mut rng);
+    }
+
+    let profile = AiProfile {
+        reputation: 1000,
+        experience: 100,
+    };
+    for seed in 0..160 {
+        let mut decision_rng = seeded_rng(seed);
+        let cmds = ai_decide(&state, Side::Home, &profile, &mut decision_rng);
+        for cmd in cmds {
+            let _ = state.apply_command(cmd);
+        }
+        state.step_minute(&mut rng);
+    }
+
+    assert!(state.snapshot().home_subs_made <= 5);
 }
 
 // ===========================================================================

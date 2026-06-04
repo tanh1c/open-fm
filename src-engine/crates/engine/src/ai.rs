@@ -1,7 +1,7 @@
 use rand::{Rng, RngExt};
 
 use crate::live_match::{LiveMatchState, MatchCommand, MatchPhase};
-use crate::types::{PlayStyle, PlayerData, Position, Side};
+use crate::types::{PlayStyle, PlayerData, Position, Side, TeamData};
 
 // ---------------------------------------------------------------------------
 // AI Manager profile — drives decision-making style
@@ -24,6 +24,25 @@ impl Default for AiProfile {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MatchNeed {
+    Protect,
+    Chase,
+    Control,
+    SurviveRedCard,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ScoreState {
+    goal_diff: i8,
+    minute: u8,
+    subs_made: u8,
+    yellows: usize,
+    sent_off: usize,
+    experience_factor: f64,
+    reputation_factor: f64,
+}
+
 // ---------------------------------------------------------------------------
 // AI decision engine — called once per minute for AI-controlled sides
 // ---------------------------------------------------------------------------
@@ -41,7 +60,6 @@ pub fn ai_decide<R: Rng>(
     let snap = match_state.snapshot();
     let minute = snap.current_minute;
 
-    // AI only acts during playing phases
     match snap.phase {
         MatchPhase::FirstHalf
         | MatchPhase::SecondHalf
@@ -50,20 +68,17 @@ pub fn ai_decide<R: Rng>(
         _ => return commands,
     }
 
-    // --- Substitution decisions ---
     let subs_made = match side {
         Side::Home => snap.home_subs_made,
         Side::Away => snap.away_subs_made,
     };
 
     if subs_made < snap.max_subs
-        && let Some(sub_cmd) =
-            consider_substitution(match_state, side, profile, minute, subs_made, rng)
+        && let Some(sub_cmd) = consider_substitution(match_state, side, profile, minute, subs_made, rng)
     {
         commands.push(sub_cmd);
     }
 
-    // --- Tactical adjustments ---
     if let Some(tactic_cmd) = consider_tactic_change(match_state, side, profile, minute, rng) {
         commands.push(tactic_cmd);
     }
@@ -94,175 +109,266 @@ fn consider_substitution<R: Rng>(
         return None;
     }
 
-    // Determine score differential from this side's perspective
-    let (own_goals, opp_goals) = match side {
-        Side::Home => (snap.home_score, snap.away_score),
-        Side::Away => (snap.away_score, snap.home_score),
-    };
-    let goal_diff = own_goals as i8 - opp_goals as i8;
+    let state = score_state(&snap, side, profile, minute, subs_made);
+    let need = match_need(state);
+    let best = team
+        .players
+        .iter()
+        .filter(|player| !snap.sent_off.contains(&player.id))
+        .filter(|player| player.position != Position::Goalkeeper || player.condition <= 25)
+        .filter_map(|player| {
+            let on = find_best_bench_replacement(bench, player.position, need, &snap.sent_off)?;
+            let off_score = player_off_score(player, team, side, state, need, &snap);
+            let on_score = bench_fit_score(on, player.position, need);
+            let upgrade = (on.effective_overall() - player.effective_overall()).max(-10.0) * 0.25;
+            Some((player, on, off_score + on_score + upgrade))
+        })
+        .max_by(|left, right| left.2.partial_cmp(&right.2).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Higher experience → earlier and smarter substitutions
-    let experience_factor = profile.experience as f64 / 100.0;
-
-    // --- Fatigue-based substitutions (after minute 55+) ---
-    let fatigue_threshold = if minute >= 75 {
-        55.0 - experience_factor * 10.0 // experienced managers sub earlier
-    } else if minute >= 60 {
-        45.0 - experience_factor * 8.0
-    } else {
-        35.0 // only for very tired players before 60'
-    };
-
-    // Find the most fatigued outfield player
-    let mut worst_player: Option<(&PlayerData, f64)> = None;
-    for p in &team.players {
-        if p.position == Position::Goalkeeper {
-            continue; // Don't sub the goalkeeper for fatigue
-        }
-        if snap.sent_off.contains(&p.id) {
-            continue;
-        }
-        let condition = p.condition as f64; // snapshot condition
-        if condition < fatigue_threshold {
-            match &worst_player {
-                None => worst_player = Some((p, condition)),
-                Some((_, worst_cond)) => {
-                    if condition < *worst_cond {
-                        worst_player = Some((p, condition));
-                    }
-                }
-            }
-        }
-    }
-
-    if let Some((tired_player, _)) = worst_player {
-        // Find best replacement from bench with same position
-        if let Some(replacement) =
-            find_best_bench_replacement(bench, tired_player.position, &snap.sent_off)
-        {
-            return Some(MatchCommand::Substitute {
-                side,
-                player_off_id: tired_player.id.clone(),
-                player_on_id: replacement.id.clone(),
-            });
-        }
-    }
-
-    // --- Planned rotation substitutions ---
-    if minute >= 58 + subs_made.saturating_mul(9) {
-        let chance = (0.28 + experience_factor * 0.22 + (minute.saturating_sub(58) as f64 * 0.015))
-            .clamp(0.0, 0.85);
-        if rng.random_range(0.0..1.0f64) < chance {
-            let mut candidates: Vec<&PlayerData> = team
-                .players
-                .iter()
-                .filter(|player| {
-                    player.position != Position::Goalkeeper && !snap.sent_off.contains(&player.id)
-                })
-                .collect();
-            candidates.sort_by(|left, right| {
-                left.condition
-                    .cmp(&right.condition)
-                    .then_with(|| left.ovr.cmp(&right.ovr))
-            });
-
-            for player_off in candidates {
-                if let Some(player_on) =
-                    find_best_bench_replacement(bench, player_off.position, &snap.sent_off)
-                {
-                    return Some(MatchCommand::Substitute {
-                        side,
-                        player_off_id: player_off.id.clone(),
-                        player_on_id: player_on.id.clone(),
-                    });
-                }
-            }
-        }
-    }
-
-    // --- Tactical substitutions (losing and past 65') ---
-    if goal_diff < 0 && minute >= 65 && subs_made < 3 {
-        // Bring on an attacker if losing
-        let chance = 0.03 * experience_factor * (1.0 + (minute as f64 - 65.0) / 25.0);
-        if rng.random_range(0.0..1.0f64) < chance {
-            // Find a defender or midfielder to take off
-            let candidates: Vec<&PlayerData> = team
-                .players
-                .iter()
-                .filter(|p| {
-                    (p.position == Position::Defender || p.position == Position::Midfielder)
-                        && !snap.sent_off.contains(&p.id)
-                })
-                .collect();
-
-            if let Some(player_off) = candidates.last()
-                && let Some(attacker_on) =
-                    find_best_bench_replacement(bench, Position::Forward, &snap.sent_off)
-            {
-                return Some(MatchCommand::Substitute {
-                    side,
-                    player_off_id: player_off.id.clone(),
-                    player_on_id: attacker_on.id.clone(),
-                });
-            }
-        }
-    }
-
-    // --- Defensive substitutions (winning and past 80') ---
-    if goal_diff > 0 && minute >= 80 && subs_made < 3 {
-        let chance = 0.04 * experience_factor;
-        if rng.random_range(0.0..1.0f64) < chance {
-            // Bring on a defender
-            let forwards: Vec<&PlayerData> = team
-                .players
-                .iter()
-                .filter(|p| p.position == Position::Forward && !snap.sent_off.contains(&p.id))
-                .collect();
-
-            if let Some(player_off) = forwards.first()
-                && let Some(defender_on) =
-                    find_best_bench_replacement(bench, Position::Defender, &snap.sent_off)
-            {
-                return Some(MatchCommand::Substitute {
-                    side,
-                    player_off_id: player_off.id.clone(),
-                    player_on_id: defender_on.id.clone(),
-                });
-            }
-        }
+    let (player_off, player_on, score) = best?;
+    let threshold = substitution_threshold(state, need);
+    let chance = substitution_chance(score, threshold, state, need);
+    if score >= threshold && rng.random_range(0.0..1.0f64) < chance {
+        return Some(MatchCommand::Substitute {
+            side,
+            player_off_id: player_off.id.clone(),
+            player_on_id: player_on.id.clone(),
+        });
     }
 
     None
 }
 
+fn score_state(
+    snap: &crate::live_match::MatchSnapshot,
+    side: Side,
+    profile: &AiProfile,
+    minute: u8,
+    subs_made: u8,
+) -> ScoreState {
+    let (own_goals, opp_goals, yellows) = match side {
+        Side::Home => (snap.home_score, snap.away_score, snap.home_yellows.len()),
+        Side::Away => (snap.away_score, snap.home_score, snap.away_yellows.len()),
+    };
+    let team = match side {
+        Side::Home => &snap.home_team,
+        Side::Away => &snap.away_team,
+    };
+    let sent_off = team
+        .players
+        .iter()
+        .filter(|player| snap.sent_off.contains(&player.id))
+        .count();
+
+    ScoreState {
+        goal_diff: own_goals as i8 - opp_goals as i8,
+        minute,
+        subs_made,
+        yellows,
+        sent_off,
+        experience_factor: profile.experience as f64 / 100.0,
+        reputation_factor: (profile.reputation.min(1000) as f64 / 1000.0).clamp(0.0, 1.0),
+    }
+}
+
+fn match_need(state: ScoreState) -> MatchNeed {
+    if state.sent_off > 0 {
+        MatchNeed::SurviveRedCard
+    } else if state.goal_diff < 0 && state.minute >= 62 {
+        MatchNeed::Chase
+    } else if state.goal_diff > 0 && state.minute >= 68 {
+        MatchNeed::Protect
+    } else {
+        MatchNeed::Control
+    }
+}
+
+fn player_off_score(
+    player: &PlayerData,
+    team: &TeamData,
+    side: Side,
+    state: ScoreState,
+    need: MatchNeed,
+    snap: &crate::live_match::MatchSnapshot,
+) -> f64 {
+    let condition_gap = (72.0 - player.condition as f64).max(0.0);
+    let fatigue_score = if state.minute < 55 {
+        (45.0 - player.condition as f64).max(0.0) * 1.8
+    } else if state.minute < 70 {
+        condition_gap * 1.25
+    } else {
+        condition_gap * 1.55
+    };
+
+    let card_score = yellow_count(player, side, snap) as f64
+        * match player.position {
+            Position::Defender => 24.0,
+            Position::Midfielder => 20.0,
+            Position::Forward => 10.0,
+            Position::Goalkeeper => 4.0,
+        }
+        * (0.75 + state.minute as f64 / 120.0);
+
+    let tactical_score = match need {
+        MatchNeed::Chase => match player.position {
+            Position::Defender => 13.0,
+            Position::Midfielder => 6.0,
+            Position::Forward => -8.0,
+            Position::Goalkeeper => -40.0,
+        },
+        MatchNeed::Protect => match player.position {
+            Position::Forward => 11.0,
+            Position::Midfielder => 5.0,
+            Position::Defender => -7.0,
+            Position::Goalkeeper => -40.0,
+        },
+        MatchNeed::SurviveRedCard => red_card_rebalance_score(player, team),
+        MatchNeed::Control => match player.position {
+            Position::Midfielder => 3.0,
+            Position::Forward | Position::Defender => 1.0,
+            Position::Goalkeeper => -45.0,
+        },
+    };
+
+    let starter_protection = if player.ovr >= 82 && player.condition > 58 && state.minute < 78 {
+        -8.0
+    } else {
+        0.0
+    };
+
+    fatigue_score + card_score + tactical_score + starter_protection
+}
+
+fn red_card_rebalance_score(player: &PlayerData, team: &TeamData) -> f64 {
+    let defenders = team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Defender)
+        .count();
+    let midfielders = team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Midfielder)
+        .count();
+
+    match player.position {
+        Position::Forward if defenders < 4 => 14.0,
+        Position::Forward if midfielders < 3 => 10.0,
+        Position::Midfielder if defenders < 3 => 8.0,
+        Position::Goalkeeper => -50.0,
+        _ => 0.0,
+    }
+}
+
+fn yellow_count(
+    player: &PlayerData,
+    side: Side,
+    snap: &crate::live_match::MatchSnapshot,
+) -> u8 {
+    match side {
+        Side::Home => snap.home_yellows.get(&player.id),
+        Side::Away => snap.away_yellows.get(&player.id),
+    }
+    .copied()
+    .unwrap_or(0)
+}
+
+fn substitution_threshold(state: ScoreState, need: MatchNeed) -> f64 {
+    let timing = if state.minute < 50 {
+        52.0
+    } else if state.minute < 60 {
+        34.0
+    } else if state.minute < 75 {
+        25.0
+    } else {
+        18.0
+    };
+    let sub_pressure = state.subs_made as f64 * 6.0;
+    let manager_discount = state.experience_factor * 5.0 + state.reputation_factor * 3.0;
+    let need_discount = match need {
+        MatchNeed::Chase | MatchNeed::SurviveRedCard => 7.0,
+        MatchNeed::Protect if state.minute >= 78 => 5.0,
+        _ => 0.0,
+    };
+
+    (timing + sub_pressure - manager_discount - need_discount).clamp(12.0, 55.0)
+}
+
+fn substitution_chance(score: f64, threshold: f64, state: ScoreState, need: MatchNeed) -> f64 {
+    let urgency = ((score - threshold) / 20.0).clamp(0.0, 1.0);
+    let late = ((state.minute.saturating_sub(55) as f64) / 35.0).clamp(0.0, 1.0);
+    let need_bonus = match need {
+        MatchNeed::Chase | MatchNeed::SurviveRedCard => 0.18,
+        MatchNeed::Protect => 0.10,
+        MatchNeed::Control => 0.0,
+    };
+
+    (0.25 + urgency * 0.50 + late * 0.18 + state.experience_factor * 0.12 + need_bonus)
+        .clamp(0.0, 0.95)
+}
+
 fn find_best_bench_replacement<'a>(
     bench: &'a [PlayerData],
     preferred_position: Position,
+    need: MatchNeed,
     sent_off: &std::collections::HashSet<String>,
 ) -> Option<&'a PlayerData> {
-    // First try exact position match, sorted by overall
-    let mut candidates: Vec<&PlayerData> = bench
+    bench
         .iter()
-        .filter(|p| p.position == preferred_position && !sent_off.contains(&p.id))
-        .collect();
-    candidates.sort_by(|a, b| {
-        b.overall()
-            .partial_cmp(&a.overall())
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+        .filter(|player| !sent_off.contains(&player.id))
+        .max_by(|left, right| {
+            bench_candidate_score(left, preferred_position, need)
+                .partial_cmp(&bench_candidate_score(right, preferred_position, need))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+}
 
-    if let Some(best) = candidates.first() {
-        return Some(*best);
-    }
+fn bench_candidate_score(player: &PlayerData, preferred_position: Position, need: MatchNeed) -> f64 {
+    let position_fit = if player.position == preferred_position {
+        22.0
+    } else if compatible_position(player.position, preferred_position) {
+        9.0
+    } else {
+        -16.0
+    };
 
-    // Fallback: any bench player
-    let mut all: Vec<&PlayerData> = bench.iter().filter(|p| !sent_off.contains(&p.id)).collect();
-    all.sort_by(|a, b| {
-        b.overall()
-            .partial_cmp(&a.overall())
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    all.first().copied()
+    player.effective_overall()
+        + position_fit
+        + bench_fit_score(player, preferred_position, need)
+}
+
+fn compatible_position(candidate: Position, preferred: Position) -> bool {
+    matches!(
+        (candidate, preferred),
+        (Position::Defender, Position::Midfielder)
+            | (Position::Midfielder, Position::Defender)
+            | (Position::Midfielder, Position::Forward)
+            | (Position::Forward, Position::Midfielder)
+    )
+}
+
+fn bench_fit_score(player: &PlayerData, preferred_position: Position, need: MatchNeed) -> f64 {
+    let role_score = match need {
+        MatchNeed::Chase => match player.position {
+            Position::Forward => player.shooting as f64 * 0.22 + player.dribbling as f64 * 0.14,
+            Position::Midfielder => player.passing as f64 * 0.12 + player.vision as f64 * 0.16,
+            Position::Defender => -5.0,
+            Position::Goalkeeper => -40.0,
+        },
+        MatchNeed::Protect | MatchNeed::SurviveRedCard => match player.position {
+            Position::Defender => player.defending as f64 * 0.18 + player.tackling as f64 * 0.16,
+            Position::Midfielder => player.stamina as f64 * 0.12 + player.teamwork as f64 * 0.12,
+            Position::Forward => -3.0,
+            Position::Goalkeeper => -35.0,
+        },
+        MatchNeed::Control => match player.position {
+            Position::Midfielder => player.passing as f64 * 0.11 + player.teamwork as f64 * 0.11,
+            Position::Defender | Position::Forward => player.stamina as f64 * 0.06,
+            Position::Goalkeeper => -35.0,
+        },
+    };
+    let fit = if player.position == preferred_position { 5.0 } else { 0.0 };
+    role_score + fit
 }
 
 // ---------------------------------------------------------------------------
@@ -281,70 +387,80 @@ fn consider_tactic_change<R: Rng>(
         Side::Home => &snap.home_team,
         Side::Away => &snap.away_team,
     };
+    let state = score_state(&snap, side, profile, minute, 0);
+    let need = match_need(state);
 
-    let (own_goals, opp_goals) = match side {
-        Side::Home => (snap.home_score, snap.away_score),
-        Side::Away => (snap.away_score, snap.home_score),
-    };
-    let goal_diff = own_goals as i8 - opp_goals as i8;
-    let experience_factor = profile.experience as f64 / 100.0;
-
-    // Only consider changes after a meaningful period
     if minute < 55 {
         return None;
     }
 
-    // Very low probability per minute to avoid constant switching
-    let base_chance = 0.02 * experience_factor;
+    let chance = tactical_change_chance(state, need);
+    if rng.random_range(0.0..1.0f64) >= chance {
+        return None;
+    }
 
-    // Losing by 2+ goals after 70': switch to attacking
-    if goal_diff <= -2
-        && minute >= 70
-        && team.play_style != PlayStyle::Attacking
-        && rng.random_range(0.0..1.0f64) < base_chance * 3.0
-    {
+    if let Some(style) = desired_play_style(team.play_style, state, need) {
         return Some(MatchCommand::ChangePlayStyle {
             side,
-            play_style: PlayStyle::Attacking,
+            play_style: style,
         });
     }
 
-    // Losing by 1 goal after 75': consider more attacking
-    if goal_diff == -1
-        && minute >= 75
-        && team.play_style != PlayStyle::Attacking
-        && team.play_style != PlayStyle::HighPress
-        && rng.random_range(0.0..1.0f64) < base_chance * 2.0
-    {
-        return Some(MatchCommand::ChangePlayStyle {
+    if let Some(formation) = desired_formation(&team.formation, state, need) {
+        return Some(MatchCommand::ChangeFormation {
             side,
-            play_style: PlayStyle::Attacking,
-        });
-    }
-
-    // Winning by 1+ goals after 80': switch to defensive
-    if goal_diff >= 1
-        && minute >= 80
-        && team.play_style != PlayStyle::Defensive
-        && rng.random_range(0.0..1.0f64) < base_chance * 2.0
-    {
-        return Some(MatchCommand::ChangePlayStyle {
-            side,
-            play_style: PlayStyle::Defensive,
-        });
-    }
-
-    // Winning by 2+ goals after 85': very defensive / time wasting
-    if goal_diff >= 2
-        && minute >= 85
-        && team.play_style != PlayStyle::Defensive
-        && rng.random_range(0.0..1.0f64) < base_chance * 4.0
-    {
-        return Some(MatchCommand::ChangePlayStyle {
-            side,
-            play_style: PlayStyle::Defensive,
+            formation: formation.to_string(),
         });
     }
 
     None
+}
+
+fn tactical_change_chance(state: ScoreState, need: MatchNeed) -> f64 {
+    let phase_window = if state.minute >= 82 {
+        0.32
+    } else if state.minute >= 70 {
+        0.22
+    } else if state.minute >= 60 {
+        0.10
+    } else {
+        0.04
+    };
+    let need_bonus = match need {
+        MatchNeed::Chase => 0.18 + (-state.goal_diff as f64).max(1.0) * 0.06,
+        MatchNeed::Protect => 0.12 + state.goal_diff as f64 * 0.04,
+        MatchNeed::SurviveRedCard => 0.26,
+        MatchNeed::Control => 0.0,
+    };
+    let card_noise = (state.yellows as f64 * 0.01).min(0.04);
+
+    (phase_window + need_bonus + card_noise + state.experience_factor * 0.08).clamp(0.0, 0.75)
+}
+
+fn desired_play_style(current: PlayStyle, state: ScoreState, need: MatchNeed) -> Option<PlayStyle> {
+    let target = match need {
+        MatchNeed::Chase if state.minute >= 78 && state.goal_diff <= -1 => PlayStyle::HighPress,
+        MatchNeed::Chase if state.minute >= 65 => PlayStyle::Attacking,
+        MatchNeed::Protect if state.minute >= 76 && state.goal_diff >= 2 => PlayStyle::Defensive,
+        MatchNeed::Protect if state.minute >= 70 => PlayStyle::Counter,
+        MatchNeed::SurviveRedCard => PlayStyle::Defensive,
+        MatchNeed::Control => return None,
+        _ => return None,
+    };
+
+    (current != target).then_some(target)
+}
+
+fn desired_formation(current: &str, state: ScoreState, need: MatchNeed) -> Option<&'static str> {
+    let target = match need {
+        MatchNeed::Chase if state.minute >= 80 && state.goal_diff <= -2 => "3-4-3",
+        MatchNeed::Chase if state.minute >= 76 => "4-2-4",
+        MatchNeed::Protect if state.minute >= 82 && state.goal_diff >= 2 => "5-4-1",
+        MatchNeed::Protect if state.minute >= 76 => "4-5-1",
+        MatchNeed::SurviveRedCard => "4-4-1",
+        MatchNeed::Control => return None,
+        _ => return None,
+    };
+
+    (current != target).then_some(target)
 }

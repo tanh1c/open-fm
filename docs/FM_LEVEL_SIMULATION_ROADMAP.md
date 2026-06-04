@@ -198,6 +198,25 @@ Key systems:
 
 This layer turns realistic match stats into a realistic football management ecosystem.
 
+### 9. Long-save data retention and match-history performance
+
+Keep long careers fast without losing the historical information managers expect.
+
+Core retention policy:
+
+- Keep permanent season totals, career totals, honours, awards, records, standings history, and trophy history.
+- Keep full match detail for the current season and recent seasons, including compact timeline events, scorers, assists, substitutions, cards, and team stats.
+- Prune or archive old per-player per-match records after a configurable number of seasons.
+- Preserve lightweight historical fixture results so schedules, team histories, competition histories, and player career summaries remain meaningful.
+- Add save-size and season-rollover benchmarks for 10+ and 20+ season careers.
+
+Expected effects:
+
+- Save files grow predictably instead of unboundedly.
+- Season rollover can clean old detailed data safely.
+- Completed match detail stays rich for recent matches while older seasons remain available as lightweight history.
+- Long-term simulation speed remains stable as careers advance.
+
 ## Recommended implementation phases
 
 ### Phase 1: Tactical model v2

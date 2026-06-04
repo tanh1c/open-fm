@@ -11,7 +11,10 @@ use crate::scouting;
 use crate::training;
 use crate::transfers;
 use chrono::Datelike;
-use domain::league::{Fixture, FixtureStatus, GoalEvent, MatchResult};
+use domain::league::{
+    CompactMatchEvent, CompactMatchReport, CompactTeamMatchStats, Fixture, FixtureStatus, GoalEvent,
+    MatchResult,
+};
 use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
 use engine::ai::{self, AiProfile};
 use engine::{LiveMatchState, MatchConfig, MatchPhase, Side};
@@ -142,7 +145,8 @@ pub fn finish_live_match_day(game: &mut Game) {
 #[cfg(test)]
 mod tests {
     use super::{
-        assist_weight, build_synthetic_stats_state, finish_live_match_day, scorer_weight, star_minutes_priority,
+        assist_weight, build_synthetic_stats_state, finish_live_match_day, goal_events_from_attacking_events,
+        scorer_weight, star_minutes_priority, synthetic_attacking_events, synthetic_compact_report,
         synthetic_replaced_starter_index, SyntheticPlayer, SyntheticUsage,
     };
     use crate::clock::GameClock;
@@ -346,6 +350,24 @@ mod tests {
         assert!(usage.assist_weight(&elite_creator) > usage.assist_weight(&average_midfielder) * 2);
         assert!(usage.scorer_weight(&elite_forward) > usage.scorer_weight(&high_ovr_defender) * 3);
         assert!(usage.assist_weight(&elite_creator) > usage.assist_weight(&high_ovr_defender));
+    }
+
+    #[test]
+    fn synthetic_competition_report_includes_goal_timeline_and_assists() {
+        let scorer = synthetic_player("scorer", engine::Position::Forward, 91, 94, 74, 72);
+        let creator = synthetic_player("creator", engine::Position::Midfielder, 89, 72, 95, 94);
+        let support = synthetic_player("support", engine::Position::Forward, 74, 76, 70, 68);
+        let players = vec![scorer, creator, support];
+
+        let attacking_events = synthetic_attacking_events(&players, 2, 101);
+        let goal_events = goal_events_from_attacking_events(&attacking_events);
+        let report = synthetic_compact_report(2, 0, &attacking_events, &[], 101);
+
+        assert_eq!(goal_events.len(), 2);
+        assert_eq!(report.events.len(), 2);
+        assert!(report.events.iter().all(|event| event.event_type == "Goal"));
+        assert!(report.events.iter().all(|event| event.side == "Home"));
+        assert!(report.events.iter().any(|event| event.secondary_player_id.is_some()));
     }
 
     #[test]
@@ -564,13 +586,17 @@ fn simulate_competition_matches_for_date<F>(
     }
 
     for (competition_index, fixture_indices) in fixtures_by_competition {
-        let Some(competition) = game.competitions.get_mut(competition_index) else {
+        let Some(competition_ref) = game.competitions.get(competition_index) else {
             continue;
         };
-        let is_legacy_league = legacy_league_id == Some(competition.id.as_str());
+        let is_legacy_league = legacy_league_id == Some(competition_ref.id.as_str());
         if is_legacy_league {
             continue;
         }
+        let synthetic_players_by_team = synthetic_players_for_fixtures(game, competition_ref, &fixture_indices);
+        let Some(competition) = game.competitions.get_mut(competition_index) else {
+            continue;
+        };
         let mut standing_index_by_team: HashMap<String, usize> = competition
             .standings
             .iter()
@@ -584,6 +610,7 @@ fn simulate_competition_matches_for_date<F>(
                     competition,
                     fixture_index,
                     &team_strengths,
+                    &synthetic_players_by_team,
                     &mut standing_index_by_team,
                 ) {
                     completed_fixtures.push(fixture);
@@ -602,6 +629,7 @@ fn apply_fast_competition_result(
     competition: &mut domain::league::Competition,
     fixture_index: usize,
     team_strengths: &HashMap<&str, u16>,
+    synthetic_players_by_team: &HashMap<String, Vec<SyntheticPlayer>>,
     standing_index_by_team: &mut HashMap<String, usize>,
 ) -> Option<Fixture> {
     let fixture = &competition.fixtures[fixture_index];
@@ -613,9 +641,7 @@ fn apply_fast_competition_result(
         .get(fixture.away_team_id.as_str())
         .copied()
         .unwrap_or(500);
-    let seed = fixture.id.bytes().fold(0_u32, |acc, byte| {
-        acc.wrapping_mul(31).wrapping_add(byte as u32)
-    });
+    let seed = fixture_seed(&fixture.id);
     let home_bias = 8_i16 + ((home_strength as i16 - away_strength as i16) / 75);
     let away_bias = (away_strength as i16 - home_strength as i16) / 100;
     let home_goals = ((seed % 3) as i16 + home_bias.max(0) / 8).clamp(0, 5) as u8;
@@ -642,12 +668,31 @@ fn apply_fast_competition_result(
     } else {
         None
     };
+    let home_players = synthetic_players_by_team
+        .get(&fixture.home_team_id)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let away_players = synthetic_players_by_team
+        .get(&fixture.away_team_id)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    let home_attacking_events = synthetic_attacking_events(home_players, home_goals, seed.wrapping_add(101));
+    let away_attacking_events = synthetic_attacking_events(away_players, away_goals, seed.wrapping_add(211));
+    let home_scorers = goal_events_from_attacking_events(&home_attacking_events);
+    let away_scorers = goal_events_from_attacking_events(&away_attacking_events);
+    let report = synthetic_compact_report(
+        home_goals,
+        away_goals,
+        &home_attacking_events,
+        &away_attacking_events,
+        seed,
+    );
     fixture.result = Some(MatchResult {
         home_goals,
         away_goals,
-        home_scorers: Vec::<GoalEvent>::new(),
-        away_scorers: Vec::<GoalEvent>::new(),
-        report: None,
+        home_scorers,
+        away_scorers,
+        report: Some(report),
         winner_team_id: knockout_resolution.as_ref().map(|resolution| resolution.winner_team_id.clone()),
         resolution: knockout_resolution.as_ref().map(|resolution| resolution.resolution.clone()),
         home_penalties: knockout_resolution.as_ref().and_then(|resolution| resolution.home_penalties),
@@ -670,6 +715,26 @@ fn apply_fast_competition_result(
     }
 
     Some(fixture.clone())
+}
+
+fn synthetic_players_for_fixtures(
+    game: &Game,
+    competition: &domain::league::Competition,
+    fixture_indices: &[usize],
+) -> HashMap<String, Vec<SyntheticPlayer>> {
+    let mut players_by_team = HashMap::new();
+    for fixture_index in fixture_indices {
+        let Some(fixture) = competition.fixtures.get(*fixture_index) else {
+            continue;
+        };
+        for team_id in [&fixture.home_team_id, &fixture.away_team_id] {
+            players_by_team.entry(team_id.clone()).or_insert_with(|| {
+                let (team_data, bench) = build_team_with_bench(game, team_id);
+                synthetic_participants(&team_data, &bench, fixture_seed(team_id))
+            });
+        }
+    }
+    players_by_team
 }
 
 fn build_synthetic_stats_state(game: &Game, fixture: &Fixture) -> StatsState {
@@ -725,6 +790,114 @@ fn build_synthetic_stats_state(game: &Game, fixture: &Fixture) -> StatsState {
             ),
         ],
     }
+}
+
+struct SyntheticAttackingEvent {
+    scorer_id: String,
+    assist_id: Option<String>,
+    minute: u8,
+}
+
+fn synthetic_attacking_events(
+    players: &[SyntheticPlayer],
+    goals_for: u8,
+    seed: u32,
+) -> Vec<SyntheticAttackingEvent> {
+    let usage = SyntheticUsage::new(players);
+    let mut scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
+        usage.scorer_weight(player)
+    });
+    usage.apply_finisher_preference(players, &mut scorer_indices, seed);
+
+    let mut assist_indices = pick_weighted_player_indices(
+        players,
+        goals_for.saturating_sub(1) as usize,
+        seed.wrapping_add(31),
+        |player| usage.assist_weight(player),
+    );
+    usage.apply_creator_preference(players, &mut assist_indices, seed.wrapping_add(31));
+
+    scorer_indices
+        .iter()
+        .enumerate()
+        .filter_map(|(goal_index, scorer_index)| {
+            let scorer = players.get(*scorer_index)?;
+            let assist_id = assist_indices
+                .get(goal_index)
+                .and_then(|assist_index| players.get(*assist_index))
+                .filter(|assist| assist.id != scorer.id)
+                .map(|assist| assist.id.clone());
+            Some(SyntheticAttackingEvent {
+                scorer_id: scorer.id.clone(),
+                assist_id,
+                minute: synthetic_goal_minute(seed, goal_index),
+            })
+        })
+        .collect()
+}
+
+fn goal_events_from_attacking_events(events: &[SyntheticAttackingEvent]) -> Vec<GoalEvent> {
+    events
+        .iter()
+        .map(|event| GoalEvent {
+            player_id: event.scorer_id.clone(),
+            minute: event.minute,
+        })
+        .collect()
+}
+
+fn synthetic_compact_report(
+    home_goals: u8,
+    away_goals: u8,
+    home_events: &[SyntheticAttackingEvent],
+    away_events: &[SyntheticAttackingEvent],
+    seed: u32,
+) -> CompactMatchReport {
+    let mut events = Vec::new();
+    events.extend(synthetic_compact_goal_events(home_events, "Home"));
+    events.extend(synthetic_compact_goal_events(away_events, "Away"));
+    events.sort_by_key(|event| event.minute);
+
+    CompactMatchReport {
+        total_minutes: 90,
+        home_stats: synthetic_compact_team_stats(home_goals, seed.wrapping_add(101)),
+        away_stats: synthetic_compact_team_stats(away_goals, seed.wrapping_add(211)),
+        events,
+    }
+}
+
+fn synthetic_compact_goal_events(
+    events: &[SyntheticAttackingEvent],
+    side: &str,
+) -> Vec<CompactMatchEvent> {
+    events
+        .iter()
+        .map(|event| CompactMatchEvent {
+            minute: event.minute,
+            event_type: "Goal".to_string(),
+            side: side.to_string(),
+            player_id: Some(event.scorer_id.clone()),
+            secondary_player_id: event.assist_id.clone(),
+        })
+        .collect()
+}
+
+fn synthetic_compact_team_stats(goals_for: u8, seed: u32) -> CompactTeamMatchStats {
+    let shots = 8 + goals_for as u16 * 3 + (seed % 5) as u16;
+    CompactTeamMatchStats {
+        possession_pct: (48 + (seed % 9) as u8).clamp(35, 65),
+        shots,
+        shots_on_target: (goals_for as u16 + 2 + (seed % 3) as u16).min(shots),
+        fouls: 8 + (seed % 8) as u16,
+        corners: 3 + (seed % 5) as u16,
+        yellow_cards: (seed % 3) as u8,
+        red_cards: u8::from(seed % 61 == 0),
+    }
+}
+
+fn synthetic_goal_minute(seed: u32, goal_index: usize) -> u8 {
+    let base = 8 + ((seed.wrapping_add(goal_index as u32 * 23)) % 78) as u8;
+    base.clamp(1, 90)
 }
 
 #[derive(Clone)]
@@ -844,19 +1017,26 @@ fn synthetic_player_records(
     goals_against: u8,
     seed: u32,
 ) -> Vec<PlayerMatchStatsRecord> {
-    let usage = SyntheticUsage::new(players);
-    let mut scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
-        usage.scorer_weight(player)
-    });
-    usage.apply_finisher_preference(players, &mut scorer_indices, seed);
+    let (scorer_counts, assist_counts) = synthetic_report_goal_contributions(fixture, players, team_id)
+        .unwrap_or_else(|| {
+            let usage = SyntheticUsage::new(players);
+            let mut scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
+                usage.scorer_weight(player)
+            });
+            usage.apply_finisher_preference(players, &mut scorer_indices, seed);
 
-    let mut assist_indices = pick_weighted_player_indices(
-        players,
-        goals_for.saturating_sub(1) as usize,
-        seed.wrapping_add(31),
-        |player| usage.assist_weight(player),
-    );
-    usage.apply_creator_preference(players, &mut assist_indices, seed.wrapping_add(31));
+            let mut assist_indices = pick_weighted_player_indices(
+                players,
+                goals_for.saturating_sub(1) as usize,
+                seed.wrapping_add(31),
+                |player| usage.assist_weight(player),
+            );
+            usage.apply_creator_preference(players, &mut assist_indices, seed.wrapping_add(31));
+            (
+                synthetic_count_indices(players.len(), &scorer_indices),
+                synthetic_count_indices(players.len(), &assist_indices),
+            )
+        });
     let yellow_indices = pick_weighted_player_indices(players, ((seed % 3) as usize).min(players.len()), seed.wrapping_add(59), |player| {
         match player.position {
             engine::Position::Defender => 70,
@@ -870,8 +1050,8 @@ fn synthetic_player_records(
         .iter()
         .enumerate()
         .map(|(index, player)| {
-            let goals = scorer_indices.iter().filter(|scorer_index| **scorer_index == index).count() as u8;
-            let assists = assist_indices.iter().filter(|assist_index| **assist_index == index).count() as u8;
+            let goals = scorer_counts.get(index).copied().unwrap_or(0);
+            let assists = assist_counts.get(index).copied().unwrap_or(0);
             let yellow_cards = u8::from(yellow_indices.contains(&index));
             let is_goalkeeper = matches!(player.position, engine::Position::Goalkeeper);
             let base_rating = 6.45
@@ -927,6 +1107,55 @@ fn synthetic_player_records(
             }
         })
         .collect()
+}
+
+fn synthetic_report_goal_contributions(
+    fixture: &Fixture,
+    players: &[SyntheticPlayer],
+    team_id: &str,
+) -> Option<(Vec<u8>, Vec<u8>)> {
+    let result = fixture.result.as_ref()?;
+    let report = result.report.as_ref()?;
+    if report.events.is_empty() {
+        return None;
+    }
+
+    let side = if team_id == fixture.home_team_id {
+        "Home"
+    } else if team_id == fixture.away_team_id {
+        "Away"
+    } else {
+        return None;
+    };
+    let mut scorer_counts = vec![0; players.len()];
+    let mut assist_counts = vec![0; players.len()];
+    for event in report
+        .events
+        .iter()
+        .filter(|event| event.side == side && event.event_type == "Goal")
+    {
+        if let Some(player_id) = event.player_id.as_deref()
+            && let Some(index) = players.iter().position(|player| player.id == player_id)
+        {
+            scorer_counts[index] += 1;
+        }
+        if let Some(player_id) = event.secondary_player_id.as_deref()
+            && let Some(index) = players.iter().position(|player| player.id == player_id)
+        {
+            assist_counts[index] += 1;
+        }
+    }
+    Some((scorer_counts, assist_counts))
+}
+
+fn synthetic_count_indices(player_count: usize, indices: &[usize]) -> Vec<u8> {
+    let mut counts = vec![0; player_count];
+    for index in indices {
+        if let Some(count) = counts.get_mut(*index) {
+            *count += 1;
+        }
+    }
+    counts
 }
 
 #[derive(Default)]

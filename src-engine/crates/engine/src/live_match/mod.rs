@@ -378,4 +378,15 @@ impl LiveMatchState {
     pub fn test_send_off(&mut self, player_id: &str) {
         self.sent_off.insert(player_id.to_string());
     }
+
+    /// Set the scoreline directly for deterministic AI behavior tests.
+    pub fn test_set_score(&mut self, home_score: u8, away_score: u8) {
+        self.home_score = home_score;
+        self.away_score = away_score;
+    }
+
+    /// Add a yellow card directly for deterministic AI behavior tests.
+    pub fn test_add_yellow(&mut self, player_id: &str) {
+        self.yellows.insert(player_id.to_string(), 1);
+    }
 }

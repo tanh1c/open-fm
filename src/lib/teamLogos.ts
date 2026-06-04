@@ -273,10 +273,10 @@ const LOGO_SLUGS_BY_TEAM: Record<string, string> = {
 };
 
 export function getTeamLogoUrl(team: Pick<TeamData, "name" | "country" | "domestic_tier">): string | null {
-  if (!["England", "ENG", "Spain", "ES", "Italy", "IT", "France", "FR", "Germany", "DE", "Portugal", "PT", "Netherlands", "NL", "Belgium", "BE"].includes(team.country)) return null;
-
   const mappedLogo = LOGO_SLUGS_BY_TEAM[team.name];
   if (mappedLogo) return mappedLogo;
+
+  if (!["England", "ENG", "Spain", "ES", "Italy", "IT", "France", "FR", "Germany", "DE", "Portugal", "PT", "Netherlands", "NL", "Belgium", "BE"].includes(team.country)) return null;
 
   if (team.country === "Spain" || team.country === "ES") {
     const slug = slugifyTeamName(team.name);

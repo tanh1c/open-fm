@@ -5,7 +5,6 @@ import {
   ChevronRight,
   CircleDot,
   Clock,
-  Info,
   LayoutGrid,
   List,
   TableProperties,
@@ -222,11 +221,7 @@ export default function ScheduleTab({
       b.goals_for - a.goals_for,
   );
 
-  const userTeam = userTeamId ? teamById.get(userTeamId) : null;
-  const userTeamName = userTeam?.name ?? (userTeamId ? getTeamName(gameState.teams, userTeamId) : t("common.team"));
-  const userStandingIndex = standings.findIndex((entry) => entry.team_id === userTeamId);
-  const userStanding = userStandingIndex >= 0 ? standings[userStandingIndex] : null;
-  const userGoalDifference = userStanding ? userStanding.goals_for - userStanding.goals_against : 0;
+  const userTeamName = userTeamId ? getTeamName(gameState.teams, userTeamId) : t("common.team");
   // Aggregate the user's fixtures from every source — all competitions plus the
   // standalone league — so the "My Club" view also surfaces friendlies, cups and
   // continental matches that don't live in the currently selected competition.
@@ -445,56 +440,6 @@ export default function ScheduleTab({
       </div>
 
       <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
-        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
-          <div>
-            <SectionTitle title="COMPETITION SUMMARY" action={selectedCompetition.name} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              <StatRow label={t("schedule.season", { number: selectedCompetition.season })} value={selectedCompetition.name} tone="text-app-green" />
-              <StatRow label="Fixtures" value={String(selectedCompetition.fixtures.length)} />
-              <StatRow label="Completed" value={String(completedFixtureCount)} tone="text-app-green" />
-              <StatRow label="Upcoming" value={String(upcomingFixtureCount)} tone="text-blue-300" />
-              <StatRow label="Matchdays" value={String(sortedMatchdays.length)} />
-            </TemplateCard>
-          </div>
-
-          <div>
-            <SectionTitle title="YOUR CLUB" action={userStanding ? `#${userStandingIndex + 1}` : "Pending"} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              <div className="flex items-center gap-2">
-                {userTeam ? <TeamLogo team={userTeam} size="sm" /> : null}
-                <div>
-                  <p className="text-sm font-bold text-app-text">{userTeamName}</p>
-                  <p className="text-xs text-app-text-muted">{userStanding ? t("schedule.standings") : t("season.standingsLocked")}</p>
-                </div>
-              </div>
-              <div className="border-t border-app-border/50 pt-3">
-                <StatRow label={t("common.played")} value={String(userStanding?.played ?? 0)} />
-                <StatRow label={t("common.pts")} value={String(userStanding?.points ?? 0)} tone="text-app-green" />
-                <StatRow label={t("common.gd")} value={userGoalDifference > 0 ? `+${userGoalDifference}` : String(userGoalDifference)} tone={userGoalDifference > 0 ? "text-app-green" : userGoalDifference < 0 ? "text-red-400" : "text-app-text"} />
-              </div>
-            </TemplateCard>
-          </div>
-
-          {isPreseason ? (
-            <div>
-              <SectionTitle title="SEASON STATUS" action={t(`season.phases.${seasonContext.phase}`)} />
-              <TemplateCard className="border-blue-400/35 bg-blue-400/10 p-4">
-                <div className="flex items-start gap-3">
-                  <Info className="mt-0.5 h-4 w-4 text-blue-300" />
-                  <div>
-                    <p className="text-xs font-bold text-app-text">
-                      {seasonContext.season_start
-                        ? t("season.startsOn", { date: formatMatchDate(seasonContext.season_start) })
-                        : t("season.noOpener")}
-                    </p>
-                    <p className="mt-1 text-xs text-app-text-muted">{t("season.standingsLocked")}</p>
-                  </div>
-                </div>
-              </TemplateCard>
-            </div>
-          ) : null}
-        </aside>
-
         <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full overflow-hidden pr-1">
           {view === "fixtures" ? (
             <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden">

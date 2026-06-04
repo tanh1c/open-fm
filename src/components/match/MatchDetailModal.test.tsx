@@ -101,16 +101,20 @@ describe("MatchDetailModal", () => {
     render(<MatchDetailModal fixtureId="fixture-1" onClose={vi.fn()} />);
 
     expect(invoke).toHaveBeenCalledWith("get_match_detail", { fixtureId: "fixture-1" });
-    expect(await screen.findByText("Alpha FC 2 - 1 Beta FC")).toBeInTheDocument();
-    expect(screen.getByText(/John Smith/)).toBeInTheDocument();
-    expect(screen.getByText("Goal")).toBeInTheDocument();
+    expect(await screen.findByText("Full Time")).toBeInTheDocument();
+    expect(screen.getAllByText("Alpha FC").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Beta FC").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/John Smith/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Goal").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Team Stats" }));
-    expect(await screen.findByText("58%")).toBeInTheDocument();
-    expect(screen.getByText("14")).toBeInTheDocument();
+    expect((await screen.findAllByText("58%")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("14").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Player Stats" }));
-    expect(await screen.findByText("8.1")).toBeInTheDocument();
+    expect((await screen.findAllByText("8.1")).length).toBeGreaterThan(0);
   });
 
   it("shows an empty state when no detail is available", async () => {

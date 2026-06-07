@@ -386,7 +386,61 @@ fn set_player_training_focus_internal(
 }
 
 #[tauri::command]
-pub fn set_player_squad_role(
+pub fn set_player_squad_number(
+    state: State<'_, StateManager>,
+    player_id: String,
+    squad_number: Option<u32>,
+) -> Result<Game, String> {
+    info!(
+        "[cmd] set_player_squad_number: player={}, squad_number={:?}",
+        player_id, squad_number
+    );
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+
+    let target_number: Option<u8> = match squad_number {
+        None => None,
+        Some(value) => {
+            if !(1..=99).contains(&value) {
+                return Err("be.error.invalidSquadNumber".to_string());
+            }
+            let value = value as u8;
+            let clash = game.players.iter().any(|player| {
+                player.id != player_id
+                    && player.team_id.as_deref() == Some(team_id.as_str())
+                    && player.squad_number == Some(value)
+            });
+            if clash {
+                return Err("be.error.squadNumberTaken".to_string());
+            }
+            Some(value)
+        }
+    };
+
+    let player_index = game
+        .players
+        .iter()
+        .position(|player| player.id == player_id)
+        .ok_or("be.error.playerNotFound".to_string())?;
+
+    if game.players[player_index].team_id.as_deref() != Some(team_id.as_str()) {
+        return Err("be.error.playerNotInSquad".to_string());
+    }
+
+    game.players[player_index].squad_number = target_number;
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
     state: State<'_, StateManager>,
     player_id: String,
     squad_role: String,

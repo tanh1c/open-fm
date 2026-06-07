@@ -210,6 +210,7 @@ export interface PlayerData {
   injury: null | { name: string; days_remaining: number };
   team_id: string | null;
   squad_role?: PlayerSquadRole;
+  squad_number?: number | null;
   contract_end: string | null;
   wage: number;
   market_value: number;

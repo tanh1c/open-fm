@@ -177,8 +177,68 @@ fn generated_tactical_instructions_for_team(
     .clamped()
 }
 
-fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {
-    let strength = current_strength.unwrap_or((reputation / 10).clamp(1, 100) as u8);
+/// Iconic shirt number preferred for a granular position. Used to give the best
+/// player in each role a "nice" number (1 GK, 9/10 strikers, 7/11 wingers, etc.).
+fn iconic_number_for_position(position: &Position) -> u8 {
+    match position {
+        Position::Goalkeeper => 1,
+        Position::RightBack => 2,
+        Position::LeftBack => 3,
+        Position::CenterBack => 4,
+        Position::Defender => 5,
+        Position::DefensiveMidfielder => 6,
+        Position::RightWinger | Position::RightMidfielder => 7,
+        Position::CentralMidfielder | Position::Midfielder => 8,
+        Position::Striker | Position::Forward => 9,
+        Position::AttackingMidfielder => 10,
+        Position::LeftWinger | Position::LeftMidfielder => 11,
+        Position::RightWingBack => 2,
+        Position::LeftWingBack => 3,
+    }
+}
+
+/// Assign realistic shirt numbers to a freshly generated squad. The strongest
+/// player (by OVR) at each iconic number's position claims that number; remaining
+/// players fill the lowest free numbers from 12 upward, then 1-11 if needed.
+fn assign_squad_numbers(players: &mut [Player]) {
+    use std::collections::HashSet;
+
+    // Order candidates strongest-first so the best player at a position wins the
+    // contest for its iconic number.
+    let mut order: Vec<usize> = (0..players.len()).collect();
+    order.sort_by(|&a, &b| players[b].ovr.cmp(&players[a].ovr));
+
+    let mut taken: HashSet<u8> = HashSet::new();
+
+    // Pass 1: give each player its position's iconic number if still free.
+    for &index in &order {
+        let desired = iconic_number_for_position(&players[index].natural_position);
+        if !taken.contains(&desired) {
+            players[index].squad_number = Some(desired);
+            taken.insert(desired);
+        }
+    }
+
+    // Pass 2: fill anyone left with the lowest available number (prefer 12+ so
+    // the classic 1-11 stay with the iconic-position winners).
+    for &index in &order {
+        if players[index].squad_number.is_some() {
+            continue;
+        }
+        let mut number = 12u8;
+        while taken.contains(&number) && number < 99 {
+            number += 1;
+        }
+        if taken.contains(&number) {
+            // 12-99 exhausted (shouldn't happen for 22 players); fall back to 1-11.
+            number = (1..=99).find(|n| !taken.contains(n)).unwrap_or(99);
+        }
+        players[index].squad_number = Some(number);
+        taken.insert(number);
+    }
+}
+
+fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {    let strength = current_strength.unwrap_or((reputation / 10).clamp(1, 100) as u8);
     let reputation_bonus = if reputation >= 850 {
         5
     } else if reputation >= 650 {
@@ -582,6 +642,9 @@ pub fn generate_world(
             }
             players.push(player);
         }
+
+        // Assign shirt numbers: best player per position gets the iconic number.
+        assign_squad_numbers(&mut players[team_player_start..]);
 
         // Generate 4 staff per team
         let roles = [

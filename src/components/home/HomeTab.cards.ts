@@ -116,7 +116,7 @@ export function buildSquadOverviewRows(
   return roster.slice(0, limit).map((p, idx) => ({
     id: p.id,
     position: positionCode(p.natural_position || p.position),
-    number: idx + 1,
+    number: p.squad_number ?? idx + 1,
     matchName: p.match_name,
     fullName: p.full_name,
     age: calcAge(p.date_of_birth),
@@ -185,7 +185,7 @@ export function buildTacticsSlots(
         slots.push({
           id: player.id,
           name: player.match_name,
-          number: slotIndex + 1,
+          number: player.squad_number ?? slotIndex + 1,
           role: ROLE_FOR_POSITION[position] || positionCode(position),
           x,
           y,

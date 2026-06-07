@@ -44,6 +44,10 @@ pub struct Player {
     #[serde(default)]
     pub squad_role: SquadRole,
 
+    /// Shirt/squad number (1-99). None until assigned by the generator or manager.
+    #[serde(default)]
+    pub squad_number: Option<u8>,
+
     // Traits / flairs derived from attributes
     #[serde(default)]
     pub traits: Vec<PlayerTrait>,
@@ -635,6 +639,7 @@ impl Player {
             injury: None,
             team_id: None,
             squad_role: SquadRole::Senior,
+            squad_number: None,
             traits,
             ovr: 0,
             potential: 0,

@@ -44,6 +44,7 @@ import {
   setContractExitIntent,
 } from "../../services/contractService";
 import { setPlayerSquadRole } from "../../services/squadService";
+import SquadNumbersView from "./SquadNumbersView";
 import {
   toggleLoanList,
   toggleTransferList,
@@ -113,6 +114,7 @@ export default function SquadRosterView({
   const [headerAction, setHeaderAction] = useState<"registration" | "roles" | "autoPick" | null>(null);
   const [contractActionPlayerId, setContractActionPlayerId] = useState<string | null>(null);
   const [contractActionError, setContractActionError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"roster" | "numbers">("roster");
 
   if (!myTeam) {
     return <p className="text-gray-500 dark:text-gray-400">{t("common.unemployed")}</p>;
@@ -367,14 +369,28 @@ export default function SquadRosterView({
           <button
             key={scope}
             type="button"
-            onClick={() => setStatusFilter(scope as FilterScope)}
-            className={statusFilter === scope ? "flex h-full items-center whitespace-nowrap text-app-green font-semibold border-b-2 border-app-green" : "flex h-full items-center whitespace-nowrap text-app-text-muted hover:text-white font-medium transition-colors"}
+            onClick={() => {
+              setViewMode("roster");
+              setStatusFilter(scope as FilterScope);
+            }}
+            className={viewMode === "roster" && statusFilter === scope ? "flex h-full items-center whitespace-nowrap text-app-green font-semibold border-b-2 border-app-green" : "flex h-full items-center whitespace-nowrap text-app-text-muted hover:text-white font-medium transition-colors"}
           >
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setViewMode("numbers")}
+          className={viewMode === "numbers" ? "flex h-full items-center whitespace-nowrap text-app-green font-semibold border-b-2 border-app-green" : "flex h-full items-center whitespace-nowrap text-app-text-muted hover:text-white font-medium transition-colors"}
+        >
+          Squad Numbers
+        </button>
       </div>
 
+      {viewMode === "numbers" ? (
+        <SquadNumbersView roster={roster} onGameUpdate={onGameUpdate} />
+      ) : (
+      <>
       {contractActionError ? (
         <div className="rounded-lg border border-danger-500/40 bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
           {contractActionError}
@@ -612,6 +628,8 @@ export default function SquadRosterView({
           </div>
         </TemplateCard>
       </div>
+      </>
+      )}
     </div>
   );
 }

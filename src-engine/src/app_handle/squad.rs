@@ -593,7 +593,55 @@ impl AppHandle {
         to_js_value(&game)
     }
 
-    #[wasm_bindgen(js_name = autoSelectSetPieces)]
+    #[wasm_bindgen(js_name = setPlayerSquadNumber)]
+    pub fn set_player_squad_number(
+        &self,
+        player_id: String,
+        squad_number: Option<u32>,
+    ) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        // Validate the requested number (1-99) and ensure no team-mate already wears it.
+        let target_number: Option<u8> = match squad_number {
+            None => None,
+            Some(value) => {
+                if !(1..=99).contains(&value) {
+                    return Err(to_js("be.error.invalidSquadNumber".to_string()));
+                }
+                let value = value as u8;
+                let clash = game.players.iter().any(|player| {
+                    player.id != player_id
+                        && player.team_id.as_deref() == Some(team_id.as_str())
+                        && player.squad_number == Some(value)
+                });
+                if clash {
+                    return Err(to_js("be.error.squadNumberTaken".to_string()));
+                }
+                Some(value)
+            }
+        };
+
+        let player_index = game
+            .players
+            .iter()
+            .position(|player| player.id == player_id)
+            .ok_or_else(|| to_js("be.error.playerNotFound".to_string()))?;
+
+        if game.players[player_index].team_id.as_deref() != Some(team_id.as_str()) {
+            return Err(to_js("be.error.playerNotInSquad".to_string()));
+        }
+
+        game.players[player_index].squad_number = target_number;
+
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
     pub fn auto_select_set_pieces(&self, player_ids: JsValue) -> Result<JsValue, JsValue> {
         let player_ids: Vec<String> = serde_wasm_bindgen::from_value(player_ids)
             .map_err(|e| to_js(format!("be.error.deserialize:{e}")))?;

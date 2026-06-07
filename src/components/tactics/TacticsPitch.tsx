@@ -88,8 +88,8 @@ function getPitchPlayerButtonClassName(options: {
 }
 
 function getPlayerDisplayNumber(player: PlayerData, index: number): number {
-  const raw = Number((player as PlayerData & { squad_number?: number | string; shirt_number?: number | string }).squad_number ?? (player as PlayerData & { shirt_number?: number | string }).shirt_number);
-  return Number.isFinite(raw) && raw > 0 ? raw : index + 1;
+  const raw = player.squad_number;
+  return raw != null && raw > 0 ? raw : index + 1;
 }
 
 function getRoleTone(wrongPos: boolean): string {

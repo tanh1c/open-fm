@@ -12,3 +12,13 @@ export async function setPlayerSquadRole(
         squadRole,
     });
 }
+
+export async function setPlayerSquadNumber(
+    playerId: string,
+    squadNumber: number | null,
+): Promise<GameStateData> {
+    return invoke<GameStateData>("set_player_squad_number", {
+        playerId,
+        squadNumber,
+    });
+}

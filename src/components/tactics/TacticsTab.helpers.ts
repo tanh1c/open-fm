@@ -66,6 +66,35 @@ export const TACTICAL_ROLE_OPTIONS: Record<GridTacticSlotRole, string[]> = {
   FWD: ["AF", "PF", "IF", "IW", "W"],
 };
 
+export const TACTICAL_ROLE_NAMES: Record<string, string> = {
+  GK: "Goalkeeper",
+  SK: "Sweeper Keeper",
+  FB: "Full Back",
+  WB: "Wing Back",
+  CD: "Central Defender",
+  BPD: "Ball Playing Defender",
+  BWM: "Ball Winning Midfielder",
+  DLP: "Deep Lying Playmaker",
+  DM: "Defensive Midfielder",
+  BBM: "Box to Box Midfielder",
+  AP: "Advanced Playmaker",
+  AM: "Attacking Midfielder",
+  IW: "Inverted Winger",
+  AF: "Advanced Forward",
+  PF: "Pressing Forward",
+  IF: "Inside Forward",
+  W: "Winger",
+};
+
+export function getTacticalRoleName(role: string): string {
+  return TACTICAL_ROLE_NAMES[role] ?? role;
+}
+
+export function getTacticalRoleOptionLabel(role: string): string {
+  const fullName = TACTICAL_ROLE_NAMES[role];
+  return fullName ? `${role} (${fullName})` : role;
+}
+
 export const GRID_TACTIC_SLOTS: GridTacticSlotDefinition[] = [
   { id: "gk", label: "GK", role: "GK", x: 50, y: 91 },
   { id: "lb", label: "LB", role: "DEF", x: 18, y: 72 },
@@ -234,6 +263,15 @@ export function getGridAssignmentSignature(assignments: GridTacticAssignment[]):
   return GRID_TACTIC_SLOTS.map((slot) => {
     const playerId = assignments.find((assignment) => assignment.slotId === slot.id)?.playerId ?? "";
     return `${slot.id}:${playerId}`;
+  }).join("|");
+}
+
+// Signature including tactical role + duty, so optimistic role/duty edits are
+// only cleared once the backend round-trip actually persists them.
+export function getGridAssignmentDetailSignature(assignments: GridTacticAssignment[]): string {
+  return GRID_TACTIC_SLOTS.map((slot) => {
+    const assignment = assignments.find((candidate) => candidate.slotId === slot.id);
+    return `${slot.id}:${assignment?.playerId ?? ""}:${assignment?.tacticalRole ?? ""}:${assignment?.duty ?? ""}`;
   }).join("|");
 }
 

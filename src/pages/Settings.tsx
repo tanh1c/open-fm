@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore, AppSettings } from "../store/settingsStore";
+import { useGameStore } from "../store/gameStore";
 import { useTheme } from "../context/ThemeContext";
 import { Select, ThemeToggle } from "../components/ui";
 import { SUPPORTED_LANGUAGES, changeAppLanguage } from "../i18n";
@@ -11,6 +12,7 @@ import {
   Download,
   Gamepad2,
   Globe,
+  HardDrive,
   Maximize,
   Minimize,
   Monitor,
@@ -38,8 +40,51 @@ interface SettingsProps {
 
 type SettingsViewTab = "Display" | "Gameplay" | "Saves & Data" | "About";
 
+interface SaveEntry {
+  id: string;
+  manager_name: string;
+  last_played_at: string;
+  size_bytes?: number | null;
+}
+
 function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
+}
+
+function formatSaveSize(bytes?: number | null): string | null {
+  if (bytes === undefined || bytes === null) {
+    return null;
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = value >= 10 || unitIndex === 0 ? 0 : 1;
+  return `${value.toFixed(digits)} ${units[unitIndex]}`;
+}
+
+function parseSaveTime(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function findCurrentSave(saves: SaveEntry[], managerName: string | null): SaveEntry | null {
+  const candidates = managerName
+    ? saves.filter((save) => save.manager_name === managerName)
+    : saves;
+
+  return candidates.reduce<SaveEntry | null>((latest, save) => {
+    if (!latest || parseSaveTime(save.last_played_at) > parseSaveTime(latest.last_played_at)) {
+      return save;
+    }
+    return latest;
+  }, null);
 }
 
 export default function Settings({ embedded = false }: SettingsProps) {
@@ -47,11 +92,14 @@ export default function Settings({ embedded = false }: SettingsProps) {
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const { settings, loaded, loadSettings, updateSettings } = useSettingsStore();
+  const managerName = useGameStore((state) => state.managerName);
   const { theme, toggleTheme } = useTheme();
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
   const [exportPath, setExportPath] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsViewTab>("Display");
+  const [currentSaveSize, setCurrentSaveSize] = useState<string | null>(null);
+  const [isLoadingSaveSize, setIsLoadingSaveSize] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(
     !!document.fullscreenElement,
   );
@@ -72,6 +120,34 @@ export default function Settings({ embedded = false }: SettingsProps) {
       void changeAppLanguage(settings.language);
     }
   }, [loaded, settings.language, i18n]);
+
+  useEffect(() => {
+    if (activeTab !== "Saves & Data") return;
+
+    let cancelled = false;
+    setIsLoadingSaveSize(true);
+
+    invoke<SaveEntry[]>("get_saves")
+      .then((saves) => {
+        if (cancelled) return;
+        const currentSave = findCurrentSave(saves, managerName);
+        setCurrentSaveSize(formatSaveSize(currentSave?.size_bytes));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load current save size:", err);
+        setCurrentSaveSize(null);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingSaveSize(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, managerName]);
 
   function handleUpdate(partial: Partial<AppSettings>): void {
     updateSettings(partial);
@@ -349,6 +425,18 @@ export default function Settings({ embedded = false }: SettingsProps) {
                 value={settings.auto_save_mode}
                 onChange={(v) => handleUpdate({ auto_save_mode: v as AppSettings["auto_save_mode"] })}
               />
+            </SettingRow>
+
+            <SettingRow
+              label={t("settings.currentSaveSize", { defaultValue: "Current save size" })}
+              description={t("settings.currentSaveSizeDesc", { defaultValue: "Storage used by the save file for the active career." })}
+            >
+              <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-card px-3 py-2 text-sm font-heading font-bold uppercase tracking-wider text-app-text">
+                <HardDrive className="h-4 w-4 text-app-green" />
+                {isLoadingSaveSize
+                  ? t("common.loading", { defaultValue: "Loading" })
+                  : currentSaveSize ?? t("common.unavailable", { defaultValue: "Unavailable" })}
+              </div>
             </SettingRow>
 
             <SettingRow label={t("settings.exportWorld")} description={t("settings.exportWorldDesc")}>

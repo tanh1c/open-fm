@@ -17,6 +17,7 @@ import {
   FORMATIONS,
   GRID_TACTIC_SLOTS,
   mapGridSlotToPosition,
+  TACTICAL_ROLE_OPTIONS,
   type GridTacticAssignment,
 } from "./TacticsTab.helpers";
 
@@ -106,6 +107,31 @@ function getRoleTone(wrongPos: boolean): string {
   return wrongPos ? "text-app-red" : "text-emerald-400";
 }
 
+// Duty arrow badge shown on the pitch node: Attack points up, Defend down,
+// Support is a horizontal bar — mirrors FM-style duty indicators.
+function getDutyBadge(duty: string): { symbol: string; className: string; title: string } {
+  switch (duty) {
+    case "Attack":
+      return {
+        symbol: "▲",
+        className: "bg-red-500 text-white",
+        title: "Attack duty",
+      };
+    case "Defend":
+      return {
+        symbol: "▼",
+        className: "bg-sky-500 text-white",
+        title: "Defend duty",
+      };
+    default:
+      return {
+        symbol: "▬",
+        className: "bg-amber-500 text-black",
+        title: "Support duty",
+      };
+  }
+}
+
 // Colour hint for how well the dragged player suits a slot's position.
 function fitRingClassName(tone: SlotFitTone): string {
   switch (tone) {
@@ -163,12 +189,16 @@ export default function TacticsPitch({
     ? GRID_TACTIC_SLOTS.map((slot, index) => {
         const assignment = gridAssignments.find((candidate) => candidate.slotId === slot.id);
         const player = assignment?.playerId ? playersById.get(assignment.playerId) ?? null : null;
+        const tacticalRole = assignment?.tacticalRole ?? TACTICAL_ROLE_OPTIONS[slot.role][0] ?? null;
+        const duty = assignment?.duty ?? "Support";
         return {
           index,
           label: slot.label,
+          duty,
           player,
           position: mapGridSlotToPosition(slot.id),
           slotId: slot.id,
+          tacticalRole,
           x: slot.x,
           y: slot.y,
         };
@@ -317,13 +347,24 @@ export default function TacticsPitch({
                   })}
                   style={{ left: "50%", top: "50%" }}
                 >
-                  <div className={`mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPos ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"} ${fitTone ? fitRingClassName(fitTone) : ""}`}>
+                  <div className={`relative mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPos ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"} ${fitTone ? fitRingClassName(fitTone) : ""}`}>
                     {getPlayerOvr(player)}
+                    {(() => {
+                      const dutyBadge = getDutyBadge(slot.duty);
+                      return (
+                        <span
+                          title={dutyBadge.title}
+                          className={`absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[7px] font-bold leading-none shadow ${dutyBadge.className}`}
+                        >
+                          {dutyBadge.symbol}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="z-10 flex w-full flex-col items-center px-1 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
                     <span className="w-full truncate whitespace-nowrap text-[9px] font-bold text-white">{player.match_name}</span>
                     <span className={`text-[8px] font-medium leading-tight ${getRoleTone(wrongPos)}`}>
-                      {translatePositionAbbreviation(t, slot.position)} · {player.condition}%
+                      {slot.label}{slot.tacticalRole ? ` (${slot.tacticalRole})` : ""} · {player.condition}%
                     </span>
                   </div>
                 </button>

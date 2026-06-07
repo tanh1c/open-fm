@@ -1,5 +1,6 @@
 import type { DragEvent, JSX, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData, PlayerSelectionOptions } from "../../store/gameStore";
 import type { TacticalInstructionsData } from "../../store/types";
@@ -36,10 +37,12 @@ import {
   buildTacticsRoster,
   countOutOfPositionPlayers,
   deriveFormationFromGridAssignments,
+  getGridAssignmentDetailSignature,
   getGridAssignmentIssues,
   getGridAssignmentSignature,
   getSelectedAndComparePlayers,
   getStartingXiIdsFromGridAssignments,
+  getTacticalRoleOptionLabel,
   GRID_TACTIC_SLOTS,
   PRESET_GRID_SLOT_IDS,
   movePlayerInGridAssignments,
@@ -223,54 +226,127 @@ function StyledDropdown({
   onChange: (value: string) => void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    openUpward: boolean;
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const selectedLabel = options.find((option) => option.value === value)?.label ?? emptyLabel ?? "Select";
+
+  function updateMenuPosition(): void {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const estimatedHeight = Math.min(256, (options.length + (emptyLabel ? 1 : 0)) * 36 + 16);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < estimatedHeight + 12 && rect.top > spaceBelow;
+
+    setMenuPosition({
+      left: rect.left,
+      top: openUpward ? rect.top : rect.bottom,
+      width: rect.width,
+      openUpward,
+    });
+  }
+
+  function toggleOpen(): void {
+    setOpen((current) => {
+      const next = !current;
+      if (next) updateMenuPosition();
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleReposition(): void {
+      updateMenuPosition();
+    }
+
+    function handlePointerDown(event: MouseEvent): void {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    }
+
+    window.addEventListener("scroll", handleReposition, true);
+    window.addEventListener("resize", handleReposition);
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("scroll", handleReposition, true);
+      window.removeEventListener("resize", handleReposition);
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [open]);
 
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleOpen}
         className="flex w-full items-center justify-between gap-2 rounded border border-app-border bg-app-bg px-3 py-1.5 text-left text-[11px] font-bold uppercase text-app-text transition-colors hover:border-app-border/80 hover:bg-white/5"
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-app-text-muted" />
       </button>
-      {open ? (
-        <div className="absolute left-0 top-full z-30 mt-2 max-h-64 w-full min-w-44 overflow-y-auto rounded-lg border border-app-border bg-app-card p-2 shadow-xl custom-scrollbar">
-          {emptyLabel ? (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onChange("");
+      {open && menuPosition
+        ? createPortal(
+            <div
+              ref={menuRef}
+              style={{
+                position: "fixed",
+                left: menuPosition.left,
+                top: menuPosition.openUpward ? undefined : menuPosition.top,
+                bottom: menuPosition.openUpward ? window.innerHeight - menuPosition.top : undefined,
+                width: menuPosition.width,
               }}
-              className={cx(
-                "w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
-                value === "" ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white",
-              )}
+              className="z-[100] max-h-64 min-w-44 overflow-y-auto rounded-lg border border-app-border bg-app-card p-2 shadow-xl custom-scrollbar"
             >
-              {emptyLabel}
-            </button>
-          ) : null}
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onChange(option.value);
-              }}
-              className={cx(
-                "w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
-                value === option.value ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white",
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+              {emptyLabel ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onChange("");
+                  }}
+                  className={cx(
+                    "w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                    value === "" ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white",
+                  )}
+                >
+                  {emptyLabel}
+                </button>
+              ) : null}
+              {options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onChange(option.value);
+                  }}
+                  className={cx(
+                    "w-full rounded px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                    value === option.value ? "bg-app-green/10 text-app-green" : "text-app-text-muted hover:bg-white/5 hover:text-white",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -361,6 +437,18 @@ function normalizeInstructions(instructions?: TacticalInstructionsData): Tactica
     passing_directness: clampInstructionValue(instructions?.passing_directness ?? DEFAULT_TACTICAL_INSTRUCTIONS.passing_directness),
     risk_appetite: clampInstructionValue(instructions?.risk_appetite ?? DEFAULT_TACTICAL_INSTRUCTIONS.risk_appetite),
   };
+}
+
+function getInstructionSignature(instructions: TacticalInstructionsData): string {
+  const normalized = normalizeInstructions(instructions);
+  return [
+    normalized.pressing_intensity,
+    normalized.defensive_line,
+    normalized.tempo,
+    normalized.width,
+    normalized.passing_directness,
+    normalized.risk_appetite,
+  ].join("|");
 }
 
 function instructionPercent(value: number): number {
@@ -690,9 +778,11 @@ export default function TacticsTab({
     useState<"playStyle" | "focus">("playStyle");
   const [activeViewTab, setActiveViewTab] =
     useState<TacticsViewTab>("overview");
+  const [draftTacticalInstructions, setDraftTacticalInstructions] = useState<TacticalInstructionsData | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const hoveredSlotRef = useRef<string | null>(null);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
+  const instructionSaveTimerRef = useRef<number | null>(null);
 
   if (!myTeam) {
     return (
@@ -704,7 +794,8 @@ export default function TacticsTab({
 
   const formation = myTeam.formation || "4-4-2";
   const activePlayStyle = myTeam.play_style || "Balanced";
-  const tacticalInstructions = normalizeInstructions(myTeam.tactical_instructions);
+  const committedTacticalInstructions = normalizeInstructions(myTeam.tactical_instructions);
+  const tacticalInstructions = draftTacticalInstructions ?? committedTacticalInstructions;
   const savedStartingXiKey = (myTeam.starting_xi_ids || []).join(",");
   const playersById = useMemo(
     () => new Map(roster.map((player) => [player.id, player])),
@@ -746,6 +837,21 @@ export default function TacticsTab({
     }
   }, [pendingStartingXiIds, savedStartingXiKey]);
 
+  useEffect(() => {
+    return () => {
+      if (instructionSaveTimerRef.current != null) {
+        window.clearTimeout(instructionSaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftTacticalInstructions) return;
+    if (getInstructionSignature(draftTacticalInstructions) === getInstructionSignature(committedTacticalInstructions)) {
+      setDraftTacticalInstructions(null);
+    }
+  }, [committedTacticalInstructions, draftTacticalInstructions]);
+
   const pitchSlotRows = useMemo<PitchSlotRow[]>(
     () => buildPitchSlotRows(pitchRows, startingXiIds, playersById),
     [pitchRows, playersById, startingXiIds],
@@ -771,8 +877,8 @@ export default function TacticsTab({
   useEffect(() => {
     if (!optimisticGridAssignments) return;
     if (
-      getGridAssignmentSignature(optimisticGridAssignments) ===
-      getGridAssignmentSignature(committedGridAssignments)
+      getGridAssignmentDetailSignature(optimisticGridAssignments) ===
+      getGridAssignmentDetailSignature(committedGridAssignments)
     ) {
       setOptimisticGridAssignments(null);
     }
@@ -896,24 +1002,41 @@ export default function TacticsTab({
     }
   }
 
-  async function handleTacticalInstructionChange(key: TacticalInstructionKey, value: number): Promise<void> {
-    await persistTacticalInstructions({
+  function scheduleTacticalInstructionsSave(instructions: TacticalInstructionsData): void {
+    if (instructionSaveTimerRef.current != null) {
+      window.clearTimeout(instructionSaveTimerRef.current);
+    }
+
+    instructionSaveTimerRef.current = window.setTimeout(() => {
+      instructionSaveTimerRef.current = null;
+      void persistTacticalInstructions(instructions);
+    }, 300);
+  }
+
+  function handleTacticalInstructionChange(key: TacticalInstructionKey, value: number): void {
+    const nextInstructions = normalizeInstructions({
       ...tacticalInstructions,
       [key]: clampInstructionValue(value),
     });
+    setDraftTacticalInstructions(nextInstructions);
+    scheduleTacticalInstructionsSave(nextInstructions);
   }
 
   async function handlePlayStyleChange(playStyle: string): Promise<void> {
+    const profile = normalizeInstructions(getInstructionProfile(playStyle));
+    setDraftTacticalInstructions(profile);
     const updated = await setPlayStyle(playStyle);
     if (updated) {
-      await persistTacticalInstructions(getInstructionProfile(playStyle));
+      await persistTacticalInstructions(profile);
     }
   }
 
   async function handleTacticalPresetSelect(preset: { formation: string; playStyle: string }): Promise<void> {
+    const profile = normalizeInstructions(getInstructionProfile(preset.playStyle));
+    setDraftTacticalInstructions(profile);
     await handleFormationChange(preset.formation);
     await setPlayStyle(preset.playStyle);
-    await persistTacticalInstructions(getInstructionProfile(preset.playStyle));
+    await persistTacticalInstructions(profile);
   }
 
   async function handleResetShape(): Promise<void> {
@@ -1320,7 +1443,7 @@ export default function TacticsTab({
               leftLabel="Narrow"
               rightLabel="Wide"
               value={tacticalInstructions.width}
-              onChange={(value) => void handleTacticalInstructionChange("width", value)}
+              onChange={(value) => handleTacticalInstructionChange("width", value)}
             />
             <InstructionSlider
               label="Tempo"
@@ -1328,7 +1451,7 @@ export default function TacticsTab({
               leftLabel="Patient"
               rightLabel="Fast"
               value={tacticalInstructions.tempo}
-              onChange={(value) => void handleTacticalInstructionChange("tempo", value)}
+              onChange={(value) => handleTacticalInstructionChange("tempo", value)}
             />
             <InstructionSlider
               label="Passing Directness"
@@ -1336,7 +1459,7 @@ export default function TacticsTab({
               leftLabel="Short"
               rightLabel="Direct"
               value={tacticalInstructions.passing_directness}
-              onChange={(value) => void handleTacticalInstructionChange("passing_directness", value)}
+              onChange={(value) => handleTacticalInstructionChange("passing_directness", value)}
             />
             <InstructionSlider
               label="Risk Appetite"
@@ -1344,7 +1467,7 @@ export default function TacticsTab({
               leftLabel="Safe"
               rightLabel="Brave"
               value={tacticalInstructions.risk_appetite}
-              onChange={(value) => void handleTacticalInstructionChange("risk_appetite", value)}
+              onChange={(value) => handleTacticalInstructionChange("risk_appetite", value)}
             />
           </div>
         </PhaseCard>
@@ -1363,7 +1486,7 @@ export default function TacticsTab({
               leftLabel="Contain"
               rightLabel="Press"
               value={tacticalInstructions.pressing_intensity}
-              onChange={(value) => void handleTacticalInstructionChange("pressing_intensity", value)}
+              onChange={(value) => handleTacticalInstructionChange("pressing_intensity", value)}
             />
             <InstructionSlider
               label="Defensive Line"
@@ -1371,7 +1494,7 @@ export default function TacticsTab({
               leftLabel="Low block"
               rightLabel="High line"
               value={tacticalInstructions.defensive_line}
-              onChange={(value) => void handleTacticalInstructionChange("defensive_line", value)}
+              onChange={(value) => handleTacticalInstructionChange("defensive_line", value)}
             />
           </div>
         </PhaseCard>
@@ -1638,7 +1761,7 @@ export default function TacticsTab({
                 <StyledDropdown
                   ariaLabel="Select tactical role"
                   value={selectedSlotAssignment?.tacticalRole ?? selectedSlotRoleOptions[0] ?? ""}
-                  options={selectedSlotRoleOptions.map((role) => ({ label: role, value: role }))}
+                  options={selectedSlotRoleOptions.map((role) => ({ label: getTacticalRoleOptionLabel(role), value: role }))}
                   onChange={(value) => void handleSlotRoleChange("tacticalRole", value)}
                 />
                 <StyledDropdown

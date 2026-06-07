@@ -49,11 +49,8 @@ function valueTone(value: number): string {
   return "text-app-text-muted";
 }
 
-function valueBarTone(value: number): string {
-  if (value >= 80) return "bg-success-500";
-  if (value >= 65) return "bg-primary-500";
-  if (value >= 50) return "bg-accent-500";
-  return "bg-app-border";
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
 }
 
 function getNormalizedPlayerPosition(player: PlayerData): string {
@@ -114,36 +111,28 @@ function SinglePlayerAttributes({ player }: { player: PlayerData }) {
   const isGoalkeeper = getNormalizedPlayerPosition(player) === "Goalkeeper";
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-3 sm:grid-cols-2">
       {ATTRIBUTE_GROUPS.filter(
         (group) =>
           group.labelKey !== "common.attrGroups.goalkeeper" || isGoalkeeper,
       ).map((group) => (
-        <div key={group.labelKey}>
-          <h4 className="text-sm font-heading font-bold uppercase tracking-widest text-app-text-muted mb-2">
+        <div key={group.labelKey} className="rounded-lg border border-app-border/60 bg-[#151d28] p-2.5">
+          <h4 className="mb-2 text-[10px] font-heading font-bold uppercase tracking-widest text-app-text-muted">
             {t(group.labelKey)}
           </h4>
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             {group.attrs.map((attr) => {
               const value = player.attributes[attr];
               return (
                 <div
                   key={attr}
-                  className="grid grid-cols-[minmax(0,1fr)_40px] gap-3 items-center"
+                  className="flex items-center justify-between gap-2"
                 >
-                  <div>
-                    <div className="text-xs text-app-text-muted mb-1">
-                      {t(`common.attributes.${attr}`)}
-                    </div>
-                    <div className="h-2 rounded-full bg-app-border overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${valueBarTone(value)}`}
-                        style={{ width: `${value}%` }}
-                      />
-                    </div>
-                  </div>
+                  <span className="truncate text-[11px] text-app-text-muted">
+                    {t(`common.attributes.${attr}`)}
+                  </span>
                   <span
-                    className={`text-sm font-heading font-bold tabular-nums ${valueTone(value)}`}
+                    className={`shrink-0 text-xs font-heading font-bold tabular-nums ${valueTone(value)}`}
                   >
                     {value}
                   </span>
@@ -203,11 +192,11 @@ function CompareAttributes({
           group.labelKey !== "common.attrGroups.goalkeeper" ||
           showGoalkeeperAttrs,
       ).map((group) => (
-        <div key={group.labelKey}>
+        <div key={group.labelKey} className="rounded-lg border border-app-border/60 bg-[#151d28] p-2.5">
           <h4 className="text-[10px] font-heading font-bold uppercase tracking-widest text-app-text-muted mb-2">
             {t(group.labelKey)}
           </h4>
-          <div className="space-y-2">
+          <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
             {group.attrs.map((attr) => {
               const left = selectedPlayer.attributes[attr];
               const right = comparePlayer.attributes[attr];
@@ -216,45 +205,27 @@ function CompareAttributes({
               return (
                 <div
                   key={attr}
-                  className="grid grid-cols-[minmax(0,1fr)_90px_minmax(0,1fr)] gap-2 items-center"
+                  className="grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-2"
                 >
-                  <div
-                    className={`rounded-lg px-2 py-2 ${leftWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-[#151d28]"}`}
+                  <span
+                    className={cx(
+                      "text-center text-xs font-heading font-bold tabular-nums",
+                      leftWins ? "text-success-500" : valueTone(left),
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-2 text-xs mb-1">
-                      <span
-                        className={`font-heading font-bold ${valueTone(left)}`}
-                      >
-                        {left}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-app-border overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${valueBarTone(left)}`}
-                        style={{ width: `${left}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="text-center text-[10px] font-heading font-bold uppercase tracking-wider text-app-text-muted">
+                    {left}
+                  </span>
+                  <span className="truncate text-center text-[10px] font-heading font-bold uppercase tracking-wider text-app-text-muted">
                     {t(`common.attributes.${attr}`)}
-                  </div>
-                  <div
-                    className={`rounded-lg px-2 py-2 ${rightWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-[#151d28]"}`}
+                  </span>
+                  <span
+                    className={cx(
+                      "text-center text-xs font-heading font-bold tabular-nums",
+                      rightWins ? "text-success-500" : valueTone(right),
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-2 text-xs mb-1">
-                      <span
-                        className={`font-heading font-bold ${valueTone(right)}`}
-                      >
-                        {right}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-app-border overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${valueBarTone(right)}`}
-                        style={{ width: `${right}%` }}
-                      />
-                    </div>
-                  </div>
+                    {right}
+                  </span>
                 </div>
               );
             })}
@@ -281,7 +252,7 @@ export default function TacticsPlayerFocusPanel({
           PLAYER FOCUS
         </h3>
       </div>
-      <div className="max-h-[520px] overflow-y-auto p-4 pr-3 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-app-border">
+      <div className="p-3">
         {selectedPlayer ? (
           comparePlayer ? (
             <CompareAttributes
@@ -291,12 +262,12 @@ export default function TacticsPlayerFocusPanel({
               selectedPlayer={selectedPlayer}
             />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <PlayerSummary
                 label="selected"
                 player={selectedPlayer}
               />
-              <div className="rounded-xl border border-dashed border-app-border px-4 py-3 text-sm text-app-text-muted">
+              <div className="rounded-lg border border-dashed border-app-border px-3 py-2 text-xs text-app-text-muted">
                 {t("tactics.selectSecondPlayer")}
               </div>
               <SinglePlayerAttributes player={selectedPlayer} />

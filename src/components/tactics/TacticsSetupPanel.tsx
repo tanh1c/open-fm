@@ -2,10 +2,7 @@ import { Crosshair, Flag, RefreshCw, Shield, Target, Zap } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  FORMATIONS,
-  PLAY_STYLE_DESCRIPTION_FALLBACKS,
-} from "./TacticsTab.helpers";
+import { FORMATIONS } from "./TacticsTab.helpers";
 
 interface PlayStyleOption {
   icon: ReactNode;
@@ -35,10 +32,6 @@ function getOptionButtonClassName(isActive: boolean): string {
   }
 
   return "rounded-lg border border-app-border bg-[#151d28] px-3 py-2 text-sm font-heading font-bold text-app-text-muted transition-all hover:border-primary-500/40 hover:text-app-text";
-}
-
-function getPlayStyleDescription(activePlayStyle: string): string {
-  return PLAY_STYLE_DESCRIPTION_FALLBACKS[activePlayStyle] ?? "";
 }
 
 export default function TacticsSetupPanel({
@@ -101,17 +94,6 @@ export default function TacticsSetupPanel({
                 </span>
               </button>
             ))}
-          </div>
-          <div className="mt-3 rounded-xl border border-app-border bg-[#151d28] px-3 py-3">
-            <div className="mb-1 text-[10px] font-heading font-bold uppercase tracking-wider text-app-text-muted">
-              {t("squad.playStyleImpactTitle")}
-            </div>
-            <p className="text-sm leading-relaxed text-app-text-muted">
-              {t(
-                `squad.playStyleDescriptions.${activePlayStyle}`,
-                getPlayStyleDescription(activePlayStyle),
-              )}
-            </p>
           </div>
         </div>
       </div>

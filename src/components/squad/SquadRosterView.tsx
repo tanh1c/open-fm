@@ -195,7 +195,9 @@ export default function SquadRosterView({
 
     switch (statusFilter) {
       case "xi":
-        return inXI;
+        // Selection tab shows the whole squad, grouped into XI / Sub / Reserve
+        // sections so the manager can move players between tiers in one view.
+        return true;
       case "bench":
         return !inXI;
       case "outOfPosition":
@@ -561,18 +563,52 @@ export default function SquadRosterView({
                   <SortHeader col="morale" label="MORALE" className="w-20 text-center" />
                   <SortHeader col="wage" label="WAGE" className="w-24" />
                   <SortHeader col="marketValue" label="VALUE" className="w-20" />
-                  <SortHeader col="appearances" label="APPS" className="w-12 text-center" />
-                  <SortHeader col="goals" label="GLS" className="w-10 text-center" />
-                  <SortHeader col="assists" label="AST" className="w-10 text-center" />
-                  <SortHeader col="avgRating" label="AV RAT" className="w-14 text-center" />
+                  {statusFilter === "bench" ? (
+                    <>
+                      <th className="font-semibold py-2.5 text-app-text-muted w-24">EXPIRES</th>
+                      <th className="font-semibold py-2.5 text-app-text-muted w-20 text-center">REMAINING</th>
+                      <th className="font-semibold py-2.5 text-app-text-muted w-20 text-center">RISK</th>
+                      <th className="font-semibold py-2.5 text-app-text-muted w-20 text-center">INTENT</th>
+                    </>
+                  ) : (
+                    <>
+                      <SortHeader col="appearances" label="APPS" className="w-12 text-center" />
+                      <SortHeader col="goals" label="GLS" className="w-10 text-center" />
+                      <SortHeader col="assists" label="AST" className="w-10 text-center" />
+                      <SortHeader col="avgRating" label="AV RAT" className="w-14 text-center" />
+                    </>
+                  )}
                   <SortHeader col="status" label="STATUS" className="w-24 pr-4" />
-                  <th className="font-semibold py-2.5 text-app-text-muted w-32 pr-4">{statusFilter === "xi" ? "SQUAD ROLE" : "ACTIONS"}</th>
+                  <th className="font-semibold py-2.5 text-app-text-muted w-32 pr-4">{statusFilter === "xi" ? "MOVE" : "ACTIONS"}</th>
                   <SortHeader col="ovr" label="OVR" className="w-12 text-center" />
                   <SortHeader col="potential" label="POT" className="w-12 pr-4 text-center" />
                 </tr>
               </thead>
               <tbody>
-                {filteredRoster.map((player, index) => renderPlayerRow({
+                {statusFilter === "xi"
+                  ? renderGroupedSelectionRows({
+                      players: filteredRoster,
+                      xiIds,
+                      rowProps: {
+                        t,
+                        xiActivePosition,
+                        onSelectPlayer,
+                        selectPlayer,
+                        updateContractExitIntent,
+                        onGameUpdate,
+                        contractActionPlayerId,
+                        weeklySuffix,
+                        currentDate: gameState.clock.current_date,
+                        selectedPlayerId: selectedPlayer?.id ?? null,
+                        swapMode: true,
+                        xiCount: startingXiIds.length,
+                        swapPlayerId,
+                        promoteToXi,
+                        dropFromXi,
+                        changeSquadTier,
+                      },
+                    })
+                  : filteredRoster.map((player, index) => renderPlayerRow({
                   player,
                   index,
                   t,
@@ -586,12 +622,13 @@ export default function SquadRosterView({
                   weeklySuffix,
                   currentDate: gameState.clock.current_date,
                   selected: selectedPlayer?.id === player.id,
-                  swapMode: statusFilter === "xi",
+                  swapMode: false,
                   xiCount: startingXiIds.length,
                   swapPlayerId,
                   promoteToXi,
                   dropFromXi,
                   changeSquadTier,
+                  contractMode: statusFilter === "bench",
                 }))}
               </tbody>
             </table>
@@ -749,6 +786,106 @@ function SquadSwapControls({
   );
 }
 
+interface GroupedRowProps {
+  t: TFunction;
+  xiActivePosition: Map<string, string>;
+  onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
+  selectPlayer: (player: PlayerData) => void;
+  updateContractExitIntent: (playerId: string, shouldLetExpire: boolean) => void;
+  onGameUpdate?: (g: GameStateData) => void;
+  contractActionPlayerId: string | null;
+  weeklySuffix: string;
+  currentDate: string;
+  selectedPlayerId: string | null;
+  swapMode: boolean;
+  xiCount: number;
+  swapPlayerId: string | null;
+  promoteToXi: (player: PlayerData) => void;
+  dropFromXi: (player: PlayerData) => void;
+  changeSquadTier: (player: PlayerData, tier: "Substitute" | "Reserve") => void;
+}
+
+// Selection tab: render the whole squad as one table split into STARTING XI /
+// SUBSTITUTES / RESERVES sections, each preceded by a labelled header row, so
+// the manager can see and move every player without hidden toggles.
+function renderGroupedSelectionRows({
+  players,
+  xiIds,
+  rowProps,
+}: {
+  players: PlayerData[];
+  xiIds: Set<string>;
+  rowProps: GroupedRowProps;
+}) {
+  const starters = players.filter((player) => xiIds.has(player.id));
+  const subs = players.filter(
+    (player) => !xiIds.has(player.id) && (player.squad_tier ?? "Substitute") !== "Reserve",
+  );
+  const reserves = players.filter(
+    (player) => !xiIds.has(player.id) && (player.squad_tier ?? "Substitute") === "Reserve",
+  );
+
+  const sections: Array<{ key: string; label: string; tone: string; group: PlayerData[] }> = [
+    { key: "xi", label: "STARTING XI", tone: "text-app-green", group: starters },
+    { key: "sub", label: "SUBSTITUTES", tone: "text-app-text", group: subs },
+    { key: "res", label: "RESERVES", tone: "text-indigo-300", group: reserves },
+  ];
+
+  const rows: ReactNode[] = [];
+  for (const section of sections) {
+    rows.push(
+      <tr key={`header-${section.key}`} className="bg-app-bg/60">
+        <td colSpan={18} className="px-4 py-1.5">
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${section.tone}`}>
+            {section.label}
+          </span>
+          <span className="ml-2 text-[10px] font-semibold text-app-text-muted">
+            {section.group.length}
+            {section.key === "xi" ? " / 11" : ""}
+          </span>
+        </td>
+      </tr>,
+    );
+    if (section.group.length === 0) {
+      rows.push(
+        <tr key={`empty-${section.key}`}>
+          <td colSpan={18} className="px-4 py-2 text-[11px] text-app-text-muted/70 italic">
+            No players in this group.
+          </td>
+        </tr>,
+      );
+      continue;
+    }
+    section.group.forEach((player, index) => {
+      rows.push(
+        renderPlayerRow({
+          player,
+          index,
+          t: rowProps.t,
+          xiIds,
+          xiActivePosition: rowProps.xiActivePosition,
+          onSelectPlayer: rowProps.onSelectPlayer,
+          selectPlayer: rowProps.selectPlayer,
+          updateContractExitIntent: rowProps.updateContractExitIntent,
+          onGameUpdate: rowProps.onGameUpdate,
+          contractActionPlayerId: rowProps.contractActionPlayerId,
+          weeklySuffix: rowProps.weeklySuffix,
+          currentDate: rowProps.currentDate,
+          selected: rowProps.selectedPlayerId === player.id,
+          swapMode: rowProps.swapMode,
+          xiCount: rowProps.xiCount,
+          swapPlayerId: rowProps.swapPlayerId,
+          promoteToXi: rowProps.promoteToXi,
+          dropFromXi: rowProps.dropFromXi,
+          changeSquadTier: rowProps.changeSquadTier,
+        }),
+      );
+    });
+  }
+
+  return rows;
+}
+
 function renderPlayerRow({
   player,
   index,
@@ -769,6 +906,7 @@ function renderPlayerRow({
   promoteToXi,
   dropFromXi,
   changeSquadTier,
+  contractMode = false,
 }: {
   player: PlayerData;
   index: number;
@@ -789,6 +927,7 @@ function renderPlayerRow({
   promoteToXi: (player: PlayerData) => void;
   dropFromXi: (player: PlayerData) => void;
   changeSquadTier: (player: PlayerData, tier: "Substitute" | "Reserve") => void;
+  contractMode?: boolean;
 }) {
   const inXI = xiIds.has(player.id);
   const currentPos = inXI ? xiActivePosition.get(player.id) || player.position : player.natural_position || player.position;
@@ -905,10 +1044,27 @@ function renderPlayerRow({
         </td>
         <td className="py-2.5 text-app-text-muted whitespace-nowrap">{formatWeeklyAmount(formatExactMoney(player.wage), weeklySuffix)}</td>
         <td className="py-2.5 text-app-text-muted whitespace-nowrap">{formatVal(player.market_value)}</td>
-        <td className="py-2.5 text-center text-app-text-muted">{player.stats.appearances}</td>
-        <td className="py-2.5 text-center text-app-text-muted">{player.stats.goals}</td>
-        <td className="py-2.5 text-center text-app-text-muted">{player.stats.assists}</td>
-        <td className="py-2.5 text-center"><span className="bg-app-bg px-2.5 py-1 rounded text-app-text font-bold border border-app-border/50 bg-[#252f3d]">{player.stats.avg_rating ? player.stats.avg_rating.toFixed(2) : "-"}</span></td>
+        {contractMode ? (
+          <>
+            <td className="py-2.5 text-app-text-muted whitespace-nowrap">{player.contract_end ?? "—"}</td>
+            <td className="py-2.5 text-center text-app-text-muted">{getContractYearsRemaining(player.contract_end, currentDate)}</td>
+            <td className="py-2.5 text-center">
+              <span className={contractRiskBadgeClass(contractRiskLevel)}>
+                {contractRiskLevel === "critical" ? "Expiring" : contractRiskLevel === "warning" ? "Soon" : "Stable"}
+              </span>
+            </td>
+            <td className="py-2.5 text-center text-[10px] text-app-text-muted">
+              {hasLetExpireIntent ? <span className="text-warn-500 font-semibold">Let expire</span> : "—"}
+            </td>
+          </>
+        ) : (
+          <>
+            <td className="py-2.5 text-center text-app-text-muted">{player.stats.appearances}</td>
+            <td className="py-2.5 text-center text-app-text-muted">{player.stats.goals}</td>
+            <td className="py-2.5 text-center text-app-text-muted">{player.stats.assists}</td>
+            <td className="py-2.5 text-center"><span className="bg-app-bg px-2.5 py-1 rounded text-app-text font-bold border border-app-border/50 bg-[#252f3d]">{player.stats.avg_rating ? player.stats.avg_rating.toFixed(2) : "-"}</span></td>
+          </>
+        )}
         <td className="py-2.5 pr-4 text-app-text-muted text-[10px]">{contractRiskLabel}</td>
         <td className="py-2.5 pr-4">
           {swapMode ? (
@@ -1313,6 +1469,13 @@ function positionChipClass(pos: string): string {
   if (pos.includes("D")) return `${base} bg-[#5b75a1]/20 text-[#8baae0]`;
   if (pos.includes("M")) return `${base} bg-[#a062b0]/20 text-[#d48de8]`;
   return `${base} bg-red-500/20 text-red-300`;
+}
+
+function contractRiskBadgeClass(level: "critical" | "warning" | "stable"): string {
+  const base = "px-2 py-0.5 rounded text-[9px] font-bold uppercase inline-block";
+  if (level === "critical") return `${base} bg-red-500/20 text-red-300`;
+  if (level === "warning") return `${base} bg-amber-500/20 text-amber-300`;
+  return `${base} bg-app-bg text-app-text-muted border border-app-border/50`;
 }
 
 

@@ -25,10 +25,12 @@ import {
   buildActivePositionMap,
   buildPitchRows,
   buildPitchSlotRows,
+  getSlotFitTone,
   type DragState,
   type PitchSlotRow,
   type SquadSection,
 } from "../squad/SquadTab.helpers";
+import { getPlayerOvr } from "../../lib/helpers";
 import {
   buildGridAssignmentsFromFormation,
   buildGridAssignmentsFromSavedSlots,
@@ -42,6 +44,7 @@ import {
   getStartingXiIdsFromGridAssignments,
   getTacticalRoleOptionLabel,
   GRID_TACTIC_SLOTS,
+  mapGridSlotToPosition,
   movePlayerInGridAssignments,
   resolveStartingXiIds,
   swapPlayersInGridAssignments,
@@ -954,6 +957,53 @@ export default function TacticsTab({
     clearLineupSelection();
   }
 
+  // Quick Pick: fill every pitch slot with the best available player for that
+  // slot's position (position fit first, then OVR), so the manager can build a
+  // sensible lineup in one click instead of dragging each player.
+  async function handleQuickPick(): Promise<void> {
+    const fitScore = (player: PlayerData, position: string): number => {
+      const tone = getSlotFitTone(player, position);
+      return tone === "good" ? 2 : tone === "ok" ? 1 : 0;
+    };
+
+    const slots = GRID_TACTIC_SLOTS.map((slot) => ({
+      slotId: slot.id,
+      position: mapGridSlotToPosition(slot.id),
+    }));
+    const gkSlots = slots.filter((slot) => slot.position === "Goalkeeper");
+    const outfieldSlots = slots.filter((slot) => slot.position !== "Goalkeeper");
+
+    const remaining = [...available];
+    const picked = new Map<string, string>();
+
+    // Keepers first, then outfield. For each slot pick the strongest remaining
+    // candidate (fit-weighted, OVR tiebreak) and remove them from the pool.
+    for (const slot of [...gkSlots, ...outfieldSlots]) {
+      if (remaining.length === 0) break;
+      let bestIndex = -1;
+      let bestRank = -1;
+      remaining.forEach((player, index) => {
+        const rank = fitScore(player, slot.position) * 1000 + getPlayerOvr(player);
+        if (rank > bestRank) {
+          bestRank = rank;
+          bestIndex = index;
+        }
+      });
+      if (bestIndex >= 0) {
+        const [player] = remaining.splice(bestIndex, 1);
+        picked.set(slot.slotId, player.id);
+      }
+    }
+
+    const nextGridAssignments = gridAssignments.map((assignment) => {
+      const playerId = picked.get(assignment.slotId) ?? null;
+      return { ...assignment, playerId };
+    });
+
+    await persistGridAssignments(nextGridAssignments);
+    clearLineupSelection();
+  }
+
   async function handleSlotRoleChange(field: "tacticalRole" | "duty", value: string): Promise<void> {
     if (!selectedSlotAssignment) return;
 
@@ -1512,63 +1562,6 @@ export default function TacticsTab({
       {activeViewTab === "overview" ? (
         <div className="mt-2 flex flex-col gap-4 xl:flex-row">
         <div className="flex w-full shrink-0 flex-col gap-4 xl:w-[300px]">
-          <TacticsBench
-            benchPlayers={bench}
-            dragState={dragState}
-            comparePlayerId={comparePlayerId}
-            selectedPlayerId={selectedPlayerId}
-            onLineupPlayerClick={(playerId, section) => {
-              void handleLineupPlayerClick(playerId, section);
-            }}
-            onDragStart={handleDragStart}
-            onDragEnd={resetDragState}
-          />
-        </div>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <TacticsPitch
-            dragState={dragState}
-            formation={formation}
-            formationLabel={derivedFormationLabel}
-            mentalityLabel={mentalityLabel}
-            teamShapeLabel={teamShapeLabel}
-            gridAssignments={gridAssignments}
-            playersById={playersById}
-            comparePlayerId={comparePlayerId}
-            hoveredSlot={hoveredSlot}
-            onClearSelection={clearLineupSelection}
-            onFormationChange={(nextFormation) => {
-              void handleFormationChange(nextFormation);
-            }}
-            onDragEnd={resetDragState}
-            onDragStart={handleDragStart}
-            onLineupPlayerClick={(playerId, section) => {
-              void handleLineupPlayerClick(playerId, section);
-            }}
-            onSlotDragLeave={handleSlotDragLeave}
-            onSlotDragOver={handleSlotDragOver}
-            onSlotDrop={(event, slotIndex) => {
-              void handleSlotDrop(event, slotIndex);
-            }}
-            outOfPositionCount={outOfPositionCount}
-            selectedPlayer={selectedPlayer}
-            selectedPlayerId={selectedPlayerId}
-          />
-        </div>
-
-        <div data-testid="tactics-template-sidebar" className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
-          <TacticsSetupPanel
-            activePlayStyle={activePlayStyle}
-            formation={formation}
-            onFormationChange={(nextFormation) => {
-              void handleFormationChange(nextFormation);
-            }}
-            onPlayStyleChange={(playStyle) => {
-              void handlePlayStyleChange(playStyle);
-            }}
-            showFormation={false}
-          />
-
           {gridAssignmentIssues.length > 0 ? (
             <TemplateCard className="flex flex-col gap-3 border-amber-500/30 bg-amber-500/[0.06] p-4" testId="tactics-grid-validation">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-300">
@@ -1637,6 +1630,66 @@ export default function TacticsTab({
               </div>
             ) : null}
           </TemplateCard>
+
+          <TacticsBench
+            benchPlayers={bench}
+            dragState={dragState}
+            comparePlayerId={comparePlayerId}
+            selectedPlayerId={selectedPlayerId}
+            onLineupPlayerClick={(playerId, section) => {
+              void handleLineupPlayerClick(playerId, section);
+            }}
+            onDragStart={handleDragStart}
+            onDragEnd={resetDragState}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <TacticsPitch
+            dragState={dragState}
+            formation={formation}
+            formationLabel={derivedFormationLabel}
+            mentalityLabel={mentalityLabel}
+            teamShapeLabel={teamShapeLabel}
+            gridAssignments={gridAssignments}
+            playersById={playersById}
+            comparePlayerId={comparePlayerId}
+            hoveredSlot={hoveredSlot}
+            onClearSelection={clearLineupSelection}
+            onFormationChange={(nextFormation) => {
+              void handleFormationChange(nextFormation);
+            }}
+            onDragEnd={resetDragState}
+            onDragStart={handleDragStart}
+            onLineupPlayerClick={(playerId, section) => {
+              void handleLineupPlayerClick(playerId, section);
+            }}
+            onSlotDragLeave={handleSlotDragLeave}
+            onSlotDragOver={handleSlotDragOver}
+            onSlotDrop={(event, slotIndex) => {
+              void handleSlotDrop(event, slotIndex);
+            }}
+            onQuickPick={() => {
+              void handleQuickPick();
+            }}
+            outOfPositionCount={outOfPositionCount}
+            selectedPlayer={selectedPlayer}
+            selectedPlayerId={selectedPlayerId}
+          />
+        </div>
+
+        <div data-testid="tactics-template-sidebar" className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
+          <TacticsSetupPanel
+            activePlayStyle={activePlayStyle}
+            formation={formation}
+            onFormationChange={(nextFormation) => {
+              void handleFormationChange(nextFormation);
+            }}
+            onPlayStyleChange={(playStyle) => {
+              void handlePlayStyleChange(playStyle);
+            }}
+            showFormation={false}
+          />
         </div>
       </div>
       ) : null}

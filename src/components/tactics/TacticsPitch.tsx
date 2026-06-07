@@ -48,6 +48,7 @@ interface TacticsPitchProps {
   onSlotDragOver: (event: DragEvent<HTMLElement>, slotId: string) => void;
   onSlotDragLeave: (slotId: string) => void;
   onSlotDrop: (event: DragEvent<HTMLElement>, slotId: string) => void;
+  onQuickPick?: () => void;
   outOfPositionCount: number;
   selectedPlayer: PlayerData | null;
   selectedPlayerId: string | null;
@@ -162,6 +163,7 @@ export default function TacticsPitch({
   onSlotDragLeave,
   onSlotDragOver,
   onSlotDrop,
+  onQuickPick,
   outOfPositionCount,
   selectedPlayer,
   selectedPlayerId,
@@ -374,7 +376,7 @@ export default function TacticsPitch({
         <div className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
           {outOfPositionCount} {t("squad.outOfPosition")}
         </div>
-        <button type="button" className="flex items-center gap-2 rounded border border-app-border bg-app-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5">
+        <button type="button" onClick={onQuickPick} className="flex items-center gap-2 rounded border border-app-border bg-app-card px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5">
           <Zap className="h-3.5 w-3.5" />
           Quick Pick
         </button>

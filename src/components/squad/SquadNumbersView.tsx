@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Check } from "lucide-react";
 
 import type { GameStateData, PlayerData } from "../../store/gameStore";
-import { getPlayerOvr } from "../../lib/helpers";
+import { CountryFlag } from "../ui";
+import { calcAge, getPlayerOvr } from "../../lib/helpers";
 import { setPlayerSquadNumber } from "../../services/squadService";
 import { normalisePosition, translatePositionAbbreviation } from "./SquadTab.helpers";
 
@@ -18,7 +20,15 @@ const POS_ORDER: Record<string, number> = {
   Forward: 4,
 };
 
-// Numbers 1-99: which are already worn, used to flag clashes in the editor.
+function positionChipClass(pos: string): string {
+  const base = "px-1.5 py-0.5 rounded text-[9px] font-bold inline-block min-w-[28px] text-center";
+  if (pos === "GK") return `${base} bg-[#40b07b]/20 text-[#40b07b]`;
+  if (pos.includes("D")) return `${base} bg-[#5b75a1]/20 text-[#8baae0]`;
+  if (pos.includes("M")) return `${base} bg-[#a062b0]/20 text-[#d48de8]`;
+  return `${base} bg-red-500/20 text-red-300`;
+}
+
+// Numbers 1-99 already worn, used to flag clashes in the editor.
 function buildTakenMap(roster: PlayerData[]): Map<number, string> {
   const taken = new Map<number, string>();
   for (const player of roster) {
@@ -53,7 +63,7 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
     takenMap.has(n),
   ).length;
 
-  const commit = async (player: PlayerData, raw: string) => {
+  const assign = async (player: PlayerData, raw: string) => {
     const trimmed = raw.trim();
     const parsed = trimmed === "" ? null : Number.parseInt(trimmed, 10);
 
@@ -97,7 +107,11 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
         <StatTile label="Players" value={roster.length} />
         <StatTile label="Numbered" value={assignedCount} />
         <StatTile label="1-11 Used" value={`${lowNumbersUsed}/11`} />
-        <StatTile label="Unnumbered" value={roster.length - assignedCount} tone={roster.length - assignedCount > 0 ? "warning" : "neutral"} />
+        <StatTile
+          label="Unnumbered"
+          value={roster.length - assignedCount}
+          tone={roster.length - assignedCount > 0 ? "warning" : "neutral"}
+        />
       </div>
 
       {error ? (
@@ -107,67 +121,113 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
       ) : null}
 
       <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
-        <table className="w-full text-left text-[12px]">
-          <thead className="bg-app-card sticky top-0 z-10 text-app-text-muted uppercase before:content-[''] before:absolute before:inset-x-0 before:bottom-0 before:border-b before:border-app-border/50">
-            <tr>
-              <th className="font-semibold py-3 pl-4 w-16">POS</th>
-              <th className="font-semibold py-3 min-w-[180px]">PLAYER</th>
-              <th className="font-semibold py-3 w-14 text-center">OVR</th>
-              <th className="font-semibold py-3 w-28 pr-4 text-right">NUMBER</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((player) => {
-              const draft = drafts[player.id];
-              const value = draft != null ? draft : player.squad_number != null ? String(player.squad_number) : "";
-              const pos = translatePositionAbbreviation(t, player.position);
-              return (
-                <tr key={player.id} className="border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors">
-                  <td className="py-2.5 pl-4">
-                    <span className="inline-flex items-center rounded bg-app-bg border border-app-border px-2 py-0.5 text-[10px] font-semibold uppercase text-app-text-muted">
-                      {pos}
-                    </span>
-                  </td>
-                  <td className="py-2.5 font-medium text-app-text">{player.match_name}</td>
-                  <td className="py-2.5 text-center font-mono font-bold text-app-text-muted">{getPlayerOvr(player)}</td>
-                  <td className="py-2.5 pr-4">
-                    <div className="flex justify-end">
-                      <input
-                        type="number"
-                        min={1}
-                        max={99}
-                        inputMode="numeric"
-                        value={value}
-                        disabled={savingPlayerId === player.id}
-                        onChange={(event) =>
-                          setDrafts((current) => ({ ...current, [player.id]: event.target.value }))
-                        }
-                        onBlur={(event) => void commit(player, event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.currentTarget.blur();
+        <div className="overflow-auto custom-scrollbar">
+          <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[680px]">
+            <thead className="sticky top-0 bg-app-card z-10 before:content-[''] before:absolute before:inset-x-0 before:bottom-0 before:border-b before:border-app-border/50 text-app-text-muted uppercase">
+              <tr>
+                <th className="font-semibold py-2.5 pl-4 w-14">POS</th>
+                <th className="font-semibold py-2.5 min-w-[170px]">PLAYER</th>
+                <th className="font-semibold py-2.5 w-12 text-center">AGE</th>
+                <th className="font-semibold py-2.5 w-12 text-center">NAT</th>
+                <th className="font-semibold py-2.5 w-12 text-center">OVR</th>
+                <th className="font-semibold py-2.5 w-16 text-center">CURRENT</th>
+                <th className="font-semibold py-2.5 w-44 pr-4 text-right">ASSIGN NUMBER</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((player) => {
+                const draft = drafts[player.id];
+                const value =
+                  draft != null ? draft : player.squad_number != null ? String(player.squad_number) : "";
+                const pos = translatePositionAbbreviation(t, player.natural_position || player.position);
+                const isSaving = savingPlayerId === player.id;
+                const isDirty = draft != null && draft !== (player.squad_number != null ? String(player.squad_number) : "");
+                return (
+                  <tr
+                    key={player.id}
+                    className="border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors"
+                  >
+                    <td className="py-2.5 pl-4">
+                      <span className={positionChipClass(pos)}>{pos}</span>
+                    </td>
+                    <td className="py-2.5 font-medium text-app-text">
+                      <span className="truncate">{player.full_name}</span>
+                    </td>
+                    <td className="py-2.5 text-center text-app-text-muted tabular-nums">
+                      {calcAge(player.date_of_birth)}
+                    </td>
+                    <td className="py-2.5 text-center">
+                      <CountryFlag code={player.nationality} className="text-sm leading-none" />
+                    </td>
+                    <td className="py-2.5 text-center font-mono font-bold text-app-text-muted">
+                      {getPlayerOvr(player)}
+                    </td>
+                    <td className="py-2.5 text-center">
+                      {player.squad_number != null ? (
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border-b-2 border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600 text-[11px] font-bold text-white">
+                          {player.squad_number}
+                        </span>
+                      ) : (
+                        <span className="text-app-text-muted">-</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          inputMode="numeric"
+                          value={value}
+                          disabled={isSaving}
+                          onChange={(event) =>
+                            setDrafts((current) => ({ ...current, [player.id]: event.target.value }))
                           }
-                        }}
-                        className="w-20 rounded bg-app-bg border border-app-border px-2.5 py-1.5 text-center text-sm font-bold text-app-text focus:outline-none focus:border-app-green/60 disabled:opacity-50"
-                        placeholder="-"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              void assign(player, (event.target as HTMLInputElement).value);
+                            }
+                          }}
+                          className="w-16 rounded bg-app-bg border border-app-border px-2 py-1.5 text-center text-sm font-bold text-app-text focus:outline-none focus:border-app-green/60 disabled:opacity-50"
+                          placeholder="-"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSaving || !isDirty}
+                          onClick={() => void assign(player, value)}
+                          className="flex items-center gap-1 rounded-lg bg-app-green px-2.5 py-1.5 text-[11px] font-bold text-app-bg hover:bg-app-green/90 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                        >
+                          <Check className="h-3 w-3" />
+                          {isSaving ? "..." : "Assign"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-function StatTile({ label, value, tone = "neutral" }: { label: string; value: string | number; tone?: "neutral" | "warning" }) {
+function StatTile({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  tone?: "neutral" | "warning";
+}) {
   return (
     <div className="rounded-xl border border-app-border bg-app-card px-4 py-3">
       <div className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{label}</div>
-      <div className={tone === "warning" ? "mt-1 text-xl font-bold text-warn-500" : "mt-1 text-xl font-bold text-app-text"}>{value}</div>
+      <div className={tone === "warning" ? "mt-1 text-xl font-bold text-warn-500" : "mt-1 text-xl font-bold text-app-text"}>
+        {value}
+      </div>
     </div>
   );
 }

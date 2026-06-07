@@ -22,3 +22,13 @@ export async function setPlayerSquadNumber(
         squadNumber,
     });
 }
+
+export async function setPlayerSquadTier(
+    playerId: string,
+    squadTier: "Substitute" | "Reserve",
+): Promise<GameStateData> {
+    return invoke<GameStateData>("set_player_squad_tier", {
+        playerId,
+        squadTier,
+    });
+}

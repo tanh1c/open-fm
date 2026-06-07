@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   CustomTacticSlotData,
@@ -43,7 +43,7 @@ import {
   clearContractExitIntent,
   setContractExitIntent,
 } from "../../services/contractService";
-import { setPlayerSquadRole } from "../../services/squadService";
+import { setPlayerSquadRole, setPlayerSquadTier } from "../../services/squadService";
 import SquadNumbersView from "./SquadNumbersView";
 import {
   toggleLoanList,
@@ -115,6 +115,7 @@ export default function SquadRosterView({
   const [contractActionPlayerId, setContractActionPlayerId] = useState<string | null>(null);
   const [contractActionError, setContractActionError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"roster" | "numbers">("roster");
+  const [swapPlayerId, setSwapPlayerId] = useState<string | null>(null);
 
   if (!myTeam) {
     return <p className="text-gray-500 dark:text-gray-400">{t("common.unemployed")}</p>;
@@ -261,8 +262,11 @@ export default function SquadRosterView({
   }, [roster, sortKey, sortDir, playerSearch, positionFilter, statusFilter, gameState.clock.current_date, t]);
 
   const selectedPlayer = playersById.get(selectedPlayerId ?? "") ?? filteredRoster[0] ?? roster[0];
-  const substitutes = roster.filter((player) => !xiIds.has(player.id) && !player.injury).slice(0, 7);
-  const reserves = roster.filter((player) => !xiIds.has(player.id)).slice(7, 14);
+  // Non-XI players split by their persisted depth-chart tier. Reserves are those
+  // explicitly marked Reserve; everyone else outside the XI is a substitute.
+  const nonXi = roster.filter((player) => !xiIds.has(player.id));
+  const substitutes = nonXi.filter((player) => (player.squad_tier ?? "Substitute") !== "Reserve" && !player.injury);
+  const reserves = nonXi.filter((player) => (player.squad_tier ?? "Substitute") === "Reserve");
   const injuredPlayers = roster.filter((player) => player.injury);
   const outOfPositionCount = roster.filter((player) => isOutOfPosition(player)).length;
   const avgCondition = roster.length ? Math.round(roster.reduce((sum, player) => sum + player.condition, 0) / roster.length) : 0;
@@ -324,6 +328,42 @@ export default function SquadRosterView({
 
   const selectPlayer = (player: PlayerData) => {
     setSelectedPlayerId(player.id);
+  };
+
+  // Persist the starting XI after adding/removing one player. The engine treats
+  // `starting_xi_ids` as the authoritative lineup; non-members are bench/reserve.
+  const persistStartingXi = async (ids: string[]) => {
+    setSwapPlayerId(null);
+    try {
+      const updated = await invoke<GameStateData>("set_starting_xi", { playerIds: ids });
+      onGameUpdate?.(updated);
+    } catch {
+      return;
+    }
+  };
+
+  const promoteToXi = (player: PlayerData) => {
+    if (xiIds.has(player.id) || startingXiIds.length >= 11) return;
+    setSwapPlayerId(player.id);
+    void persistStartingXi([...startingXiIds, player.id]);
+  };
+
+  const dropFromXi = (player: PlayerData) => {
+    if (!xiIds.has(player.id)) return;
+    setSwapPlayerId(player.id);
+    void persistStartingXi(startingXiIds.filter((id) => id !== player.id));
+  };
+
+  const changeSquadTier = async (player: PlayerData, tier: "Substitute" | "Reserve") => {
+    setSwapPlayerId(player.id);
+    try {
+      const updated = await setPlayerSquadTier(player.id, tier);
+      onGameUpdate?.(updated);
+    } catch {
+      return;
+    } finally {
+      setSwapPlayerId(null);
+    }
   };
 
   const SortHeader = ({ col, label, className = "" }: { col: SortKey; label: string; className?: string }) => (
@@ -526,7 +566,7 @@ export default function SquadRosterView({
                   <SortHeader col="assists" label="AST" className="w-10 text-center" />
                   <SortHeader col="avgRating" label="AV RAT" className="w-14 text-center" />
                   <SortHeader col="status" label="STATUS" className="w-24 pr-4" />
-                  <SortHeader col="actions" label="ACTIONS" className="w-24 pr-4" />
+                  <th className="font-semibold py-2.5 text-app-text-muted w-32 pr-4">{statusFilter === "xi" ? "SQUAD ROLE" : "ACTIONS"}</th>
                   <SortHeader col="ovr" label="OVR" className="w-12 text-center" />
                   <SortHeader col="potential" label="POT" className="w-12 pr-4 text-center" />
                 </tr>
@@ -546,6 +586,12 @@ export default function SquadRosterView({
                   weeklySuffix,
                   currentDate: gameState.clock.current_date,
                   selected: selectedPlayer?.id === player.id,
+                  swapMode: statusFilter === "xi",
+                  xiCount: startingXiIds.length,
+                  swapPlayerId,
+                  promoteToXi,
+                  dropFromXi,
+                  changeSquadTier,
                 }))}
               </tbody>
             </table>
@@ -634,6 +680,75 @@ export default function SquadRosterView({
   );
 }
 
+function SquadSwapControls({
+  player,
+  inXI,
+  xiCount,
+  busy,
+  onPromote,
+  onDrop,
+  onTier,
+}: {
+  player: PlayerData;
+  inXI: boolean;
+  xiCount: number;
+  busy: boolean;
+  onPromote: () => void;
+  onDrop: () => void;
+  onTier: (tier: "Substitute" | "Reserve") => void;
+}) {
+  const tier = player.squad_tier ?? "Substitute";
+  const stop = (event: ReactMouseEvent) => event.stopPropagation();
+
+  if (inXI) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={(event) => {
+          stop(event);
+          onDrop();
+        }}
+        className="rounded border border-app-border bg-app-bg px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted transition-colors hover:border-warn-500/50 hover:text-warn-500 disabled:opacity-40"
+      >
+        Drop to Bench
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1" onClick={stop}>
+      <button
+        type="button"
+        disabled={busy || xiCount >= 11}
+        onClick={onPromote}
+        title={xiCount >= 11 ? "Starting XI is full" : "Promote to Starting XI"}
+        className="rounded bg-app-green px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg transition-colors hover:bg-app-green/90 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        To XI
+      </button>
+      <div className="flex overflow-hidden rounded border border-app-border">
+        <button
+          type="button"
+          disabled={busy || tier === "Substitute"}
+          onClick={() => onTier("Substitute")}
+          className={tier === "Substitute" ? "bg-app-green/20 px-1.5 py-1 text-[9px] font-bold uppercase text-app-green" : "px-1.5 py-1 text-[9px] font-bold uppercase text-app-text-muted hover:text-white disabled:opacity-40"}
+        >
+          Sub
+        </button>
+        <button
+          type="button"
+          disabled={busy || tier === "Reserve"}
+          onClick={() => onTier("Reserve")}
+          className={tier === "Reserve" ? "bg-indigo-500/20 px-1.5 py-1 text-[9px] font-bold uppercase text-indigo-300" : "px-1.5 py-1 text-[9px] font-bold uppercase text-app-text-muted hover:text-white disabled:opacity-40"}
+        >
+          Res
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function renderPlayerRow({
   player,
   index,
@@ -648,6 +763,12 @@ function renderPlayerRow({
   weeklySuffix,
   currentDate,
   selected,
+  swapMode,
+  xiCount,
+  swapPlayerId,
+  promoteToXi,
+  dropFromXi,
+  changeSquadTier,
 }: {
   player: PlayerData;
   index: number;
@@ -662,6 +783,12 @@ function renderPlayerRow({
   weeklySuffix: string;
   currentDate: string;
   selected: boolean;
+  swapMode: boolean;
+  xiCount: number;
+  swapPlayerId: string | null;
+  promoteToXi: (player: PlayerData) => void;
+  dropFromXi: (player: PlayerData) => void;
+  changeSquadTier: (player: PlayerData, tier: "Substitute" | "Reserve") => void;
 }) {
   const inXI = xiIds.has(player.id);
   const currentPos = inXI ? xiActivePosition.get(player.id) || player.position : player.natural_position || player.position;
@@ -784,7 +911,17 @@ function renderPlayerRow({
         <td className="py-2.5 text-center"><span className="bg-app-bg px-2.5 py-1 rounded text-app-text font-bold border border-app-border/50 bg-[#252f3d]">{player.stats.avg_rating ? player.stats.avg_rating.toFixed(2) : "-"}</span></td>
         <td className="py-2.5 pr-4 text-app-text-muted text-[10px]">{contractRiskLabel}</td>
         <td className="py-2.5 pr-4">
-          {player.contract_end && contractRiskLevel !== "stable" ? (
+          {swapMode ? (
+            <SquadSwapControls
+              player={player}
+              inXI={inXI}
+              xiCount={xiCount}
+              busy={swapPlayerId === player.id}
+              onPromote={() => promoteToXi(player)}
+              onDrop={() => dropFromXi(player)}
+              onTier={(tier) => changeSquadTier(player, tier)}
+            />
+          ) : player.contract_end && contractRiskLevel !== "stable" ? (
             <Button
               size="sm"
               variant="outline"
@@ -832,7 +969,7 @@ function PlayerProfileCard({ player, currentDate, onRenew }: { player: PlayerDat
   const splitName = player.full_name.split(" ");
   const firstName = splitName.slice(0, -1).join(" ") || player.match_name;
   const lastName = splitName[splitName.length - 1] ?? player.match_name;
-  const stars = Math.max(1, Math.round(ovr / 20));
+  const stars = ovrToStars(ovr);
 
   return (
     <>
@@ -844,7 +981,7 @@ function PlayerProfileCard({ player, currentDate, onRenew }: { player: PlayerDat
               <span className="text-[10px] text-emerald-500 font-bold leading-none">{translateProfilePosition(player)}</span>
             </div>
             <div className="flex flex-col gap-1">
-              <StarRating stars={Math.min(5, stars)} size="w-2.5 h-2.5" />
+              <StarRating stars={stars} size="w-2.5 h-2.5" />
               <span className="text-[10px] text-app-text-muted">{roleLabel(ovr)}</span>
             </div>
           </div>
@@ -855,7 +992,7 @@ function PlayerProfileCard({ player, currentDate, onRenew }: { player: PlayerDat
           <h2 className="text-xl font-bold leading-tight uppercase text-app-text">{firstName}<br />{lastName}</h2>
           <span className="text-[10px] text-app-text-muted">{getPreferredPositions(player).join(" / ")}</span>
           <div className="flex gap-0.5 mt-2 mb-2 items-center">
-            <StarRating stars={Math.min(5, stars)} size="w-2.5 h-2.5" />
+            <StarRating stars={stars} size="w-2.5 h-2.5" />
             <CountryFlag code={player.nationality} className="ml-2 text-xs" />
           </div>
           <button type="button" onClick={onRenew} className="bg-app-green/10 text-app-green px-2 py-0.5 rounded text-[9px] font-bold flex items-center gap-1 w-fit">
@@ -1077,10 +1214,37 @@ function RadarMini({ values }: { values: number[] }) {
   );
 }
 
+// Map an OVR (~40-99) onto a 0.5-5 star scale so quality actually spreads out
+// instead of everyone rounding to 4 stars. 50→1★, 90→5★, in half-star steps.
+function ovrToStars(ovr: number): number {
+  const raw = (ovr - 40) / 10;
+  const halfStepped = Math.round(raw * 2) / 2;
+  return Math.min(5, Math.max(0.5, halfStepped));
+}
+
 function StarRating({ stars, size }: { stars: number; size: string }) {
   return (
     <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`${size} text-amber-400 ${star <= stars ? "fill-amber-400" : "fill-amber-400/20 opacity-40"}`} />)}
+      {[1, 2, 3, 4, 5].map((star) => {
+        const filled = star <= stars;
+        const half = !filled && star - 0.5 <= stars;
+        if (half) {
+          return (
+            <span key={star} className={`relative inline-block ${size}`}>
+              <Star className={`${size} text-amber-400 fill-amber-400/20 opacity-40`} />
+              <span className="absolute inset-0 overflow-hidden" style={{ width: "50%" }}>
+                <Star className={`${size} text-amber-400 fill-amber-400`} />
+              </span>
+            </span>
+          );
+        }
+        return (
+          <Star
+            key={star}
+            className={`${size} text-amber-400 ${filled ? "fill-amber-400" : "fill-amber-400/20 opacity-40"}`}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -1127,10 +1291,12 @@ function moraleLabel(value: number): string {
 }
 
 function roleLabel(ovr: number): string {
-  if (ovr >= 80) return "Star Player";
-  if (ovr >= 70) return "Important";
-  if (ovr >= 60) return "Regular Starter";
-  return "Squad Player";
+  if (ovr >= 86) return "Star Player";
+  if (ovr >= 78) return "Key Player";
+  if (ovr >= 70) return "First Team";
+  if (ovr >= 62) return "Squad Rotation";
+  if (ovr >= 54) return "Fringe Player";
+  return "Prospect";
 }
 
 function translateProfilePosition(player: PlayerData): string {

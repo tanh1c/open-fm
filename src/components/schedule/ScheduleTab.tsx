@@ -22,6 +22,7 @@ import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import TeamLogo from "../common/TeamLogo";
 import MonthCalendar, { type CalendarEvent } from "../common/MonthCalendar";
 import MatchDetailModal from "../match/MatchDetailModal";
+import FixtureInfoModal from "./FixtureInfoModal";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
@@ -83,6 +84,7 @@ export default function ScheduleTab({
   // My Club fixtures can be shown as a flat list or a month calendar grid.
   const [fixtureLayout, setFixtureLayout] = useState<"list" | "calendar">("list");
   const [selectedMatchFixtureId, setSelectedMatchFixtureId] = useState<string | null>(null);
+  const [infoFixture, setInfoFixture] = useState<FixtureData | null>(null);
   const competitionOptions = gameState.competitions?.length
     ? gameState.competitions
     : gameState.league
@@ -543,6 +545,15 @@ export default function ScheduleTab({
                           events={userCalendarEvents}
                           today={todayIso}
                           initialMonth={nextUserFixture?.date ?? todayIso}
+                          onSelect={(date) => {
+                            const fixture = userFixtures.find((f) => f.date.slice(0, 10) === date);
+                            if (!fixture) return;
+                            if (fixture.status === "Completed" && fixture.result) {
+                              setSelectedMatchFixtureId(fixture.id);
+                            } else {
+                              setInfoFixture(fixture);
+                            }
+                          }}
                         />
                         {calendarLegend.length > 0 ? (
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-app-border/50 pt-3">
@@ -724,6 +735,13 @@ export default function ScheduleTab({
       <MatchDetailModal
         fixtureId={selectedMatchFixtureId}
         onClose={() => setSelectedMatchFixtureId(null)}
+      />
+
+      <FixtureInfoModal
+        fixture={infoFixture}
+        gameState={gameState}
+        onClose={() => setInfoFixture(null)}
+        onViewTeam={onSelectTeam}
       />
     </div>
   );

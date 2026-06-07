@@ -441,6 +441,48 @@ pub fn set_player_squad_number(
 }
 
 #[tauri::command]
+pub fn set_player_squad_tier(
+    state: State<'_, StateManager>,
+    player_id: String,
+    squad_tier: String,
+) -> Result<Game, String> {
+    info!(
+        "[cmd] set_player_squad_tier: player={}, squad_tier={}",
+        player_id, squad_tier
+    );
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+
+    let target_tier = match squad_tier.as_str() {
+        "Substitute" => domain::player::SquadTier::Substitute,
+        "Reserve" => domain::player::SquadTier::Reserve,
+        _ => return Err("be.error.invalidSquadTier".to_string()),
+    };
+
+    let player_index = game
+        .players
+        .iter()
+        .position(|player| player.id == player_id)
+        .ok_or("be.error.playerNotFound".to_string())?;
+
+    if game.players[player_index].team_id.as_deref() != Some(team_id.as_str()) {
+        return Err("be.error.playerNotInSquad".to_string());
+    }
+
+    game.players[player_index].squad_tier = target_tier;
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
     state: State<'_, StateManager>,
     player_id: String,
     squad_role: String,

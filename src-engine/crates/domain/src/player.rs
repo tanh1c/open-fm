@@ -48,6 +48,11 @@ pub struct Player {
     #[serde(default)]
     pub squad_number: Option<u8>,
 
+    /// Depth-chart tier for non-starters (Substitute vs Reserve). Defaults to
+    /// Substitute so existing saves keep all non-XI players available as subs.
+    #[serde(default)]
+    pub squad_tier: SquadTier,
+
     // Traits / flairs derived from attributes
     #[serde(default)]
     pub traits: Vec<PlayerTrait>,
@@ -160,6 +165,16 @@ pub enum SquadRole {
     #[default]
     Senior,
     Youth,
+}
+
+/// Where a senior-squad player sits in the manager's depth chart. Starting XI
+/// membership is tracked separately via `Team::starting_xi_ids`; this field
+/// distinguishes the non-starters between match-day substitutes and reserves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum SquadTier {
+    #[default]
+    Substitute,
+    Reserve,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -640,6 +655,7 @@ impl Player {
             team_id: None,
             squad_role: SquadRole::Senior,
             squad_number: None,
+            squad_tier: SquadTier::Substitute,
             traits,
             ovr: 0,
             potential: 0,

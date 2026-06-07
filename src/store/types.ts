@@ -171,6 +171,8 @@ export interface PlayerMoraleCoreData {
 
 export type PlayerSquadRole = "Senior" | "Youth";
 
+export type PlayerSquadTier = "Substitute" | "Reserve";
+
 export interface PlayerData {
   id: string;
   match_name: string;
@@ -211,6 +213,7 @@ export interface PlayerData {
   team_id: string | null;
   squad_role?: PlayerSquadRole;
   squad_number?: number | null;
+  squad_tier?: PlayerSquadTier;
   contract_end: string | null;
   wage: number;
   market_value: number;

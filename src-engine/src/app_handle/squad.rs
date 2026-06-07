@@ -642,6 +642,41 @@ impl AppHandle {
         to_js_value(&game)
     }
 
+    #[wasm_bindgen(js_name = setPlayerSquadTier)]
+    pub fn set_player_squad_tier(
+        &self,
+        player_id: String,
+        squad_tier: String,
+    ) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        let team_id = game
+            .manager
+            .team_id
+            .clone()
+            .ok_or_else(|| to_js(NO_TEAM_ASSIGNED.to_string()))?;
+
+        let target_tier = match squad_tier.as_str() {
+            "Substitute" => domain::player::SquadTier::Substitute,
+            "Reserve" => domain::player::SquadTier::Reserve,
+            _ => return Err(to_js("be.error.invalidSquadTier".to_string())),
+        };
+
+        let player_index = game
+            .players
+            .iter()
+            .position(|player| player.id == player_id)
+            .ok_or_else(|| to_js("be.error.playerNotFound".to_string()))?;
+
+        if game.players[player_index].team_id.as_deref() != Some(team_id.as_str()) {
+            return Err(to_js("be.error.playerNotInSquad".to_string()));
+        }
+
+        game.players[player_index].squad_tier = target_tier;
+
+        self.state.set_game(game.clone());
+        to_js_value(&game)
+    }
+
     pub fn auto_select_set_pieces(&self, player_ids: JsValue) -> Result<JsValue, JsValue> {
         let player_ids: Vec<String> = serde_wasm_bindgen::from_value(player_ids)
             .map_err(|e| to_js(format!("be.error.deserialize:{e}")))?;

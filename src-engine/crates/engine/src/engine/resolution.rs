@@ -3,7 +3,7 @@ use rand::{Rng, RngExt};
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
     PlayStylePhase, PlayerSnap, TraitContext, compress_skill, home_mod, pitch_carry_modifier, pitch_pass_modifier,
-    play_style_modifier, tactical_buildup_modifier, tactical_midfield_modifier,
+    play_style_modifier, tactical_buildup_modifier, tactical_counter_press_pressure, tactical_midfield_modifier,
     tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
     tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
     trait_pass_creativity_modifier, trait_pass_safety_modifier, trait_press_work_rate_modifier,
@@ -115,6 +115,7 @@ fn resolve_buildup<R: Rng>(
 ) {
     let passer = snap_player(ctx, att_side, Position::Defender, rng);
     let att_team = ctx.adapted_team(att_side);
+    let def_team = ctx.adapted_team(def_side);
     let pass_skill = compress_skill(
         (passer.passing as f64
             + passer.vision as f64
@@ -130,8 +131,9 @@ fn resolve_buildup<R: Rng>(
     let press = effective_press(ctx, def_side);
     let ball_zone = ctx.ball_zone;
 
-    let success_chance =
-        (pass_skill * 1.3) / (pass_skill * 1.3 + press * tactical_turnover_risk(&att_team));
+    let success_chance = (pass_skill * 1.3)
+        / (pass_skill * 1.3
+            + press * tactical_turnover_risk(&att_team) * tactical_counter_press_pressure(&def_team));
     if rng.random_range(0.0..1.0f64) < success_chance {
         ctx.emit(
             MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
@@ -195,6 +197,7 @@ fn resolve_midfield<R: Rng>(
     let def_eff = def_rating
         * def_mod
         * tactical_press_modifier(&def_team)
+        * tactical_counter_press_pressure(&def_team)
         * team_cohesion_modifier(&def_team)
         * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);

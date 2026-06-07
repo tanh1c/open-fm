@@ -32,6 +32,14 @@ struct TacticalInstructionsInput {
     width: f64,
     passing_directness: f64,
     risk_appetite: f64,
+    #[serde(default = "half_instruction_input")]
+    counter_attack: f64,
+    #[serde(default = "half_instruction_input")]
+    counter_press: f64,
+}
+
+fn half_instruction_input() -> f64 {
+    0.5
 }
 
 impl From<TacticalInstructionsInput> for domain::team::TacticalInstructions {
@@ -43,6 +51,8 @@ impl From<TacticalInstructionsInput> for domain::team::TacticalInstructions {
             width: input.width,
             passing_directness: input.passing_directness,
             risk_appetite: input.risk_appetite,
+            counter_attack: input.counter_attack,
+            counter_press: input.counter_press,
         }
         .clamped()
     }

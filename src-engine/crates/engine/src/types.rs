@@ -190,6 +190,14 @@ pub struct TacticalInstructionProfile {
     pub width: f64,
     pub passing_directness: f64,
     pub risk_appetite: f64,
+    #[serde(default = "half_instruction")]
+    pub counter_attack: f64,
+    #[serde(default = "half_instruction")]
+    pub counter_press: f64,
+}
+
+fn half_instruction() -> f64 {
+    0.5
 }
 
 impl Default for TacticalInstructionProfile {
@@ -201,6 +209,8 @@ impl Default for TacticalInstructionProfile {
             width: 0.5,
             passing_directness: 0.5,
             risk_appetite: 0.5,
+            counter_attack: 0.5,
+            counter_press: 0.5,
         }
     }
 }

@@ -113,6 +113,15 @@ pub struct TacticalInstructions {
     pub width: f64,
     pub passing_directness: f64,
     pub risk_appetite: f64,
+    // Transition instructions. serde default keeps pre-transition saves loadable.
+    #[serde(default = "default_instruction_value")]
+    pub counter_attack: f64,
+    #[serde(default = "default_instruction_value")]
+    pub counter_press: f64,
+}
+
+fn default_instruction_value() -> f64 {
+    0.5
 }
 
 impl Default for TacticalInstructions {
@@ -124,6 +133,8 @@ impl Default for TacticalInstructions {
             width: 0.5,
             passing_directness: 0.5,
             risk_appetite: 0.5,
+            counter_attack: 0.5,
+            counter_press: 0.5,
         }
     }
 }
@@ -137,6 +148,8 @@ impl TacticalInstructions {
             width: self.width.clamp(0.0, 1.0),
             passing_directness: self.passing_directness.clamp(0.0, 1.0),
             risk_appetite: self.risk_appetite.clamp(0.0, 1.0),
+            counter_attack: self.counter_attack.clamp(0.0, 1.0),
+            counter_press: self.counter_press.clamp(0.0, 1.0),
         }
     }
 }

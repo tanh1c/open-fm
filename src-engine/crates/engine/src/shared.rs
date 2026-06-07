@@ -522,6 +522,10 @@ pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &T
     } else {
         0.0
     };
+    // Counter-attack slider: rewards breaking into space, strongest vs a high line.
+    let counter_attack = instruction_delta(att.counter_attack);
+    let counter_attack_bonus =
+        counter_attack * (0.050 + high_line_space * 0.060) - counter_attack.max(0.0) * deep_block_space * 0.040;
     let compact_block_penalty = if deep_block_space > 0.0 {
         defensive_compactness.max(0.0) * 0.090 + deep_block_space * 0.090
     } else {
@@ -530,6 +534,7 @@ pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &T
     (1.0 + tempo * 0.060 + directness * 0.095 + risk * 0.090 + width * 0.035
         + high_line_space * 0.070
         + counter_matchup
+        + counter_attack_bonus
         - compact_block_penalty)
         .clamp(0.76, 1.30)
 }
@@ -548,8 +553,12 @@ pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &Tea
     } else {
         0.0
     };
+    // Counter-attack slider: cleaner chances when breaking against a high line.
+    let counter_attack = instruction_delta(att.counter_attack);
+    let counter_attack_bonus = counter_attack * (0.030 + defensive_line.max(0.0) * 0.060);
     (1.0 + risk * 0.045 + directness * 0.035 + width * 0.020 + defensive_line * 0.030
         + counter_bonus
+        + counter_attack_bonus
         - compactness.max(0.0) * 0.065)
         .clamp(0.82, 1.20)
 }
@@ -559,7 +568,9 @@ pub(crate) fn tactical_fatigue_modifier(team: &TeamData) -> f64 {
     let press = instruction_delta(instructions.pressing_intensity);
     let tempo = instruction_delta(instructions.tempo);
     let line = instruction_delta(instructions.defensive_line);
-    (1.0 + press * 0.11 + tempo * 0.075 + line.max(0.0) * 0.040).clamp(0.86, 1.22)
+    let counter_press = instruction_delta(instructions.counter_press);
+    (1.0 + press * 0.11 + tempo * 0.075 + line.max(0.0) * 0.040 + counter_press.max(0.0) * 0.045)
+        .clamp(0.86, 1.22)
 }
 
 pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
@@ -567,7 +578,16 @@ pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
     let directness = instruction_delta(instructions.passing_directness);
     let tempo = instruction_delta(instructions.tempo);
     let risk = instruction_delta(instructions.risk_appetite);
-    (1.0 + directness * 0.085 + tempo * 0.055 + risk * 0.080).clamp(0.82, 1.24)
+    let counter_attack = instruction_delta(instructions.counter_attack);
+    (1.0 + directness * 0.085 + tempo * 0.055 + risk * 0.080 + counter_attack * 0.030)
+        .clamp(0.82, 1.24)
+}
+
+/// How much the DEFENDING team's counter-press raises the attacking team's
+/// turnover risk. Returns a multiplier (>=1.0 when pressing hard to win it back).
+pub(crate) fn tactical_counter_press_pressure(def_team: &TeamData) -> f64 {
+    let counter_press = instruction_delta(def_team.tactical_profile.instructions.counter_press);
+    (1.0 + counter_press.max(0.0) * 0.150 - (-counter_press).max(0.0) * 0.080).clamp(0.90, 1.18)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -595,6 +615,7 @@ pub(crate) fn match_state_adapted_team(
         instructions.tempo -= 0.08 * late_factor;
         instructions.defensive_line -= 0.10 * late_factor;
         instructions.pressing_intensity -= 0.07 * late_factor;
+        instructions.counter_attack -= 0.08 * late_factor;
     } else if score_delta < 0 {
         let urgency = late_factor * (-score_delta as f64).clamp(1.0, 2.0);
         instructions.risk_appetite += 0.13 * urgency;
@@ -602,6 +623,8 @@ pub(crate) fn match_state_adapted_team(
         instructions.pressing_intensity += 0.10 * urgency;
         instructions.passing_directness += 0.08 * urgency;
         instructions.defensive_line += 0.05 * urgency;
+        instructions.counter_attack += 0.10 * urgency;
+        instructions.counter_press += 0.08 * urgency;
     }
 
     if red_card_factor > 0.0 {
@@ -609,11 +632,13 @@ pub(crate) fn match_state_adapted_team(
         instructions.risk_appetite -= 0.08 * red_card_factor;
         instructions.defensive_line -= 0.07 * red_card_factor;
         instructions.tempo -= 0.05 * red_card_factor;
+        instructions.counter_press -= 0.09 * red_card_factor;
     }
 
     if fatigue_factor > 0.0 {
         instructions.pressing_intensity -= 0.09 * fatigue_factor;
         instructions.tempo -= 0.07 * fatigue_factor;
+        instructions.counter_press -= 0.08 * fatigue_factor;
     }
 
     instructions.pressing_intensity = instructions.pressing_intensity.clamp(0.0, 1.0);
@@ -622,6 +647,8 @@ pub(crate) fn match_state_adapted_team(
     instructions.width = instructions.width.clamp(0.0, 1.0);
     instructions.passing_directness = instructions.passing_directness.clamp(0.0, 1.0);
     instructions.risk_appetite = instructions.risk_appetite.clamp(0.0, 1.0);
+    instructions.counter_attack = instructions.counter_attack.clamp(0.0, 1.0);
+    instructions.counter_press = instructions.counter_press.clamp(0.0, 1.0);
     adapted
 }
 

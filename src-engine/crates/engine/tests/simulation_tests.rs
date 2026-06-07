@@ -84,7 +84,14 @@ fn with_instructions(
         width,
         passing_directness,
         risk_appetite,
+        ..TacticalInstructionProfile::default()
     };
+    team
+}
+
+fn with_transition(mut team: TeamData, counter_attack: f64, counter_press: f64) -> TeamData {
+    team.tactical_profile.instructions.counter_attack = counter_attack;
+    team.tactical_profile.instructions.counter_press = counter_press;
     team
 }
 
@@ -1929,3 +1936,103 @@ fn dribble_events_occur() {
     assert!(total_dribbles > 0, "Dribbles should occur");
     assert!(total_clearances > 0, "Clearances should occur");
 }
+
+#[test]
+fn counter_attack_slider_boosts_output_against_high_line() {
+    // Same base team; one with a high counter-attack slider, one cautious.
+    let base = with_instructions(
+        with_shape(make_team("brk", "Breakers FC", 66, PlayStyle::Balanced), 4, 4, 2),
+        0.50,
+        0.42,
+        0.62,
+        0.58,
+        0.62,
+        0.55,
+    );
+    let direct_break = with_transition(base.clone(), 0.95, 0.50);
+    let cautious_break = with_transition(base, 0.10, 0.50);
+    let high_line = with_instructions(
+        with_shape(make_team("high", "High Line FC", 68, PlayStyle::Attacking), 3, 4, 3),
+        0.78,
+        0.88,
+        0.74,
+        0.68,
+        0.62,
+        0.72,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let direct = summarize_trials(&direct_break, &high_line, &config, 240);
+    let cautious = summarize_trials(&cautious_break, &high_line, &config, 240);
+
+    assert!(
+        direct.home_shots >= cautious.home_shots,
+        "High counter-attack should generate at least as many shots vs a high line: direct shots={}, cautious shots={}",
+        direct.home_shots,
+        cautious.home_shots
+    );
+}
+
+#[test]
+fn counter_press_raises_opponent_turnovers() {
+    let heavy_press = with_transition(
+        with_instructions(
+            make_team("cp", "CounterPress FC", 68, PlayStyle::Balanced),
+            0.55,
+            0.55,
+            0.55,
+            0.55,
+            0.50,
+            0.55,
+        ),
+        0.50,
+        0.95,
+    );
+    let light_press = with_transition(
+        with_instructions(
+            make_team("dp", "DropOff FC", 68, PlayStyle::Balanced),
+            0.55,
+            0.55,
+            0.55,
+            0.55,
+            0.50,
+            0.55,
+        ),
+        0.50,
+        0.10,
+    );
+    let opponent = make_team("opp", "Opponent FC", 68, PlayStyle::Balanced);
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    // Count RAW interception events against the opponent. Report team stats are
+    // normalized from possession, so we read the unprocessed event log instead.
+    let mut heavy_turnovers = 0u32;
+    let mut light_turnovers = 0u32;
+    for seed in 0..200 {
+        let heavy = simulate_with_rng(&heavy_press, &opponent, &config, &mut seeded_rng(seed));
+        heavy_turnovers += heavy
+            .events
+            .iter()
+            .filter(|e| e.event_type == EventType::PassIntercepted && e.side == Side::Away)
+            .count() as u32;
+
+        let light = simulate_with_rng(&light_press, &opponent, &config, &mut seeded_rng(seed));
+        light_turnovers += light
+            .events
+            .iter()
+            .filter(|e| e.event_type == EventType::PassIntercepted && e.side == Side::Away)
+            .count() as u32;
+    }
+
+    assert!(
+        heavy_turnovers > light_turnovers,
+        "Heavy counter-press should force more opponent interceptions: heavy={heavy_turnovers}, light={light_turnovers}"
+    );
+}
+

@@ -269,6 +269,8 @@ fn to_engine_tactical_instructions(
         width: instructions.width,
         passing_directness: instructions.passing_directness,
         risk_appetite: instructions.risk_appetite,
+        counter_attack: instructions.counter_attack,
+        counter_press: instructions.counter_press,
     }
 }
 
@@ -295,10 +297,14 @@ fn tactical_instructions_from_slots(
     profile.risk_appetite += vertical_aggression * 0.18 + attack_duties * 0.12 - defend_duties * 0.10;
     profile.tempo += attack_duties * 0.08 - defend_duties * 0.06;
     profile.width = (profile.width * 0.45 + width * 0.55).clamp(0.0, 1.0);
+    profile.counter_attack += attack_duties * 0.06 - defend_duties * 0.05;
 
     for slot in occupied_slots {
         match slot.tactical_role.as_deref() {
-            Some("PF" | "BWM") => profile.pressing_intensity += 0.025,
+            Some("PF" | "BWM") => {
+                profile.pressing_intensity += 0.025;
+                profile.counter_press += 0.020;
+            }
             Some("W" | "WB") => profile.width += 0.025,
             Some("DLP" | "AP") => {
                 profile.passing_directness -= 0.025;
@@ -307,6 +313,7 @@ fn tactical_instructions_from_slots(
             Some("AF") => {
                 profile.passing_directness += 0.025;
                 profile.risk_appetite += 0.015;
+                profile.counter_attack += 0.015;
             }
             Some("IF" | "IW") => {
                 profile.risk_appetite += 0.012;
@@ -323,6 +330,8 @@ fn tactical_instructions_from_slots(
         width: profile.width.clamp(0.0, 1.0),
         passing_directness: profile.passing_directness.clamp(0.0, 1.0),
         risk_appetite: profile.risk_appetite.clamp(0.0, 1.0),
+        counter_attack: profile.counter_attack.clamp(0.0, 1.0),
+        counter_press: profile.counter_press.clamp(0.0, 1.0),
     }
 }
 

@@ -118,6 +118,8 @@ fn generated_tactical_instructions_for_team(
             width: 0.66,
             passing_directness: 0.58,
             risk_appetite: 0.74,
+            counter_attack: 0.58,
+            counter_press: 0.62,
         },
         PlayStyle::Defensive => TacticalInstructions {
             pressing_intensity: 0.34,
@@ -126,6 +128,8 @@ fn generated_tactical_instructions_for_team(
             width: 0.42,
             passing_directness: 0.44,
             risk_appetite: 0.28,
+            counter_attack: 0.40,
+            counter_press: 0.32,
         },
         PlayStyle::Possession => TacticalInstructions {
             pressing_intensity: 0.58,
@@ -134,6 +138,8 @@ fn generated_tactical_instructions_for_team(
             width: 0.54,
             passing_directness: 0.30,
             risk_appetite: 0.44,
+            counter_attack: 0.40,
+            counter_press: 0.62,
         },
         PlayStyle::Counter => TacticalInstructions {
             pressing_intensity: 0.46,
@@ -142,6 +148,8 @@ fn generated_tactical_instructions_for_team(
             width: 0.62,
             passing_directness: 0.76,
             risk_appetite: 0.56,
+            counter_attack: 0.80,
+            counter_press: 0.48,
         },
         PlayStyle::HighPress => TacticalInstructions {
             pressing_intensity: 0.86,
@@ -150,6 +158,8 @@ fn generated_tactical_instructions_for_team(
             width: 0.56,
             passing_directness: 0.56,
             risk_appetite: 0.66,
+            counter_attack: 0.62,
+            counter_press: 0.84,
         },
         PlayStyle::Balanced => TacticalInstructions::default(),
     };
@@ -161,6 +171,8 @@ fn generated_tactical_instructions_for_team(
         width: clamp_instruction(base.width + attacking_bias * 0.4 - defensive_bias * 0.15),
         passing_directness: clamp_instruction(base.passing_directness - technical_bias * 0.7 + physical_bias * 0.25 + volatility_bias * 0.2),
         risk_appetite: clamp_instruction(base.risk_appetite + attacking_bias * 0.7 + tactical_bias * 0.4 + volatility_bias * 0.35),
+        counter_attack: clamp_instruction(base.counter_attack + physical_bias * 0.5 + attacking_bias * 0.4 + volatility_bias * 0.25),
+        counter_press: clamp_instruction(base.counter_press + physical_bias * 0.5 + tactical_bias * 0.3 - volatility_bias * 0.15),
     }
     .clamped()
 }

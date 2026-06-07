@@ -208,11 +208,11 @@ function Jersey({ player }: { player: PlayerSlot }) {
       >
         {player.number}
       </div>
-      <div className="w-[120%] bg-app-bg/80 border border-app-border backdrop-blur-sm rounded px-1 py-0.5 text-center flex flex-col items-center shadow-sm">
+      <div className="w-[120%] rounded px-1 py-0.5 text-center flex flex-col items-center [text-shadow:0_1px_2px_rgba(0,0,0,0.95)]">
         <span className="text-[9px] font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis w-full">
           {player.name}
         </span>
-        <span className="text-[8px] text-app-text-muted whitespace-nowrap font-medium">
+        <span className="text-[8px] text-white/80 whitespace-nowrap font-medium">
           {player.role.split(" - ")[0]}
           {player.role.includes(" - ") && (
             <>

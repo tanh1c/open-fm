@@ -55,6 +55,8 @@ export interface TacticalInstructionsData {
   width: number;
   passing_directness: number;
   risk_appetite: number;
+  counter_attack: number;
+  counter_press: number;
 }
 
 export interface TacticPresetData {

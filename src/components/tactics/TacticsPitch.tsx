@@ -21,8 +21,11 @@ import {
   type GridTacticAssignment,
 } from "./TacticsTab.helpers";
 
+function cx(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
 interface TacticsPitchProps {
-  benchPlayers: PlayerData[];
   dragState: DragState | null;
   formation: string;
   formationLabel?: string;
@@ -84,20 +87,6 @@ function getPitchPlayerButtonClassName(options: {
   return className;
 }
 
-function getBenchPlayerButtonClassName(options: {
-  dragState: DragState | null;
-  comparePlayerId: string | null;
-  player: PlayerData;
-  selectedPlayerId: string | null;
-}): string {
-  const { dragState, comparePlayerId, player, selectedPlayerId } = options;
-  const isActive = dragState?.playerId === player.id || comparePlayerId === player.id || selectedPlayerId === player.id;
-
-  return `flex min-w-[56px] shrink-0 cursor-grab flex-1 flex-col items-center overflow-hidden rounded-lg border bg-[#1a202a] transition-colors active:cursor-grabbing ${
-    isActive ? "border-app-green/50 ring-1 ring-app-green/30" : "border-app-border hover:border-[#3b4c66]"
-  }`;
-}
-
 function getPlayerDisplayNumber(player: PlayerData, index: number): number {
   const raw = Number((player as PlayerData & { squad_number?: number | string; shirt_number?: number | string }).squad_number ?? (player as PlayerData & { shirt_number?: number | string }).shirt_number);
   return Number.isFinite(raw) && raw > 0 ? raw : index + 1;
@@ -156,7 +145,6 @@ function fitEmptySlotClassName(tone: SlotFitTone): string {
 }
 
 export default function TacticsPitch({
-  benchPlayers,
   dragState,
   formation,
   formationLabel = formation,
@@ -391,10 +379,50 @@ export default function TacticsPitch({
           Quick Pick
         </button>
       </div>
+    </div>
+  );
+}
 
-      <div className="border-t border-app-border/50 p-3 pb-2">
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-          {benchPlayers.slice(0, 7).map((player, index) => (
+interface TacticsBenchProps {
+  benchPlayers: PlayerData[];
+  dragState: DragState | null;
+  comparePlayerId: string | null;
+  selectedPlayerId: string | null;
+  onLineupPlayerClick: (playerId: string, section: SquadSection) => void;
+  onDragStart: (
+    event: DragEvent<HTMLElement>,
+    playerId: string,
+    from: SquadSection,
+    slotIndex: number | null,
+  ) => void;
+  onDragEnd: () => void;
+}
+
+// Substitutes list. Lives in the /tactics left sidebar as a vertical list.
+export function TacticsBench({
+  benchPlayers,
+  dragState,
+  comparePlayerId,
+  selectedPlayerId,
+  onLineupPlayerClick,
+  onDragStart,
+  onDragEnd,
+}: TacticsBenchProps): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-app-border bg-app-card p-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">SUBSTITUTES</h3>
+        <span className="text-[9px] text-app-text-muted">{benchPlayers.length} available</span>
+      </div>
+      <div className="flex flex-col gap-1.5 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
+        {benchPlayers.map((player, index) => {
+          const isActive =
+            dragState?.playerId === player.id ||
+            comparePlayerId === player.id ||
+            selectedPlayerId === player.id;
+          return (
             <button
               key={player.id}
               type="button"
@@ -407,29 +435,24 @@ export default function TacticsPitch({
                 }
               }}
               onDragEnd={onDragEnd}
-              className={getBenchPlayerButtonClassName({ dragState, comparePlayerId, player, selectedPlayerId })}
+              className={cx(
+                "flex w-full cursor-grab items-center gap-2 rounded-lg border bg-[#1a202a] px-2 py-1.5 text-left transition-colors active:cursor-grabbing",
+                isActive ? "border-app-green/50 ring-1 ring-app-green/30" : "border-app-border hover:border-[#3b4c66]",
+              )}
             >
-              <div className="relative flex w-full justify-center pb-1 pt-2">
-                <div className="absolute bottom-0 h-8 w-full bg-gradient-to-t from-red-500/20 to-transparent" />
-                <div className="z-10 flex h-8 w-8 items-center justify-center rounded border border-red-500/50 bg-red-900/30 text-sm font-bold shadow-sm">
-                  <span className="text-white drop-shadow-md">{getPlayerDisplayNumber(player, index + 12)}</span>
-                </div>
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-red-500/50 bg-red-900/30 text-xs font-bold text-white">
+                {getPlayerDisplayNumber(player, index + 12)}
               </div>
-              <div className="z-10 flex w-full flex-col items-center px-1 pb-1">
-                <span className="w-full truncate text-center text-[9px] font-bold">{player.match_name}</span>
-                <span className="w-full truncate text-center text-[8px] text-app-text-muted">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[11px] font-bold text-app-text">{player.match_name}</span>
+                <span className="truncate text-[9px] text-app-text-muted">
                   {translatePositionAbbreviation(t, player.natural_position || player.position)}
                 </span>
               </div>
-              <div className="flex w-full justify-center border-t border-app-border/50 bg-black/20">
-                <span className="py-0.5 font-mono text-[9px] font-bold text-app-text-muted">{getPlayerOvr(player)}</span>
-              </div>
+              <span className="shrink-0 font-mono text-[11px] font-bold text-app-text-muted">{getPlayerOvr(player)}</span>
             </button>
-          ))}
-        </div>
-        <div className="text-[9px] text-app-text-muted">
-          <b>{Math.min(benchPlayers.length, 7)} / {benchPlayers.length}</b> {t("preMatch.substitutes")}
-        </div>
+          );
+        })}
       </div>
     </div>
   );

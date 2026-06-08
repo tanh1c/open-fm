@@ -264,6 +264,7 @@ export default function TrainingTab({
               scheduleIds={SCHEDULE_IDS}
               scheduleIcons={SCHEDULE_ICONS}
               scheduleColors={SCHEDULE_COLORS}
+              scheduleTrainingDays={SCHEDULE_TRAINING_DAYS}
               dayKeys={DAY_KEYS}
               trainingFocusIds={TRAINING_FOCUS_IDS}
               trainingFocusIcons={TRAINING_FOCUS_ICONS}

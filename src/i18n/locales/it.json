@@ -569,6 +569,7 @@
   },
   "training": {
     "weeklySchedule": "Programma settimanale",
+    "thisWeek": "Questa settimana",
     "trainingFocus": "Focus allenamento",
     "intensity": "Intensità",
     "squadFitness": "Forma della rosa",

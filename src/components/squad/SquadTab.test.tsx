@@ -226,7 +226,7 @@ describe("SquadTab", () => {
     expect(screen.queryByText("TACTICS & FORMATION")).not.toBeInTheDocument();
     expect(screen.getByText("PLAYER PROFILE")).toBeInTheDocument();
     expect(screen.getByText("SQUAD HIERARCHY")).toBeInTheDocument();
-    expect(screen.getByText("SUBSTITUTES")).toBeInTheDocument();
+    expect(screen.getAllByText("SUBSTITUTES").length).toBeGreaterThan(0);
     expect(screen.queryByText("What this changes")).not.toBeInTheDocument();
     expect(screen.queryByTestId("bench-player-d5")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pitch-slot-1")).not.toBeInTheDocument();

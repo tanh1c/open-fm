@@ -550,6 +550,7 @@
   },
   "training": {
     "weeklySchedule": "每周日程",
+    "thisWeek": "本周",
     "trainingFocus": "训练重点",
     "intensity": "强度",
     "squadFitness": "阵容体能",

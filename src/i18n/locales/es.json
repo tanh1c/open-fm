@@ -580,6 +580,7 @@
   },
   "training": {
     "weeklySchedule": "Calendario Semanal",
+    "thisWeek": "Esta Semana",
     "trainingFocus": "Enfoque del Entrenamiento",
     "intensity": "Intensidad",
     "squadFitness": "Estado Físico del Equipo",

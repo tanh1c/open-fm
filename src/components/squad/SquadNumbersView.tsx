@@ -120,18 +120,18 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-app-border bg-app-card overflow-hidden">
-        <div className="overflow-auto custom-scrollbar">
-          <table className="w-full text-left text-[11px] whitespace-nowrap min-w-[680px]">
-            <thead className="sticky top-0 bg-app-card z-10 before:content-[''] before:absolute before:inset-x-0 before:bottom-0 before:border-b before:border-app-border/50 text-app-text-muted uppercase">
+      <TemplateCard className="flex h-[600px] flex-col overflow-hidden">
+        <div className="relative flex-1 overflow-auto custom-scrollbar">
+          <table className="w-full min-w-[820px] whitespace-nowrap text-left text-[11px]">
+            <thead className="sticky top-0 z-10 bg-app-card text-app-text-muted uppercase before:absolute before:inset-x-0 before:bottom-0 before:border-b before:border-app-border/50 before:content-['']">
               <tr>
-                <th className="font-semibold py-2.5 pl-4 w-14">POS</th>
-                <th className="font-semibold py-2.5 min-w-[170px]">PLAYER</th>
-                <th className="font-semibold py-2.5 w-12 text-center">AGE</th>
-                <th className="font-semibold py-2.5 w-12 text-center">NAT</th>
-                <th className="font-semibold py-2.5 w-12 text-center">OVR</th>
-                <th className="font-semibold py-2.5 w-16 text-center">CURRENT</th>
-                <th className="font-semibold py-2.5 w-44 pr-4 text-right">ASSIGN NUMBER</th>
+                <th className="w-12 py-2.5 pl-4 font-semibold text-app-text-muted">POS</th>
+                <th className="w-10 py-2.5 text-center font-semibold text-app-text-muted">#</th>
+                <th className="min-w-[170px] py-2.5 font-semibold text-app-text-muted">PLAYER</th>
+                <th className="w-10 py-2.5 text-center font-semibold text-app-text-muted">AGE</th>
+                <th className="w-12 py-2.5 text-center font-semibold text-app-text-muted">NAT</th>
+                <th className="w-12 py-2.5 text-center font-semibold text-app-text-muted">OVR</th>
+                <th className="w-44 py-2.5 pr-4 text-right font-semibold text-app-text-muted">CHANGE NUMBER</th>
               </tr>
             </thead>
             <tbody>
@@ -145,10 +145,19 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
                 return (
                   <tr
                     key={player.id}
-                    className="border-b border-app-border/20 last:border-0 hover:bg-white/5 transition-colors"
+                    className="border-b border-app-border/20 transition-colors last:border-0 hover:bg-white/5"
                   >
                     <td className="py-2.5 pl-4">
                       <span className={positionChipClass(pos)}>{pos}</span>
+                    </td>
+                    <td className="py-2.5 text-center">
+                      {player.squad_number != null ? (
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded border border-app-green/30 bg-app-green/15 text-[11px] font-bold text-app-green">
+                          {player.squad_number}
+                        </span>
+                      ) : (
+                        <span className="text-app-text-muted">-</span>
+                      )}
                     </td>
                     <td className="py-2.5 font-medium text-app-text">
                       <span className="truncate">{player.full_name}</span>
@@ -161,15 +170,6 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
                     </td>
                     <td className="py-2.5 text-center font-mono font-bold text-app-text-muted">
                       {getPlayerOvr(player)}
-                    </td>
-                    <td className="py-2.5 text-center">
-                      {player.squad_number != null ? (
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border-b-2 border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600 text-[11px] font-bold text-white">
-                          {player.squad_number}
-                        </span>
-                      ) : (
-                        <span className="text-app-text-muted">-</span>
-                      )}
                     </td>
                     <td className="py-2.5 pr-4">
                       <div className="flex items-center justify-end gap-1.5">
@@ -188,14 +188,14 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
                               void assign(player, (event.target as HTMLInputElement).value);
                             }
                           }}
-                          className="w-16 rounded bg-app-bg border border-app-border px-2 py-1.5 text-center text-sm font-bold text-app-text focus:outline-none focus:border-app-green/60 disabled:opacity-50"
+                          className="w-16 rounded border border-app-border bg-app-bg px-2 py-1.5 text-center text-sm font-bold text-app-text focus:border-app-green/60 focus:outline-none disabled:opacity-50"
                           placeholder="-"
                         />
                         <button
                           type="button"
                           disabled={isSaving || !isDirty}
                           onClick={() => void assign(player, value)}
-                          className="flex items-center gap-1 rounded-lg bg-app-green px-2.5 py-1.5 text-[11px] font-bold text-app-bg hover:bg-app-green/90 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                          className="flex items-center gap-1 rounded-lg bg-app-green px-2.5 py-1.5 text-[11px] font-bold text-app-bg transition-colors hover:bg-app-green/90 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <Check className="h-3 w-3" />
                           {isSaving ? "..." : "Assign"}
@@ -207,10 +207,19 @@ export default function SquadNumbersView({ roster, onGameUpdate }: SquadNumbersV
               })}
             </tbody>
           </table>
+          {sorted.length === 0 ? (
+            <div className="p-8 text-center text-sm font-semibold uppercase tracking-wider text-app-text-muted">
+              {t("squad.noPlayers")}
+            </div>
+          ) : null}
         </div>
-      </div>
+      </TemplateCard>
     </div>
   );
+}
+
+function TemplateCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`overflow-hidden rounded-xl border border-app-border bg-app-card ${className}`}>{children}</div>;
 }
 
 function StatTile({

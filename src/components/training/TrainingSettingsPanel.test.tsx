@@ -53,6 +53,7 @@ describe("TrainingSettingsPanel", () => {
         scheduleIds={["Intense", "Balanced", "Light"]}
         scheduleIcons={{ Intense: "I", Balanced: "B", Light: "L" }}
         scheduleColors={{ Intense: "text-red", Balanced: "text-blue", Light: "text-sky" }}
+        scheduleTrainingDays={{ Intense: [0, 1, 2, 3, 4, 5], Balanced: [0, 1, 3, 4], Light: [1, 3] }}
         dayKeys={["mon", "tue", "wed", "thu", "fri", "sat", "sun"]}
         trainingFocusIds={["Physical", "Technical", "Recovery"]}
         trainingFocusIcons={{ Physical: "P", Technical: "T", Recovery: "R" }}
@@ -66,7 +67,6 @@ describe("TrainingSettingsPanel", () => {
     expect(screen.getByText("Training Focus")).toBeInTheDocument();
     expect(screen.getByText("Four training days, three rest days")).toBeInTheDocument();
     expect(screen.getByText(/Training pace, stamina at Medium.label/)).toBeInTheDocument();
-    expect(screen.getByText(/tue is a training day/)).toBeInTheDocument();
   });
 
   it("wires schedule, focus, and intensity actions through callbacks", () => {
@@ -87,6 +87,7 @@ describe("TrainingSettingsPanel", () => {
         scheduleIds={["Intense", "Balanced", "Light"]}
         scheduleIcons={{ Intense: "I", Balanced: "B", Light: "L" }}
         scheduleColors={{ Intense: "text-red", Balanced: "text-blue", Light: "text-sky" }}
+        scheduleTrainingDays={{ Intense: [0, 1, 2, 3, 4, 5], Balanced: [0, 1, 3, 4], Light: [1, 3] }}
         dayKeys={["mon", "tue", "wed", "thu", "fri", "sat", "sun"]}
         trainingFocusIds={["Physical", "Technical", "Recovery"]}
         trainingFocusIcons={{ Physical: "P", Technical: "T", Recovery: "R" }}

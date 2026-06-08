@@ -999,19 +999,23 @@ fn release_player_contract(game: &mut Game, player_index: usize, reason: Contrac
     player.transfer_offers.clear();
     player.morale_core.renewal_state = None;
 
+    let should_notify = match reason {
+        ContractReleaseReason::Expired => game.manager.team_id.as_deref() == Some(team_id),
+        ContractReleaseReason::ManagerTermination { .. } => true,
+    };
+    if !should_notify {
+        return;
+    }
+
     let message = match reason {
-        ContractReleaseReason::Expired => {
-            contract_expired_message(&player_id, &player_name, &team_name, &today)
-        }
-        ContractReleaseReason::ManagerTermination { severance_cost } => {
-            contract_terminated_message(
-                &player_id,
-                &player_name,
-                &team_name,
-                severance_cost,
-                &today,
-            )
-        }
+        ContractReleaseReason::Expired => contract_expired_message(&player_id, &player_name, &team_name, &today),
+        ContractReleaseReason::ManagerTermination { severance_cost } => contract_terminated_message(
+            &player_id,
+            &player_name,
+            &team_name,
+            severance_cost,
+            &today,
+        ),
     };
 
     game.messages.push(message);

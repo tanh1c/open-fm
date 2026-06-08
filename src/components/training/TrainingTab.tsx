@@ -98,6 +98,10 @@ function TemplateCard({ children, className = "" }: { children: ReactNode; class
   return <div className={cx("rounded-xl border border-app-border bg-app-card", className)}>{children}</div>;
 }
 
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">{children}</h3>;
+}
+
 function SectionTitle({ title, action }: { title: string; action?: string }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
@@ -243,110 +247,187 @@ export default function TrainingTab({
         ))}
       </div>
 
-      <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
-        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
-          {staffAdvice ? (
-            <div>
-              <SectionTitle title="STAFF ADVICE" action={staffAdvice.level.toUpperCase()} />
-              <TemplateCard className={cx("flex items-start gap-3 p-4", staffAdviceTone.border, staffAdviceTone.bg)}>
-                <div className={cx("mt-0.5", staffAdviceTone.text)}>{staffAdviceTone.icon}</div>
-                <div>
-                  <p className={cx("text-[10px] font-bold uppercase tracking-wider", staffAdviceTone.text)}>
-                    {staffAdvice.level === "critical"
-                      ? t("training.staffAlert")
-                      : staffAdvice.level === "warn"
-                        ? t("training.staffWarning")
-                        : t("training.staffSuggestion")}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-app-text-muted">{staffAdvice.message}</p>
-                </div>
-              </TemplateCard>
-            </div>
-          ) : null}
+      {activeTab === "Overview" ? (
+        <div className="mt-2 flex flex-col gap-4 xl:h-[750px] xl:flex-row">
+          {/* LEFT — Controls */}
+          <section className="flex min-w-0 flex-1 flex-col xl:h-full xl:overflow-y-auto pr-1 custom-scrollbar">
+            <TrainingSettingsPanel
+              currentFocus={currentFocus}
+              currentIntensity={currentIntensity}
+              currentSchedule={currentSchedule}
+              isSaving={isSaving}
+              todayWeekday={todayWeekday}
+              isTodayTraining={isTodayTraining}
+              activeFocusAttrs={activeFocusAttrs}
+              onSetTraining={handleSetTraining}
+              onSetSchedule={handleSetSchedule}
+              scheduleIds={SCHEDULE_IDS}
+              scheduleIcons={SCHEDULE_ICONS}
+              scheduleColors={SCHEDULE_COLORS}
+              dayKeys={DAY_KEYS}
+              trainingFocusIds={TRAINING_FOCUS_IDS}
+              trainingFocusIcons={TRAINING_FOCUS_ICONS}
+              trainingFocusAttrs={TRAINING_FOCUS_ATTRS}
+              intensityIds={INTENSITY_IDS}
+              intensityColors={INTENSITY_COLORS}
+            />
+          </section>
 
-          <div>
-            <SectionTitle title="SQUAD FITNESS" action={`${roster.length} Players`} />
-            <TemplateCard className="flex flex-col gap-4 p-4">
-              <div>
-                <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-app-text-muted">{t("training.avgCondition")}</span>
-                  <span className="font-bold text-app-text">{avgCondition}%</span>
-                </div>
-                <ProgressBar value={avgCondition} variant="auto" size="md" />
-              </div>
-              <div>
-                <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-app-text-muted">{t("training.avgMorale")}</span>
-                  <span className="font-bold text-app-text">{avgMorale}%</span>
-                </div>
-                <ProgressBar value={avgMorale} variant="auto" size="md" />
-              </div>
-              <div className="border-t border-app-border/50 pt-3">
-                <TrainingStatRow label="Critical" value={String(criticalCount)} tone={criticalCount > 0 ? "text-red-400" : "text-app-green"} />
-                <TrainingStatRow label="Exhausted" value={String(exhaustedCount)} tone={exhaustedCount > 0 ? "text-amber-400" : "text-app-green"} />
-              </div>
-            </TemplateCard>
-          </div>
-
-          <div>
-            <SectionTitle title="WEEKLY STATUS" action={currentSchedule} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              <TrainingStatRow label="Today" value={isTodayTraining ? t("training.aTrainingDay") : t("training.aRestDay")} tone={isTodayTraining ? "text-app-green" : "text-blue-300"} />
-              <TrainingStatRow label="Training Load" value={trainingLoad} tone={trainingLoad === "High" ? "text-red-400" : trainingLoad === "Light" ? "text-blue-300" : "text-app-green"} />
-              <TrainingStatRow label="Current Focus" value={currentFocus} tone="text-app-green" />
-              <TrainingStatRow label="Schedule" value={currentSchedule} tone="text-app-green" />
-              <TrainingStatRow label="Recovery Watch" value={`${criticalCount + exhaustedCount}`} tone={criticalCount + exhaustedCount > 0 ? "text-amber-400" : "text-app-green"} />
-              <TrainingStatRow label="Intensity" value={currentIntensity} tone={INTENSITY_COLORS[currentIntensity]} />
-              <div className="flex flex-wrap gap-1 border-t border-app-border/50 pt-3">
-                {activeFocusAttrs.length > 0 ? activeFocusAttrs.map((attribute) => (
-                  <span key={attribute} className="rounded bg-app-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
-                    {t(`common.attributes.${attribute}`)}
-                  </span>
-                )) : <span className="text-[10px] text-app-text-muted">{t("training.recoveryNote")}</span>}
-              </div>
-            </TemplateCard>
-          </div>
-        </aside>
-
-        <section className="flex min-w-0 flex-1 flex-col gap-4 h-full overflow-y-auto pr-1 custom-scrollbar">
-          {activeTab === "Overview" ? (
-            <>
+          {/* RIGHT — Status */}
+          <aside className="w-full shrink-0 xl:h-full xl:w-[420px] xl:overflow-y-auto pr-1 custom-scrollbar">
+            <TemplateCard className="flex flex-col">
               {staffAdvice ? (
+                <div className={cx("flex items-start gap-3 border-b border-app-border/50 p-4", staffAdviceTone.bg)}>
+                  <div className={cx("mt-0.5", staffAdviceTone.text)}>{staffAdviceTone.icon}</div>
+                  <div>
+                    <p className={cx("text-[10px] font-bold uppercase tracking-wider", staffAdviceTone.text)}>
+                      {staffAdvice.level === "critical"
+                        ? t("training.staffAlert")
+                        : staffAdvice.level === "warn"
+                          ? t("training.staffWarning")
+                          : t("training.staffSuggestion")}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-app-text-muted">{staffAdvice.message}</p>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Squad fitness summary */}
+              <div className="flex flex-col gap-4 p-4">
+                <div className="flex items-center justify-between">
+                  <SectionLabel>{t("training.avgCondition")}</SectionLabel>
+                  <span className="text-[10px] font-semibold text-app-green">{roster.length} {t("training.players")}</span>
+                </div>
+                <div>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-app-text-muted">{t("training.avgCondition")}</span>
+                    <span className="font-bold text-app-text">{avgCondition}%</span>
+                  </div>
+                  <ProgressBar value={avgCondition} variant="auto" size="md" />
+                </div>
+                <div>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-app-text-muted">{t("training.avgMorale")}</span>
+                    <span className="font-bold text-app-text">{avgMorale}%</span>
+                  </div>
+                  <ProgressBar value={avgMorale} variant="auto" size="md" />
+                </div>
+                <div className="grid grid-cols-2 gap-3 border-t border-app-border/50 pt-3">
+                  <div className="rounded-lg bg-app-bg p-2.5 text-center">
+                    <p className={cx("text-lg font-bold", criticalCount > 0 ? "text-red-400" : "text-app-green")}>{criticalCount}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-app-text-muted">Critical</p>
+                  </div>
+                  <div className="rounded-lg bg-app-bg p-2.5 text-center">
+                    <p className={cx("text-lg font-bold", exhaustedCount > 0 ? "text-amber-400" : "text-app-green")}>{exhaustedCount}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-app-text-muted">Exhausted</p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 border-t border-app-border/50 pt-3">
+                  <TrainingStatRow label="Today" value={isTodayTraining ? t("training.aTrainingDay") : t("training.aRestDay")} tone={isTodayTraining ? "text-app-green" : "text-blue-300"} />
+                  <TrainingStatRow label="Training Load" value={trainingLoad} tone={trainingLoad === "High" ? "text-red-400" : trainingLoad === "Light" ? "text-blue-300" : "text-app-green"} />
+                  <TrainingStatRow label="Intensity" value={currentIntensity} tone={INTENSITY_COLORS[currentIntensity]} />
+                </div>
+                {criticalCount > 0 ? (
+                  <p className="flex items-center gap-2 text-xs text-red-400"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{t("training.criticalCondition", { count: criticalCount })}</p>
+                ) : null}
+                {exhaustedCount > 0 ? (
+                  <p className="flex items-center gap-2 text-xs text-amber-400"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{t("training.exhaustedPlayers", { count: exhaustedCount })}</p>
+                ) : null}
+              </div>
+
+              {/* Player fitness list */}
+              <div className="border-t border-app-border/50">
+                <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                  <SectionLabel>PLAYER FITNESS</SectionLabel>
+                  <span className="text-[10px] font-semibold text-app-green">Lowest first</span>
+                </div>
+                <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                  {sortedFitnessRoster.map((player) => (
+                    <div key={player.id} className="flex items-center gap-3 border-b border-app-border/30 px-4 py-2.5 last:border-b-0 hover:bg-white/5">
+                      <div className={cx(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold",
+                        player.condition < 25 ? "border-red-500/30 bg-red-500/10 text-red-400" : player.condition < 40 ? "border-amber-500/30 bg-amber-500/10 text-amber-400" : "border-app-border bg-app-bg text-app-green",
+                      )}>
+                        {player.condition}
+                      </div>
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-app-text">{player.match_name}</span>
+                      <ProgressBar value={player.condition} variant="auto" size="sm" showLabel className="w-24" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TemplateCard>
+          </aside>
+        </div>
+      ) : null}
+
+      {activeTab === "Groups" ? (
+        <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
+          <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
+            {staffAdvice ? (
+              <div>
+                <SectionTitle title="STAFF ADVICE" action={staffAdvice.level.toUpperCase()} />
                 <TemplateCard className={cx("flex items-start gap-3 p-4", staffAdviceTone.border, staffAdviceTone.bg)}>
                   <div className={cx("mt-0.5", staffAdviceTone.text)}>{staffAdviceTone.icon}</div>
                   <div>
                     <p className={cx("text-[10px] font-bold uppercase tracking-wider", staffAdviceTone.text)}>
-                      {staffAdvice.level === "critical" ? t("training.staffAlert") : staffAdvice.level === "warn" ? t("training.staffWarning") : t("training.staffSuggestion")}
+                      {staffAdvice.level === "critical"
+                        ? t("training.staffAlert")
+                        : staffAdvice.level === "warn"
+                          ? t("training.staffWarning")
+                          : t("training.staffSuggestion")}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-app-text-muted">{staffAdvice.message}</p>
                   </div>
                 </TemplateCard>
-              ) : null}
+              </div>
+            ) : null}
 
-              <TrainingSettingsPanel
-                currentFocus={currentFocus}
-                currentIntensity={currentIntensity}
-                currentSchedule={currentSchedule}
-                isSaving={isSaving}
-                todayWeekday={todayWeekday}
-                isTodayTraining={isTodayTraining}
-                activeFocusAttrs={activeFocusAttrs}
-                onSetTraining={handleSetTraining}
-                onSetSchedule={handleSetSchedule}
-                scheduleIds={SCHEDULE_IDS}
-                scheduleIcons={SCHEDULE_ICONS}
-                scheduleColors={SCHEDULE_COLORS}
-                dayKeys={DAY_KEYS}
-                trainingFocusIds={TRAINING_FOCUS_IDS}
-                trainingFocusIcons={TRAINING_FOCUS_ICONS}
-                trainingFocusAttrs={TRAINING_FOCUS_ATTRS}
-                intensityIds={INTENSITY_IDS}
-                intensityColors={INTENSITY_COLORS}
-              />
-            </>
-          ) : null}
+            <div>
+              <SectionTitle title="SQUAD FITNESS" action={`${roster.length} Players`} />
+              <TemplateCard className="flex flex-col gap-4 p-4">
+                <div>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-app-text-muted">{t("training.avgCondition")}</span>
+                    <span className="font-bold text-app-text">{avgCondition}%</span>
+                  </div>
+                  <ProgressBar value={avgCondition} variant="auto" size="md" />
+                </div>
+                <div>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-app-text-muted">{t("training.avgMorale")}</span>
+                    <span className="font-bold text-app-text">{avgMorale}%</span>
+                  </div>
+                  <ProgressBar value={avgMorale} variant="auto" size="md" />
+                </div>
+                <div className="border-t border-app-border/50 pt-3">
+                  <TrainingStatRow label="Critical" value={String(criticalCount)} tone={criticalCount > 0 ? "text-red-400" : "text-app-green"} />
+                  <TrainingStatRow label="Exhausted" value={String(exhaustedCount)} tone={exhaustedCount > 0 ? "text-amber-400" : "text-app-green"} />
+                </div>
+              </TemplateCard>
+            </div>
 
-          {activeTab === "Groups" ? (
+            <div>
+              <SectionTitle title="WEEKLY STATUS" action={currentSchedule} />
+              <TemplateCard className="flex flex-col gap-3 p-4">
+                <TrainingStatRow label="Today" value={isTodayTraining ? t("training.aTrainingDay") : t("training.aRestDay")} tone={isTodayTraining ? "text-app-green" : "text-blue-300"} />
+                <TrainingStatRow label="Training Load" value={trainingLoad} tone={trainingLoad === "High" ? "text-red-400" : trainingLoad === "Light" ? "text-blue-300" : "text-app-green"} />
+                <TrainingStatRow label="Current Focus" value={currentFocus} tone="text-app-green" />
+                <TrainingStatRow label="Schedule" value={currentSchedule} tone="text-app-green" />
+                <TrainingStatRow label="Recovery Watch" value={`${criticalCount + exhaustedCount}`} tone={criticalCount + exhaustedCount > 0 ? "text-amber-400" : "text-app-green"} />
+                <TrainingStatRow label="Intensity" value={currentIntensity} tone={INTENSITY_COLORS[currentIntensity]} />
+                <div className="flex flex-wrap gap-1 border-t border-app-border/50 pt-3">
+                  {activeFocusAttrs.length > 0 ? activeFocusAttrs.map((attribute) => (
+                    <span key={attribute} className="rounded bg-app-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+                      {t(`common.attributes.${attribute}`)}
+                    </span>
+                  )) : <span className="text-[10px] text-app-text-muted">{t("training.recoveryNote")}</span>}
+                </div>
+              </TemplateCard>
+            </div>
+          </aside>
+
+          <section className="flex min-w-0 flex-1 flex-col gap-4 h-full overflow-y-auto pr-1 custom-scrollbar">
             <TrainingGroupsCard
               gameState={gameState}
               onGameUpdate={onGameUpdate}
@@ -356,44 +437,44 @@ export default function TrainingTab({
               trainingFocusIds={TRAINING_FOCUS_IDS}
               trainingFocusIcons={TRAINING_FOCUS_ICONS}
             />
-          ) : null}
-        </section>
+          </section>
 
-        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[380px]">
-          <div>
-            <SectionTitle title="PLAYER FITNESS" action="Lowest first" />
-            <TemplateCard className="overflow-hidden">
-              <div className="max-h-[410px] overflow-y-auto custom-scrollbar">
-                {sortedFitnessRoster.map((player) => (
-                  <div key={player.id} className="flex items-center gap-3 border-b border-app-border/30 px-4 py-3 last:border-b-0 hover:bg-white/5">
-                    <div className={cx(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold",
-                      player.condition < 25 ? "border-red-500/30 bg-red-500/10 text-red-400" : player.condition < 40 ? "border-amber-500/30 bg-amber-500/10 text-amber-400" : "border-app-border bg-app-bg text-app-green",
-                    )}>
-                      {player.condition}
+          <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[380px]">
+            <div>
+              <SectionTitle title="PLAYER FITNESS" action="Lowest first" />
+              <TemplateCard className="overflow-hidden">
+                <div className="max-h-[410px] overflow-y-auto custom-scrollbar">
+                  {sortedFitnessRoster.map((player) => (
+                    <div key={player.id} className="flex items-center gap-3 border-b border-app-border/30 px-4 py-3 last:border-b-0 hover:bg-white/5">
+                      <div className={cx(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold",
+                        player.condition < 25 ? "border-red-500/30 bg-red-500/10 text-red-400" : player.condition < 40 ? "border-amber-500/30 bg-amber-500/10 text-amber-400" : "border-app-border bg-app-bg text-app-green",
+                      )}>
+                        {player.condition}
+                      </div>
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-app-text">{player.match_name}</span>
+                      <ProgressBar value={player.condition} variant="auto" size="sm" showLabel className="w-24" />
                     </div>
-                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-app-text">{player.match_name}</span>
-                    <ProgressBar value={player.condition} variant="auto" size="sm" showLabel className="w-24" />
-                  </div>
-                ))}
-              </div>
-            </TemplateCard>
-          </div>
+                  ))}
+                </div>
+              </TemplateCard>
+            </div>
 
-          <div>
-            <SectionTitle title="RECOVERY WATCH" action={criticalCount > 0 ? "Critical" : exhaustedCount > 0 ? "Monitor" : "Clear"} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              {criticalCount > 0 ? (
-                <p className="flex items-center gap-2 text-xs text-red-400"><AlertTriangle className="h-3.5 w-3.5" />{t("training.criticalCondition", { count: criticalCount })}</p>
-              ) : null}
-              {exhaustedCount > 0 ? (
-                <p className="flex items-center gap-2 text-xs text-amber-400"><AlertTriangle className="h-3.5 w-3.5" />{t("training.exhaustedPlayers", { count: exhaustedCount })}</p>
-              ) : null}
-              {criticalCount === 0 && exhaustedCount === 0 ? <p className="text-xs text-app-text-muted">Squad load is under control.</p> : null}
-            </TemplateCard>
-          </div>
-        </aside>
-      </div>
+            <div>
+              <SectionTitle title="RECOVERY WATCH" action={criticalCount > 0 ? "Critical" : exhaustedCount > 0 ? "Monitor" : "Clear"} />
+              <TemplateCard className="flex flex-col gap-3 p-4">
+                {criticalCount > 0 ? (
+                  <p className="flex items-center gap-2 text-xs text-red-400"><AlertTriangle className="h-3.5 w-3.5" />{t("training.criticalCondition", { count: criticalCount })}</p>
+                ) : null}
+                {exhaustedCount > 0 ? (
+                  <p className="flex items-center gap-2 text-xs text-amber-400"><AlertTriangle className="h-3.5 w-3.5" />{t("training.exhaustedPlayers", { count: exhaustedCount })}</p>
+                ) : null}
+                {criticalCount === 0 && exhaustedCount === 0 ? <p className="text-xs text-app-text-muted">Squad load is under control.</p> : null}
+              </TemplateCard>
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -214,7 +214,7 @@ fn build_team_from_def(tdef: &TeamDef, team_id: &str, rng: &mut impl rand::Rng) 
         tdef.country.clone(),
         tdef.city.clone(),
         stadium,
-        rng.random_range(10000..80000),
+        tdef.stadium_capacity.unwrap_or_else(|| rng.random_range(10000..80000)),
     );
     let rep_range = tdef.reputation_range.unwrap_or([300, 900]);
     let fin_range = tdef.finance_range.unwrap_or([25_000_000, 350_000_000]);

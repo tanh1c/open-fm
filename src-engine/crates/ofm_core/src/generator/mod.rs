@@ -587,7 +587,7 @@ pub fn generate_world(
             tdef.country.clone(),
             tdef.city.clone(),
             stadium,
-            rng.random_range(10000..80000),
+            tdef.stadium_capacity.unwrap_or_else(|| rng.random_range(10000..80000)),
         );
         team.domestic_tier = tdef.domestic_tier;
         team.finance = centered_finance(fin_range, &mut rng);

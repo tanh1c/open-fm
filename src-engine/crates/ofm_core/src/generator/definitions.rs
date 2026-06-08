@@ -50,6 +50,8 @@ pub struct TeamDef {
     #[serde(default)]
     pub stadium_name: String,
     #[serde(default)]
+    pub stadium_capacity: Option<u32>,
+    #[serde(default)]
     pub reputation_range: Option<[u32; 2]>,
     #[serde(default)]
     pub finance_range: Option<[i64; 2]>,
@@ -90,6 +92,25 @@ struct ClubBalancingDef {
 
 fn default_play_style() -> String {
     "Balanced".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ClubStadiumDef {
+    country: String,
+    club_name: String,
+    stadium_name: String,
+    stadium_capacity: u32,
+    stadium_city: String,
+}
+
+fn club_stadium_by_key() -> HashMap<(String, String), ClubStadiumDef> {
+    serde_json::from_str::<Vec<ClubStadiumDef>>(include_str!(
+        "club_generation_balancing_248_stadiums.json"
+    ))
+    .unwrap_or_default()
+    .into_iter()
+    .map(|entry| ((entry.country.clone(), entry.club_name.clone()), entry))
+    .collect()
 }
 
 fn play_style_from_hint(hint: &str, fallback: &str) -> String {
@@ -163,6 +184,7 @@ pub(super) fn default_names_definition() -> NamesDefinition {
 /// Build the hardcoded teams definition as fallback.
 pub(super) fn default_teams_definition() -> TeamsDefinition {
     let balancing = club_balancing_by_key();
+    let stadiums = club_stadium_by_key();
 
     TeamsDefinition {
         version: 1,
@@ -171,6 +193,7 @@ pub(super) fn default_teams_definition() -> TeamsDefinition {
             .iter()
             .map(|t| {
                 let balanced = balancing.get(&(t.country.to_string(), t.name.to_string()));
+                let stadium = stadiums.get(&(t.country.to_string(), t.name.to_string()));
                 TeamDef {
                     name: t.name.to_string(),
                     short_name: t
@@ -182,7 +205,10 @@ pub(super) fn default_teams_definition() -> TeamsDefinition {
                         .chars()
                         .take(3)
                         .collect(),
-                    city: t.city.to_string(),
+                    city: stadium
+                        .map(|s| s.stadium_city.clone())
+                        .filter(|c| !c.is_empty())
+                        .unwrap_or_else(|| t.city.to_string()),
                     country: t.country.to_string(),
                     domestic_tier: Some(t.domestic_tier),
                     colors: TeamColorsDef {
@@ -192,7 +218,11 @@ pub(super) fn default_teams_definition() -> TeamsDefinition {
                     play_style: balanced
                         .map(|entry| play_style_from_hint(&entry.play_style_hint, t.play_style))
                         .unwrap_or_else(|| t.play_style.to_string()),
-                    stadium_name: format!("{} Arena", t.city),
+                    stadium_name: stadium
+                        .map(|s| s.stadium_name.clone())
+                        .filter(|n| !n.is_empty())
+                        .unwrap_or_else(|| format!("{} Arena", t.city)),
+                    stadium_capacity: stadium.map(|s| s.stadium_capacity),
                     reputation_range: balanced
                         .map(|entry| reputation_range_from_value(entry.reputation))
                         .or(Some([300, 900])),

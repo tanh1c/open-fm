@@ -884,10 +884,16 @@ fn synthetic_compact_goal_events(
 
 fn synthetic_compact_team_stats(goals_for: u8, seed: u32) -> CompactTeamMatchStats {
     let shots = 8 + goals_for as u16 * 3 + (seed % 5) as u16;
+    let passes_attempted = 330 + (seed % 90) as u16;
+    let passes_completed = ((passes_attempted as f32) * 0.78).round() as u16;
     CompactTeamMatchStats {
         possession_pct: (48 + (seed % 9) as u8).clamp(35, 65),
         shots,
         shots_on_target: (goals_for as u16 + 2 + (seed % 3) as u16).min(shots),
+        passes_completed,
+        passes_intercepted: passes_attempted.saturating_sub(passes_completed),
+        tackles: 12 + (seed % 9) as u16,
+        interceptions: 8 + (seed % 7) as u16,
         fouls: 8 + (seed % 8) as u16,
         corners: 3 + (seed % 5) as u16,
         yellow_cards: (seed % 3) as u8,
@@ -1193,9 +1199,9 @@ impl SyntheticUsage {
     fn scorer_weight(&self, player: &SyntheticPlayer) -> u32 {
         let base = scorer_weight(player);
         let usage_bonus = if self.primary_finisher.as_deref() == Some(player.id.as_str()) {
-            base * 3 / 2 + 300
+            base * 3 + 620
         } else if self.secondary_finisher.as_deref() == Some(player.id.as_str()) {
-            base * 3 / 4 + 120
+            base * 3 / 2 + 260
         } else {
             0
         };
@@ -1206,9 +1212,9 @@ impl SyntheticUsage {
     fn assist_weight(&self, player: &SyntheticPlayer) -> u32 {
         let base = assist_weight(player);
         let usage_bonus = if self.primary_creator.as_deref() == Some(player.id.as_str()) {
-            base * 4 / 5 + 150
+            base * 3 / 5 + 120
         } else if self.secondary_creator.as_deref() == Some(player.id.as_str()) {
-            base / 2 + 75
+            base / 3 + 60
         } else {
             0
         };
@@ -1221,13 +1227,13 @@ impl SyntheticUsage {
             return;
         }
 
-        if seed % 100 < 78
+        if seed % 100 < 88
             && let Some(index) = self.player_index(players, self.primary_finisher.as_deref())
         {
             indices[0] = index;
         }
         if indices.len() > 1
-            && seed.wrapping_add(17) % 100 < 22
+            && seed.wrapping_add(17) % 100 < 30
             && let Some(index) = self.player_index(players, self.secondary_finisher.as_deref())
         {
             indices[1] = index;
@@ -1339,7 +1345,7 @@ fn role_capped_scorer_weight(player: &SyntheticPlayer, weight: u32) -> u32 {
     match player.position {
         engine::Position::Goalkeeper => weight.min(8),
         engine::Position::Defender => weight.min(170),
-        engine::Position::Midfielder => weight.min(720),
+        engine::Position::Midfielder => weight.min(540),
         engine::Position::Forward => weight,
     }
 }

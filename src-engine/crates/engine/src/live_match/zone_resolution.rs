@@ -22,31 +22,38 @@ use super::helpers::{shape_attack_multiplier, shape_defense_multiplier};
 
 fn shooter_weight(player: &PlayerData) -> f64 {
     let role_weight = match player.position {
-        Position::Forward => 1.45,
-        Position::Midfielder => 0.70,
-        Position::Defender => 0.18,
+        Position::Forward => 2.10,
+        Position::Midfielder => 0.50,
+        Position::Defender => 0.12,
         Position::Goalkeeper => 0.0,
     };
-    let skill = player.shooting as f64 * 1.35
-        + player.composure as f64
-        + player.positioning as f64 * 0.75
-        + player.decisions as f64 * 0.65
-        + player.dribbling as f64 * 0.45;
-    role_weight * skill * trait_shot_tendency_modifier(&PlayerSnap::from(player))
+    let skill = player.shooting as f64 * 1.60
+        + player.composure as f64 * 1.15
+        + player.positioning as f64
+        + player.decisions as f64 * 0.55
+        + player.dribbling as f64 * 0.30;
+    let elite_bonus = 1.0
+        + f64::from(player.shooting.saturating_sub(82)) * 0.018
+        + f64::from(player.ovr.saturating_sub(88)) * 0.025;
+    role_weight * skill * elite_bonus * trait_shot_tendency_modifier(&PlayerSnap::from(player))
 }
 
 fn assister_weight(player: &PlayerData) -> f64 {
     let role_weight = match player.position {
-        Position::Midfielder => 1.30,
-        Position::Forward => 0.85,
-        Position::Defender => 0.45,
+        Position::Midfielder => 1.35,
+        Position::Forward => 1.05,
+        Position::Defender => 0.30,
         Position::Goalkeeper => 0.0,
     };
     let skill = player.passing as f64 * 1.30
-        + player.vision as f64 * 1.15
-        + player.teamwork as f64 * 0.75
-        + player.decisions as f64 * 0.70;
-    role_weight * skill * trait_pass_creativity_modifier(&PlayerSnap::from(player))
+        + player.vision as f64 * 1.20
+        + player.teamwork as f64 * 0.65
+        + player.decisions as f64 * 0.75
+        + player.dribbling as f64 * 0.35;
+    let creator_bonus = 1.0
+        + f64::from(player.vision.saturating_sub(82)) * 0.014
+        + f64::from(player.passing.saturating_sub(84)) * 0.012;
+    role_weight * skill * creator_bonus * trait_pass_creativity_modifier(&PlayerSnap::from(player))
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +220,7 @@ impl LiveMatchState {
             events.push(evt);
             self.ball_zone = Zone::attacking_third(att_side);
         } else {
-            if rng.random_range(0.0..1.0f64) < 0.6 {
+            if rng.random_range(0.0..1.0f64) < 0.48 {
                 let evt = MatchEvent::new(minute, EventType::Tackle, def_side, Zone::Midfield)
                     .with_player(&defender.id);
                 self.events.push(evt.clone());
@@ -297,7 +304,7 @@ impl LiveMatchState {
             events.push(evt);
             self.ball_zone = Zone::attacking_box(att_side);
         } else {
-            let is_tackle = rng.random_range(0.0..1.0f64) < 0.5;
+            let is_tackle = rng.random_range(0.0..1.0f64) < 0.40;
             if is_tackle {
                 let evt1 = MatchEvent::new(minute, EventType::DribbleTackled, att_side, zone)
                     .with_player(&attacker.id)

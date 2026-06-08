@@ -412,10 +412,10 @@ impl Default for MatchConfig {
         Self {
             home_advantage: 1.08,
             shot_accuracy_base: 0.45,
-            goal_conversion_base: 0.30,
+            goal_conversion_base: 0.18,
             fatigue_per_minute: 0.20,
             foul_probability: 0.12,
-            yellow_card_probability: 0.30,
+            yellow_card_probability: 0.24,
             red_card_probability: 0.04,
             penalty_probability: 0.08,
             stoppage_time_max: 4,

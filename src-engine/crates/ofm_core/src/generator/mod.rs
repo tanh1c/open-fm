@@ -210,10 +210,16 @@ pub(super) fn assign_squad_numbers(players: &mut [Player]) {
     let mut order: Vec<usize> = (0..players.len()).collect();
     order.sort_by(|&a, &b| players[b].ovr.cmp(&players[a].ovr));
 
-    let mut taken: HashSet<u8> = HashSet::new();
+    let mut taken: HashSet<u8> = players
+        .iter()
+        .filter_map(|player| player.squad_number.filter(|number| (1..=99).contains(number)))
+        .collect();
 
-    // Pass 1: give each player its position's iconic number if still free.
+    // Pass 1: give each unnumbered player its position's iconic number if still free.
     for &index in &order {
+        if players[index].squad_number.is_some() {
+            continue;
+        }
         let desired = iconic_number_for_position(&players[index].natural_position);
         if !taken.contains(&desired) {
             players[index].squad_number = Some(desired);

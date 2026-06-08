@@ -37,6 +37,13 @@ struct MatchTotals {
     shots_on_target: u32,
     passes_completed: u32,
     passes_attempted: u32,
+    tackles: u32,
+    interceptions: u32,
+    corners: u32,
+    fouls: u32,
+    yellow_cards: u32,
+    red_cards: u32,
+    possession_sum: f64,
     rating_sum: f64,
     rating_count: u32,
     home_wins: u32,
@@ -244,6 +251,18 @@ fn collect_match_result(totals: &mut MatchTotals, result: &MatchResult) {
     totals.shots += report.home_stats.shots as u32 + report.away_stats.shots as u32;
     totals.shots_on_target +=
         report.home_stats.shots_on_target as u32 + report.away_stats.shots_on_target as u32;
+    totals.passes_completed += report.home_stats.passes_completed as u32 + report.away_stats.passes_completed as u32;
+    totals.passes_attempted += report.home_stats.passes_completed as u32
+        + report.home_stats.passes_intercepted as u32
+        + report.away_stats.passes_completed as u32
+        + report.away_stats.passes_intercepted as u32;
+    totals.tackles += report.home_stats.tackles as u32 + report.away_stats.tackles as u32;
+    totals.interceptions += report.home_stats.interceptions as u32 + report.away_stats.interceptions as u32;
+    totals.corners += report.home_stats.corners as u32 + report.away_stats.corners as u32;
+    totals.fouls += report.home_stats.fouls as u32 + report.away_stats.fouls as u32;
+    totals.yellow_cards += report.home_stats.yellow_cards as u32 + report.away_stats.yellow_cards as u32;
+    totals.red_cards += report.home_stats.red_cards as u32 + report.away_stats.red_cards as u32;
+    totals.possession_sum += report.home_stats.possession_pct as f64;
     if result.home_goals > result.away_goals {
         totals.home_wins += 1;
     } else if result.home_goals == result.away_goals {
@@ -272,8 +291,6 @@ fn collect_player_season_stats(game: &Game, totals: &mut MatchTotals) {
             continue;
         }
 
-        totals.passes_completed += stats.passes_completed;
-        totals.passes_attempted += stats.passes_attempted;
         totals.rating_sum += stats.avg_rating as f64 * stats.appearances as f64;
         totals.rating_count += stats.appearances;
 
@@ -602,6 +619,30 @@ fn main() {
     println!(
         "pass accuracy: {:.1}%",
         totals.passes_completed as f64 * 100.0 / pass_attempts.max(1) as f64
+    );
+    println!(
+        "avg passes/team: completed={:.1} attempted={:.1}",
+        totals.passes_completed as f64 / (totals.matches.max(1) * 2) as f64,
+        totals.passes_attempted as f64 / (totals.matches.max(1) * 2) as f64
+    );
+    println!(
+        "avg defensive actions/game: tackles={:.2} interceptions={:.2}",
+        totals.tackles as f64 / totals.matches.max(1) as f64,
+        totals.interceptions as f64 / totals.matches.max(1) as f64
+    );
+    println!(
+        "avg set pieces/game: corners={:.2} fouls={:.2}",
+        totals.corners as f64 / totals.matches.max(1) as f64,
+        totals.fouls as f64 / totals.matches.max(1) as f64
+    );
+    println!(
+        "avg cards/game: yellow={:.2} red={:.2}",
+        totals.yellow_cards as f64 / totals.matches.max(1) as f64,
+        totals.red_cards as f64 / totals.matches.max(1) as f64
+    );
+    println!(
+        "avg home possession: {:.1}%",
+        totals.possession_sum / totals.matches.max(1) as f64
     );
     println!(
         "avg rating: {:.2}",

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use domain::player::{Footedness, Player, PlayerAttributes, Position, SquadTier};
+use domain::player::{Footedness, Player, PlayerAttributes, PlayerTrait, Position, SquadTier};
 use domain::staff::StaffRole;
 use domain::team::{Facilities, Team, TeamColors};
 use rand::RngExt;
@@ -8,9 +8,8 @@ use uuid::Uuid;
 
 use super::definitions::{default_names_definition, default_teams_definition, TeamDef};
 use super::generation::{
-    canonicalize_generated_nationality, generate_random_player_from_def, generate_random_staff_from_def,
+    canonicalize_generated_nationality, generate_random_staff_from_def,
     generate_random_staff_unattached_from_def, pick_nationality_from_def, play_style_from_str,
-    PlayerGenerationQuality,
 };
 use super::{
     assign_squad_numbers, centered_finance, centered_reputation, default_formation_for_team, facility_level,
@@ -20,8 +19,8 @@ use super::{
 use crate::football_identity;
 use crate::player_rating::{generate_potential, refresh_player_derived};
 
-const FC26_CSV: &str = include_str!("EAFC26-Men.csv");
-const MIN_SQUAD_SIZE: usize = 22;
+const FC26_CSV: &str = include_str!("FC26_20250921.csv");
+const EAFC26_CSV: &str = include_str!("EAFC26-Men.csv");
 const MAX_REAL_SQUAD_SIZE: usize = 35;
 
 #[derive(Clone, Debug)]
@@ -29,13 +28,29 @@ struct Fc26PlayerRow {
     id: String,
     name: String,
     ovr: u8,
+    potential: u8,
     position: String,
     alternate_positions: String,
     age: u8,
+    dob: String,
     nation: String,
     team: String,
     preferred_foot: String,
     weak_foot: u8,
+    value_eur: u64,
+    wage_eur: u64,
+    jersey_number: Option<u8>,
+    contract_end_year: Option<u32>,
+    skill_moves: u8,
+    international_reputation: u8,
+    work_rate: String,
+    player_tags: String,
+    player_traits: String,
+    club_loaned_from: String,
+    club_joined_date: String,
+    release_clause_eur: u64,
+    height_cm: u8,
+    weight_kg: u8,
     pace: u8,
     shooting: u8,
     passing: u8,
@@ -102,33 +117,6 @@ pub fn generate_fc26_world() -> Result<(Vec<Team>, Vec<Player>, Vec<domain::staf
             }
         }
 
-        while players.len() - team_player_start < MIN_SQUAD_SIZE {
-            let index = players.len() - team_player_start;
-            let nationality = pick_nationality_from_def(&tdef.country, &country_codes, &mut rng);
-            let mut player = generate_random_player_from_def(
-                &team_id,
-                index,
-                &nationality,
-                &names_def,
-                PlayerGenerationQuality {
-                    reputation: team.reputation,
-                    domestic_tier: team.domestic_tier,
-                    current_strength: tdef.current_strength,
-                    expected_squad_avg_ovr: tdef.expected_squad_avg_ovr,
-                    expected_top_player_ovr: tdef.expected_top_player_ovr,
-                    squad_depth: tdef.squad_depth,
-                },
-                &mut rng,
-            );
-            player.morale = opening_morale_from_context(
-                team.reputation,
-                tdef.current_strength,
-                team.volatility,
-                rng.random_range(0..100),
-            );
-            players.push(player);
-        }
-
         assign_squad_numbers(&mut players[team_player_start..]);
 
         let roles = [
@@ -185,6 +173,7 @@ pub fn generate_fc26_world() -> Result<(Vec<Team>, Vec<Player>, Vec<domain::staf
         ));
     }
 
+    resolve_fc26_loans(&rows_by_team, &teams_out, &mut players);
     football_identity::upgrade_world_football_identities(&mut teams_out, &mut players, &mut staff);
     Ok((teams_out, players, staff))
 }
@@ -256,11 +245,115 @@ fn rows_for_team<'a>(
     tdef: &TeamDef,
     rows_by_team: &'a HashMap<String, Vec<Fc26PlayerRow>>,
 ) -> Option<&'a [Fc26PlayerRow]> {
-    let csv_name = team_alias_map()
-        .get(tdef.name.as_str())
-        .copied()
-        .unwrap_or(tdef.name.as_str());
-    rows_by_team.get(csv_name).map(Vec::as_slice)
+    let aliases = team_alias_map();
+    let candidates = [
+        aliases.get(tdef.name.as_str()).copied(),
+        Some(tdef.name.as_str()),
+    ];
+
+    for candidate in candidates.into_iter().flatten() {
+        if let Some(rows) = rows_by_team.get(candidate) {
+            return Some(rows.as_slice());
+        }
+    }
+
+    let target_key = normalized_team_key(&tdef.name);
+    rows_by_team
+        .iter()
+        .find(|(name, _)| normalized_team_key(name) == target_key)
+        .map(|(_, rows)| rows.as_slice())
+}
+
+fn resolve_fc26_loans(
+    rows_by_team: &HashMap<String, Vec<Fc26PlayerRow>>,
+    teams: &[Team],
+    players: &mut [Player],
+) {
+    let team_ids = build_generated_team_id_lookup(rows_by_team, teams);
+    let rows_by_player_id = rows_by_team
+        .values()
+        .flat_map(|rows| rows.iter())
+        .map(|row| (format!("fc26-{}", row.id), row))
+        .collect::<HashMap<_, _>>();
+
+    for player in players {
+        let Some(row) = rows_by_player_id.get(&player.id) else {
+            continue;
+        };
+        let loaned_from = row.club_loaned_from.trim();
+        if loaned_from.is_empty() {
+            continue;
+        }
+        let Some(parent_team_id) = team_ids.get(&normalized_team_key(loaned_from)) else {
+            continue;
+        };
+        if player.team_id.as_deref() == Some(parent_team_id.as_str()) {
+            continue;
+        }
+
+        player.loan_parent_team_id = Some(parent_team_id.clone());
+        player.loan_until = player.contract_end.clone().or_else(|| Some("2027-06-30".to_string()));
+        player.loan_wage_share_percent = Some(50);
+    }
+}
+
+fn build_generated_team_id_lookup(
+    rows_by_team: &HashMap<String, Vec<Fc26PlayerRow>>,
+    teams: &[Team],
+) -> HashMap<String, String> {
+    let aliases = team_alias_map();
+    let mut lookup = HashMap::new();
+    for team in teams {
+        lookup.insert(normalized_team_key(&team.name), team.id.clone());
+        if let Some(alias) = aliases.get(team.name.as_str()) {
+            lookup.insert(normalized_team_key(alias), team.id.clone());
+        }
+        if let Some(rows) = rows_for_generated_team_name(&team.name, rows_by_team) {
+            if let Some(row) = rows.first() {
+                lookup.insert(normalized_team_key(&row.team), team.id.clone());
+            }
+        }
+    }
+    lookup
+}
+
+fn rows_for_generated_team_name<'a>(
+    team_name: &str,
+    rows_by_team: &'a HashMap<String, Vec<Fc26PlayerRow>>,
+) -> Option<&'a [Fc26PlayerRow]> {
+    let aliases = team_alias_map();
+    for candidate in [aliases.get(team_name).copied(), Some(team_name)].into_iter().flatten() {
+        if let Some(rows) = rows_by_team.get(candidate) {
+            return Some(rows.as_slice());
+        }
+    }
+    let target_key = normalized_team_key(team_name);
+    rows_by_team
+        .iter()
+        .find(|(name, _)| normalized_team_key(name) == target_key)
+        .map(|(_, rows)| rows.as_slice())
+}
+
+fn normalized_team_key(name: &str) -> String {
+    name.chars()
+        .filter_map(|ch| match ch {
+            'á' | 'à' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' | 'Á' | 'À' | 'Â' | 'Ã' | 'Ä' | 'Å' | 'Ā' | 'Ă' | 'Ą' => Some('a'),
+            'ç' | 'ć' | 'č' | 'Ç' | 'Ć' | 'Č' => Some('c'),
+            'ď' | 'Đ' | 'đ' => Some('d'),
+            'é' | 'è' | 'ê' | 'ë' | 'ē' | 'ė' | 'ę' | 'É' | 'È' | 'Ê' | 'Ë' | 'Ē' | 'Ė' | 'Ę' => Some('e'),
+            'í' | 'ì' | 'î' | 'ï' | 'ī' | 'Í' | 'Ì' | 'Î' | 'Ï' | 'Ī' => Some('i'),
+            'ñ' | 'ń' | 'Ñ' | 'Ń' => Some('n'),
+            'ó' | 'ò' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'Ó' | 'Ò' | 'Ô' | 'Õ' | 'Ö' | 'Ø' | 'Ō' => Some('o'),
+            'ř' | 'Ř' => Some('r'),
+            'š' | 'ś' | 'Š' | 'Ś' => Some('s'),
+            'ť' | 'Ť' => Some('t'),
+            'ú' | 'ù' | 'û' | 'ü' | 'ū' | 'Ú' | 'Ù' | 'Û' | 'Ü' | 'Ū' => Some('u'),
+            'ý' | 'ÿ' | 'Ý' => Some('y'),
+            'ž' | 'ź' | 'ż' | 'Ž' | 'Ź' | 'Ż' => Some('z'),
+            _ if ch.is_ascii_alphanumeric() => Some(ch.to_ascii_lowercase()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn select_squad_rows(rows: &[Fc26PlayerRow]) -> Vec<Fc26PlayerRow> {
@@ -310,12 +403,16 @@ fn select_squad_rows(rows: &[Fc26PlayerRow]) -> Vec<Fc26PlayerRow> {
 
 fn row_to_player(row: &Fc26PlayerRow, team_id: &str, index: usize) -> Player {
     let position = map_position(&row.position).unwrap_or(Position::CentralMidfielder);
-    let attrs = attributes_from_row(row, &position);
-    let dob = date_of_birth(row.age, &row.id, index);
+    let attrs = enriched_attributes_from_row(row, &position);
+    let dob = if is_iso_date(&row.dob) {
+        row.dob.clone()
+    } else {
+        date_of_birth(row.age, &row.id, index)
+    };
     let nationality = canonicalize_generated_nationality(&row.nation);
     let mut player = Player::new(
         format!("fc26-{}", row.id),
-        match_name(&row.name),
+        row.name.clone(),
         row.name.clone(),
         dob,
         nationality,
@@ -332,13 +429,40 @@ fn row_to_player(row: &Fc26PlayerRow, team_id: &str, index: usize) -> Player {
     player.weak_foot = row.weak_foot.clamp(1, 5);
     player.condition = 90;
     player.fitness = row.stamina.max(row.physical).clamp(45, 99);
-    player.contract_end = Some(contract_end(row.age, index));
+    player.contract_end = row
+        .contract_end_year
+        .filter(|year| (2026..=2040).contains(year))
+        .map(|year| format!("{year}-06-30"))
+        .or_else(|| contract_end_from_joined_date(&row.club_joined_date, row.age, index))
+        .or_else(|| Some(contract_end(row.age, index)));
+    player.squad_number = row.jersey_number;
     player.squad_tier = SquadTier::Reserve;
     refresh_player_derived(&mut player, 2026);
+    add_imported_traits(&mut player.traits, imported_traits_from_row(row));
     player.ovr = row.ovr.clamp(1, 99);
-    player.potential = generate_potential(player.ovr, row.age as u32).max(player.ovr);
+    player.potential = if row.potential > 0 {
+        row.potential.clamp(player.ovr, 99)
+    } else {
+        generate_potential(player.ovr, row.age as u32).max(player.ovr)
+    };
     set_economy(&mut player, row.age as u32, row.ovr);
+    if row.value_eur > 0 {
+        player.market_value = row.value_eur;
+    } else if row.release_clause_eur > 0 {
+        player.market_value = round_money((row.release_clause_eur / 2).clamp(100_000, 250_000_000), 50_000);
+    }
+    if row.wage_eur > 0 {
+        player.wage = round_money(row.wage_eur.saturating_mul(52), 5_000) as u32;
+    }
     player
+}
+
+fn enriched_attributes_from_row(row: &Fc26PlayerRow, position: &Position) -> PlayerAttributes {
+    let mut attrs = attributes_from_row(row, position);
+    apply_skill_reputation_modifiers(&mut attrs, row);
+    apply_work_rate_modifiers(&mut attrs, row);
+    apply_body_modifiers(&mut attrs, row, position);
+    attrs
 }
 
 fn attributes_from_row(row: &Fc26PlayerRow, position: &Position) -> PlayerAttributes {
@@ -389,6 +513,147 @@ fn attributes_from_row(row: &Fc26PlayerRow, position: &Position) -> PlayerAttrib
     }
 }
 
+fn apply_skill_reputation_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow) {
+    let skill_bonus = match row.skill_moves {
+        5 => 3,
+        4 => 2,
+        3 => 1,
+        _ => 0,
+    };
+    boost(&mut attrs.dribbling, skill_bonus);
+    boost(&mut attrs.agility, skill_bonus);
+    boost(&mut attrs.composure, skill_bonus.saturating_sub(1));
+
+    let reputation_bonus = match row.international_reputation {
+        5 => 4,
+        4 => 3,
+        3 => 2,
+        2 => 1,
+        _ => 0,
+    };
+    boost(&mut attrs.leadership, reputation_bonus);
+    boost(&mut attrs.composure, reputation_bonus);
+    boost(&mut attrs.teamwork, reputation_bonus.saturating_sub(1));
+}
+
+fn apply_work_rate_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow) {
+    let (attacking, defensive) = parse_work_rate(&row.work_rate);
+    if attacking == WorkRate::High || defensive == WorkRate::High {
+        boost(&mut attrs.stamina, 2);
+        boost(&mut attrs.teamwork, 1);
+    }
+    if attacking == WorkRate::High {
+        boost(&mut attrs.positioning, 2);
+        boost(&mut attrs.decisions, 1);
+    }
+    if defensive == WorkRate::High {
+        boost(&mut attrs.defending, 2);
+        boost(&mut attrs.tackling, 2);
+        boost(&mut attrs.decisions, 1);
+    }
+}
+
+fn apply_body_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow, position: &Position) {
+    if row.height_cm >= 190 {
+        boost(&mut attrs.aerial, if matches!(position, Position::Goalkeeper) { 4 } else { 3 });
+        boost(&mut attrs.strength, 1);
+    } else if row.height_cm > 0 && row.height_cm <= 175 {
+        boost(&mut attrs.agility, 2);
+    }
+
+    if row.weight_kg >= 85 {
+        boost(&mut attrs.strength, 2);
+    } else if row.weight_kg > 0 && row.weight_kg <= 68 {
+        boost(&mut attrs.agility, 1);
+        boost(&mut attrs.pace, 1);
+    }
+}
+
+fn boost(value: &mut u8, amount: u8) {
+    *value = value.saturating_add(amount).clamp(1, 99);
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WorkRate {
+    Low,
+    Medium,
+    High,
+}
+
+fn parse_work_rate(raw: &str) -> (WorkRate, WorkRate) {
+    let mut parts = raw.split('/').map(|part| parse_single_work_rate(part.trim()));
+    let attacking = parts.next().unwrap_or(WorkRate::Medium);
+    let defensive = parts.next().unwrap_or(WorkRate::Medium);
+    (attacking, defensive)
+}
+
+fn parse_single_work_rate(raw: &str) -> WorkRate {
+    match raw.to_ascii_lowercase().as_str() {
+        "high" => WorkRate::High,
+        "low" => WorkRate::Low,
+        _ => WorkRate::Medium,
+    }
+}
+
+fn imported_traits_from_row(row: &Fc26PlayerRow) -> Vec<PlayerTrait> {
+    let mut traits = Vec::new();
+    for raw in row.player_tags.split(',').chain(row.player_traits.split(',')) {
+        if let Some(player_trait) = map_imported_trait(raw) {
+            traits.push(player_trait);
+        }
+    }
+    traits
+}
+
+fn map_imported_trait(raw: &str) -> Option<PlayerTrait> {
+    let normalized = raw
+        .trim()
+        .trim_matches(|ch| ch == '[' || ch == ']' || ch == '\'' || ch == '"')
+        .trim_start_matches('#')
+        .to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if normalized.contains("dribbler") || normalized.contains("flair") || normalized.contains("technical") {
+        Some(PlayerTrait::Dribbler)
+    } else if normalized.contains("playmaker") || normalized.contains("passer") || normalized.contains("incisive pass") {
+        Some(PlayerTrait::Playmaker)
+    } else if normalized.contains("vision") || normalized.contains("complete midfielder") {
+        Some(PlayerTrait::Visionary)
+    } else if normalized.contains("clinical") || normalized.contains("finisher") || normalized.contains("power shot") {
+        Some(PlayerTrait::Sharpshooter)
+    } else if normalized.contains("free kick") || normalized.contains("dead ball") || normalized.contains("set piece") {
+        Some(PlayerTrait::SetPieceSpecialist)
+    } else if normalized.contains("speed") || normalized.contains("rapid") || normalized.contains("quick step") {
+        Some(PlayerTrait::Speedster)
+    } else if normalized.contains("leader") {
+        Some(PlayerTrait::Leader)
+    } else if normalized.contains("team player") || normalized.contains("solid player") {
+        Some(PlayerTrait::TeamPlayer)
+    } else if normalized.contains("composed") || normalized.contains("cool") {
+        Some(PlayerTrait::CoolHead)
+    } else if normalized.contains("ball winner") || normalized.contains("tackl") || normalized.contains("intercept") {
+        Some(PlayerTrait::BallWinner)
+    } else if normalized.contains("aerial") || normalized.contains("power header") {
+        Some(PlayerTrait::AerialDominance)
+    } else if normalized.contains("complete forward") {
+        Some(PlayerTrait::CompleteForward)
+    } else if normalized.contains("engine") || normalized.contains("relentless") {
+        Some(PlayerTrait::Engine)
+    } else {
+        None
+    }
+}
+
+fn add_imported_traits(existing: &mut Vec<PlayerTrait>, imported: Vec<PlayerTrait>) {
+    for player_trait in imported {
+        if !existing.contains(&player_trait) {
+            existing.push(player_trait);
+        }
+    }
+}
+
 fn set_economy(player: &mut Player, age: u32, ovr: u8) {
     let age_factor = if age <= 20 {
         1.35
@@ -433,17 +698,39 @@ fn date_of_birth(age: u8, id: &str, index: usize) -> String {
     format!("{birth_year:04}-{month:02}-{day:02}")
 }
 
+fn is_iso_date(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(idx, byte)| idx == 4 || idx == 7 || byte.is_ascii_digit())
+}
+
+fn contract_end_from_joined_date(joined_date: &str, age: u8, index: usize) -> Option<String> {
+    let joined_year = joined_date.get(0..4)?.parse::<u32>().ok()?;
+    if !(2010..=2026).contains(&joined_year) {
+        return None;
+    }
+    let initial_years = if age <= 23 { 5 } else if age <= 30 { 4 } else { 2 + index as u8 % 2 } as u32;
+    let end_year = (joined_year + initial_years).clamp(2026, 2040);
+    Some(format!("{end_year}-06-30"))
+}
+
 fn contract_end(age: u8, index: usize) -> String {
     let years = if age <= 23 { 5 } else if age <= 30 { 4 } else { 2 + index as u8 % 2 };
     format!("{}-06-30", 2026 + years as u32)
 }
 
-fn match_name(full_name: &str) -> String {
-    let parts = full_name.split_whitespace().collect::<Vec<_>>();
-    if parts.len() <= 2 {
-        return full_name.to_string();
-    }
-    parts.last().copied().unwrap_or(full_name).to_string()
+fn preferred_player_name(eafc_name: &str, short_name: &str, full_name: &str) -> String {
+    [eafc_name, short_name, full_name]
+        .iter()
+        .map(|name| name.trim())
+        .find(|name| !name.is_empty())
+        .unwrap_or_default()
+        .to_string()
 }
 
 fn parse_alternate_positions(raw: &str) -> Vec<Position> {
@@ -456,8 +743,35 @@ fn parse_alternate_positions(raw: &str) -> Vec<Position> {
         .collect()
 }
 
+fn primary_position(club_position: &str, player_positions: &str) -> String {
+    if map_position(club_position).is_some() {
+        return normalize_position_code(club_position).to_string();
+    }
+
+    player_positions
+        .split(',')
+        .map(str::trim)
+        .find(|code| map_position(code).is_some())
+        .map(normalize_position_code)
+        .unwrap_or("CM")
+        .to_string()
+}
+
+fn normalize_position_code(code: &str) -> &str {
+    match code.trim() {
+        "SUB" | "RES" => "",
+        "RCB" | "LCB" => "CB",
+        "RDM" | "LDM" => "CDM",
+        "RCM" | "LCM" => "CM",
+        "RAM" | "LAM" => "CAM",
+        "RS" | "LS" => "ST",
+        "RF" | "LF" => "CF",
+        other => other,
+    }
+}
+
 fn map_position(code: &str) -> Option<Position> {
-    Some(match code {
+    Some(match normalize_position_code(code) {
         "GK" => Position::Goalkeeper,
         "CB" => Position::CenterBack,
         "RB" => Position::RightBack,
@@ -486,15 +800,44 @@ fn parse_fc26_rows() -> Vec<Fc26PlayerRow> {
         .enumerate()
         .map(|(index, name)| (name.as_str(), index))
         .collect::<HashMap<_, _>>();
+    let eafc_names = parse_eafc_names_by_id();
 
     records
         .iter()
         .skip(1)
-        .filter_map(|record| row_from_record(record, &indexes))
+        .filter_map(|record| row_from_record(record, &indexes, &eafc_names))
         .collect()
 }
 
-fn row_from_record(record: &[String], indexes: &HashMap<&str, usize>) -> Option<Fc26PlayerRow> {
+fn parse_eafc_names_by_id() -> HashMap<String, String> {
+    let records = parse_csv(EAFC26_CSV);
+    let Some(header) = records.first() else {
+        return HashMap::new();
+    };
+    let indexes = header
+        .iter()
+        .enumerate()
+        .map(|(index, name)| (name.as_str(), index))
+        .collect::<HashMap<_, _>>();
+    let id_index = indexes.get("ID").copied();
+    let name_index = indexes.get("Name").copied();
+
+    records
+        .iter()
+        .skip(1)
+        .filter_map(|record| {
+            let id = record.get(id_index?)?.trim();
+            let name = record.get(name_index?)?.trim();
+            (!id.is_empty() && !name.is_empty()).then(|| (id.to_string(), name.to_string()))
+        })
+        .collect()
+}
+
+fn row_from_record(
+    record: &[String],
+    indexes: &HashMap<&str, usize>,
+    eafc_names: &HashMap<String, String>,
+) -> Option<Fc26PlayerRow> {
     let get = |name: &str| -> String {
         indexes
             .get(name)
@@ -503,56 +846,85 @@ fn row_from_record(record: &[String], indexes: &HashMap<&str, usize>) -> Option<
             .unwrap_or_default()
     };
     let num = |name: &str| -> u8 { get(name).parse::<u8>().unwrap_or(0) };
+    let money = |name: &str| -> u64 { get(name).parse::<u64>().unwrap_or(0) };
+    let optional_number = |name: &str| -> Option<u8> {
+        get(name)
+            .parse::<u8>()
+            .ok()
+            .filter(|value| (1..=99).contains(value))
+    };
+    let optional_year = |name: &str| -> Option<u32> { get(name).parse::<u32>().ok() };
 
-    let id = get("ID");
-    let name = get("Name");
-    let team = get("Team");
+    let id = get("player_id");
+    let full_name = get("long_name");
+    let eafc_name = eafc_names.get(&id).map(String::as_str).unwrap_or_default();
+    let name = preferred_player_name(eafc_name, &get("short_name"), &full_name);
+    let team = get("club_name");
     if id.is_empty() || name.is_empty() || team.is_empty() {
         return None;
     }
 
+    let alternate_positions = get("player_positions");
+    let position = primary_position(&get("club_position"), &alternate_positions);
+
     Some(Fc26PlayerRow {
         id,
         name,
-        ovr: num("OVR"),
-        position: get("Position"),
-        alternate_positions: get("Alternative positions"),
-        age: num("Age"),
-        nation: get("Nation"),
+        ovr: num("overall"),
+        potential: num("potential"),
+        position,
+        alternate_positions,
+        age: num("age"),
+        dob: get("dob"),
+        nation: get("nationality_name"),
         team,
-        preferred_foot: get("Preferred foot"),
-        weak_foot: num("Weak foot"),
-        pace: num("PAC"),
-        shooting: num("SHO"),
-        passing: num("PAS"),
-        dribbling: num("DRI"),
-        defending: num("DEF"),
-        physical: num("PHY"),
-        acceleration: num("Acceleration"),
-        sprint_speed: num("Sprint Speed"),
-        positioning: num("Positioning"),
-        finishing: num("Finishing"),
-        shot_power: num("Shot Power"),
-        vision: num("Vision"),
-        short_passing: num("Short Passing"),
-        long_passing: num("Long Passing"),
-        ball_control: num("Ball Control"),
-        reactions: num("Reactions"),
-        composure: num("Composure"),
-        interceptions: num("Interceptions"),
-        heading_accuracy: num("Heading Accuracy"),
-        defensive_awareness: num("Def Awareness"),
-        standing_tackle: num("Standing Tackle"),
-        sliding_tackle: num("Sliding Tackle"),
-        jumping: num("Jumping"),
-        stamina: num("Stamina"),
-        strength: num("Strength"),
-        aggression: num("Aggression"),
-        gk_diving: num("GK Diving"),
-        gk_handling: num("GK Handling"),
-        gk_kicking: num("GK Kicking"),
-        gk_positioning: num("GK Positioning"),
-        gk_reflexes: num("GK Reflexes"),
+        preferred_foot: get("preferred_foot"),
+        weak_foot: num("weak_foot"),
+        value_eur: money("value_eur"),
+        wage_eur: money("wage_eur"),
+        jersey_number: optional_number("club_jersey_number"),
+        contract_end_year: optional_year("club_contract_valid_until_year"),
+        skill_moves: num("skill_moves"),
+        international_reputation: num("international_reputation"),
+        work_rate: get("work_rate"),
+        player_tags: get("player_tags"),
+        player_traits: get("player_traits"),
+        club_loaned_from: get("club_loaned_from"),
+        club_joined_date: get("club_joined_date"),
+        release_clause_eur: money("release_clause_eur"),
+        height_cm: num("height_cm"),
+        weight_kg: num("weight_kg"),
+        pace: num("pace"),
+        shooting: num("shooting"),
+        passing: num("passing"),
+        dribbling: num("dribbling"),
+        defending: num("defending"),
+        physical: num("physic"),
+        acceleration: num("movement_acceleration"),
+        sprint_speed: num("movement_sprint_speed"),
+        positioning: num("mentality_positioning"),
+        finishing: num("attacking_finishing"),
+        shot_power: num("power_shot_power"),
+        vision: num("mentality_vision"),
+        short_passing: num("attacking_short_passing"),
+        long_passing: num("skill_long_passing"),
+        ball_control: num("skill_ball_control"),
+        reactions: num("movement_reactions"),
+        composure: num("mentality_composure"),
+        interceptions: num("mentality_interceptions"),
+        heading_accuracy: num("attacking_heading_accuracy"),
+        defensive_awareness: num("defending_marking_awareness"),
+        standing_tackle: num("defending_standing_tackle"),
+        sliding_tackle: num("defending_sliding_tackle"),
+        jumping: num("power_jumping"),
+        stamina: num("power_stamina"),
+        strength: num("power_strength"),
+        aggression: num("mentality_aggression"),
+        gk_diving: num("goalkeeping_diving"),
+        gk_handling: num("goalkeeping_handling"),
+        gk_kicking: num("goalkeeping_kicking"),
+        gk_positioning: num("goalkeeping_positioning"),
+        gk_reflexes: num("goalkeeping_reflexes"),
     })
 }
 
@@ -614,7 +986,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Le Havre AC", "Havre AC"),
         ("Lille", "LOSC Lille"),
         ("Lorient", "FC Lorient"),
-        ("Lyon", "OL"),
+        ("Lyon", "Olympique Lyonnais"),
         ("Marseille", "OM"),
         ("Nantes", "FC Nantes"),
         ("Nice", "OGC Nice"),
@@ -624,7 +996,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Toulouse", "Toulouse FC"),
         ("Amiens", "Amiens SC"),
         ("Annecy", "FC Annecy"),
-        ("Bastia", "SC Bastia"),
+        ("Bastia", "Sporting Club Bastia"),
         ("Boulogne", "US Boulogne"),
         ("Clermont Foot", "Clermont Foot 63"),
         ("Dunkerque", "USL Dunkerque"),
@@ -632,6 +1004,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Le Mans", "Le Mans FC"),
         ("Nancy", "AS Nancy Lorraine"),
         ("Pau", "Pau FC"),
+        ("Rodez AF", "Rodez Aveyron Football"),
         ("Stade Lavallois", "Laval MFC"),
         ("Troyes", "ESTAC Troyes"),
         ("Augsburg", "FC Augsburg"),
@@ -664,7 +1037,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Milan", "Milano FC"),
         ("Napoli", "SSC Napoli"),
         ("Roma", "AS Roma"),
-        ("Verona", "Hellas Verona"),
+        ("Verona", "Hellas Verona FC"),
         ("Carrarese", "Carrarese Calcio"),
         ("Juve Stabia", "SS Juve Stabia"),
         ("Mantova 1911", "Mantova"),
@@ -709,7 +1082,8 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Estrela da Amadora", "Estrela Amadora"),
         ("Famalicão", "FC Famalicão"),
         ("Moreirense", "Moreirense FC"),
-        ("Nacional da Madeira", "Nacional"),
+        ("Nacional da Madeira", "CD Nacional"),
+        ("SC Braga", "Sporting Clube de Braga"),
         ("Rio Ave", "Rio Ave FC"),
         ("Tondela", "CD Tondela"),
         ("Vitória de Guimarães", "Vitória SC"),
@@ -723,7 +1097,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Volendam", "FC Volendam"),
         ("Anderlecht", "RSC Anderlecht"),
         ("Antwerp", "Royal Antwerp FC"),
-        ("Charleroi", "Sp. Charleroi"),
+        ("Charleroi", "Royal Charleroi Sporting Club"),
         ("Genk", "KRC Genk"),
         ("Gent", "KAA Gent"),
         ("Mechelen", "KV Mechelen"),
@@ -732,6 +1106,40 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Standard Liège", "Standard Liège"),
         ("Union Saint-Gilloise", "R. Union St.-G."),
         ("Westerlo", "KVC Westerlo"),
+        ("Fulham", "Fulham FC"),
+        ("Millwall", "Millwall FC"),
+        ("Celta Vigo", "RC Celta"),
+        ("Deportivo", "RC Deportivo de La Coruña"),
+        ("Real Betis", "Real Betis Balompié"),
+        ("Albacete", "Albacete Balompié"),
+        ("Deportivo La Coruña", "RC Deportivo de La Coruña"),
+        ("Sporting Gijón", "Real Sporting de Gijón"),
+        ("Valladolid", "Real Valladolid CF"),
+        ("Milan", "AC Milan"),
+        ("Bari", "SSC Bari"),
+        ("Cesena", "Cesena FC"),
+        ("Palermo", "Palermo FC"),
+        ("Bayer Leverkusen", "Bayer 04 Leverkusen"),
+        ("FC Heidenheim", "1. FC Heidenheim 1846"),
+        ("Hoffenheim", "TSG 1899 Hoffenheim"),
+        ("Union Berlin", "1. FC Union Berlin"),
+        ("Arminia Bielefeld", "DSC Arminia Bielefeld"),
+        ("FC Kaiserslautern", "1. FC Kaiserslautern"),
+        ("Preußen Münster", "SC Preußen Münster"),
+        ("Lille", "Lille OSC"),
+        ("Marseille", "Olympique de Marseille"),
+        ("Boulogne", "US Boulogne Cote d'Opale"),
+        ("Montpellier", "Montpellier HSC"),
+        ("Stade Lavallois", "Stade Lavallois Mayenne FC"),
+        ("Arouca", "FC Arouca"),
+        ("Casa Pia AC", "Casa Pia"),
+        ("Estoril", "GD Estoril Praia"),
+        ("Gil Vicente", "Gil Vicente FC"),
+        ("Cercle Brugge", "Cercle Brugge KSV"),
+        ("Club Brugge", "Club Brugge KV"),
+        ("Sint-Truidense", "Sint-Truidense VV"),
+        ("Standard Liège", "Standard de Liège"),
+        ("Zulte Waregem", "SV Zulte Waregem"),
     ])
 }
 
@@ -742,7 +1150,7 @@ mod tests {
     #[test]
     fn parser_finds_known_fc26_alias_teams() {
         let teams = rows_by_team().keys().cloned().collect::<HashSet<_>>();
-        for team in ["Milano FC", "Lombardia FC", "Latium", "Bergamo Calcio", "Man Utd", "STVV"] {
+        for team in ["AC Milan", "Inter", "Lazio", "Atalanta", "Manchester United", "Sint-Truidense VV"] {
             assert!(teams.contains(team), "missing FC26 alias team {team}");
         }
     }
@@ -753,30 +1161,25 @@ mod tests {
         let missing = default_teams_definition()
             .teams
             .iter()
-            .filter_map(|team| {
-                let csv_name = team_alias_map()
-                    .get(team.name.as_str())
-                    .copied()
-                    .unwrap_or(team.name.as_str());
-                (!rows.contains_key(csv_name)).then(|| format!("{} -> {csv_name}", team.name))
-            })
+            .filter_map(|team| rows_for_team(team, &rows).is_none().then(|| team.name.clone()))
             .collect::<Vec<_>>();
 
-        assert!(missing.is_empty(), "missing FC26 mappings: {missing:?}");
+        assert!(missing.is_empty(), "missing FC26 aliases: {missing:?}");
     }
 
     #[test]
-    fn generate_fc26_world_creates_full_squads() {
+    fn generate_fc26_world_uses_only_real_players() {
         let (teams, players, staff) = generate_fc26_world().unwrap();
         assert_eq!(teams.len(), 248);
         assert_eq!(staff.len(), 248 * 4 + 12);
+        assert!(!players.is_empty());
+        assert!(players.iter().all(|player| player.id.starts_with("fc26-")));
 
         for team in &teams {
             let squad = players
                 .iter()
                 .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
                 .collect::<Vec<_>>();
-            assert!(squad.len() >= MIN_SQUAD_SIZE, "{} has {} players", team.name, squad.len());
             assert!(squad.iter().all(|player| player.squad_number.is_some()));
             assert!(squad.iter().all(|player| player.market_value > 0));
             assert!(squad.iter().all(|player| player.wage > 0));
@@ -820,20 +1223,208 @@ mod tests {
     }
 
     #[test]
+    fn fc26_trait_mapping_uses_existing_player_traits() {
+        assert_eq!(map_imported_trait("#Dribbler"), Some(PlayerTrait::Dribbler));
+        assert_eq!(map_imported_trait("Incisive Pass"), Some(PlayerTrait::Playmaker));
+        assert_eq!(map_imported_trait("Power Shot"), Some(PlayerTrait::Sharpshooter));
+        assert_eq!(map_imported_trait("Dead Ball"), Some(PlayerTrait::SetPieceSpecialist));
+        assert_eq!(map_imported_trait("Rapid"), Some(PlayerTrait::Speedster));
+    }
+
+    #[test]
+    fn fc26_work_rate_parsing_handles_attack_and_defence() {
+        assert_eq!(parse_work_rate("High/Medium"), (WorkRate::High, WorkRate::Medium));
+        assert_eq!(parse_work_rate("Medium/High"), (WorkRate::Medium, WorkRate::High));
+        assert_eq!(parse_work_rate("Low/Low"), (WorkRate::Low, WorkRate::Low));
+    }
+
+    #[test]
+    fn fc26_player_name_prefers_eafc_name() {
+        assert_eq!(
+            preferred_player_name("Jude Bellingham", "J. Bellingham", "Jude Victor William Bellingham"),
+            "Jude Bellingham"
+        );
+        assert_eq!(preferred_player_name("", "J. Bellingham", "Jude Victor William Bellingham"), "J. Bellingham");
+    }
+
+    #[test]
+    fn fc26_attribute_enrichment_is_bounded() {
+        let mut row = test_row();
+        row.skill_moves = 5;
+        row.international_reputation = 4;
+        row.work_rate = "High/High".to_string();
+        row.height_cm = 195;
+        row.weight_kg = 88;
+
+        let base = attributes_from_row(&row, &Position::Striker);
+        let enriched = enriched_attributes_from_row(&row, &Position::Striker);
+
+        assert!(enriched.dribbling > base.dribbling);
+        assert!(enriched.leadership > base.leadership);
+        assert!(enriched.stamina > base.stamina);
+        assert!(enriched.aerial > base.aerial);
+        assert!(enriched.strength > base.strength);
+        assert!(enriched.dribbling <= 99);
+    }
+
+    #[test]
+    fn fc26_release_clause_only_fills_missing_value() {
+        let mut row = test_row();
+        row.value_eur = 0;
+        row.release_clause_eur = 20_000_000;
+        let player = row_to_player(&row, "team", 0);
+        assert_eq!(player.market_value, 10_000_000);
+    }
+
+    #[test]
+    fn fc26_real_player_value_uses_dataset_value() {
+        let mut row = test_row();
+        row.age = 19;
+        row.value_eur = 150_000_000;
+        let player = row_to_player(&row, "team", 0);
+        assert_eq!(player.market_value, 150_000_000);
+    }
+
+    #[test]
+    fn fc26_loan_resolution_only_uses_known_parent_teams() {
+        let current_team = Team::new(
+            "current".to_string(),
+            "Current FC".to_string(),
+            "CUR".to_string(),
+            "England".to_string(),
+            "Current".to_string(),
+            "Current Ground".to_string(),
+            20_000,
+        );
+        let parent_team = Team::new(
+            "parent".to_string(),
+            "Parent FC".to_string(),
+            "PAR".to_string(),
+            "England".to_string(),
+            "Parent".to_string(),
+            "Parent Ground".to_string(),
+            30_000,
+        );
+        let mut row = test_row();
+        row.club_loaned_from = "Parent FC".to_string();
+        let mut rows = HashMap::new();
+        let mut parent_row = test_row_with_team("Parent FC");
+        parent_row.id = "456".to_string();
+        rows.insert("Current FC".to_string(), vec![row.clone()]);
+        rows.insert("Parent FC".to_string(), vec![parent_row]);
+        let mut players = vec![row_to_player(&row, "current", 0)];
+
+        resolve_fc26_loans(&rows, &[current_team, parent_team], &mut players);
+
+        assert_eq!(players[0].loan_parent_team_id.as_deref(), Some("parent"));
+        assert_eq!(players[0].loan_wage_share_percent, Some(50));
+
+        rows.remove("Parent FC");
+        let mut unresolved = row.clone();
+        unresolved.id = "999".to_string();
+        unresolved.club_loaned_from = "Missing FC".to_string();
+        let mut players = vec![row_to_player(&unresolved, "current", 0)];
+        rows.insert("Current FC".to_string(), vec![unresolved]);
+        resolve_fc26_loans(&rows, &[Team::new("current".to_string(), "Current FC".to_string(), "CUR".to_string(), "England".to_string(), "Current".to_string(), "Current Ground".to_string(), 20_000)], &mut players);
+        assert!(players[0].loan_parent_team_id.is_none());
+    }
+
+    #[test]
     fn generate_fc26_world_maps_known_players() {
         let (teams, players, _) = generate_fc26_world().unwrap();
-        let liverpool = teams.iter().find(|team| team.name == "Liverpool").expect("Liverpool");
-        let salah = players
+        let real_madrid = teams.iter().find(|team| team.name == "Real Madrid").expect("Real Madrid");
+        let bellingham = players
             .iter()
             .find(|player| {
-                player.team_id.as_deref() == Some(liverpool.id.as_str())
-                    && player.full_name == "Mohamed Salah"
+                player.team_id.as_deref() == Some(real_madrid.id.as_str())
+                    && player.full_name == "Jude Bellingham"
             })
-            .expect("Mohamed Salah");
+            .expect("Jude Bellingham");
 
-        assert_eq!(salah.natural_position, Position::RightMidfielder);
-        assert_eq!(salah.footedness, Footedness::Left);
-        assert_eq!(salah.weak_foot, 3);
-        assert!(salah.ovr >= 88);
+        assert_eq!(bellingham.date_of_birth, "2003-06-29");
+        assert_eq!(bellingham.natural_position, Position::AttackingMidfielder);
+        assert_eq!(bellingham.footedness, Footedness::Right);
+        assert_eq!(bellingham.weak_foot, 4);
+        assert!(bellingham.ovr >= 90);
+        assert!(bellingham.potential >= 94);
+        assert_eq!(bellingham.squad_number, Some(5));
+        assert_eq!(bellingham.contract_end.as_deref(), Some("2029-06-30"));
+        assert_eq!(bellingham.market_value, 174_500_000);
+        assert_eq!(bellingham.wage, 16_640_000);
+    }
+
+    fn test_row() -> Fc26PlayerRow {
+        test_row_with_team("Current FC")
+    }
+
+    fn test_row_with_team(team: &str) -> Fc26PlayerRow {
+        Fc26PlayerRow {
+            id: "123".to_string(),
+            name: "Test Player".to_string(),
+            ovr: 75,
+            potential: 80,
+            position: "ST".to_string(),
+            alternate_positions: "ST".to_string(),
+            age: 24,
+            dob: "2002-01-01".to_string(),
+            nation: "England".to_string(),
+            team: team.to_string(),
+            preferred_foot: "Right".to_string(),
+            weak_foot: 3,
+            value_eur: 1_000_000,
+            wage_eur: 10_000,
+            jersey_number: Some(9),
+            contract_end_year: Some(2028),
+            skill_moves: 3,
+            international_reputation: 1,
+            work_rate: "Medium/Medium".to_string(),
+            player_tags: String::new(),
+            player_traits: String::new(),
+            club_loaned_from: String::new(),
+            club_joined_date: "2024-07-01".to_string(),
+            release_clause_eur: 0,
+            height_cm: 180,
+            weight_kg: 75,
+            pace: 70,
+            shooting: 72,
+            passing: 68,
+            dribbling: 70,
+            defending: 40,
+            physical: 70,
+            acceleration: 70,
+            sprint_speed: 70,
+            positioning: 72,
+            finishing: 74,
+            shot_power: 70,
+            vision: 68,
+            short_passing: 68,
+            long_passing: 65,
+            ball_control: 70,
+            reactions: 70,
+            composure: 70,
+            interceptions: 40,
+            heading_accuracy: 68,
+            defensive_awareness: 40,
+            standing_tackle: 40,
+            sliding_tackle: 38,
+            jumping: 70,
+            stamina: 70,
+            strength: 70,
+            aggression: 65,
+            gk_diving: 10,
+            gk_handling: 10,
+            gk_kicking: 10,
+            gk_positioning: 10,
+            gk_reflexes: 10,
+        }
+    }
+
+    #[test]
+    fn fc26_positions_handle_side_specific_and_status_codes() {
+        assert_eq!(map_position("RDM"), Some(Position::DefensiveMidfielder));
+        assert_eq!(map_position("LCM"), Some(Position::CentralMidfielder));
+        assert_eq!(map_position("RCB"), Some(Position::CenterBack));
+        assert_eq!(map_position("SUB"), None);
+        assert_eq!(primary_position("SUB", "CM, CDM, RB"), "CM");
     }
 }

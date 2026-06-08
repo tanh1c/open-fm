@@ -14,6 +14,8 @@ use super::{to_js, to_js_value, AppHandle};
 
 const EXPORTED_WORLD_NAME_KEY: &str = "be.msg.world.exportedName";
 const EXPORTED_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.exportedDescription";
+const FC26_WORLD_NAME_KEY: &str = "be.msg.world.fc26RealName";
+const FC26_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.fc26RealDescription";
 const RANDOM_WORLD_NAME_KEY: &str = "be.msg.world.randomName";
 const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
 const TEAM_COUNT_PARAM: &str = "teamCount";
@@ -34,15 +36,26 @@ impl AppHandle {
     /// random option. Imported user worlds are kept in JS memory until used.
     #[wasm_bindgen(js_name = listWorldDatabases)]
     pub fn list_world_databases(&self) -> Result<JsValue, JsValue> {
-        let databases = vec![serde_json::json!({
-            "id": "random",
-            "name": RANDOM_WORLD_NAME_KEY,
-            "description": backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 248),
-            "team_count": 248,
-            "player_count": 5456,
-            "source": "builtin",
-            "path": "",
-        })];
+        let databases = vec![
+            serde_json::json!({
+                "id": "random",
+                "name": RANDOM_WORLD_NAME_KEY,
+                "description": backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 248),
+                "team_count": 248,
+                "player_count": 5456,
+                "source": "builtin",
+                "path": "",
+            }),
+            serde_json::json!({
+                "id": "fc26_real",
+                "name": FC26_WORLD_NAME_KEY,
+                "description": backend_text_with_param(FC26_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 248),
+                "team_count": 248,
+                "player_count": ofm_core::generator::fc26_real_player_count_estimate(),
+                "source": "builtin",
+                "path": "",
+            }),
+        ];
         to_js_value(&databases)
     }
 

@@ -1901,7 +1901,9 @@
         "randomName": "随机世界",
         "randomDescription": "一个在欧洲各地随机生成、包含 {{teamCount}} 支球队的联赛",
         "exportedName": "导出的世界",
-        "exportedDescription": "从存档导出的世界，包含 {{teamCount}} 支球队"
+        "exportedDescription": "从存档导出的世界，包含 {{teamCount}} 支球队",
+        "fc26RealName": "FC26 真实球员",
+        "fc26RealDescription": "将 FC26 真实球员数据库映射到 {{teamCount}} 支默认俱乐部"
       },
       "welcome": {
         "subject0": "欢迎来到{{team}}",

@@ -113,7 +113,6 @@
     "vacationModalDesc": "Pick a date to fast-forward to. Stops early for your matches.",
     "vacationTarget": "Target",
     "vacationGo": "Go on Vacation",
-
     "vacationAssistantTitle": "Assistant responsibilities",
     "vacationAssistantDesc": "Choose what your assistant oversees while you are on holiday. Departments continue through the normal daily simulation.",
     "vacationHandleMatches": "Manage matches",
@@ -1901,7 +1900,9 @@
         "randomName": "Random World",
         "randomDescription": "Randomly generated league with {{teamCount}} teams across Europe",
         "exportedName": "Exported World",
-        "exportedDescription": "World with {{teamCount}} teams exported from saved game"
+        "exportedDescription": "World with {{teamCount}} teams exported from saved game",
+        "fc26RealName": "FC26 Real Players",
+        "fc26RealDescription": "Real FC26 player database mapped onto {{teamCount}} default clubs"
       },
       "welcome": {
         "subject0": "Welcome to {{team}}",

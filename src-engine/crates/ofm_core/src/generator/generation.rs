@@ -1,3 +1,4 @@
+use domain::identity::normalize_football_nation_code;
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::PlayStyle;
@@ -93,10 +94,10 @@ pub(super) fn pick_nationality_from_def(
 }
 
 pub(super) fn canonicalize_generated_nationality(value: &str) -> String {
-    match value.trim().to_ascii_uppercase().as_str() {
+    match normalize_football_nation_code(value).as_str() {
         // Freshly generated football identities should never persist the ambiguous GB code.
         "GB" => "ENG".to_string(),
-        other => other.to_string(),
+        normalized => normalized.to_string(),
     }
 }
 

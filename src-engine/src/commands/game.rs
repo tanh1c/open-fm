@@ -106,10 +106,10 @@ pub async fn start_new_game(
 
     // Load world based on source
     let world_source = world_source.unwrap_or_else(|| "random".to_string());
-    let (teams, players, staff) = if world_source == "random" {
-        ofm_core::generator::generate_world(None)
-    } else {
-        load_world_entities_from_path(&world_source)?
+    let (teams, players, staff) = match world_source.as_str() {
+        "random" => ofm_core::generator::generate_world(None),
+        "fc26_real" => ofm_core::generator::generate_fc26_world()?,
+        _ => load_world_entities_from_path(&world_source)?,
     };
 
     let new_game = Game::new(clock, manager, teams, players, staff, vec![]);

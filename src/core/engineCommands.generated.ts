@@ -91,7 +91,7 @@ export const ENGINE_COMMANDS: Readonly<Record<string, CommandSpec>> = Object.fre
   set_training_schedule: { method: "setTrainingSchedule", args: ["schedule"] as const },
   skip_to_match_day: { method: "skipToMatchDay", args: [] as const },
   start_live_match: { method: "startLiveMatch", args: ["fixtureIndex", "mode", "allowsExtraTime"] as const },
-  start_new_game: { method: "startNewGame", args: ["firstName", "lastName", "dob", "nationality"] as const },
+  start_new_game: { method: "startNewGame", args: ["firstName", "lastName", "dob", "nationality", "worldSource"] as const },
   start_new_game_with_world: { method: "startNewGameWithWorld", args: ["firstName", "lastName", "dob", "nationality", "worldJson"] as const },
   start_youth_scouting: { method: "startYouthScouting", args: ["scoutId", "region", "objective", "targetPosition"] as const },
   step_live_match: { method: "stepLiveMatch", args: ["minutes"] as const },

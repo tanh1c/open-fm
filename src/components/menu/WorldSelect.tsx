@@ -89,8 +89,8 @@ export default function WorldSelect({
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`font-heading font-bold text-sm uppercase tracking-wide ${selectedWorldId === db.id ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"
-                  }`}>{db.id === "random" ? t('worldSelect.randomWorld') : resolveBackendText(db.name, db.name)}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{db.id === "random" ? t('worldSelect.randomDescription') : resolveBackendText(db.description, db.description)}</p>
+                  }`}>{resolveBackendText(db.name, db.name)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{resolveBackendText(db.description, db.description)}</p>
                 <div className="flex items-center gap-3 mt-1.5">
                   <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
                     <Globe className="w-3 h-3" />{t('worldSelect.teams', { count: db.team_count })}

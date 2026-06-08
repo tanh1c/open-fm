@@ -1901,7 +1901,9 @@
         "randomName": "Mondo casuale",
         "randomDescription": "Campionato generato casualmente con {{teamCount}} squadre in tutta Europa",
         "exportedName": "Mondo esportato",
-        "exportedDescription": "Mondo con {{teamCount}} squadre esportato da una partita salvata"
+        "exportedDescription": "Mondo con {{teamCount}} squadre esportato da una partita salvata",
+        "fc26RealName": "Giocatori reali FC26",
+        "fc26RealDescription": "Database reale dei giocatori FC26 applicato a {{teamCount}} club predefiniti"
       },
       "welcome": {
         "noYouthPlayers": "Nessun giocatore è attualmente assegnato al settore giovanile.",

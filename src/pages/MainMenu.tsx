@@ -362,6 +362,7 @@ export default function MainMenu() {
             lastName: formData.lastName,
             dob: formData.dob,
             nationality: formData.nationality,
+            worldSource: selectedWorldId,
           });
       sessionStorage.removeItem("imported_world_json");
       setGameState(game);

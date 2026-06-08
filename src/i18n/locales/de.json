@@ -1901,7 +1901,9 @@
         "randomName": "Zufallswelt",
         "randomDescription": "Zufällig generierte Liga mit {{teamCount}} Teams in ganz Europa",
         "exportedName": "Exportierte Welt",
-        "exportedDescription": "Welt mit {{teamCount}} Teams, aus einem gespeicherten Spiel exportiert"
+        "exportedDescription": "Welt mit {{teamCount}} Teams, aus einem gespeicherten Spiel exportiert",
+        "fc26RealName": "FC26 Echte Spieler",
+        "fc26RealDescription": "Echte FC26-Spielerdatenbank für {{teamCount}} Standardvereine"
       },
       "welcome": {
         "noYouthPlayers": "Derzeit sind keine Spieler der Jugendakademie zugewiesen.",

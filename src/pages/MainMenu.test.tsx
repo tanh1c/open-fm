@@ -91,8 +91,17 @@ vi.mock("../components/menu/SavesList", () => ({
 }));
 
 vi.mock("../components/menu/WorldSelect", () => ({
-  default: ({ onStart }: { onStart: () => void }) => (
+  default: ({
+    onSelectWorld,
+    onStart,
+  }: {
+    onSelectWorld: (id: string) => void;
+    onStart: () => void;
+  }) => (
     <div data-testid="world-select">
+      <button type="button" onClick={() => onSelectWorld("fc26_real")}>
+        select-fc26
+      </button>
       <button type="button" onClick={onStart}>
         start-world
       </button>
@@ -252,6 +261,29 @@ describe("MainMenu", () => {
       expect(navigateMock).toHaveBeenCalledWith("/select-team");
     },
   );
+
+  it("passes the selected built-in world source when starting a game", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ENG");
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await screen.findByTestId("world-select");
+    fireEvent.click(screen.getByText("select-fc26"));
+    fireEvent.click(screen.getByText("start-world"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "start_new_game",
+        expect.objectContaining({
+          nationality: "ENG",
+          worldSource: "fc26_real",
+        }),
+      );
+    });
+  });
 
   it("allows changing nationality after the other manager fields are filled", async () => {
     render(<MainMenu />);

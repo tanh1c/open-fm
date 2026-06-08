@@ -280,7 +280,7 @@ function StyledDropdown({
                 bottom: menuPosition.openUpward ? window.innerHeight - menuPosition.top : undefined,
                 width: menuPosition.width,
               }}
-              className="z-[100] max-h-64 min-w-44 overflow-y-auto rounded-lg border border-app-border bg-app-card p-2 shadow-xl custom-scrollbar"
+              className="z-[1000] max-h-64 min-w-44 overflow-y-auto rounded-lg border border-app-border bg-app-card p-2 shadow-xl custom-scrollbar"
             >
               {emptyLabel ? (
                 <button
@@ -658,6 +658,7 @@ export default function TacticsTab({
   const [comparePlayerId, setComparePlayerId] = useState<string | null>(null);
   const [comparePlayerSection, setComparePlayerSection] =
     useState<SquadSection | null>(null);
+  const [isCompareMode, setIsCompareMode] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [presetName, setPresetName] = useState("Custom tactic");
   const [selectedSavedPresetId, setSelectedSavedPresetId] = useState("");
@@ -789,8 +790,20 @@ export default function TacticsTab({
     : [];
   const gridAssignmentIssues = getGridAssignmentIssues(gridAssignments);
 
-  const xiIds = new Set(startingXiIds);
-  const bench = roster.filter((player) => !xiIds.has(player.id));
+  // Bench = players not currently placed in any pitch slot. Derive from the
+  // live grid assignments (which update optimistically on drop) so a player
+  // dragged onto the pitch leaves the bench immediately, instead of lagging
+  // behind the persisted starting XI.
+  const assignedPlayerIds = useMemo(
+    () =>
+      new Set(
+        gridAssignments
+          .map((assignment) => assignment.playerId)
+          .filter((id): id is string => id != null),
+      ),
+    [gridAssignments],
+  );
+  const bench = roster.filter((player) => !assignedPlayerIds.has(player.id));
   const xiActivePosition = useMemo(
     () => buildActivePositionMap(pitchSlotRows),
     [pitchSlotRows],
@@ -1083,6 +1096,7 @@ export default function TacticsTab({
     setSelectedPlayerSection(null);
     setComparePlayerId(null);
     setComparePlayerSection(null);
+    setIsCompareMode(false);
     setSelectedSlotId(null);
   }
 
@@ -1179,6 +1193,9 @@ export default function TacticsTab({
     if (!selectedPlayerId || !selectedPlayerSection) {
       setSelectedPlayerId(playerId);
       setSelectedPlayerSection(section);
+      setComparePlayerId(null);
+      setComparePlayerSection(null);
+      setIsCompareMode(false);
       return;
     }
 
@@ -1188,6 +1205,7 @@ export default function TacticsTab({
         setSelectedPlayerSection(comparePlayerSection);
         setComparePlayerId(null);
         setComparePlayerSection(null);
+        setIsCompareMode(false);
         return;
       }
 
@@ -1198,11 +1216,21 @@ export default function TacticsTab({
     if (comparePlayerId === playerId && comparePlayerSection === section) {
       setComparePlayerId(null);
       setComparePlayerSection(null);
+      setIsCompareMode(false);
+      return;
+    }
+
+    if (!isCompareMode) {
+      setSelectedPlayerId(playerId);
+      setSelectedPlayerSection(section);
+      setComparePlayerId(null);
+      setComparePlayerSection(null);
       return;
     }
 
     setComparePlayerId(playerId);
     setComparePlayerSection(section);
+    setIsCompareMode(false);
   }
 
   async function handleConfirmSwap(): Promise<void> {
@@ -1255,6 +1283,58 @@ export default function TacticsTab({
         <SetPieceBadge disabled icon={<ArrowRightLeft className="h-4 w-4" />} title="Throw-ins" desc="Engine pending" className="col-span-2" />
       </div>
     </div>
+  );
+
+  const selectedSlotRoleEditor = selectedSlotDefinition ? (
+    <TemplateCard className="overflow-visible p-3" testId="tactics-slot-role-editor">
+      <div className="mb-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+        <span>{selectedSlotDefinition.label} Role</span>
+        <span>{selectedSlotAssignment?.playerId ? playersById.get(selectedSlotAssignment.playerId)?.match_name ?? "Assigned" : "Empty"}</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <StyledDropdown
+          ariaLabel="Select tactical role"
+          value={selectedSlotAssignment?.tacticalRole ?? selectedSlotRoleOptions[0] ?? ""}
+          options={selectedSlotRoleOptions.map((role) => ({ label: getTacticalRoleOptionLabel(role), value: role }))}
+          onChange={(value) => void handleSlotRoleChange("tacticalRole", value)}
+        />
+        <StyledDropdown
+          ariaLabel="Select tactical duty"
+          value={selectedSlotAssignment?.duty ?? "Support"}
+          options={TACTICAL_DUTIES.map((duty) => ({ label: duty, value: duty }))}
+          onChange={(value) => void handleSlotRoleChange("duty", value)}
+        />
+        {selectedPlayer ? (
+          <button
+            type="button"
+            onClick={() => {
+              setComparePlayerId(null);
+              setComparePlayerSection(null);
+              setIsCompareMode((current) => !current);
+            }}
+            className={cx(
+              "flex items-center justify-center gap-2 rounded border px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+              isCompareMode
+                ? "border-app-green/40 bg-app-green text-app-bg"
+                : "border-app-green/30 bg-app-green/[0.06] text-app-green hover:bg-app-green/15",
+            )}
+          >
+            <GitCompareArrows className="h-3.5 w-3.5 shrink-0" />
+            <span>{isCompareMode ? t("tactics.selectSecondPlayer", "Pick another player to compare") : "Compare Player"}</span>
+          </button>
+        ) : null}
+      </div>
+    </TemplateCard>
+  ) : (
+    <TemplateCard className="p-3">
+      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+        <span>Player Role</span>
+        <Settings2 className="h-3.5 w-3.5 text-app-text-muted" />
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-app-text-muted">
+        Select a pitch slot or player to edit tactical role and duty.
+      </p>
+    </TemplateCard>
   );
 
   const roleSuitabilityCard = (
@@ -1560,8 +1640,8 @@ export default function TacticsTab({
       </div>
 
       {activeViewTab === "overview" ? (
-        <div className="mt-2 flex flex-col gap-4 xl:flex-row">
-        <div className="flex w-full shrink-0 flex-col gap-4 xl:w-[300px]">
+        <div className="mt-2 flex flex-col gap-4 xl:flex-row xl:items-start">
+        <div className="flex w-full shrink-0 flex-col gap-4 xl:w-[300px] xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto custom-scrollbar">
           {gridAssignmentIssues.length > 0 ? (
             <TemplateCard className="flex flex-col gap-3 border-amber-500/30 bg-amber-500/[0.06] p-4" testId="tactics-grid-validation">
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-amber-300">
@@ -1603,32 +1683,6 @@ export default function TacticsTab({
                 Auto-fill
               </button>
             </div>
-            {selectedSlotDefinition ? (
-              <div className="flex flex-col gap-2 rounded-lg border border-app-border/70 bg-black/10 p-3" data-testid="tactics-slot-role-editor">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
-                  <span>{selectedSlotDefinition.label} Role</span>
-                  <span>{selectedSlotAssignment?.playerId ? playersById.get(selectedSlotAssignment.playerId)?.match_name ?? "Assigned" : "Empty"}</span>
-                </div>
-                <StyledDropdown
-                  ariaLabel="Select tactical role"
-                  value={selectedSlotAssignment?.tacticalRole ?? selectedSlotRoleOptions[0] ?? ""}
-                  options={selectedSlotRoleOptions.map((role) => ({ label: getTacticalRoleOptionLabel(role), value: role }))}
-                  onChange={(value) => void handleSlotRoleChange("tacticalRole", value)}
-                />
-                <StyledDropdown
-                  ariaLabel="Select tactical duty"
-                  value={selectedSlotAssignment?.duty ?? "Support"}
-                  options={TACTICAL_DUTIES.map((duty) => ({ label: duty, value: duty }))}
-                  onChange={(value) => void handleSlotRoleChange("duty", value)}
-                />
-                {selectedPlayer ? (
-                  <div className="flex items-center gap-2 rounded border border-app-green/30 bg-app-green/[0.06] px-2 py-1.5 text-[10px] text-app-green">
-                    <GitCompareArrows className="h-3.5 w-3.5 shrink-0" />
-                    <span>{t("tactics.selectSecondPlayer", "Pick another player to compare")}</span>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </TemplateCard>
 
           <TacticsBench
@@ -1678,7 +1732,8 @@ export default function TacticsTab({
           />
         </div>
 
-        <div data-testid="tactics-template-sidebar" className="flex w-full shrink-0 flex-col gap-4 xl:w-[360px]">
+        <div data-testid="tactics-template-sidebar" className="flex w-full shrink-0 flex-col gap-4 overflow-visible xl:w-[360px]">
+          {selectedSlotRoleEditor}
           <TacticsSetupPanel
             activePlayStyle={activePlayStyle}
             formation={formation}
@@ -1705,6 +1760,7 @@ export default function TacticsTab({
           onClose={() => {
             setComparePlayerId(null);
             setComparePlayerSection(null);
+            setIsCompareMode(false);
           }}
         />
       ) : null}

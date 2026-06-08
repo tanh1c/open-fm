@@ -1931,7 +1931,9 @@
         "randomName": "Mundo Aleatorio",
         "randomDescription": "Liga generada aleatoriamente con {{teamCount}} equipos por toda Europa",
         "exportedName": "Mundo Exportado",
-        "exportedDescription": "Mundo con {{teamCount}} equipos exportado desde una partida guardada"
+        "exportedDescription": "Mundo con {{teamCount}} equipos exportado desde una partida guardada",
+        "fc26RealName": "Jugadores reales FC26",
+        "fc26RealDescription": "Base de datos real de jugadores FC26 aplicada a {{teamCount}} clubes predeterminados"
       },
       "welcome": {
         "noYouthPlayers": "No hay jugadores asignados actualmente a la cantera.",

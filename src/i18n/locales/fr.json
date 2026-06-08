@@ -1901,7 +1901,9 @@
         "randomName": "Monde aléatoire",
         "randomDescription": "Championnat généré aléatoirement avec {{teamCount}} équipes à travers l'Europe",
         "exportedName": "Monde exporté",
-        "exportedDescription": "Monde avec {{teamCount}} équipes exporté depuis une sauvegarde"
+        "exportedDescription": "Monde avec {{teamCount}} équipes exporté depuis une sauvegarde",
+        "fc26RealName": "Joueurs réels FC26",
+        "fc26RealDescription": "Base de données de joueurs réels FC26 appliquée à {{teamCount}} clubs par défaut"
       },
       "welcome": {
         "noYouthPlayers": "Aucun joueur n'est actuellement affecté au centre de formation.",

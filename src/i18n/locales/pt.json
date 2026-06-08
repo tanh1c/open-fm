@@ -1901,7 +1901,9 @@
         "randomName": "Mundo Aleatorio",
         "randomDescription": "Liga gerada aleatoriamente com {{teamCount}} equipas por toda a Europa",
         "exportedName": "Mundo Exportado",
-        "exportedDescription": "Mundo com {{teamCount}} equipas exportado de um jogo guardado"
+        "exportedDescription": "Mundo com {{teamCount}} equipas exportado de um jogo guardado",
+        "fc26RealName": "Jogadores Reais FC26",
+        "fc26RealDescription": "Base de dados real de jogadores FC26 aplicada a {{teamCount}} clubes predefinidos"
       },
       "welcome": {
         "noYouthPlayers": "Nenhum jogador está atualmente atribuído à academia jovem.",

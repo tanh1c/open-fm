@@ -1,9 +1,11 @@
 pub(crate) mod data;
 pub mod definitions;
 mod generation;
+mod real_fc26;
 pub mod world_io;
 
 pub use definitions::*;
+pub use real_fc26::{fc26_real_player_count_estimate, generate_fc26_world};
 pub use world_io::*;
 
 use domain::player::{Player, Position};
@@ -39,7 +41,7 @@ fn normalized_wage_budget(annual_wage_bill: i64, reputation: u32) -> i64 {
     ((annual_wage_bill * 100) + usage_target - 1) / usage_target
 }
 
-fn facility_level(score: u8) -> u8 {
+pub(super) fn facility_level(score: u8) -> u8 {
     match score {
         85..=100 => 5,
         70..=84 => 4,
@@ -49,13 +51,13 @@ fn facility_level(score: u8) -> u8 {
     }
 }
 
-fn tactical_familiarity_from_level(tactical_level: u8, volatility: u8) -> u8 {
+pub(super) fn tactical_familiarity_from_level(tactical_level: u8, volatility: u8) -> u8 {
     let base = 35_i16 + (tactical_level as i16 * 45 / 100);
     let volatility_penalty = ((volatility as i16 - 45).max(0) * 12) / 55;
     (base - volatility_penalty).clamp(35, 88) as u8
 }
 
-fn default_formation_for_team(play_style: &PlayStyle, tactical_level: u8, volatility: u8) -> String {
+pub(super) fn default_formation_for_team(play_style: &PlayStyle, tactical_level: u8, volatility: u8) -> String {
     let formation = match play_style {
         PlayStyle::Possession if tactical_level >= 70 => "4-3-3",
         PlayStyle::Possession => "4-2-3-1",
@@ -82,7 +84,7 @@ fn avg_attr(players: &[Player], f: impl Fn(&domain::player::Player) -> u8) -> f6
     players.iter().map(|player| f(player) as u32).sum::<u32>() as f64 / players.len().max(1) as f64
 }
 
-fn generated_tactical_instructions_for_team(
+pub(super) fn generated_tactical_instructions_for_team(
     team: &Team,
     players: &[Player],
 ) -> TacticalInstructions {
@@ -200,7 +202,7 @@ fn iconic_number_for_position(position: &Position) -> u8 {
 /// Assign realistic shirt numbers to a freshly generated squad. The strongest
 /// player (by OVR) at each iconic number's position claims that number; remaining
 /// players fill the lowest free numbers from 12 upward, then 1-11 if needed.
-fn assign_squad_numbers(players: &mut [Player]) {
+pub(super) fn assign_squad_numbers(players: &mut [Player]) {
     use std::collections::HashSet;
 
     // Order candidates strongest-first so the best player at a position wins the
@@ -238,7 +240,7 @@ fn assign_squad_numbers(players: &mut [Player]) {
     }
 }
 
-fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {    let strength = current_strength.unwrap_or((reputation / 10).clamp(1, 100) as u8);
+pub(super) fn opening_morale_from_context(reputation: u32, current_strength: Option<u8>, volatility: u8, seed: u8) -> u8 {    let strength = current_strength.unwrap_or((reputation / 10).clamp(1, 100) as u8);
     let reputation_bonus = if reputation >= 850 {
         5
     } else if reputation >= 650 {
@@ -418,7 +420,7 @@ pub fn generate_youth_academy_recruit_with_nationality(
     player
 }
 
-fn centered_reputation(reputation_range: [u32; 2], rng: &mut impl rand::Rng) -> u32 {
+pub(super) fn centered_reputation(reputation_range: [u32; 2], rng: &mut impl rand::Rng) -> u32 {
     let center = (reputation_range[0] + reputation_range[1]) / 2;
     let jitter = if center >= 850 { 8 } else { 12 };
     let min = center.saturating_sub(jitter).max(reputation_range[0]);
@@ -426,7 +428,7 @@ fn centered_reputation(reputation_range: [u32; 2], rng: &mut impl rand::Rng) -> 
     rng.random_range(min..=max)
 }
 
-fn centered_finance(finance_range: [i64; 2], rng: &mut impl rand::Rng) -> i64 {
+pub(super) fn centered_finance(finance_range: [i64; 2], rng: &mut impl rand::Rng) -> i64 {
     let center = finance_range[0] + (finance_range[1] - finance_range[0]) / 2;
     let jitter = ((center as f64) * 0.08).round() as i64;
     let min = center.saturating_sub(jitter).max(finance_range[0]);
@@ -508,7 +510,7 @@ fn normalize_squad_ovr(players: &mut [Player], target_avg: Option<u8>, target_to
     }
 }
 
-fn normalize_generated_team(
+pub(super) fn normalize_generated_team(
     team: &mut Team,
     players: &mut [Player],
     target_avg: Option<u8>,

@@ -64,6 +64,7 @@ fn build_new_game(
     dob: String,
     nationality: String,
     world_json: Option<&str>,
+    world_source: Option<&str>,
 ) -> Result<Game, String> {
     let first_name = first_name.trim().to_string();
     let last_name = last_name.trim().to_string();
@@ -85,7 +86,11 @@ fn build_new_game(
             let world = ofm_core::generator::load_world_from_json(json)?;
             (world.teams, world.players, world.staff)
         }
-        None => ofm_core::generator::generate_world(None),
+        None => match world_source.unwrap_or("random") {
+            "random" => ofm_core::generator::generate_world(None),
+            "fc26_real" => ofm_core::generator::generate_fc26_world()?,
+            _ => return Err("be.error.worldReadFileFailed".to_string()),
+        },
     };
 
     Ok(Game::new(clock, manager, teams, players, staff, vec![]))
@@ -102,9 +107,17 @@ impl AppHandle {
         last_name: String,
         dob: String,
         nationality: String,
+        world_source: Option<String>,
     ) -> Result<JsValue, JsValue> {
-        let new_game =
-            build_new_game(first_name, last_name, dob, nationality, None).map_err(to_js)?;
+        let new_game = build_new_game(
+            first_name,
+            last_name,
+            dob,
+            nationality,
+            None,
+            world_source.as_deref(),
+        )
+        .map_err(to_js)?;
         self.state.set_game(new_game.clone());
         self.state.set_stats_state(StatsState::default());
         to_js_value(&new_game)
@@ -121,8 +134,15 @@ impl AppHandle {
         nationality: String,
         world_json: String,
     ) -> Result<JsValue, JsValue> {
-        let new_game = build_new_game(first_name, last_name, dob, nationality, Some(&world_json))
-            .map_err(to_js)?;
+        let new_game = build_new_game(
+            first_name,
+            last_name,
+            dob,
+            nationality,
+            Some(&world_json),
+            None,
+        )
+        .map_err(to_js)?;
         self.state.set_game(new_game.clone());
         self.state.set_stats_state(StatsState::default());
         to_js_value(&new_game)

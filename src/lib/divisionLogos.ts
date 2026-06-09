@@ -1,3 +1,5 @@
+const CHAMPIONS_LEAGUE_LOGO = "/images/logo/tournaments/tournaments_uefa-champions-league--no-text-white.football-logos.cc.svg";
+
 const DIVISION_LOGOS: Record<string, string> = {
   "England:Premier League": "/images/logo/england/england_english-premier-league.football-logos.cc.svg",
   "England:EFL Championship": "/images/logo/england/england_efl-championship.football-logos.cc.svg",
@@ -12,8 +14,17 @@ const DIVISION_LOGOS: Record<string, string> = {
   "Portugal:Primeira Liga": "/images/logo/portugal/portugal_primeira-liga.football-logos.cc.svg",
   "Netherlands:Eredivisie": "/images/logo/netherlands/netherlands_eredivisie.football-logos.cc.svg",
   "Belgium:Belgian Pro League": "/images/logo/belgium/belgium_belgian-pro-league.football-logos.cc.svg",
+  "Europe:UEFA Champions League": CHAMPIONS_LEAGUE_LOGO,
 };
 
 export function getDivisionLogoUrl(country: string, leagueName: string): string | null {
   return DIVISION_LOGOS[`${country}:${leagueName}`] ?? null;
+}
+
+export function getCompetitionLogoUrl(competition: { name: string; country?: string | null; kind?: string }): string | null {
+  if (competition.kind === "ContinentalLeague" || competition.country === "Europe") {
+    return getDivisionLogoUrl("Europe", competition.name) ?? CHAMPIONS_LEAGUE_LOGO;
+  }
+
+  return competition.country ? getDivisionLogoUrl(competition.country, competition.name) : null;
 }

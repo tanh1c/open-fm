@@ -314,7 +314,7 @@ describe("TeamProfile", () => {
         minutes_played: 0,
       },
     });
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, string>) => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "get_player_stats_overview" && args?.playerId === "bellingham") {
         return {
           percentileEligible: false,

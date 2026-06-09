@@ -1,5 +1,5 @@
 import type { PlayerData } from "../../store/gameStore";
-import { getPlayerOvr, getPlayerOvrForPosition } from "../../lib/helpers";
+import { getPlayerOvrForPosition } from "../../lib/helpers";
 
 export type SquadSection = "xi" | "bench";
 export type DragState = {

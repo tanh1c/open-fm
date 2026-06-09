@@ -249,7 +249,6 @@ export default function TacticsPlayerFocusPanel({
   comparePlayer,
   onConfirmSwap,
   selectedPlayer,
-  xiActivePosition,
 }: TacticsPlayerFocusPanelProps) {
   const { t } = useTranslation();
 

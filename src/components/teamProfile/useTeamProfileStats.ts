@@ -51,13 +51,16 @@ export function useTeamProfileStats(teamId: string, roster: PlayerData[]): TeamP
       setRecentMatches(
         historyResult.status === "fulfilled" ? historyResult.value : [],
       );
-      setRosterStatsByPlayerId(
+      const rosterStatsById: TeamRosterStatsByPlayerId =
         rosterStatsResult.status === "fulfilled"
-          ? Object.fromEntries(
-            rosterStatsResult.value.filter((entry) => entry[1] !== null),
-          )
-          : {},
-      );
+          ? rosterStatsResult.value.reduce<TeamRosterStatsByPlayerId>((statsById, [playerId, stats]) => {
+            if (stats) {
+              statsById[playerId] = stats;
+            }
+            return statsById;
+          }, {})
+          : {};
+      setRosterStatsByPlayerId(rosterStatsById);
     };
 
     void loadTeamProfileStats();

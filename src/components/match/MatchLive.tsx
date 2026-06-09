@@ -589,7 +589,14 @@ export default function MatchLive({
 
       {/* Substitution Modal */}
       {showSubPanel && userSide && (
-        <SubPanel snapshot={snapshot} side={userSide} onSubstitute={handleSubstitution} onClose={() => setShowSubPanel(false)} />
+        <SubPanel
+          snapshot={snapshot}
+          side={userSide}
+          teamData={userSide === "Home" ? homeTeamData : awayTeamData}
+          squadPlayers={gameState.players.filter((player) => player.team_id === (userSide === "Home" ? snapshot.home_team.id : snapshot.away_team.id))}
+          onSubstitute={handleSubstitution}
+          onClose={() => setShowSubPanel(false)}
+        />
       )}
     </MatchScreenLayout>
   );

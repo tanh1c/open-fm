@@ -1,12 +1,21 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { FixtureData, GameStateData, TeamData } from "../../store/gameStore";
+import { FixtureData, GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import { getFixtureDisplayLabel } from "../../lib/helpers";
-import { EngineTeamData, MatchSnapshot, FORMATIONS, PLAY_STYLES } from "./types";
-import PreMatchLineup, {
-  parseFormationNeeds,
-} from "./PreMatchLineup";
+import { EnginePlayerData, EngineTeamData, MatchSnapshot, FORMATIONS, PLAY_STYLES } from "./types";
+import PreMatchLineup, { parseFormationNeeds } from "./PreMatchLineup";
+import {
+  buildGridAssignmentsFromFormation,
+  buildGridAssignmentsFromSavedSlots,
+  GRID_TACTIC_SLOTS,
+  mapGridSlotToPosition,
+  PRESET_GRID_SLOT_IDS,
+  toBackendGridSlots,
+  type GridTacticAssignment,
+} from "../tactics/TacticsTab.helpers";
+import { getPlayerOvrForPosition } from "../../lib/playerOvr";
+import { getSlotFitTone } from "../squad/SquadTab.helpers";
 import TeamLogo from "../common/TeamLogo";
 import MatchScreenLayout, { MatchPageAction } from "./MatchScreenLayout";
 import SetPieceSelector from "./SetPieceSelector";
@@ -45,6 +54,89 @@ const PLAY_STYLE_ICONS: Record<string, React.ReactNode> = {
 
 function findTeamData(gameState: GameStateData, teamId: string) {
   return gameState.teams.find((team) => team.id === teamId);
+}
+
+function enginePlayerToPlayerData(enginePlayer: EnginePlayerData, fallback?: PlayerData): PlayerData {
+  if (fallback) {
+    return {
+      ...fallback,
+      match_name: fallback.match_name || enginePlayer.name,
+      full_name: fallback.full_name || enginePlayer.name,
+      position: fallback.position || enginePlayer.position,
+      natural_position: fallback.natural_position || fallback.position || enginePlayer.position,
+      condition: enginePlayer.condition,
+      ovr: enginePlayer.ovr,
+      attributes: {
+        ...fallback.attributes,
+        pace: enginePlayer.pace,
+        stamina: enginePlayer.stamina,
+        strength: enginePlayer.strength,
+        agility: enginePlayer.agility,
+        passing: enginePlayer.passing,
+        shooting: enginePlayer.shooting,
+        tackling: enginePlayer.tackling,
+        dribbling: enginePlayer.dribbling,
+        defending: enginePlayer.defending,
+        positioning: enginePlayer.positioning,
+        vision: enginePlayer.vision,
+        decisions: enginePlayer.decisions,
+        composure: enginePlayer.composure,
+        aggression: enginePlayer.aggression,
+        teamwork: enginePlayer.teamwork,
+        leadership: enginePlayer.leadership,
+        handling: enginePlayer.handling,
+        reflexes: enginePlayer.reflexes,
+        aerial: enginePlayer.aerial,
+      },
+    };
+  }
+
+  return {
+    id: enginePlayer.id,
+    match_name: enginePlayer.name,
+    full_name: enginePlayer.name,
+    date_of_birth: "2000-01-01",
+    nationality: "Unknown",
+    position: enginePlayer.position,
+    natural_position: enginePlayer.position,
+    alternate_positions: [],
+    training_focus: null,
+    attributes: {
+      pace: enginePlayer.pace,
+      stamina: enginePlayer.stamina,
+      strength: enginePlayer.strength,
+      agility: enginePlayer.agility,
+      passing: enginePlayer.passing,
+      shooting: enginePlayer.shooting,
+      tackling: enginePlayer.tackling,
+      dribbling: enginePlayer.dribbling,
+      defending: enginePlayer.defending,
+      positioning: enginePlayer.positioning,
+      vision: enginePlayer.vision,
+      decisions: enginePlayer.decisions,
+      composure: enginePlayer.composure,
+      aggression: enginePlayer.aggression,
+      teamwork: enginePlayer.teamwork,
+      leadership: enginePlayer.leadership,
+      handling: enginePlayer.handling,
+      reflexes: enginePlayer.reflexes,
+      aerial: enginePlayer.aerial,
+    },
+    condition: enginePlayer.condition,
+    morale: 50,
+    injury: null,
+    team_id: null,
+    contract_end: null,
+    wage: 0,
+    market_value: 0,
+    stats: { appearances: 0, goals: 0, assists: 0, clean_sheets: 0, yellow_cards: 0, red_cards: 0, avg_rating: 0, minutes_played: 0 },
+    career: [],
+    transfer_listed: false,
+    loan_listed: false,
+    transfer_offers: [],
+    traits: enginePlayer.traits,
+    ovr: enginePlayer.ovr,
+  };
 }
 
 function PrematchTeamHeader({
@@ -228,55 +320,117 @@ export default function PreMatchSetup({
 
   const formationNeeds = parseFormationNeeds(userTeam.formation);
 
-  const handleAutoSelect = async () => {
+  const handleAssignmentsChange = async (assignments: GridTacticAssignment[]) => {
+    try {
+      await invoke<GameStateData>("set_tactic_slots", {
+        slots: toBackendGridSlots(assignments),
+      });
+    } catch (err) {
+      console.error("Failed to persist matchday tactic slots:", err);
+    }
+  };
+
+  const buildCurrentAssignments = () => {
+    const pool = [...userTeam.players, ...userBench];
+    const availablePlayerIds = new Set(pool.map((player) => player.id));
+    const fallbackAssignments = buildGridAssignmentsFromFormation(
+      userTeam.formation,
+      userTeam.players.map((player) => player.id),
+    );
+    return buildGridAssignmentsFromSavedSlots(
+      userTeamData?.custom_tactic_slots,
+      fallbackAssignments,
+      availablePlayerIds,
+    );
+  };
+
+  const handleAutoSelect = async (currentAssignments: GridTacticAssignment[]) => {
     setIsAutoSelecting(true);
     try {
-      const pool = [...userTeam.players, ...userBench];
-      const idealIds = new Set<string>();
+      const squadById = new Map(allSquadPlayers.map((player) => [player.id, player]));
+      const enginePool = [...userTeam.players, ...userBench];
+      const pool = enginePool.map((player) => enginePlayerToPlayerData(player, squadById.get(player.id)));
+      const availablePlayerIds = new Set(pool.map((player) => player.id));
+      const baseAssignments = buildGridAssignmentsFromFormation(
+        userTeam.formation,
+        userTeam.players.map((player) => player.id),
+      );
+      const savedAssignments = buildGridAssignmentsFromSavedSlots(
+        userTeamData?.custom_tactic_slots,
+        baseAssignments,
+        availablePlayerIds,
+      );
+      const slotAssignments = GRID_TACTIC_SLOTS.map((slot) => {
+        const existing = currentAssignments.find((assignment) => assignment.slotId === slot.id)
+          ?? savedAssignments.find((assignment) => assignment.slotId === slot.id)
+          ?? { slotId: slot.id, playerId: null };
+        return { ...existing };
+      });
 
-      for (const pos of ["Goalkeeper", "Defender", "Midfielder", "Forward"]) {
+      const activeSlotIds = PRESET_GRID_SLOT_IDS[userTeam.formation] ?? PRESET_GRID_SLOT_IDS["4-4-2"];
+      const takenIds = new Set<string>();
+      const nextAssignments = GRID_TACTIC_SLOTS.map((slot) => {
+        const slotState = slotAssignments.find((assignment) => assignment.slotId === slot.id);
+        if (!activeSlotIds.includes(slot.id)) {
+          return {
+            slotId: slot.id,
+            playerId: null,
+            tacticalRole: slotState?.tacticalRole ?? null,
+            duty: slotState?.duty ?? null,
+          } satisfies GridTacticAssignment;
+        }
+
+        const slotPosition = mapGridSlotToPosition(slot.id);
         const candidates = pool
-          .filter((p) => p.position === pos)
-          .sort(
-            (a, b) =>
-              b.ovr * (b.condition / 100) - a.ovr * (a.condition / 100),
-          );
-        const needed = formationNeeds[pos] || 0;
-        for (let i = 0; i < Math.min(needed, candidates.length); i++) {
-          idealIds.add(candidates[i].id);
-        }
-      }
+          .filter((player) => !takenIds.has(player.id))
+          .map((player) => {
+            const fitTone = getSlotFitTone(player, slotPosition);
+            return {
+              player,
+              score:
+                (fitTone === "good" ? 400 : fitTone === "ok" ? 150 : 0) +
+                getPlayerOvrForPosition(player, slotPosition) * 8 +
+                Math.round(player.condition),
+            };
+          })
+          .sort((left, right) => right.score - left.score || left.player.match_name.localeCompare(right.player.match_name));
+        const best = candidates[0]?.player ?? null;
+        if (best) takenIds.add(best.id);
+        return {
+          slotId: slot.id,
+          playerId: best?.id ?? null,
+          tacticalRole: slotState?.tacticalRole ?? null,
+          duty: slotState?.duty ?? null,
+        } satisfies GridTacticAssignment;
+      });
 
-      // Fill remaining slots if fewer than 11 (e.g. not enough of a position)
-      if (idealIds.size < 11) {
-        const rest = pool
-          .filter((p) => !idealIds.has(p.id))
-          .sort(
-            (a, b) =>
-              b.ovr * (b.condition / 100) - a.ovr * (a.condition / 100),
-          );
-        for (const p of rest) {
-          if (idealIds.size >= 11) break;
-          idealIds.add(p.id);
-        }
-      }
-
-      const currentIds = new Set(userTeam.players.map((p) => p.id));
-      const toAdd = [...idealIds].filter((id) => !currentIds.has(id));
-      const toRemove = [...currentIds].filter((id) => !idealIds.has(id));
+      const nextStarterIds = nextAssignments
+        .filter((assignment) => assignment.playerId)
+        .map((assignment) => assignment.playerId as string)
+        .slice(0, 11);
+      const currentStarterIds = userTeam.players.map((player) => player.id);
+      const toAdd = nextStarterIds.filter((id) => !currentStarterIds.includes(id));
+      const toRemove = currentStarterIds.filter((id) => !nextStarterIds.includes(id));
+      const swaps: Array<{ offId: string; onId: string }> = [];
+      toAdd.forEach((onId, index) => {
+        const offId = toRemove[index];
+        if (offId) swaps.push({ offId, onId });
+      });
 
       let snap: MatchSnapshot | null = null;
-      for (let i = 0; i < Math.min(toAdd.length, toRemove.length); i++) {
+      for (const swap of swaps) {
         snap = await invoke<MatchSnapshot>("apply_match_command", {
           command: {
             PreMatchSwap: {
               side: userSide,
-              player_off_id: toRemove[i],
-              player_on_id: toAdd[i],
+              player_off_id: swap.offId,
+              player_on_id: swap.onId,
             },
           },
         });
       }
+
+      await handleAssignmentsChange(nextAssignments);
       if (snap) onUpdateSnapshot(snap);
     } catch (err) {
       console.error("Auto-select failed:", err);
@@ -400,11 +554,13 @@ export default function PreMatchSetup({
             userSide={userSide}
             formationNeeds={formationNeeds}
             customSlots={userTeamData?.custom_tactic_slots}
+            squadPlayers={allSquadPlayers}
             selectedStarterId={selectedStarterId}
             isAutoSelecting={isAutoSelecting}
             onSelectStarter={setSelectedStarterId}
             onSwap={handleSwap}
             onAutoSelect={handleAutoSelect}
+            onAssignmentsChange={handleAssignmentsChange}
           />
         )}
 
@@ -529,7 +685,7 @@ export default function PreMatchSetup({
             </div>
 
             <button
-              onClick={handleAutoSelect}
+              onClick={() => handleAutoSelect(buildCurrentAssignments())}
               disabled={isAutoSelecting}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-app-green/30 bg-app-green/10 px-4 py-3 font-heading text-xs font-bold uppercase tracking-wider text-app-green transition-colors hover:bg-app-green/15 disabled:opacity-60"
             >

@@ -2,25 +2,25 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, compress_skill, fitness_injury_risk_modifier,
+    ChanceType, PlayStylePhase, PlayerSnap, TraitContext, chance_shot_rating,
+    chance_shooter_weight_modifier, compress_skill, fitness_injury_risk_modifier,
     morale_performance_modifier, morale_risk_modifier, pitch_carry_modifier, pitch_foul_modifier,
     pitch_injury_modifier, pitch_pass_modifier, play_style_modifier, referee_card_modifier,
-    referee_foul_modifier, referee_penalty_modifier, tactical_buildup_modifier,
+    referee_foul_modifier, referee_penalty_modifier, select_chance_type, tactical_buildup_modifier,
     tactical_counter_press_pressure, tactical_midfield_modifier, tactical_press_modifier,
     tactical_shot_quality_modifier, tactical_space_creation_modifier, tactical_turnover_risk,
-    team_cohesion_modifier, trait_bonus,
-    trait_carry_modifier, trait_foul_risk_modifier, trait_pass_creativity_modifier,
-    trait_pass_safety_modifier, trait_press_work_rate_modifier, trait_shot_quality_modifier,
-    trait_shot_tendency_modifier, trait_tackle_modifier, weather_conversion_modifier,
-    weather_foul_modifier, weather_injury_modifier, weather_pass_modifier,
-    weather_shot_accuracy_modifier,
+    team_cohesion_modifier, trait_bonus, trait_carry_modifier, trait_foul_risk_modifier,
+    trait_pass_creativity_modifier, trait_pass_safety_modifier, trait_press_work_rate_modifier,
+    trait_shot_quality_modifier, trait_shot_tendency_modifier, trait_tackle_modifier,
+    weather_conversion_modifier, weather_foul_modifier, weather_injury_modifier,
+    weather_pass_modifier, weather_shot_accuracy_modifier,
 };
 use crate::types::{PlayerData, Position, Side, Zone};
 
 use super::LiveMatchState;
 use super::helpers::{shape_attack_multiplier, shape_defense_multiplier};
 
-fn shooter_weight(player: &PlayerData) -> f64 {
+fn shooter_weight(player: &PlayerData, chance_type: ChanceType) -> f64 {
     let role_weight = match player.position {
         Position::Forward => 2.10,
         Position::Midfielder => 0.50,
@@ -32,10 +32,12 @@ fn shooter_weight(player: &PlayerData) -> f64 {
         + player.positioning as f64
         + player.decisions as f64 * 0.55
         + player.dribbling as f64 * 0.30;
-    let elite_bonus = 1.0
-        + f64::from(player.shooting.saturating_sub(82)) * 0.018
-        + f64::from(player.ovr.saturating_sub(88)) * 0.025;
-    role_weight * skill * elite_bonus * trait_shot_tendency_modifier(&PlayerSnap::from(player))
+    let elite_bonus = 1.0 + f64::from(player.shooting.saturating_sub(82)) * 0.018;
+    role_weight
+        * skill
+        * elite_bonus
+        * chance_shooter_weight_modifier(chance_type, player)
+        * trait_shot_tendency_modifier(&PlayerSnap::from(player))
 }
 
 fn assister_weight(player: &PlayerData) -> f64 {
@@ -344,13 +346,15 @@ impl LiveMatchState {
         let def_side = att_side.opposite();
         let att_team = self.adapted_team(att_side);
         let def_team = self.adapted_team(def_side);
-        let shooter = self.weighted_attacker(att_side, rng, shooter_weight);
+        let chance_type = select_chance_type(&att_team, &def_team, rng);
+        let shooter = self.weighted_attacker(att_side, rng, |player| shooter_weight(player, chance_type));
         let assister = self.weighted_attacker(att_side, rng, assister_weight);
         let goalkeeper = self.snap_player(def_side, Position::Goalkeeper, rng);
 
         let shoot_raw =
             (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
-        let shoot_rating = compress_skill(self.condition_adjusted_skill(&shooter.id, shoot_raw))
+        let base_shoot_rating = compress_skill(self.condition_adjusted_skill(&shooter.id, shoot_raw));
+        let shoot_rating = chance_shot_rating(chance_type, &shooter, base_shoot_rating)
             * trait_shot_quality_modifier(&shooter)
             * morale_performance_modifier(shooter.morale)
             * pitch_carry_modifier(&self.config);
@@ -362,7 +366,7 @@ impl LiveMatchState {
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
             * morale_performance_modifier(goalkeeper.morale);
 
-        let shot_quality = tactical_shot_quality_modifier(&att_team, &def_team);
+        let shot_quality = tactical_shot_quality_modifier(&att_team, &def_team, chance_type);
         let shape_attack = shape_attack_multiplier(&att_team) * shot_quality;
         let shape_defense = shape_defense_multiplier(&def_team);
         let accuracy = ((self.config.shot_accuracy_base

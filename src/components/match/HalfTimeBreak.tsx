@@ -70,12 +70,10 @@ export default function HalfTimeBreak({
     }[]
   >([]);
 
-  const homeTeamColor =
-    gameState.teams.find((t) => t.id === snapshot.home_team.id)?.colors
-      ?.primary || "#10b981";
-  const awayTeamColor =
-    gameState.teams.find((t) => t.id === snapshot.away_team.id)?.colors
-      ?.primary || "#6366f1";
+  const homeTeamData = gameState.teams.find((team) => team.id === snapshot.home_team.id);
+  const awayTeamData = gameState.teams.find((team) => team.id === snapshot.away_team.id);
+  const homeTeamColor = homeTeamData?.colors?.primary || "#10b981";
+  const awayTeamColor = awayTeamData?.colors?.primary || "#6366f1";
 
   const userTeam =
     userSide === "Home" ? snapshot.home_team : snapshot.away_team;
@@ -496,6 +494,8 @@ export default function HalfTimeBreak({
         <SubPanel
           snapshot={snapshot}
           side={userSide}
+          teamData={userSide === "Home" ? homeTeamData : awayTeamData}
+          squadPlayers={gameState.players.filter((player) => player.team_id === userTeam.id)}
           onSubstitute={handleSubstitution}
           onClose={() => setShowSubPanel(false)}
         />

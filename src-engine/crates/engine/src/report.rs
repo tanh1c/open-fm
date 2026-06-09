@@ -332,10 +332,19 @@ impl MatchReport {
 fn normalize_realistic_team_totals(stats: &mut TeamStats, possession_pct: f64, total_minutes: u8, seed: u16) {
     let minutes_scale = (total_minutes as f64 / 90.0).clamp(0.85, 1.35);
     let possession_delta = possession_pct - 50.0;
+    let observed_attempts = stats.passes_completed + stats.passes_intercepted;
+    let observed_accuracy = if observed_attempts > 0 {
+        Some(stats.passes_completed as f64 / observed_attempts as f64)
+    } else {
+        None
+    };
     let completed_target = ((405.0 + possession_delta * 5.8 + seed as f64) * minutes_scale)
         .round()
         .clamp(250.0, 680.0) as u16;
-    let accuracy = (0.79 + possession_delta * 0.0018).clamp(0.70, 0.91);
+    let baseline_accuracy = (0.79 + possession_delta * 0.0018).clamp(0.70, 0.91);
+    let accuracy = observed_accuracy
+        .map(|observed| (baseline_accuracy * 0.70 + observed * 0.30).clamp(0.70, 0.91))
+        .unwrap_or(baseline_accuracy);
     let attempted_target = ((completed_target as f64 / accuracy).round() as u16).max(completed_target);
 
     stats.passes_completed = stats.passes_completed.max(completed_target);

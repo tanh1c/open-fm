@@ -216,9 +216,22 @@ impl Default for TacticalInstructionProfile {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+pub struct RoleInfluenceProfile {
+    pub playmaking: f64,
+    pub ball_winning: f64,
+    pub wide_support: f64,
+    pub pressing_forward: f64,
+    pub inside_forward: f64,
+    pub attacking_duty: f64,
+    pub defensive_duty: f64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct TacticalProfile {
     pub lateral: LateralProfile,
     pub width: WidthProfile,
+    #[serde(default)]
+    pub roles: RoleInfluenceProfile,
     #[serde(default)]
     pub instructions: TacticalInstructionProfile,
 }

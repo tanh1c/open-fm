@@ -1,4 +1,6 @@
-use crate::types::{MatchConfig, PitchCondition, PlayStyle, PlayerData, Side, TeamData, WeatherCondition};
+use rand::{Rng, RngExt};
+
+use crate::types::{MatchConfig, PitchCondition, PlayStyle, PlayerData, Position, Side, TeamData, WeatherCondition};
 
 // ---------------------------------------------------------------------------
 // PlayerSnap — lightweight snapshot of a player to avoid borrow conflicts
@@ -135,16 +137,16 @@ pub(crate) fn trait_shot_quality_modifier(snap: &PlayerSnap) -> f64 {
 pub(crate) fn trait_pass_safety_modifier(snap: &PlayerSnap) -> f64 {
     let mut modifier: f64 = 1.0;
     if snap.has_trait("Playmaker") {
-        modifier *= 1.07;
+        modifier *= 1.11;
     }
     if snap.has_trait("TeamPlayer") {
-        modifier *= 1.05;
+        modifier *= 1.07;
     }
     if snap.has_trait("CoolHead") {
-        modifier *= 1.04;
+        modifier *= 1.05;
     }
     if snap.has_trait("Visionary") {
-        modifier *= 1.02;
+        modifier *= 1.04;
     }
     if snap.has_trait("HotHead") {
         modifier *= 0.94;
@@ -382,12 +384,12 @@ pub(crate) fn team_form_modifier(form: &[String]) -> f64 {
             }
         })
         .sum::<f64>();
-    (1.0 + weighted_score * 0.013).clamp(0.93, 1.08)
+    (1.0 + weighted_score * 0.016).clamp(0.91, 1.10)
 }
 
 pub(crate) fn tactical_familiarity_modifier(familiarity: f64) -> f64 {
     let delta = (familiarity.clamp(0.0, 1.0) - 0.5) * 2.0;
-    (1.0 + delta * 0.085).clamp(0.915, 1.085)
+    (1.0 + delta * 0.095).clamp(0.905, 1.095)
 }
 
 pub(crate) fn team_cohesion_modifier(team: &TeamData) -> f64 {
@@ -481,34 +483,58 @@ fn instruction_delta(value: f64) -> f64 {
 
 pub(crate) fn tactical_press_modifier(team: &TeamData) -> f64 {
     let instructions = team.tactical_profile.instructions;
+    let roles = team.tactical_profile.roles;
     let press = instruction_delta(instructions.pressing_intensity);
     let line = instruction_delta(instructions.defensive_line);
     let tempo = instruction_delta(instructions.tempo);
-    (1.0 + press * 0.14 + line * 0.050 + tempo * 0.035).clamp(0.82, 1.24)
+    let counter_press = instruction_delta(instructions.counter_press).max(0.0);
+    (1.0
+        + press * 0.17
+        + line * 0.060
+        + tempo * 0.045
+        + counter_press * 0.035
+        + roles.ball_winning * 0.055
+        + roles.pressing_forward * 0.060)
+        .clamp(0.78, 1.34)
 }
 
 pub(crate) fn tactical_buildup_modifier(team: &TeamData) -> f64 {
     let instructions = team.tactical_profile.instructions;
+    let roles = team.tactical_profile.roles;
     let directness = instruction_delta(instructions.passing_directness);
     let tempo = instruction_delta(instructions.tempo);
     let risk = instruction_delta(instructions.risk_appetite);
     let central_control = instruction_delta(team.tactical_profile.width.central_density);
-    (1.0 + central_control * 0.035 - directness * 0.075 - tempo * 0.035 - risk * 0.045)
-        .clamp(0.82, 1.18)
+    (1.0
+        + central_control * 0.050
+        + roles.playmaking * 0.095
+        + roles.defensive_duty * 0.025
+        - directness * 0.095
+        - tempo * 0.050
+        - risk * 0.065)
+        .clamp(0.78, 1.24)
 }
 
 pub(crate) fn tactical_midfield_modifier(team: &TeamData) -> f64 {
     let instructions = team.tactical_profile.instructions;
+    let roles = team.tactical_profile.roles;
     let tempo = instruction_delta(instructions.tempo);
     let directness = instruction_delta(instructions.passing_directness);
     let risk = instruction_delta(instructions.risk_appetite);
     let central_control = instruction_delta(team.tactical_profile.width.central_density);
-    (1.0 + central_control * 0.070 + directness * 0.040 - risk * 0.020 + tempo * 0.055)
-        .clamp(0.82, 1.20)
+    (1.0
+        + central_control * 0.090
+        + directness * 0.050
+        + tempo * 0.065
+        + roles.playmaking * 0.055
+        + roles.ball_winning * 0.045
+        - risk * 0.035)
+        .clamp(0.78, 1.28)
 }
 
 pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
     let att = att_team.tactical_profile.instructions;
+    let roles = att_team.tactical_profile.roles;
     let def = def_team.tactical_profile.instructions;
     let tempo = instruction_delta(att.tempo);
     let directness = instruction_delta(att.passing_directness);
@@ -518,29 +544,150 @@ pub(crate) fn tactical_space_creation_modifier(att_team: &TeamData, def_team: &T
     let deep_block_space = (-instruction_delta(def.defensive_line)).max(0.0);
     let defensive_compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
     let counter_matchup = if matches!(att_team.play_style, PlayStyle::Counter) {
-        high_line_space * (0.48 + directness.max(0.0) * 0.24) - deep_block_space * 0.180
+        high_line_space * (0.56 + directness.max(0.0) * 0.30) - deep_block_space * 0.240
     } else {
         0.0
     };
-    // Counter-attack slider: rewards breaking into space, strongest vs a high line.
     let counter_attack = instruction_delta(att.counter_attack);
     let counter_attack_bonus =
-        counter_attack * (0.050 + high_line_space * 0.060) - counter_attack.max(0.0) * deep_block_space * 0.040;
+        counter_attack * (0.060 + high_line_space * 0.080) - counter_attack.max(0.0) * deep_block_space * 0.060;
     let compact_block_penalty = if deep_block_space > 0.0 {
-        defensive_compactness.max(0.0) * 0.090 + deep_block_space * 0.090
+        defensive_compactness.max(0.0) * 0.115 + deep_block_space * 0.115
     } else {
-        defensive_compactness.max(0.0) * 0.030
+        defensive_compactness.max(0.0) * 0.040
     };
-    (1.0 + tempo * 0.060 + directness * 0.095 + risk * 0.090 + width * 0.035
-        + high_line_space * 0.070
+    (1.0 + tempo * 0.075 + directness * 0.115 + risk * 0.110 + width * 0.045
+        + high_line_space * 0.085
+        + roles.playmaking * 0.040
+        + roles.wide_support * 0.045
+        + roles.inside_forward * 0.050
+        + roles.attacking_duty * 0.035
+        - roles.defensive_duty * 0.025
         + counter_matchup
         + counter_attack_bonus
         - compact_block_penalty)
-        .clamp(0.76, 1.30)
+        .clamp(0.72, 1.40)
 }
 
-pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &TeamData) -> f64 {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ChanceType {
+    CentralCombination,
+    WideCross,
+    CounterBreak,
+    SetPiece,
+    LongShot,
+}
+
+pub(crate) fn select_chance_type<R: Rng>(att_team: &TeamData, def_team: &TeamData, rng: &mut R) -> ChanceType {
     let att = att_team.tactical_profile.instructions;
+    let def = def_team.tactical_profile.instructions;
+    let roles = att_team.tactical_profile.roles;
+    let width = instruction_delta(att.width);
+    let directness = instruction_delta(att.passing_directness);
+    let risk = instruction_delta(att.risk_appetite);
+    let counter_attack = instruction_delta(att.counter_attack);
+    let defensive_line = instruction_delta(def.defensive_line);
+    let compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
+    let central_density = instruction_delta(att_team.tactical_profile.width.central_density);
+
+    let central = 1.0 + central_density.max(0.0) * 0.55 + roles.playmaking * 0.70 - directness.max(0.0) * 0.18;
+    let wide = 0.85 + width.max(0.0) * 0.80 + roles.wide_support * 0.85 + roles.inside_forward * 0.25;
+    let counter = 0.55
+        + directness.max(0.0) * 0.55
+        + counter_attack.max(0.0) * 0.75
+        + defensive_line.max(0.0) * 0.95
+        - compactness.max(0.0) * 0.20
+        + if matches!(att_team.play_style, PlayStyle::Counter) { 0.45 } else { 0.0 };
+    let set_piece = 0.34 + roles.wide_support * 0.12 + compactness.max(0.0) * 0.08;
+    let long_shot = 0.36 + risk.max(0.0) * 0.45 + compactness.max(0.0) * 0.45 + roles.inside_forward * 0.22;
+
+    let weights = [
+        (ChanceType::CentralCombination, central.max(0.05)),
+        (ChanceType::WideCross, wide.max(0.05)),
+        (ChanceType::CounterBreak, counter.max(0.05)),
+        (ChanceType::SetPiece, set_piece.max(0.05)),
+        (ChanceType::LongShot, long_shot.max(0.05)),
+    ];
+    let total = weights.iter().map(|(_, weight)| *weight).sum::<f64>();
+    let mut roll = rng.random_range(0.0..total);
+    for (chance_type, weight) in weights {
+        if roll <= weight {
+            return chance_type;
+        }
+        roll -= weight;
+    }
+    ChanceType::CentralCombination
+}
+
+pub(crate) fn chance_shooter_weight_modifier(chance_type: ChanceType, player: &PlayerData) -> f64 {
+    match chance_type {
+        ChanceType::CentralCombination => match player.position {
+            Position::Forward => 1.04,
+            Position::Midfielder => 1.08,
+            Position::Defender => 0.82,
+            Position::Goalkeeper => 0.0,
+        },
+        ChanceType::WideCross | ChanceType::SetPiece => {
+            let aerial_bonus = 1.0 + f64::from(player.aerial.saturating_sub(65)) * 0.006;
+            match player.position {
+                Position::Forward => 1.08 * aerial_bonus,
+                Position::Midfielder => 0.92 * aerial_bonus,
+                Position::Defender => 1.28 * aerial_bonus,
+                Position::Goalkeeper => 0.0,
+            }
+        }
+        ChanceType::CounterBreak => {
+            let pace_bonus = 1.0 + f64::from(player.pace.saturating_sub(65)) * 0.006;
+            match player.position {
+                Position::Forward => 1.22 * pace_bonus,
+                Position::Midfielder => 0.92 * pace_bonus,
+                Position::Defender => 0.62 * pace_bonus,
+                Position::Goalkeeper => 0.0,
+            }
+        }
+        ChanceType::LongShot => match player.position {
+            Position::Forward => 0.94,
+            Position::Midfielder => 1.30,
+            Position::Defender => 0.78,
+            Position::Goalkeeper => 0.0,
+        },
+    }
+    .clamp(0.45, 1.65)
+}
+
+pub(crate) fn chance_shot_rating(chance_type: ChanceType, shooter: &PlayerSnap, base_rating: f64) -> f64 {
+    let channel_rating = match chance_type {
+        ChanceType::CentralCombination => {
+            shooter.shooting as f64 * 0.36
+                + shooter.composure as f64 * 0.25
+                + shooter.positioning as f64 * 0.20
+                + shooter.decisions as f64 * 0.19
+        }
+        ChanceType::WideCross | ChanceType::SetPiece => {
+            shooter.shooting as f64 * 0.26
+                + shooter.aerial as f64 * 0.28
+                + shooter.strength as f64 * 0.18
+                + shooter.positioning as f64 * 0.28
+        }
+        ChanceType::CounterBreak => {
+            shooter.shooting as f64 * 0.31
+                + shooter.pace as f64 * 0.24
+                + shooter.composure as f64 * 0.22
+                + shooter.decisions as f64 * 0.23
+        }
+        ChanceType::LongShot => {
+            shooter.shooting as f64 * 0.45
+                + shooter.composure as f64 * 0.20
+                + shooter.vision as f64 * 0.15
+                + shooter.decisions as f64 * 0.20
+        }
+    };
+    compress_skill(channel_rating) * 0.58 + base_rating * 0.42
+}
+
+pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &TeamData, chance_type: ChanceType) -> f64 {
+    let att = att_team.tactical_profile.instructions;
+    let roles = att_team.tactical_profile.roles;
     let def = def_team.tactical_profile.instructions;
     let risk = instruction_delta(att.risk_appetite);
     let directness = instruction_delta(att.passing_directness);
@@ -548,46 +695,69 @@ pub(crate) fn tactical_shot_quality_modifier(att_team: &TeamData, def_team: &Tea
     let defensive_line = instruction_delta(def.defensive_line);
     let compactness = instruction_delta(def_team.tactical_profile.width.central_compactness);
     let counter_bonus = if matches!(att_team.play_style, PlayStyle::Counter) {
-        defensive_line.max(0.0) * (0.160 + directness.max(0.0) * 0.090)
-            - (-defensive_line).max(0.0) * 0.130
+        defensive_line.max(0.0) * (0.190 + directness.max(0.0) * 0.110)
+            - (-defensive_line).max(0.0) * 0.170
     } else {
         0.0
     };
-    // Counter-attack slider: cleaner chances when breaking against a high line.
     let counter_attack = instruction_delta(att.counter_attack);
-    let counter_attack_bonus = counter_attack * (0.030 + defensive_line.max(0.0) * 0.060);
-    (1.0 + risk * 0.045 + directness * 0.035 + width * 0.020 + defensive_line * 0.030
+    let counter_attack_bonus = counter_attack * (0.035 + defensive_line.max(0.0) * 0.075)
+        - counter_attack.max(0.0) * (-defensive_line).max(0.0) * 0.040;
+    let channel_bonus = match chance_type {
+        ChanceType::CentralCombination => roles.playmaking * 0.055 - compactness.max(0.0) * 0.055,
+        ChanceType::WideCross => width.max(0.0) * 0.075 + roles.wide_support * 0.070 - compactness.max(0.0) * 0.025,
+        ChanceType::CounterBreak => defensive_line.max(0.0) * 0.105 + counter_attack.max(0.0) * 0.080 - (-defensive_line).max(0.0) * 0.095,
+        ChanceType::SetPiece => roles.wide_support * 0.025 + roles.attacking_duty * 0.025,
+        ChanceType::LongShot => risk.max(0.0) * 0.050 - compactness.max(0.0) * 0.025,
+    };
+    (1.0 + risk * 0.055 + directness * 0.045 + width * 0.025 + defensive_line * 0.040
+        + roles.playmaking * 0.025
+        + roles.inside_forward * 0.060
+        + roles.attacking_duty * 0.040
+        - roles.defensive_duty * 0.035
         + counter_bonus
         + counter_attack_bonus
-        - compactness.max(0.0) * 0.065)
-        .clamp(0.82, 1.20)
+        + channel_bonus
+        - compactness.max(0.0) * 0.085)
+        .clamp(0.76, 1.34)
 }
 
 pub(crate) fn tactical_fatigue_modifier(team: &TeamData) -> f64 {
     let instructions = team.tactical_profile.instructions;
+    let roles = team.tactical_profile.roles;
     let press = instruction_delta(instructions.pressing_intensity);
     let tempo = instruction_delta(instructions.tempo);
     let line = instruction_delta(instructions.defensive_line);
     let counter_press = instruction_delta(instructions.counter_press);
-    (1.0 + press * 0.11 + tempo * 0.075 + line.max(0.0) * 0.040 + counter_press.max(0.0) * 0.045)
-        .clamp(0.86, 1.22)
+    (1.0
+        + press * 0.145
+        + tempo * 0.095
+        + line.max(0.0) * 0.055
+        + counter_press.max(0.0) * 0.065
+        + roles.pressing_forward * 0.060
+        + roles.attacking_duty * 0.035)
+        .clamp(0.82, 1.34)
 }
 
 pub(crate) fn tactical_turnover_risk(team: &TeamData) -> f64 {
     let instructions = team.tactical_profile.instructions;
+    let roles = team.tactical_profile.roles;
     let directness = instruction_delta(instructions.passing_directness);
     let tempo = instruction_delta(instructions.tempo);
     let risk = instruction_delta(instructions.risk_appetite);
     let counter_attack = instruction_delta(instructions.counter_attack);
-    (1.0 + directness * 0.085 + tempo * 0.055 + risk * 0.080 + counter_attack * 0.030)
-        .clamp(0.82, 1.24)
+    let cohesion_safety = (team_cohesion_modifier(team) - 1.0) * 0.55;
+    (1.0 + directness * 0.110 + tempo * 0.070 + risk * 0.105 + counter_attack * 0.045
+        - roles.playmaking * 0.045
+        - cohesion_safety)
+        .clamp(0.74, 1.34)
 }
 
 /// How much the DEFENDING team's counter-press raises the attacking team's
 /// turnover risk. Returns a multiplier (>=1.0 when pressing hard to win it back).
 pub(crate) fn tactical_counter_press_pressure(def_team: &TeamData) -> f64 {
     let counter_press = instruction_delta(def_team.tactical_profile.instructions.counter_press);
-    (1.0 + counter_press.max(0.0) * 0.150 - (-counter_press).max(0.0) * 0.080).clamp(0.90, 1.18)
+    (1.0 + counter_press.max(0.0) * 0.190 - (-counter_press).max(0.0) * 0.090).clamp(0.88, 1.24)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]

@@ -29,11 +29,17 @@ impl LiveMatchState {
             } else {
                 tactical_fatigue_modifier(&self.away)
             };
+            let position_factor = if matches!(p.position, Position::Goalkeeper) {
+                0.35
+            } else {
+                1.0
+            };
             let depletion = fatigue_rate
                 * (1.0 - stamina_factor * 0.5)
                 * (1.3 - fitness_factor * 0.6)
                 * tactical_factor
-                * weather_fatigue_modifier(&self.config);
+                * weather_fatigue_modifier(&self.config)
+                * position_factor;
             if let Some(cond) = self.player_conditions.get_mut(&p.id) {
                 *cond = (*cond - depletion).max(5.0);
             }

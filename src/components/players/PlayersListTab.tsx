@@ -113,7 +113,6 @@ export default function PlayersListTab({
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("ovr");
   const [sortAsc, setSortAsc] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"all" | "transfer" | "loan">("all");
   const [page, setPage] = useState(1);
   const [resultsExpanded, setResultsExpanded] = useState(false);
   const [sendingPlayerId, setSendingPlayerId] = useState<string | null>(null);
@@ -190,8 +189,6 @@ export default function PlayersListTab({
       }
       if (posFilter && normalisePosition(player.natural_position || player.position) !== posFilter) return false;
       if (teamFilter && player.team_id !== teamFilter) return false;
-      if (statusFilter === "transfer" && !player.transfer_listed) return false;
-      if (statusFilter === "loan" && !player.loan_listed) return false;
       return true;
     });
 
@@ -226,11 +223,11 @@ export default function PlayersListTab({
       }
       return sortAsc ? cmp : -cmp;
     });
-  }, [gameState.players, gameState.teams, locale, posFilter, search, sortAsc, sortKey, statusFilter, teamFilter]);
+  }, [gameState.players, gameState.teams, locale, posFilter, search, sortAsc, sortKey, teamFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, posFilter, teamFilter, statusFilter, sortKey, sortAsc]);
+  }, [search, posFilter, teamFilter, sortKey, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);

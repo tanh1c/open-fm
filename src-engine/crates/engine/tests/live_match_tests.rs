@@ -70,6 +70,42 @@ fn make_team(id: &str, name: &str, skill: u8, style: PlayStyle) -> TeamData {
     }
 }
 
+fn with_instructions(
+    mut team: TeamData,
+    pressing_intensity: f64,
+    defensive_line: f64,
+    tempo: f64,
+    width: f64,
+    passing_directness: f64,
+    risk_appetite: f64,
+) -> TeamData {
+    team.tactical_profile.instructions = TacticalInstructionProfile {
+        pressing_intensity,
+        defensive_line,
+        tempo,
+        width,
+        passing_directness,
+        risk_appetite,
+        ..TacticalInstructionProfile::default()
+    };
+    team
+}
+
+fn with_shape(mut team: TeamData, defenders: u8, midfielders: u8, forwards: u8) -> TeamData {
+    team.shape_profile = ShapeProfile {
+        defenders,
+        midfielders,
+        forwards,
+    };
+    team
+}
+
+fn with_form_and_familiarity(mut team: TeamData, form: &[&str], tactical_familiarity: f64) -> TeamData {
+    team.form = form.iter().map(|result| result.to_string()).collect();
+    team.tactical_familiarity = tactical_familiarity;
+    team
+}
+
 fn make_bench(id: &str, skill: u8) -> Vec<PlayerData> {
     vec![
         make_player(
@@ -131,6 +167,61 @@ fn run_to_finish(state: &mut LiveMatchState, rng: &mut StdRng) -> Vec<MinuteResu
         }
     }
     results
+}
+
+#[derive(Default)]
+struct LiveTrialSummary {
+    home_wins: u32,
+    away_wins: u32,
+    draws: u32,
+    home_goals: u32,
+    away_goals: u32,
+    home_shots: u32,
+    away_shots: u32,
+}
+
+impl LiveTrialSummary {
+    fn home_points(&self) -> u32 {
+        self.home_wins * 3 + self.draws
+    }
+
+    fn away_points(&self) -> u32 {
+        self.away_wins * 3 + self.draws
+    }
+
+    fn home_goal_share(&self) -> f64 {
+        self.home_goals as f64 / (self.home_goals + self.away_goals).max(1) as f64
+    }
+
+    fn home_shot_share(&self) -> f64 {
+        self.home_shots as f64 / (self.home_shots + self.away_shots).max(1) as f64
+    }
+}
+
+fn summarize_live_trials(home: &TeamData, away: &TeamData, config: MatchConfig, trials: u64) -> LiveTrialSummary {
+    let mut summary = LiveTrialSummary::default();
+    for seed in 0..trials {
+        let mut state = LiveMatchState::new(
+            home.clone(),
+            away.clone(),
+            config.clone(),
+            make_bench("home", 65),
+            make_bench("away", 65),
+            false,
+        );
+        run_to_finish(&mut state, &mut seeded_rng(seed));
+        let report = state.into_report();
+        match report.home_goals.cmp(&report.away_goals) {
+            std::cmp::Ordering::Greater => summary.home_wins += 1,
+            std::cmp::Ordering::Less => summary.away_wins += 1,
+            std::cmp::Ordering::Equal => summary.draws += 1,
+        }
+        summary.home_goals += report.home_goals as u32;
+        summary.away_goals += report.away_goals as u32;
+        summary.home_shots += report.home_stats.shots as u32;
+        summary.away_shots += report.away_stats.shots as u32;
+    }
+    summary
 }
 
 fn state_to_minute(state: &mut LiveMatchState, rng: &mut StdRng, minute: u8) {
@@ -630,6 +721,34 @@ fn stamina_depletes_over_match() {
     assert!(state.is_finished());
 }
 
+#[test]
+fn goalkeeper_live_condition_depletes_less_than_outfield_players() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+
+    state.step_minute(&mut rng);
+    for _ in 0..45 {
+        state.step_minute(&mut rng);
+    }
+
+    let snap = state.snapshot();
+    let goalkeeper = snap
+        .home_team
+        .players
+        .iter()
+        .find(|player| player.position == Position::Goalkeeper)
+        .unwrap();
+    let outfielder = snap
+        .home_team
+        .players
+        .iter()
+        .find(|player| player.position == Position::Midfielder)
+        .unwrap();
+
+    assert!(goalkeeper.condition > outfielder.condition);
+    assert!(goalkeeper.condition >= 86);
+}
+
 // ===========================================================================
 // Tests: AI decisions
 // ===========================================================================
@@ -937,6 +1056,88 @@ fn strong_team_advantage() {
     assert!(
         home_wins > away_wins,
         "Strong team should win more: home={home_wins}, away={away_wins}"
+    );
+}
+
+#[test]
+fn live_tactical_setup_can_reduce_moderate_quality_gap() {
+    let favorite = with_instructions(
+        with_shape(make_team("fav", "Favorite FC", 76, PlayStyle::Attacking), 3, 4, 3),
+        0.78,
+        0.88,
+        0.78,
+        0.72,
+        0.72,
+        0.74,
+    );
+    let baseline_underdog = make_team("base", "Baseline Underdog", 68, PlayStyle::Balanced);
+    let tuned_underdog = with_form_and_familiarity(
+        with_instructions(
+            with_shape(make_team("tuned", "Tuned Underdog", 68, PlayStyle::Counter), 5, 3, 2),
+            0.62,
+            0.34,
+            0.72,
+            0.42,
+            0.88,
+            0.78,
+        ),
+        &["W", "D", "W", "W", "D"],
+        0.92,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let baseline = summarize_live_trials(&favorite, &baseline_underdog, config.clone(), 120);
+    let tactical = summarize_live_trials(&favorite, &tuned_underdog, config, 120);
+
+    assert!(
+        tactical.away_points() >= baseline.away_points()
+            || tactical.home_goal_share() < baseline.home_goal_share()
+            || tactical.home_shot_share() < baseline.home_shot_share(),
+        "Tuned live underdog should reduce a moderate gap: tactical pts={} baseline pts={} tactical goal_share={:.3} baseline goal_share={:.3} tactical shot_share={:.3} baseline shot_share={:.3}",
+        tactical.away_points(),
+        baseline.away_points(),
+        tactical.home_goal_share(),
+        baseline.home_goal_share(),
+        tactical.home_shot_share(),
+        baseline.home_shot_share()
+    );
+}
+
+#[test]
+fn live_quality_still_matters_after_tactical_tuning() {
+    let strong = make_team("strong", "Strong FC", 82, PlayStyle::Balanced);
+    let weak_but_organized = with_form_and_familiarity(
+        with_instructions(
+            with_shape(make_team("weak", "Organized Weak FC", 64, PlayStyle::Defensive), 5, 4, 1),
+            0.52,
+            0.30,
+            0.34,
+            0.34,
+            0.24,
+            0.18,
+        ),
+        &["W", "D", "W", "D", "W"],
+        0.95,
+    );
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
+
+    let summary = summarize_live_trials(&strong, &weak_but_organized, config, 120);
+
+    assert!(
+        summary.home_points() > summary.away_points(),
+        "Large live quality gap should still favor stronger team: strong points={}, weak points={}",
+        summary.home_points(),
+        summary.away_points()
+    );
+    assert!(
+        summary.away_points() > 0,
+        "Organized live underdog should still be able to earn draws/upsets"
     );
 }
 

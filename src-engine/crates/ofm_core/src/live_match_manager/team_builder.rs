@@ -3,8 +3,8 @@ use crate::player_rating::{effective_rating_for_assignment, formation_slots, nat
 use domain::player::Position as DomainPosition;
 use domain::team::CustomTacticSlot;
 use engine::{
-    LateralProfile, PlayStyle, PlayerData, Position, ShapeProfile, TacticalInstructionProfile,
-    TacticalProfile, TeamData, WidthProfile,
+    LateralProfile, PlayStyle, PlayerData, Position, RoleInfluenceProfile, ShapeProfile,
+    TacticalInstructionProfile, TacticalProfile, TeamData, WidthProfile,
 };
 
 // ---------------------------------------------------------------------------
@@ -255,7 +255,39 @@ fn tactical_profile_from_slots(team: &domain::team::Team) -> TacticalProfile {
             wing_threat: ((left_share + right_share) * 0.65 + width * 0.35).clamp(0.0, 1.0),
             central_compactness: (central_share * 0.7 + (1.0 - width) * 0.3).clamp(0.0, 1.0),
         },
+        roles: role_influence_from_slots(&occupied_slots),
         instructions: tactical_instructions_from_slots(team, &occupied_slots, width, mean_y),
+    }
+}
+
+fn role_influence_from_slots(occupied_slots: &[&CustomTacticSlot]) -> RoleInfluenceProfile {
+    let total = occupied_slots.len().max(1) as f64;
+    let mut profile = RoleInfluenceProfile::default();
+
+    for slot in occupied_slots {
+        match slot.tactical_role.as_deref() {
+            Some("DLP" | "AP") => profile.playmaking += 1.0,
+            Some("BWM") => profile.ball_winning += 1.0,
+            Some("W" | "WB" | "IW") => profile.wide_support += 1.0,
+            Some("PF") => profile.pressing_forward += 1.0,
+            Some("IF") => profile.inside_forward += 1.0,
+            _ => {}
+        }
+        match slot.duty.as_deref() {
+            Some("Attack") => profile.attacking_duty += 1.0,
+            Some("Defend") => profile.defensive_duty += 1.0,
+            _ => {}
+        }
+    }
+
+    RoleInfluenceProfile {
+        playmaking: (profile.playmaking / total).clamp(0.0, 1.0),
+        ball_winning: (profile.ball_winning / total).clamp(0.0, 1.0),
+        wide_support: (profile.wide_support / total).clamp(0.0, 1.0),
+        pressing_forward: (profile.pressing_forward / total).clamp(0.0, 1.0),
+        inside_forward: (profile.inside_forward / total).clamp(0.0, 1.0),
+        attacking_duty: (profile.attacking_duty / total).clamp(0.0, 1.0),
+        defensive_duty: (profile.defensive_duty / total).clamp(0.0, 1.0),
     }
 }
 
@@ -449,6 +481,18 @@ mod tests {
         }
     }
 
+    fn role_slot(id: &str, x: u8, y: u8, role: &str, tactical_role: &str, duty: &str) -> CustomTacticSlot {
+        CustomTacticSlot {
+            slot_id: id.to_string(),
+            player_id: Some(format!("player-{id}")),
+            role: role.to_string(),
+            x,
+            y,
+            tactical_role: Some(tactical_role.to_string()),
+            duty: Some(duty.to_string()),
+        }
+    }
+
     fn profile_from_slots(slots: Vec<CustomTacticSlot>) -> TacticalProfile {
         let mut team = domain::team::Team::new(
             "team".to_string(),
@@ -518,6 +562,24 @@ mod tests {
 
         assert!(profile.width.width > 0.8);
         assert!(profile.width.wing_threat > profile.width.central_compactness);
+    }
+
+    #[test]
+    fn derives_role_influence_profile_from_tactical_roles_and_duties() {
+        let profile = profile_from_slots(vec![
+            role_slot("dlp", 50, 56, "MID", "DLP", "Support"),
+            role_slot("bwm", 45, 52, "MID", "BWM", "Defend"),
+            role_slot("wb", 18, 70, "DEF", "WB", "Attack"),
+            role_slot("pf", 50, 18, "FWD", "PF", "Attack"),
+            role_slot("if", 35, 26, "FWD", "IF", "Attack"),
+        ]);
+
+        assert!(profile.roles.playmaking > 0.0);
+        assert!(profile.roles.ball_winning > 0.0);
+        assert!(profile.roles.wide_support > 0.0);
+        assert!(profile.roles.pressing_forward > 0.0);
+        assert!(profile.roles.inside_forward > 0.0);
+        assert!(profile.roles.attacking_duty > profile.roles.defensive_duty);
     }
 }
 

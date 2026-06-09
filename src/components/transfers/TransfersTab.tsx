@@ -1191,7 +1191,7 @@ function TransfersResultsExpandedModal({
           </button>
         </div>
 
-        <Card className="shrink-0 border-app-border bg-app-bg p-4">
+        <Card className="relative z-30 shrink-0 overflow-visible border-app-border bg-app-bg p-4">
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => onPosFilterChange(null)} className={cn("px-3 py-1.5 border rounded text-xs font-semibold flex items-center gap-1", !posFilter ? "bg-app-green/20 border-app-green/50 text-app-green" : "bg-app-card border-app-border text-app-text-muted hover:text-white")}>
               <Target className="w-3.5 h-3.5" /> All Targets
@@ -1258,7 +1258,7 @@ function TransfersResultsExpandedModal({
           ) : null}
         </Card>
 
-        <Card className="flex min-h-0 flex-1 flex-col bg-app-bg border-app-border">
+        <Card className="relative z-10 flex min-h-0 flex-1 flex-col bg-app-bg border-app-border">
           <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
             <table className="w-full min-w-[1120px] whitespace-nowrap text-left text-[11px]">
               <thead className="sticky top-0 z-10 border-b border-app-border/50 bg-app-card text-[9px] font-bold uppercase tracking-wider text-app-text-muted shadow-sm">
@@ -1475,7 +1475,7 @@ function FilterDropdown({
         value={value}
         aria-label={ariaLabel}
         title={label}
-        wrapperClassName="z-40"
+        wrapperClassName="z-[80]"
         className="h-[32px] text-[11px]"
         onChange={(event) => onChange(event.target.value)}
       >

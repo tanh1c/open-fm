@@ -236,12 +236,6 @@ export default function PlayersListTab({
   const safePage = Math.min(page, totalPages);
   const visiblePlayers = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const listedCount = gameState.players.filter((player) => player.transfer_listed).length;
-  const loanCount = gameState.players.filter((player) => player.loan_listed).length;
-  const injuredCount = gameState.players.filter((player) => player.injury).length;
-  const positionCounts = POSITIONS.map((position) => ({
-    position,
-    count: filtered.filter((player) => normalisePosition(player.natural_position || player.position) === position).length,
-  }));
   const topOverallPlayers = filtered.slice(0, 5);
   const topValuePlayers = [...filtered].sort((a, b) => b.market_value - a.market_value).slice(0, 5);
   const sortDirection: SortDirection = sortAsc ? "asc" : "desc";
@@ -362,40 +356,6 @@ export default function PlayersListTab({
       {scoutError ? <p role="alert" className="text-xs font-heading font-bold uppercase tracking-wider text-red-400">{scoutError}</p> : null}
 
       <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
-        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar sm:flex xl:w-[280px]">
-          <div>
-            <SectionTitle title="PLAYER POOL" action={`${filtered.length} shown`} />
-            <TemplateCard className="flex flex-col gap-3 p-4">
-              <StatRow label="Total players" value={String(gameState.players.length)} />
-              <StatRow label="Filtered results" value={String(filtered.length)} tone="text-app-green" />
-              <StatRow label="Transfer listed" value={String(listedCount)} tone="text-app-green" />
-              <StatRow label="Loan listed" value={String(loanCount)} tone="text-blue-300" />
-              <StatRow label="Injured" value={String(injuredCount)} tone={injuredCount > 0 ? "text-red-400" : "text-app-text"} />
-            </TemplateCard>
-          </div>
-
-          <div>
-            <SectionTitle title="POSITION MIX" action={posFilter ?? "All"} />
-            <TemplateCard className="flex flex-col gap-2 p-4">
-              {positionCounts.map(({ position, count }) => (
-                <button key={position} type="button" onClick={() => setPosFilter(posFilter === position ? null : position)} className={cx("flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-colors", posFilter === position ? "border-app-green bg-app-green/10 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:text-app-text")}>
-                  <span className="font-bold">{translatePositionAbbreviation(t, position)}</span>
-                  <span>{count}</span>
-                </button>
-              ))}
-            </TemplateCard>
-          </div>
-
-          <div>
-            <SectionTitle title="MARKET STATUS" action={statusFilter.toUpperCase()} />
-            <TemplateCard className="flex flex-col gap-2 p-4">
-              <StatusButton active={statusFilter === "all"} label={t("common.all")} value={String(gameState.players.length)} onClick={() => setStatusFilter("all")} />
-              <StatusButton active={statusFilter === "transfer"} label={t("transfers.transfer")} value={String(listedCount)} onClick={() => setStatusFilter("transfer")} />
-              <StatusButton active={statusFilter === "loan"} label={t("transfers.loan")} value={String(loanCount)} onClick={() => setStatusFilter("loan")} />
-            </TemplateCard>
-          </div>
-        </aside>
-
         <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full">
           <TemplateCard className="relative z-20 p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -640,15 +600,6 @@ function PlayerResultsColGroup() {
       <col className="w-[80px]" />
       <col className="w-[125px]" />
     </colgroup>
-  );
-}
-
-function StatusButton({ active, label, value, onClick }: { active: boolean; label: string; value: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className={cx("flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-colors", active ? "border-app-green bg-app-green/10 text-app-green" : "border-app-border bg-app-bg text-app-text-muted hover:text-app-text")}>
-      <span className="font-semibold">{label}</span>
-      <span>{value}</span>
-    </button>
   );
 }
 

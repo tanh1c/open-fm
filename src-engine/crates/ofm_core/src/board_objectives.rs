@@ -12,6 +12,34 @@ struct ObjectiveTargets {
     finance_target: u32,
 }
 
+fn objective_team_count(game: &Game, user_team_id: &str) -> u32 {
+    game.league
+        .as_ref()
+        .and_then(|league| {
+            let user_in_league = league
+                .standings
+                .iter()
+                .any(|standing| standing.team_id == user_team_id)
+                || league.fixtures.iter().any(|fixture| {
+                    fixture.home_team_id == user_team_id || fixture.away_team_id == user_team_id
+                });
+
+            if user_in_league && !league.standings.is_empty() {
+                Some(league.standings.len() as u32)
+            } else if user_in_league {
+                let mut team_ids = std::collections::HashSet::new();
+                for fixture in &league.fixtures {
+                    team_ids.insert(fixture.home_team_id.as_str());
+                    team_ids.insert(fixture.away_team_id.as_str());
+                }
+                (!team_ids.is_empty()).then_some(team_ids.len() as u32)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(game.teams.len() as u32)
+}
+
 fn objective_targets(reputation: u32, num_teams: u32) -> ObjectiveTargets {
     let expected_pos = if reputation >= 80 {
         1
@@ -118,7 +146,7 @@ pub fn generate_objectives(game: &mut Game) {
         None => return,
     };
 
-    let num_teams = game.teams.len() as u32;
+    let num_teams = objective_team_count(game, &user_team_id);
     let reputation = team.reputation;
     let targets = objective_targets(reputation, num_teams);
 
@@ -418,6 +446,31 @@ mod tests {
             message.i18n_params.get("financeTarget"),
             Some(&"100".to_string())
         );
+    }
+
+    #[test]
+    fn generate_objectives_uses_user_league_size_in_large_worlds() {
+        let mut game = make_game(80, 1, 248);
+        let league_team_ids: Vec<String> = (1..=20).map(|idx| format!("team{}", idx)).collect();
+        game.league = Some(League::new(
+            "league1".to_string(),
+            "User League".to_string(),
+            1,
+            &league_team_ids,
+        ));
+
+        generate_objectives(&mut game);
+
+        assert_eq!(objective_by_id(&game, "obj_position").target, 1);
+        assert_eq!(objective_by_id(&game, "obj_wins").target, 22);
+        assert_eq!(objective_by_id(&game, "obj_goals").target, 76);
+        let message = game
+            .messages
+            .iter()
+            .find(|message| message.id == "board_objectives_1")
+            .unwrap();
+        assert_eq!(message.i18n_params.get("winTarget"), Some(&"22".to_string()));
+        assert_eq!(message.i18n_params.get("goalsTarget"), Some(&"76".to_string()));
     }
 
     #[test]

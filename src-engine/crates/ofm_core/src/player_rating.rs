@@ -103,6 +103,9 @@ pub fn natural_ovr(player: &Player) -> f64 {
 
 pub fn ovr_for_position(player: &Player, position: &Position) -> f64 {
     let canonical = canonical_position(position);
+    if let Some(rating) = player.position_ratings.get(&canonical) {
+        return (*rating as f64).clamp(1.0, 99.0);
+    }
     let base = weighted_score(player, &canonical);
     let penalty = critical_penalty(player, &canonical);
     (base - penalty).clamp(1.0, 99.0)
@@ -490,6 +493,22 @@ mod tests {
         assert!(
             ovr_for_position(&player, &Position::CenterBack)
                 > ovr_for_position(&player, &Position::Striker)
+        );
+    }
+
+    #[test]
+    fn imported_position_ratings_override_attribute_fallback() {
+        let mut player = make_player(Position::CenterBack);
+        player.natural_position = Position::CenterBack;
+        player.position_ratings.insert(Position::CenterBack, 82);
+        player.position_ratings.insert(Position::Striker, 52);
+        player.condition = 100;
+
+        assert_eq!(ovr_for_position(&player, &Position::CenterBack), 82.0);
+        assert_eq!(ovr_for_position(&player, &Position::Striker), 52.0);
+        assert!(
+            effective_rating_for_assignment(&player, &Position::Striker)
+                < effective_rating_for_assignment(&player, &Position::CenterBack)
         );
     }
 

@@ -292,6 +292,29 @@ fn cap_team_talk_delta(delta: i16, player: &domain::player::Player) -> i16 {
     delta
 }
 
+fn realistic_morale_delta(current_morale: u8, delta: i16) -> i16 {
+    if delta <= 0 {
+        if current_morale >= 90 {
+            return ((delta as f32) * 1.2).round() as i16;
+        }
+        return delta;
+    }
+
+    if current_morale >= 95 {
+        0
+    } else if current_morale >= 90 {
+        (delta / 3).max(0)
+    } else if current_morale >= 80 {
+        (delta / 2).max(1)
+    } else {
+        delta
+    }
+}
+
+fn apply_realistic_morale_delta(current_morale: u8, delta: i16) -> u8 {
+    (i16::from(current_morale) + realistic_morale_delta(current_morale, delta)).clamp(10, 96) as u8
+}
+
 fn update_recent_team_talk(player: &mut domain::player::Player, action_key: &str) {
     match player.morale_core.recent_treatment.as_mut() {
         Some(memory) if memory.action_key == action_key => {
@@ -340,7 +363,7 @@ pub fn apply_team_talk(
         )
         .clamp(-12, 12);
 
-        let new_morale = (base_morale + delta).clamp(10, 100) as u8;
+        let new_morale = apply_realistic_morale_delta(player.morale, delta);
         let actual_delta = i16::from(new_morale) - base_morale;
         player.morale = new_morale;
         update_recent_team_talk(player, &action_key);

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ChevronDown, Grid, LayoutGrid, ShieldAlert, Target, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { getPlayerOvr } from "../../lib/helpers";
+import { getPlayerOvr, getPlayerOvrForPosition } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import {
   getSlotFitTone,
@@ -338,7 +338,7 @@ export default function TacticsPitch({
                   style={{ left: "50%", top: "50%" }}
                 >
                   <div className={`relative mb-1 flex h-8 w-8 items-center justify-center rounded-lg border-b-2 text-[11px] font-bold text-white shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-transform group-hover:scale-110 ${wrongPos ? "border-amber-700 bg-gradient-to-b from-amber-400 to-amber-600" : "border-emerald-700 bg-gradient-to-b from-emerald-400 to-emerald-600"} ${fitTone ? fitRingClassName(fitTone) : ""}`}>
-                    {getPlayerOvr(player)}
+                    {getPlayerOvrForPosition(player, slot.position)}
                     {(() => {
                       const dutyBadge = getDutyBadge(slot.duty);
                       return (

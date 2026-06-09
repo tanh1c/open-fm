@@ -1,5 +1,5 @@
 import type { PlayerData } from "../../store/gameStore";
-import { getPlayerOvr } from "../../lib/helpers";
+import { getPlayerOvr, getPlayerOvrForPosition } from "../../lib/helpers";
 
 export type SquadSection = "xi" | "bench";
 export type DragState = {
@@ -338,7 +338,7 @@ function comparePlayersForSlot(
     Number(isPlayerOutOfPosition(rightPlayer, slotPosition)) ||
     Number(!isPlayerExactForSlot(leftPlayer, slotPosition)) -
     Number(!isPlayerExactForSlot(rightPlayer, slotPosition)) ||
-    getPlayerOvr(rightPlayer) - getPlayerOvr(leftPlayer) ||
+    getPlayerOvrForPosition(rightPlayer, slotPosition) - getPlayerOvrForPosition(leftPlayer, slotPosition) ||
     rightPlayer.condition - leftPlayer.condition ||
     leftPlayer.full_name.localeCompare(rightPlayer.full_name)
   );

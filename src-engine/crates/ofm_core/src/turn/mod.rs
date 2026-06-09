@@ -70,6 +70,7 @@ where
     // round just completed (domestic cups + Champions League knockout phase).
     crate::knockout::process_knockout_progression(game, &today);
 
+    crate::contracts::process_ai_contract_renewals(game);
     crate::contracts::process_contract_expiries(game);
     transfers::process_loan_expiries(game);
 
@@ -115,6 +116,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     // Advance any knockout brackets whose latest round just completed.
     crate::knockout::process_knockout_progression(game, &today);
 
+    crate::contracts::process_ai_contract_renewals(game);
     crate::contracts::process_contract_expiries(game);
     crate::finances::process_weekly_finances(game);
 
@@ -1199,9 +1201,9 @@ impl SyntheticUsage {
     fn scorer_weight(&self, player: &SyntheticPlayer) -> u32 {
         let base = scorer_weight(player);
         let usage_bonus = if self.primary_finisher.as_deref() == Some(player.id.as_str()) {
-            base * 3 + 620
+            base + 220
         } else if self.secondary_finisher.as_deref() == Some(player.id.as_str()) {
-            base * 3 / 2 + 260
+            base / 2 + 110
         } else {
             0
         };
@@ -1212,9 +1214,9 @@ impl SyntheticUsage {
     fn assist_weight(&self, player: &SyntheticPlayer) -> u32 {
         let base = assist_weight(player);
         let usage_bonus = if self.primary_creator.as_deref() == Some(player.id.as_str()) {
-            base * 3 / 5 + 120
+            base / 3 + 70
         } else if self.secondary_creator.as_deref() == Some(player.id.as_str()) {
-            base / 3 + 60
+            base / 5 + 35
         } else {
             0
         };
@@ -1227,13 +1229,13 @@ impl SyntheticUsage {
             return;
         }
 
-        if seed % 100 < 88
+        if seed % 100 < 48
             && let Some(index) = self.player_index(players, self.primary_finisher.as_deref())
         {
             indices[0] = index;
         }
         if indices.len() > 1
-            && seed.wrapping_add(17) % 100 < 30
+            && seed.wrapping_add(17) % 100 < 16
             && let Some(index) = self.player_index(players, self.secondary_finisher.as_deref())
         {
             indices[1] = index;
@@ -1245,13 +1247,13 @@ impl SyntheticUsage {
             return;
         }
 
-        if seed % 100 < 68
+        if seed % 100 < 42
             && let Some(index) = self.player_index(players, self.primary_creator.as_deref())
         {
             indices[0] = index;
         }
         if indices.len() > 1
-            && seed.wrapping_add(23) % 100 < 18
+            && seed.wrapping_add(23) % 100 < 12
             && let Some(index) = self.player_index(players, self.secondary_creator.as_deref())
         {
             indices[1] = index;

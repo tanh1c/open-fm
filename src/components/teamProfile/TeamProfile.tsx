@@ -1,5 +1,5 @@
 import { ArrowLeft, Crosshair, DollarSign, Shield, Trophy, Users } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatVal, formatWeeklyAmount } from "../../lib/helpers";
@@ -280,8 +280,14 @@ export default function TeamProfile({
   const [activeTab, setActiveTab] = useState<TeamProfileTab>("overview");
   const [selectedMatchFixtureId, setSelectedMatchFixtureId] = useState<string | null>(null);
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
-  const viewModel = buildTeamProfileViewModel(team, gameState);
-  const { teamStatsOverview, recentMatches } = useTeamProfileStats(team.id);
+  const viewModel = useMemo(
+    () => buildTeamProfileViewModel(team, gameState),
+    [team, gameState],
+  );
+  const { teamStatsOverview, recentMatches, rosterStatsByPlayerId } = useTeamProfileStats(
+    team.id,
+    viewModel.roster,
+  );
 
   return (
     <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-4">
@@ -346,6 +352,7 @@ export default function TeamProfile({
           roster={viewModel.roster}
           locale={i18n.language}
           t={t}
+          rosterStatsByPlayerId={rosterStatsByPlayerId}
           onSelectPlayer={onSelectPlayer}
         />
       ) : null}

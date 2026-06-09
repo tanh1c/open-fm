@@ -2,7 +2,7 @@ export {
   canonicalPosition,
   positionBadgeVariant,
 } from "./playerRating";
-export { getPlayerOvr } from "./playerOvr";
+export { getPlayerOvr, getPlayerOvrForPosition } from "./playerOvr";
 export {
   getTeamName,
   getTeamShort,

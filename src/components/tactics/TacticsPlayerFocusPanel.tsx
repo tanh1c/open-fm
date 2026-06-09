@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { PlayerData } from "../../store/gameStore";
 import { Badge, Button, CountryFlag } from "../ui";
 import { GitCompareArrows } from "lucide-react";
-import { calcAge, getPlayerOvr, positionBadgeVariant } from "../../lib/helpers";
+import { calcAge, getPlayerOvr, getPlayerOvrForPosition, positionBadgeVariant } from "../../lib/helpers";
 import { normalisePosition, translatePositionLabel } from "../squad/SquadTab.helpers";
 
 const ATTRIBUTE_GROUPS: {
@@ -40,6 +40,7 @@ interface TacticsPlayerFocusPanelProps {
   comparePlayer: PlayerData | null;
   onConfirmSwap: () => void;
   selectedPlayer: PlayerData | null;
+  xiActivePosition?: Map<string, string>;
 }
 
 function valueTone(value: number): string {
@@ -60,14 +61,17 @@ function getNormalizedPlayerPosition(player: PlayerData): string {
 function PlayerSummary({
   label,
   player,
+  xiActivePosition,
 }: {
   label: "selected" | "compare";
   player: PlayerData;
+  xiActivePosition?: Map<string, string>;
 }) {
   const { t } = useTranslation();
-  const normalizedPosition = getNormalizedPlayerPosition(player);
-  const displayPosition = player.natural_position || player.position;
-  const overallRating = getPlayerOvr(player);
+  const assignedPosition = xiActivePosition?.get(player.id) ?? null;
+  const normalizedPosition = assignedPosition ? normalisePosition(assignedPosition) : getNormalizedPlayerPosition(player);
+  const displayPosition = assignedPosition ?? player.natural_position ?? player.position;
+  const overallRating = assignedPosition ? getPlayerOvrForPosition(player, assignedPosition) : getPlayerOvr(player);
   const displayLabel = label === "selected" ? "Selected" : "Compare";
 
   return (
@@ -151,11 +155,13 @@ function CompareAttributes({
   comparePlayer,
   onConfirmSwap,
   selectedPlayer,
+  xiActivePosition,
 }: {
   canConfirmSwap: boolean;
   comparePlayer: PlayerData;
   onConfirmSwap: () => void;
   selectedPlayer: PlayerData;
+  xiActivePosition?: Map<string, string>;
 }) {
   const { t } = useTranslation();
   const showGoalkeeperAttrs =
@@ -168,10 +174,12 @@ function CompareAttributes({
         <PlayerSummary
           label="selected"
           player={selectedPlayer}
+          xiActivePosition={xiActivePosition}
         />
         <PlayerSummary
           label="compare"
           player={comparePlayer}
+          xiActivePosition={xiActivePosition}
         />
       </div>
       <div className="flex flex-col gap-3 rounded-xl border border-app-border bg-[#151d28] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -241,6 +249,7 @@ export default function TacticsPlayerFocusPanel({
   comparePlayer,
   onConfirmSwap,
   selectedPlayer,
+  xiActivePosition,
 }: TacticsPlayerFocusPanelProps) {
   const { t } = useTranslation();
 

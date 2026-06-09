@@ -98,11 +98,11 @@ describe("grid tactic slots", () => {
         expect(deriveFormationFromGridAssignments(assignments)).toBe("2-4-4");
     });
 
-    it("maps grid slots to broad position groups", () => {
+    it("maps grid slots to granular positions", () => {
         expect(mapGridSlotToPosition("gk")).toBe("Goalkeeper");
-        expect(mapGridSlotToPosition("lb")).toBe("Defender");
-        expect(mapGridSlotToPosition("dm")).toBe("Midfielder");
-        expect(mapGridSlotToPosition("st")).toBe("Forward");
+        expect(mapGridSlotToPosition("lb")).toBe("LeftBack");
+        expect(mapGridSlotToPosition("dm")).toBe("DefensiveMidfielder");
+        expect(mapGridSlotToPosition("st")).toBe("Striker");
     });
 
     it("builds preset assignments from a formation and starting XI ids", () => {

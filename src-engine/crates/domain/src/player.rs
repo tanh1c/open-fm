@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +66,9 @@ pub struct Player {
     /// Player's ceiling rating (1–99). Set at generation; higher than ovr for young players.
     #[serde(default)]
     pub potential: u8,
+    /// Optional imported role-specific ratings keyed by granular position.
+    #[serde(default)]
+    pub position_ratings: HashMap<Position, u8>,
 
     // Contract & value
     pub contract_end: Option<String>,
@@ -659,6 +664,7 @@ impl Player {
             traits,
             ovr: 0,
             potential: 0,
+            position_ratings: HashMap::new(),
             contract_end: None,
             wage: 0,
             market_value: 0,

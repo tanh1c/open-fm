@@ -2,7 +2,7 @@ import { AlertTriangle, ChevronDown, ChevronUp, Star } from "lucide-react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { calcAge, getPlayerOvr, positionBadgeVariant } from "../../lib/helpers";
+import { calcAge, getPlayerOvr, getPlayerOvrForPosition, positionBadgeVariant } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import { TraitList } from "../TraitBadge";
 import { getOverallRatingClassName, type SortKey } from "./TacticsTab.helpers";
@@ -110,7 +110,7 @@ function renderTableRow(props: {
   const isHighlighted = highlightedPlayerId === player.id;
   const isWrongPosition =
     section === "xi" && isPlayerOutOfPosition(player, activePosition);
-  const overallRating = getPlayerOvr(player);
+  const overallRating = section === "xi" ? getPlayerOvrForPosition(player, activePosition) : getPlayerOvr(player);
 
   return (
     <tr

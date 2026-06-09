@@ -30,7 +30,7 @@ import {
   type PitchSlotRow,
   type SquadSection,
 } from "../squad/SquadTab.helpers";
-import { getPlayerOvr } from "../../lib/helpers";
+import { getPlayerOvrForPosition } from "../../lib/helpers";
 import {
   buildGridAssignmentsFromFormation,
   buildGridAssignmentsFromSavedSlots,
@@ -996,7 +996,7 @@ export default function TacticsTab({
       let bestIndex = -1;
       let bestRank = -1;
       remaining.forEach((player, index) => {
-        const rank = fitScore(player, slot.position) * 1000 + getPlayerOvr(player);
+        const rank = fitScore(player, slot.position) * 1000 + getPlayerOvrForPosition(player, slot.position);
         if (rank > bestRank) {
           bestRank = rank;
           bestIndex = index;

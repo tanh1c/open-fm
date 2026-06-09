@@ -17,6 +17,7 @@ import {
   formatVal,
   formatWeeklyAmount,
   getPlayerOvr,
+  getPlayerOvrForPosition,
   positionBadgeVariant,
 } from "./helpers";
 import type { TeamData, FixtureData, PlayerData } from "../store/gameStore";
@@ -309,6 +310,46 @@ describe("getPlayerOvr", () => {
 
   it("falls back to 0 when backend ovr is missing", () => {
     expect(getPlayerOvr(makePlayer({ ovr: undefined }))).toBe(0);
+  });
+});
+
+describe("getPlayerOvrForPosition", () => {
+  it("uses imported exact slot ratings when available", () => {
+    const player = makePlayer({
+      ovr: 82,
+      natural_position: "CenterBack",
+      position: "CenterBack",
+      position_ratings: {
+        CenterBack: 82,
+        Striker: 54,
+      },
+    });
+
+    expect(getPlayerOvrForPosition(player, "Striker")).toBe(54);
+    expect(getPlayerOvrForPosition(player, "CB")).toBe(82);
+  });
+
+  it("keeps natural ovr for natural position without imported ratings", () => {
+    const player = makePlayer({
+      ovr: 70,
+      natural_position: "CentralMidfielder",
+      position: "CentralMidfielder",
+    });
+
+    expect(getPlayerOvrForPosition(player, "CM")).toBe(70);
+  });
+
+  it("applies fallback penalties when imported ratings are missing", () => {
+    const player = makePlayer({
+      ovr: 70,
+      natural_position: "CenterBack",
+      position: "CenterBack",
+      alternate_positions: ["RightBack"],
+    });
+
+    expect(getPlayerOvrForPosition(player, "RB")).toBe(70);
+    expect(getPlayerOvrForPosition(player, "LB")).toBe(66);
+    expect(getPlayerOvrForPosition(player, "ST")).toBe(56);
   });
 });
 

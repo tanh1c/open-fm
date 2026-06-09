@@ -82,20 +82,26 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
     setSortAsc(key === "team" || key === "location" || key === "identity");
   };
 
-  const allStandings = useMemo(
-    () => gameState.league?.standings
-      ? [...gameState.league.standings].sort((a, b) => b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against) || b.goals_for - a.goals_for)
-      : [],
-    [gameState.league?.standings],
-  );
-
   const standingsByTeamId = useMemo(() => {
     const map = new Map<string, { standing: TeamRowData["standing"]; leaguePos: number }>();
-    allStandings.forEach((standing, index) => {
-      map.set(standing.team_id, { standing, leaguePos: index + 1 });
-    });
+    const domesticLeagues = gameState.competitions?.filter(
+      (competition) => competition.kind === "DomesticLeague",
+    ) ?? [];
+    const competitions = domesticLeagues.length > 0 ? domesticLeagues : gameState.league ? [gameState.league] : [];
+
+    for (const competition of competitions) {
+      const standings = [...competition.standings].sort(
+        (a, b) => b.points - a.points ||
+          (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against) ||
+          b.goals_for - a.goals_for,
+      );
+      standings.forEach((standing, index) => {
+        map.set(standing.team_id, { standing, leaguePos: index + 1 });
+      });
+    }
+
     return map;
-  }, [allStandings]);
+  }, [gameState.competitions, gameState.league]);
 
   const rosterStatsByTeamId = useMemo(() => {
     const map = new Map<string, { rosterSize: number; ovrTotal: number; totalValue: number }>();

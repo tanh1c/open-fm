@@ -30,10 +30,16 @@ describe("resolveCountryFlagCode", () => {
     expect(resolveCountryFlagCode("Irish")).toBe("IE");
   });
 
+  it("normalises accented country-name aliases before resolving", () => {
+    expect(resolveCountryFlagCode("Türkiye")).toBe("TR");
+    expect(resolveCountryFlagCode("Turkiye")).toBe("TR");
+    expect(resolveCountryFlagCode("Côte d'Ivoire")).toBe("CI");
+  });
+
   it("returns null for invalid values", () => {
     expect(resolveCountryFlagCode("")).toBeNull();
     expect(resolveCountryFlagCode("X")).toBeNull();
-    expect(resolveCountryFlagCode("USA")).toBeNull();
+    expect(resolveCountryFlagCode("Utopia")).toBeNull();
   });
 });
 

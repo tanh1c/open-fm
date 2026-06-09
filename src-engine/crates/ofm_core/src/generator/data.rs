@@ -1844,7 +1844,7 @@ pub(super) const TEAM_TEMPLATES: &[TeamTemplate] = &[
         "Balanced"
     ),
     team!(
-        "Deportivo",
+        "Deportivo Alavés",
         "Vitoria-Gasteiz",
         "Spain",
         1,

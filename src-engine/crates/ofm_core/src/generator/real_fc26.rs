@@ -31,6 +31,7 @@ struct Fc26PlayerRow {
     potential: u8,
     position: String,
     alternate_positions: String,
+    position_ratings: HashMap<Position, u8>,
     age: u8,
     dob: String,
     nation: String,
@@ -432,20 +433,27 @@ fn row_to_player(row: &Fc26PlayerRow, team_id: &str, index: usize) -> Player {
     player.contract_end = row
         .contract_end_year
         .filter(|year| (2026..=2040).contains(year))
-        .map(|year| format!("{year}-06-30"))
+        .map(|year| format!("{}-06-30", year.saturating_add(1).min(2040)))
         .or_else(|| contract_end_from_joined_date(&row.club_joined_date, row.age, index))
         .or_else(|| Some(contract_end(row.age, index)));
     player.squad_number = row.jersey_number;
     player.squad_tier = SquadTier::Reserve;
+    player.position_ratings = row.position_ratings.clone();
     refresh_player_derived(&mut player, 2026);
     add_imported_traits(&mut player.traits, imported_traits_from_row(row));
-    player.ovr = row.ovr.clamp(1, 99);
+    player.ovr = player
+        .position_ratings
+        .get(&player.natural_position)
+        .copied()
+        .unwrap_or(player.ovr)
+        .clamp(1, 99);
     player.potential = if row.potential > 0 {
         row.potential.clamp(player.ovr, 99)
     } else {
         generate_potential(player.ovr, row.age as u32).max(player.ovr)
     };
-    set_economy(&mut player, row.age as u32, row.ovr);
+    let economy_ovr = player.ovr;
+    set_economy(&mut player, row.age as u32, economy_ovr);
     if row.value_eur > 0 {
         player.market_value = row.value_eur;
     } else if row.release_clause_eur > 0 {
@@ -790,6 +798,48 @@ fn map_position(code: &str) -> Option<Position> {
     })
 }
 
+fn parse_position_ratings(get: &impl Fn(&str) -> String) -> HashMap<Position, u8> {
+    let mut ratings = HashMap::<Position, u8>::new();
+    for (column, position) in [
+        ("ls", Position::Striker),
+        ("st", Position::Striker),
+        ("rs", Position::Striker),
+        ("lf", Position::Striker),
+        ("cf", Position::Striker),
+        ("rf", Position::Striker),
+        ("lw", Position::LeftWinger),
+        ("rw", Position::RightWinger),
+        ("lam", Position::AttackingMidfielder),
+        ("cam", Position::AttackingMidfielder),
+        ("ram", Position::AttackingMidfielder),
+        ("lm", Position::LeftMidfielder),
+        ("lcm", Position::CentralMidfielder),
+        ("cm", Position::CentralMidfielder),
+        ("rcm", Position::CentralMidfielder),
+        ("rm", Position::RightMidfielder),
+        ("lwb", Position::LeftWingBack),
+        ("ldm", Position::DefensiveMidfielder),
+        ("cdm", Position::DefensiveMidfielder),
+        ("rdm", Position::DefensiveMidfielder),
+        ("rwb", Position::RightWingBack),
+        ("lb", Position::LeftBack),
+        ("lcb", Position::CenterBack),
+        ("cb", Position::CenterBack),
+        ("rcb", Position::CenterBack),
+        ("rb", Position::RightBack),
+        ("gk", Position::Goalkeeper),
+    ] {
+        let rating = get(column).parse::<u8>().unwrap_or(0).clamp(1, 99);
+        if rating > 1 {
+            ratings
+                .entry(position)
+                .and_modify(|existing| *existing = (*existing).max(rating))
+                .or_insert(rating);
+        }
+    }
+    ratings
+}
+
 fn parse_fc26_rows() -> Vec<Fc26PlayerRow> {
     let records = parse_csv(FC26_CSV);
     let Some(header) = records.first() else {
@@ -866,6 +916,7 @@ fn row_from_record(
 
     let alternate_positions = get("player_positions");
     let position = primary_position(&get("club_position"), &alternate_positions);
+    let position_ratings = parse_position_ratings(&get);
 
     Some(Fc26PlayerRow {
         id,
@@ -874,6 +925,7 @@ fn row_from_record(
         potential: num("potential"),
         position,
         alternate_positions,
+        position_ratings,
         age: num("age"),
         dob: get("dob"),
         nation: get("nationality_name"),
@@ -1046,7 +1098,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Atlético Madrid", "Atlético de Madrid"),
         ("Barcelona", "FC Barcelona"),
         ("Celta Vigo", "Celta"),
-        ("Deportivo", "RC Deportivo"),
+        ("Deportivo Alavés", "Deportivo Alavés"),
         ("Elche", "Elche CF"),
         ("Espanyol", "RCD Espanyol"),
         ("Getafe", "Getafe CF"),
@@ -1109,7 +1161,7 @@ fn team_alias_map() -> HashMap<&'static str, &'static str> {
         ("Fulham", "Fulham FC"),
         ("Millwall", "Millwall FC"),
         ("Celta Vigo", "RC Celta"),
-        ("Deportivo", "RC Deportivo de La Coruña"),
+        ("Deportivo Alavés", "Deportivo Alavés"),
         ("Real Betis", "Real Betis Balompié"),
         ("Albacete", "Albacete Balompié"),
         ("Deportivo La Coruña", "RC Deportivo de La Coruña"),
@@ -1286,6 +1338,42 @@ mod tests {
     }
 
     #[test]
+    fn fc26_natural_ovr_uses_position_rating() {
+        let mut row = test_row();
+        row.ovr = 85;
+        row.position = "ST".to_string();
+        row.position_ratings = HashMap::from([
+            (Position::Striker, 76),
+            (Position::CenterBack, 44),
+        ]);
+
+        let player = row_to_player(&row, "team", 0);
+
+        assert_eq!(player.ovr, 76);
+        assert_eq!(player.position_ratings.get(&Position::CenterBack), Some(&44));
+    }
+
+    #[test]
+    fn fc26_position_rating_parser_keeps_best_alias() {
+        let values = HashMap::from([
+            ("st", "74"),
+            ("ls", "76"),
+            ("rs", "75"),
+            ("lcb", "60"),
+            ("cb", "63"),
+            ("rcb", "62"),
+            ("gk", "0"),
+        ]);
+        let get = |name: &str| values.get(name).copied().unwrap_or_default().to_string();
+
+        let ratings = parse_position_ratings(&get);
+
+        assert_eq!(ratings.get(&Position::Striker), Some(&76));
+        assert_eq!(ratings.get(&Position::CenterBack), Some(&63));
+        assert!(!ratings.contains_key(&Position::Goalkeeper));
+    }
+
+    #[test]
     fn fc26_loan_resolution_only_uses_known_parent_teams() {
         let current_team = Team::new(
             "current".to_string(),
@@ -1348,7 +1436,7 @@ mod tests {
         assert!(bellingham.ovr >= 90);
         assert!(bellingham.potential >= 94);
         assert_eq!(bellingham.squad_number, Some(5));
-        assert_eq!(bellingham.contract_end.as_deref(), Some("2029-06-30"));
+        assert_eq!(bellingham.contract_end.as_deref(), Some("2030-06-30"));
         assert_eq!(bellingham.market_value, 174_500_000);
         assert_eq!(bellingham.wage, 16_640_000);
     }
@@ -1365,6 +1453,10 @@ mod tests {
             potential: 80,
             position: "ST".to_string(),
             alternate_positions: "ST".to_string(),
+            position_ratings: HashMap::from([
+                (Position::Striker, 73),
+                (Position::CenterBack, 38),
+            ]),
             age: 24,
             dob: "2002-01-01".to_string(),
             nation: "England".to_string(),

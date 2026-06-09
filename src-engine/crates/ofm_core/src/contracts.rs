@@ -605,6 +605,46 @@ pub fn contract_warning_stage(
     None
 }
 
+pub fn process_ai_contract_renewals(game: &mut Game) {
+    let current_date = game.clock.current_date.date_naive();
+    let user_team_id = game.manager.team_id.clone();
+    let renewal_indices: Vec<usize> = game
+        .players
+        .iter()
+        .enumerate()
+        .filter_map(|(index, player)| {
+            let team_id = player.team_id.as_deref()?;
+            if Some(team_id) == user_team_id.as_deref() || has_let_expire_intent(player) {
+                return None;
+            }
+            let days_remaining = contract_days_remaining(player.contract_end.as_deref(), current_date)?;
+            (days_remaining <= 180).then_some(index)
+        })
+        .collect();
+
+    for player_index in renewal_indices {
+        let Some(team_id) = game.players[player_index].team_id.clone() else {
+            continue;
+        };
+        let Some(team) = game.teams.iter().find(|team| team.id == team_id).cloned() else {
+            continue;
+        };
+        let agreed_wage = expected_wage(&game.players[player_index], &team, current_date);
+        if !renewal_wage_policy_allows(game, &team, game.players[player_index].wage, agreed_wage) {
+            continue;
+        }
+        let agreed_years = expected_contract_years(&game.players[player_index], current_date);
+        let Some(new_contract_end) = current_date.checked_add_months(Months::new(agreed_years * 12)) else {
+            continue;
+        };
+
+        let player = &mut game.players[player_index];
+        player.wage = agreed_wage;
+        player.contract_end = Some(new_contract_end.format("%Y-%m-%d").to_string());
+        player.morale_core.renewal_state = None;
+    }
+}
+
 pub fn process_contract_expiries(game: &mut Game) {
     let current_date = game.clock.current_date.date_naive();
 
@@ -1083,4 +1123,113 @@ fn contract_terminated_message(
         i18n_params,
     )
     .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clock::GameClock;
+    use crate::game::Game;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes, Position};
+    use domain::team::Team;
+
+    fn attributes() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 10,
+            reflexes: 10,
+            aerial: 10,
+        }
+    }
+
+    fn player(id: &str, team_id: Option<&str>, contract_end: Option<&str>) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            id.to_string(),
+            format!("Player {id}"),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            Position::CentralMidfielder,
+            attributes(),
+        );
+        player.team_id = team_id.map(str::to_string);
+        player.contract_end = contract_end.map(str::to_string);
+        player.wage = 100_000;
+        player.market_value = 2_000_000;
+        player
+    }
+
+    fn team(id: &str) -> Team {
+        let mut team = Team::new(
+            id.to_string(),
+            format!("Team {id}"),
+            id.to_uppercase(),
+            "England".to_string(),
+            "Testville".to_string(),
+            "Test Ground".to_string(),
+            20_000,
+        );
+        team.finance = 10_000_000;
+        team.wage_budget = 5_000_000;
+        team
+    }
+
+    fn game() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "manager".to_string(),
+            "User".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("user".to_string());
+        Game::new(
+            clock,
+            manager,
+            vec![team("user"), team("ai")],
+            vec![player("ai-player", Some("ai"), Some("2027-03-01"))],
+            vec![],
+            vec![],
+        )
+    }
+
+    #[test]
+    fn ai_contract_renewals_extend_ai_contracts_before_expiry() {
+        let mut game = game();
+
+        process_ai_contract_renewals(&mut game);
+
+        let player = game.players.iter().find(|player| player.id == "ai-player").unwrap();
+        assert_eq!(player.team_id.as_deref(), Some("ai"));
+        assert_eq!(player.contract_end.as_deref(), Some("2029-01-01"));
+    }
+
+    #[test]
+    fn process_contract_expiries_still_releases_expired_players() {
+        let mut game = game();
+        game.players[0].contract_end = Some("2026-12-31".to_string());
+
+        process_contract_expiries(&mut game);
+
+        assert!(game.players[0].team_id.is_none());
+        assert!(game.players[0].contract_end.is_none());
+    }
 }

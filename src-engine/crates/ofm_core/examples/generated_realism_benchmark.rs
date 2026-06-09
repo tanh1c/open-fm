@@ -8,15 +8,22 @@ use domain::stats::PlayerMatchStatsRecord;
 use ofm_core::clock::GameClock;
 use ofm_core::end_of_season::{is_season_complete, process_end_of_season};
 use ofm_core::game::Game;
-use ofm_core::generator::generate_world;
+use ofm_core::generator::{generate_fc26_world, generate_world};
 use ofm_core::schedule::generate_domestic_competitions_by_country;
 use ofm_core::turn::process_day_with_capture;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorldSource {
+    Generated,
+    Fc26,
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Args {
     worlds: u32,
     seasons: u32,
     max_days: u32,
+    world_source: WorldSource,
 }
 
 impl Default for Args {
@@ -25,6 +32,7 @@ impl Default for Args {
             worlds: 3,
             seasons: 3,
             max_days: 1500,
+            world_source: WorldSource::Generated,
         }
     }
 }
@@ -187,6 +195,13 @@ fn parse_args() -> Args {
             "--worlds" => raw.next().and_then(|value| value.parse().ok()),
             "--seasons" => raw.next().and_then(|value| value.parse().ok()),
             "--max-days" => raw.next().and_then(|value| value.parse().ok()),
+            "--world" => {
+                args.world_source = match raw.next().as_deref() {
+                    Some("fc26") | Some("real-fc26") => WorldSource::Fc26,
+                    _ => WorldSource::Generated,
+                };
+                None
+            }
             _ => None,
         };
 
@@ -203,8 +218,11 @@ fn parse_args() -> Args {
     args
 }
 
-fn make_game(world_index: u32) -> Game {
-    let (teams, players, staff) = generate_world(None);
+fn make_game(world_index: u32, world_source: WorldSource) -> Game {
+    let (teams, players, staff) = match world_source {
+        WorldSource::Generated => generate_world(None),
+        WorldSource::Fc26 => generate_fc26_world().expect("FC26 world should generate"),
+    };
     let user_team_id = teams
         .first()
         .map(|team| team.id.clone())
@@ -446,7 +464,7 @@ fn run_world(
     all_competition_peaks: &mut SeasonPeakTotals,
     tiers: &mut HashMap<u8, TierOvrTotals>,
 ) {
-    let mut game = make_game(world_index);
+    let mut game = make_game(world_index, args.world_source);
     collect_attributes(&game, attrs);
     collect_tier_ovr_spread(&game, tiers);
 
@@ -600,7 +618,11 @@ fn main() {
     }
 
     let pass_attempts = totals.passes_attempted;
-    println!("=== Generated-world realism benchmark ===");
+    let world_label = match args.world_source {
+        WorldSource::Generated => "Generated-world",
+        WorldSource::Fc26 => "FC26 Real World",
+    };
+    println!("=== {world_label} realism benchmark ===");
     println!("worlds: {}", args.worlds);
     println!("target seasons/world: {}", args.seasons);
     println!("matches: {}", totals.matches);

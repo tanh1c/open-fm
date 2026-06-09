@@ -543,6 +543,29 @@ fn capped_positive_recovery(delta: i16, player: &domain::player::Player) -> i16 
     delta
 }
 
+fn realistic_morale_delta(current_morale: u8, delta: i16) -> i16 {
+    if delta <= 0 {
+        if current_morale >= 90 {
+            return ((delta as f32) * 1.2).round() as i16;
+        }
+        return delta;
+    }
+
+    if current_morale >= 95 {
+        0
+    } else if current_morale >= 90 {
+        (delta / 3).max(0)
+    } else if current_morale >= 80 {
+        (delta / 2).max(1)
+    } else {
+        delta
+    }
+}
+
+fn apply_realistic_morale_delta(current_morale: u8, delta: i16) -> u8 {
+    (i16::from(current_morale) + realistic_morale_delta(current_morale, delta)).clamp(10, 96) as u8
+}
+
 /// Update player morale based on match result and individual performance.
 fn update_post_match_morale(
     game: &mut Game,
@@ -599,8 +622,7 @@ fn update_post_match_morale(
         }
 
         let total_delta = capped_positive_recovery(result_delta + individual_delta, player);
-        let new_morale = (base_morale + total_delta).clamp(10, 100) as u8;
-        player.morale = new_morale;
+        player.morale = apply_realistic_morale_delta(base_morale as u8, total_delta);
     }
 }
 
@@ -692,9 +714,8 @@ fn update_team_form(
             if streak_delta != 0 {
                 for player in game.players.iter_mut() {
                     if player.team_id.as_deref() == Some(team_id_str) {
-                        let base = player.morale as i16;
                         let adjusted_delta = capped_positive_recovery(streak_delta, player);
-                        player.morale = (base + adjusted_delta).clamp(10, 100) as u8;
+                        player.morale = apply_realistic_morale_delta(player.morale, adjusted_delta);
                     }
                 }
             }
@@ -716,10 +737,18 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str, report: &engine::MatchR
             let minutes_factor = minutes as f64 / 90.0;
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
             let fitness_factor = player.fitness as f64 / 100.0;
+            let is_goalkeeper = matches!(player.position, DomainPosition::Goalkeeper);
             let base_depletion = 26.0 * (1.0 - stamina_factor * 0.35);
+            let position_modifier = if is_goalkeeper { 0.35 } else { 1.0 };
             let fitness_modifier = (1.12 - fitness_factor * 0.22).clamp(0.90, 1.12);
-            let minimum_depletion = if minutes >= 85 { 8.0 } else { 4.0 };
-            let depletion = (base_depletion * fitness_modifier * minutes_factor)
+            let minimum_depletion = if is_goalkeeper {
+                if minutes >= 85 { 3.0 } else { 1.0 }
+            } else if minutes >= 85 {
+                8.0
+            } else {
+                4.0
+            };
+            let depletion = (base_depletion * position_modifier * fitness_modifier * minutes_factor)
                 .round()
                 .max(minimum_depletion) as u8;
             player.condition = player.condition.saturating_sub(depletion);
@@ -788,4 +817,130 @@ fn deterministic_injury_seed(player_id: &str, minute: u8) -> u32 {
     player_id
         .bytes()
         .fold(minute as u32, |acc, byte| acc.wrapping_mul(31).wrapping_add(byte as u32))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clock::GameClock;
+    use chrono::TimeZone;
+    use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes};
+    use std::collections::HashMap;
+
+    fn attributes(stamina: u8) -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 60,
+            stamina,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 60,
+            reflexes: 60,
+            aerial: 60,
+        }
+    }
+
+    fn player(id: &str, position: DomainPosition) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            id.to_string(),
+            id.to_string(),
+            "2000-01-01".to_string(),
+            "GB".to_string(),
+            position,
+            attributes(60),
+        );
+        player.team_id = Some("team-1".to_string());
+        player.condition = 100;
+        player.fitness = 75;
+        player
+    }
+
+    fn game_with_players(players: Vec<Player>) -> Game {
+        let mut manager = Manager::new(
+            "manager-1".to_string(),
+            "Jane".to_string(),
+            "Doe".to_string(),
+            "1980-01-01".to_string(),
+            "GB".to_string(),
+        );
+        manager.hire("team-1".to_string());
+
+        Game::new(
+            GameClock::new(chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap()),
+            manager,
+            vec![],
+            players,
+            vec![],
+            vec![],
+        )
+    }
+
+    fn report_with_minutes(player_ids: &[&str], minutes: u8) -> engine::MatchReport {
+        let player_stats = player_ids
+            .iter()
+            .map(|player_id| {
+                (
+                    (*player_id).to_string(),
+                    engine::PlayerMatchStats {
+                        minutes_played: minutes,
+                        rating: 6.8,
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        engine::MatchReport {
+            home_goals: 0,
+            away_goals: 0,
+            home_stats: engine::TeamStats::default(),
+            away_stats: engine::TeamStats::default(),
+            events: vec![],
+            goals: vec![],
+            player_stats,
+            home_possession: 50.0,
+            total_minutes: 90,
+        }
+    }
+
+    #[test]
+    fn realistic_morale_delta_soft_caps_high_morale() {
+        assert_eq!(apply_realistic_morale_delta(95, 8), 95);
+        assert_eq!(apply_realistic_morale_delta(93, 8), 95);
+        assert_eq!(apply_realistic_morale_delta(82, 8), 86);
+        assert_eq!(apply_realistic_morale_delta(94, 12), 96);
+    }
+
+    #[test]
+    fn goalkeeper_condition_depletes_less_than_outfield_player() {
+        let mut game = game_with_players(vec![
+            player("gk-1", DomainPosition::Goalkeeper),
+            player("cb-1", DomainPosition::CenterBack),
+        ]);
+        let report = report_with_minutes(&["gk-1", "cb-1"], 90);
+
+        deplete_match_stamina(&mut game, "team-1", &report);
+
+        let goalkeeper = game.players.iter().find(|player| player.id == "gk-1").unwrap();
+        let outfielder = game.players.iter().find(|player| player.id == "cb-1").unwrap();
+        let goalkeeper_depletion = 100 - goalkeeper.condition;
+        let outfielder_depletion = 100 - outfielder.condition;
+
+        assert!(goalkeeper_depletion <= 8);
+        assert!(outfielder_depletion >= 18);
+        assert!(goalkeeper_depletion < outfielder_depletion);
+    }
 }

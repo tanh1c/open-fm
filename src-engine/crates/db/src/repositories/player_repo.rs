@@ -19,8 +19,8 @@ const UPSERT_PLAYER_SQL: &str = "INSERT OR REPLACE INTO players
           contract_end, wage, market_value, stats, career,
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
-          ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent, squad_number, squad_tier)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38)";
+          ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent, squad_number, squad_tier, position_ratings)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39)";
 
 /// Bind a player to an already-prepared upsert statement and execute it.
 /// Reusing one prepared statement across the whole roster avoids re-parsing the
@@ -41,6 +41,8 @@ fn upsert_player_with_stmt(stmt: &mut rusqlite::CachedStatement, p: &Player) -> 
     let offers_json = serde_json::to_string(&p.transfer_offers)
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let morale_core_json = serde_json::to_string(&p.morale_core)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let position_ratings_json = serde_json::to_string(&p.position_ratings)
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let position_str = format!("{:?}", p.position);
     let natural_position_str = format!("{:?}", p.natural_position);
@@ -89,6 +91,7 @@ fn upsert_player_with_stmt(stmt: &mut rusqlite::CachedStatement, p: &Player) -> 
             p.loan_wage_share_percent.map(i64::from),
             p.squad_number.map(i64::from),
             format!("{:?}", p.squad_tier),
+            position_ratings_json,
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -203,7 +206,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
                     natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
-                    ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent, squad_number, squad_tier
+                    ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent, squad_number, squad_tier, position_ratings
              FROM players",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -228,7 +231,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
                     natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
-                    ovr, potential
+                    ovr, potential, shortlisted, loan_parent_team_id, loan_until, loan_wage_share_percent, squad_number, squad_tier, position_ratings
              FROM players WHERE team_id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -272,6 +275,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         .unwrap_or(None)
         .map(|value| value.clamp(1, 99) as u8);
     let squad_tier_str: String = row.get(37).unwrap_or_else(|_| "Substitute".to_string());
+    let position_ratings_json: Option<String> = row.get(38).unwrap_or(None);
     let transfer_listed_int: i32 = row.get(19)?;
     let loan_listed_int: i32 = row.get(20)?;
     let market_value_i64: i64 = row.get(16)?;
@@ -328,6 +332,10 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         traits: serde_json::from_str(&traits_json).unwrap_or_default(),
         ovr,
         potential,
+        position_ratings: position_ratings_json
+            .as_deref()
+            .and_then(|json| serde_json::from_str(json).ok())
+            .unwrap_or_default(),
         contract_end: row.get(14)?,
         wage: row.get(15)?,
         market_value: market_value_i64 as u64,
@@ -453,6 +461,24 @@ mod tests {
 
         assert_eq!(stored.ovr, 78);
         assert_eq!(stored.potential, 85);
+    }
+
+    #[test]
+    fn test_player_position_ratings_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-position-ratings", Some("team-001"));
+        player.position_ratings.insert(Position::CenterBack, 82);
+        player.position_ratings.insert(Position::Striker, 58);
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+        let stored = loaded
+            .iter()
+            .find(|candidate| candidate.id == "p-position-ratings")
+            .expect("stored player should exist");
+
+        assert_eq!(stored.position_ratings.get(&Position::CenterBack), Some(&82));
+        assert_eq!(stored.position_ratings.get(&Position::Striker), Some(&58));
     }
 
     #[test]

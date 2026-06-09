@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 
-import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
+import type { GameStateData, PlayerData, PlayerSeasonStats, TeamData } from "../../store/gameStore";
 
 export interface TeamProfileProps {
   team: TeamData;
@@ -23,6 +23,8 @@ export interface TeamProfileViewModel {
   leaguePos: number;
   standings: LeagueStanding | null;
 }
+
+export type TeamRosterStatsByPlayerId = Record<string, PlayerSeasonStats>;
 
 export interface TeamStatsOverview {
   matchesPlayed: number;

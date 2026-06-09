@@ -208,6 +208,62 @@ describe("TeamsListTab", () => {
     expect(screen.getByText("Your Team")).toBeInTheDocument();
   });
 
+  it("shows points for teams in domestic leagues outside the selected country", () => {
+    const gameState = createGameState();
+    gameState.teams.push(createTeam({
+      id: "team-3",
+      name: "Gamma CF",
+      short_name: "GAM",
+      country: "ES",
+      city: "Madrid",
+      manager_id: "manager-3",
+    }));
+    gameState.players.push(createPlayer({ id: "player-4", team_id: "team-3" }));
+    gameState.competitions = [
+      {
+        id: "england-league",
+        name: "England League",
+        season: 1,
+        kind: "DomesticLeague",
+        format: "RoundRobin",
+        country: "GB",
+        tier: 1,
+        team_ids: ["team-1", "team-2"],
+        fixtures: [],
+        standings: gameState.league?.standings ?? [],
+      },
+      {
+        id: "spain-league",
+        name: "Spain League",
+        season: 1,
+        kind: "DomesticLeague",
+        format: "RoundRobin",
+        country: "ES",
+        tier: 1,
+        team_ids: ["team-3"],
+        fixtures: [],
+        standings: [
+          {
+            team_id: "team-3",
+            played: 2,
+            won: 2,
+            drawn: 0,
+            lost: 0,
+            goals_for: 5,
+            goals_against: 1,
+            points: 6,
+          },
+        ],
+      },
+    ];
+
+    render(<TeamsListTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    const row = screen.getByText("Gamma CF").closest("tr");
+    expect(row).toHaveTextContent("6");
+    expect(row).toHaveTextContent("+4 GD");
+  });
+
   it("selects a team when its card is clicked", () => {
     const onSelectTeam = vi.fn();
 

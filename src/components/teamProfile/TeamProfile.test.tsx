@@ -297,6 +297,81 @@ describe("TeamProfile", () => {
     });
   });
 
+  it("shows backend aggregated squad stats for players outside the active league", async () => {
+    const team = createTeam({ id: "real-madrid", name: "Real Madrid" });
+    const player = createPlayer({
+      id: "bellingham",
+      full_name: "Jude Bellingham",
+      team_id: "real-madrid",
+      stats: {
+        appearances: 0,
+        goals: 0,
+        assists: 0,
+        clean_sheets: 0,
+        yellow_cards: 0,
+        red_cards: 0,
+        avg_rating: 0,
+        minutes_played: 0,
+      },
+    });
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, string>) => {
+      if (command === "get_player_stats_overview" && args?.playerId === "bellingham") {
+        return {
+          percentileEligible: false,
+          seasonTotals: {
+            appearances: 18,
+            goals: 5,
+            assists: 6,
+            cleanSheets: 0,
+            yellowCards: 2,
+            redCards: 0,
+            avgRating: 7.4,
+            minutesPlayed: 1510,
+            shots: 42,
+            shotsOnTarget: 18,
+            passesCompleted: 820,
+            passesAttempted: 940,
+            tacklesWon: 31,
+            interceptions: 22,
+            foulsCommitted: 14,
+          },
+          metrics: {
+            shots: { total: 42, per90: 2.5, percentile: null },
+            shotsOnTarget: { total: 18, per90: 1.1, percentile: null },
+            passes: { completed: 820, attempted: 940, accuracy: 87.2, percentile: null },
+            tacklesWon: { total: 31, per90: 1.8, percentile: null },
+            interceptions: { total: 22, per90: 1.3, percentile: null },
+            foulsCommitted: { total: 14, per90: 0.8, percentile: null },
+          },
+        };
+      }
+
+      return null;
+    });
+
+    render(
+      <TeamProfile
+        team={team}
+        gameState={{ ...createGameState(team), players: [player] }}
+        isOwnTeam={false}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Squad" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_player_stats_overview", {
+        playerId: "bellingham",
+      });
+      const row = screen.getByTestId("team-profile-roster-bellingham");
+      expect(row).toHaveTextContent("18");
+      expect(row).toHaveTextContent("5");
+      expect(row).toHaveTextContent("6");
+      expect(row).toHaveTextContent("7.4");
+    });
+  });
+
   it("loads and renders recent team match history from the backend", async () => {
     const team = createTeam();
     vi.mocked(invoke).mockImplementation(async (command: string) => {

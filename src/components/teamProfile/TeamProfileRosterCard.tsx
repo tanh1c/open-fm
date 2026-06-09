@@ -5,7 +5,7 @@ import {
   getPlayerOvr,
   positionBadgeVariant,
 } from "../../lib/helpers";
-import type { PlayerData } from "../../store/gameStore";
+import type { PlayerData, PlayerSeasonStats } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
 import { buildViewProfileMenuItem } from "../playerActions/playerContextMenuItems";
 import { Badge, Card, CardBody, CardHeader, CountryFlag, ProgressBar } from "../ui";
@@ -16,6 +16,7 @@ interface TeamProfileRosterCardProps {
   roster: PlayerData[];
   locale: string;
   t: TeamProfileTranslate;
+  rosterStatsByPlayerId?: Record<string, PlayerSeasonStats>;
   onSelectPlayer?: (id: string) => void;
 }
 
@@ -78,6 +79,7 @@ export default function TeamProfileRosterCard({
   roster,
   locale,
   t,
+  rosterStatsByPlayerId = {},
   onSelectPlayer,
 }: TeamProfileRosterCardProps) {
   return (
@@ -113,6 +115,7 @@ export default function TeamProfileRosterCard({
               {roster.map((player, index) => {
                 const ovr = getPlayerOvr(player);
                 const age = calcAge(player.date_of_birth);
+                const stats = rosterStatsByPlayerId[player.id] ?? player.stats;
                 const contextItems = onSelectPlayer
                   ? [buildViewProfileMenuItem(t, () => onSelectPlayer(player.id))]
                   : [];
@@ -193,16 +196,16 @@ export default function TeamProfileRosterCard({
                       {formatVal(player.market_value)}
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums text-app-text">
-                      {player.stats.appearances ?? 0}
+                      {stats.appearances ?? 0}
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums text-app-text">
-                      {player.stats.goals ?? 0}
+                      {stats.goals ?? 0}
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums text-app-text">
-                      {player.stats.assists ?? 0}
+                      {stats.assists ?? 0}
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums text-app-text">
-                      {formatRating(player.stats.avg_rating)}
+                      {formatRating(stats.avg_rating)}
                     </td>
                     <td className="px-3 py-3 text-xs font-semibold text-app-text-muted">
                       {playerStatus(player, t)}

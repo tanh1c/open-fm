@@ -104,10 +104,19 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
   },
 };
 
+function nationalityAliasKey(value: string): string {
+  return value
+    .trim()
+    .replace(/[ıİ]/g, "i")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
 const ALIAS_TO_CODE = Object.values(FOOTBALL_IDENTITIES).reduce<Record<string, string>>(
   (map, identity) => {
     for (const alias of identity.aliases) {
-      map[alias] = identity.code;
+      map[nationalityAliasKey(alias)] = identity.code;
     }
     return map;
   },
@@ -115,16 +124,30 @@ const ALIAS_TO_CODE = Object.values(FOOTBALL_IDENTITIES).reduce<Record<string, s
     belgium: "BE",
     brazil: "BR",
     british: "GB",
+    "cote d'ivoire": "CI",
+    "cote divoire": "CI",
+    "czech republic": "CZ",
+    czechia: "CZ",
     england: "ENG",
     france: "FR",
     germany: "DE",
+    "great britain": "GB",
     italy: "IT",
+    "ivory coast": "CI",
+    "korea dpr": "KP",
+    "korea republic": "KR",
     netherlands: "NL",
+    "north korea": "KP",
     portugal: "PT",
+    "south korea": "KR",
     spain: "ES",
+    turkey: "TR",
+    turkiye: "TR",
     uk: "GB",
     "united kingdom": "GB",
-    "great britain": "GB",
+    "united states": "US",
+    "united states of america": "US",
+    usa: "US",
   },
 );
 
@@ -287,7 +310,7 @@ export function normaliseNationality(value: string): string {
   if (getFootballIdentity(upper)) return upper;
   // Already a valid 2-letter code?
   if (upper.length === 2 && countries.isValid(upper)) return upper;
-  const alias = ALIAS_TO_CODE[value.trim().toLowerCase()];
+  const alias = ALIAS_TO_CODE[nationalityAliasKey(value)];
   if (alias) return alias;
   // Try demonym map
   return DEMONYM_TO_CODE[value] ?? value;

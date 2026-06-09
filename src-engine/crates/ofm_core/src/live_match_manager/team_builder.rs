@@ -73,8 +73,9 @@ fn build_team_with_bench_for_side(
                 continue;
             };
 
+                let slot_position = domain_position_for_tactic_slot(&slot.role);
                 used_ids.insert(player.id.clone());
-                let mut engine_player = to_engine_player(player);
+                let mut engine_player = to_engine_player_for_slot(player, &slot_position);
                 engine_player.position = to_engine_position_for_tactic_slot(&slot.role);
                 starting_xi.push(engine_player);
             }
@@ -99,7 +100,7 @@ fn build_team_with_bench_for_side(
             };
 
             used_ids.insert(player.id.clone());
-            starting_xi.push(to_engine_player(player));
+            starting_xi.push(to_engine_player_for_slot(player, slot));
             if starting_xi.len() == 11 {
                 break;
             }
@@ -372,6 +373,24 @@ fn to_engine_position_for_tactic_slot(role: &str) -> Position {
         "FWD" => Position::Forward,
         _ => Position::Midfielder,
     }
+}
+
+fn domain_position_for_tactic_slot(role: &str) -> DomainPosition {
+    match role {
+        "GK" => DomainPosition::Goalkeeper,
+        "DEF" => DomainPosition::Defender,
+        "FWD" => DomainPosition::Forward,
+        _ => DomainPosition::Midfielder,
+    }
+}
+
+fn to_engine_player_for_slot(p: &domain::player::Player, slot: &DomainPosition) -> PlayerData {
+    let mut player = to_engine_player(p);
+    let condition = (p.condition as f64 / 100.0).max(0.01);
+    player.ovr = (effective_rating_for_assignment(p, slot) / condition)
+        .round()
+        .clamp(1.0, 99.0) as u8;
+    player
 }
 
 fn to_engine_player(p: &domain::player::Player) -> PlayerData {

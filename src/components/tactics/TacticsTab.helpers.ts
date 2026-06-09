@@ -1,4 +1,4 @@
-import { calcAge, getPlayerOvr } from "../../lib/helpers";
+import { calcAge, getPlayerOvr, getPlayerOvrForPosition } from "../../lib/helpers";
 import { isSeniorSquadPlayer } from "../../lib/playerSquad";
 import type { CustomTacticSlotData, PlayerData } from "../../store/gameStore";
 import {
@@ -131,14 +131,36 @@ export const PRESET_GRID_SLOT_IDS: Record<string, string[]> = {
   "4-1-4-1": ["gk", "lb", "lcb", "rcb", "rb", "dm", "lm", "lcm", "rcm", "rm", "st"],
 };
 
+const GRID_SLOT_POSITION_MAP: Record<string, string> = {
+  gk: "Goalkeeper",
+  lb: "LeftBack",
+  lcb: "CenterBack",
+  cb: "CenterBack",
+  rcb: "CenterBack",
+  rb: "RightBack",
+  ldm: "DefensiveMidfielder",
+  dm: "DefensiveMidfielder",
+  rdm: "DefensiveMidfielder",
+  lm: "LeftMidfielder",
+  lcm: "CentralMidfielder",
+  cm: "CentralMidfielder",
+  rcm: "CentralMidfielder",
+  rm: "RightMidfielder",
+  lw: "LeftWinger",
+  lam: "AttackingMidfielder",
+  am: "AttackingMidfielder",
+  ram: "AttackingMidfielder",
+  rw: "RightWinger",
+  ls: "Striker",
+  st: "Striker",
+  rs: "Striker",
+};
+
 export function mapGridSlotToPosition(slotId: string): string {
   const slot = GRID_TACTIC_SLOTS.find((candidate) => candidate.id === slotId);
 
   if (!slot) return "Midfielder";
-  if (slot.role === "GK") return "Goalkeeper";
-  if (slot.role === "DEF") return "Defender";
-  if (slot.role === "FWD") return "Forward";
-  return "Midfielder";
+  return GRID_SLOT_POSITION_MAP[slot.id] ?? "Midfielder";
 }
 
 export function deriveFormationFromGridAssignments(assignments: GridTacticAssignment[]): string {
@@ -372,7 +394,7 @@ function comparePlayersForSlot(
     Number(isPlayerOutOfPosition(rightPlayer, slotPosition)) ||
     Number(!isPlayerExactForSlot(leftPlayer, slotPosition)) -
     Number(!isPlayerExactForSlot(rightPlayer, slotPosition)) ||
-    getPlayerOvr(rightPlayer) - getPlayerOvr(leftPlayer) ||
+    getPlayerOvrForPosition(rightPlayer, slotPosition) - getPlayerOvrForPosition(leftPlayer, slotPosition) ||
     rightPlayer.condition - leftPlayer.condition ||
     leftPlayer.full_name.localeCompare(rightPlayer.full_name)
   );
@@ -451,13 +473,15 @@ export function sortTacticsPlayers(
   const sortedPlayers = [...players].sort((leftPlayer, rightPlayer) => {
     const leftPosition = getSectionPlayerPosition(leftPlayer, section, xiActivePosition);
     const rightPosition = getSectionPlayerPosition(rightPlayer, section, xiActivePosition);
+    const leftOvr = section === "xi" ? getPlayerOvrForPosition(leftPlayer, leftPosition) : getPlayerOvr(leftPlayer);
+    const rightOvr = section === "xi" ? getPlayerOvrForPosition(rightPlayer, rightPosition) : getPlayerOvr(rightPlayer);
 
     switch (sortKey) {
       case "pos":
         return (
           (POSITION_ORDER[normalisePosition(leftPosition)] ?? 99) -
           (POSITION_ORDER[normalisePosition(rightPosition)] ?? 99) ||
-          getPlayerOvr(rightPlayer) - getPlayerOvr(leftPlayer)
+          rightOvr - leftOvr
         );
       case "name":
         return leftPlayer.full_name.localeCompare(rightPlayer.full_name);
@@ -468,7 +492,7 @@ export function sortTacticsPlayers(
       case "morale":
         return leftPlayer.morale - rightPlayer.morale;
       case "ovr":
-        return getPlayerOvr(leftPlayer) - getPlayerOvr(rightPlayer);
+        return leftOvr - rightOvr;
       default:
         return 0;
     }

@@ -13,6 +13,9 @@ use uuid::Uuid;
 
 const TRANSFER_NEGOTIATION_STALE_DAYS: i64 = 14;
 const MAX_COMPLETED_AI_TRANSFERS_PER_DAY: usize = 2;
+const MAX_AI_FREE_AGENT_SIGNINGS_PER_TICK: usize = 4;
+const MIN_AI_SQUAD_SIZE: usize = 23;
+const TARGET_AI_SQUAD_SIZE: usize = 25;
 const TRANSFER_MARKET_EVALUATION_INTERVAL_DAYS: i64 = 3;
 const TRANSFER_MARKET_BUYERS_PER_TICK: usize = 8;
 const ERR_TRANSFER_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
@@ -402,6 +405,84 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
 
 pub fn process_transfer_market_tick(game: &mut Game) {
     evaluate_transfer_market_internal(game, true);
+    process_ai_free_agent_signings(game);
+}
+
+fn process_ai_free_agent_signings(game: &mut Game) {
+    if !transfer_window_is_open(game) || !should_evaluate_transfer_market(game) {
+        return;
+    }
+
+    let user_team_id = game.manager.team_id.clone();
+    let current_date = game.clock.current_date.date_naive();
+    let mut signings = 0_usize;
+    let mut team_ids: Vec<String> = game
+        .teams
+        .iter()
+        .filter(|team| Some(team.id.as_str()) != user_team_id.as_deref())
+        .filter(|team| {
+            game.players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
+                .count()
+                < TARGET_AI_SQUAD_SIZE
+        })
+        .map(|team| team.id.clone())
+        .collect();
+    team_ids.sort();
+
+    for team_id in team_ids {
+        if signings >= MAX_AI_FREE_AGENT_SIGNINGS_PER_TICK {
+            break;
+        }
+
+        let squad_size = game
+            .players
+            .iter()
+            .filter(|player| player.team_id.as_deref() == Some(team_id.as_str()))
+            .count();
+        if squad_size >= TARGET_AI_SQUAD_SIZE {
+            continue;
+        }
+
+        let Some(team) = game.teams.iter().find(|team| team.id == team_id).cloned() else {
+            continue;
+        };
+        let allow_depth_signing = squad_size < MIN_AI_SQUAD_SIZE;
+        let Some((player_index, expected_wage, expected_years)) = game
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(_, player)| player.team_id.is_none() && !player.id.is_empty())
+            .filter_map(|(index, player)| {
+                let expected_wage = expected_wage(player, &team, current_date);
+                let expected_years = expected_contract_years(player, current_date);
+                let annual_wage = i64::from(expected_wage);
+                if team.finance < annual_wage || team.wage_budget < annual_wage {
+                    return None;
+                }
+                if !allow_depth_signing && player.market_value < 250_000 {
+                    return None;
+                }
+                Some((index, expected_wage, expected_years, player.market_value))
+            })
+            .max_by_key(|(_, _, _, market_value)| *market_value)
+            .map(|(index, expected_wage, expected_years, _)| (index, expected_wage, expected_years))
+        else {
+            continue;
+        };
+
+        let Some(contract_end) = current_date.checked_add_months(Months::new(expected_years * 12)) else {
+            continue;
+        };
+        let player = &mut game.players[player_index];
+        player.team_id = Some(team_id);
+        player.wage = expected_wage;
+        player.contract_end = Some(contract_end.format("%Y-%m-%d").to_string());
+        player.shortlisted = false;
+        player.transfer_offers.clear();
+        signings += 1;
+    }
 }
 
 fn evaluate_transfer_market_internal(game: &mut Game, use_cadence: bool) {

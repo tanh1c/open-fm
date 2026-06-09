@@ -104,13 +104,15 @@ function competitionTierLabel(competition: CompetitionOption): string {
 
 function CompetitionLogo({ competition, className = "h-6 w-6" }: { competition: CompetitionOption; className?: string }) {
   const logoUrl = getCompetitionLogoUrl({
-    name: getCompetitionDisplayName(competition),
+    name: "name" in competition ? competition.name : getCompetitionDisplayName(competition),
     country: competitionCountryOf(competition),
     kind: competitionKindOf(competition),
   });
 
   return logoUrl ? (
-    <img src={logoUrl} alt="" aria-hidden="true" className={cx("shrink-0 object-contain", className)} />
+    <span className={cx("flex shrink-0 items-center justify-center rounded bg-white p-1 shadow-sm ring-1 ring-gray-200", className)}>
+      <img src={logoUrl} alt="" aria-hidden="true" className="h-full w-full object-contain" />
+    </span>
   ) : (
     <span className={cx("flex shrink-0 items-center justify-center rounded border border-app-border bg-app-bg text-app-text-muted", className)}>
       <Trophy className="h-3.5 w-3.5" />
@@ -706,12 +708,17 @@ export default function TournamentsTab({
       <div className="mt-2 flex h-[800px] flex-col gap-4 xl:h-[750px] xl:flex-row">
         <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 h-full">
           <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden bg-app-bg">
-            <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-4 py-3">
-              <div>
-                <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-green">{activeViewTitle}</h2>
-                <p className="mt-1 text-xs text-app-text-muted">{competitionLabel}</p>
+            <div className="flex items-center justify-between gap-3 border-b border-app-border/50 bg-app-card px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-app-border bg-app-bg p-1.5">
+                  <CompetitionLogo competition={selectedCompetition} className="h-7 w-7" />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="text-[10px] font-bold uppercase tracking-widest text-app-green">{activeViewTitle}</h2>
+                  <p className="mt-1 truncate text-xs text-app-text-muted">{competitionLabel}</p>
+                </div>
               </div>
-              <span className="rounded bg-app-green px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg">
+              <span className="shrink-0 rounded bg-app-green px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-bg">
                 {t("schedule.season", { number: selectedCompetition.season })}
               </span>
             </div>

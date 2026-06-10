@@ -682,19 +682,22 @@ fn apply_fast_competition_result(
     let away_attacking_events = synthetic_attacking_events(away_players, away_goals, seed.wrapping_add(211));
     let home_scorers = goal_events_from_attacking_events(&home_attacking_events);
     let away_scorers = goal_events_from_attacking_events(&away_attacking_events);
-    let report = synthetic_compact_report(
-        home_goals,
-        away_goals,
-        &home_attacking_events,
-        &away_attacking_events,
-        seed,
-    );
+    let keep_report = fixture.stage.is_some() || !fixture.counts_for_competition_standings();
+    let report = keep_report.then(|| {
+        synthetic_compact_report(
+            home_goals,
+            away_goals,
+            &home_attacking_events,
+            &away_attacking_events,
+            seed,
+        )
+    });
     fixture.result = Some(MatchResult {
         home_goals,
         away_goals,
         home_scorers,
         away_scorers,
-        report: Some(report),
+        report,
         winner_team_id: knockout_resolution.as_ref().map(|resolution| resolution.winner_team_id.clone()),
         resolution: knockout_resolution.as_ref().map(|resolution| resolution.resolution.clone()),
         home_penalties: knockout_resolution.as_ref().and_then(|resolution| resolution.home_penalties),

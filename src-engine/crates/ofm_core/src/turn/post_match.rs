@@ -25,6 +25,21 @@ fn compact_team_stats(stats: &engine::TeamStats, possession_pct: u8) -> CompactT
     }
 }
 
+fn should_keep_fixture_report(
+    game: &Game,
+    fixture: &domain::league::Fixture,
+    home_team_id: &str,
+    away_team_id: &str,
+) -> bool {
+    let is_user_match = game
+        .manager
+        .team_id
+        .as_deref()
+        .is_some_and(|team_id| team_id == home_team_id || team_id == away_team_id);
+
+    is_user_match || fixture.stage.is_some() || !fixture.counts_for_league_standings()
+}
+
 fn compact_match_report(report: &engine::MatchReport) -> CompactMatchReport {
     let home_possession_pct = report.home_possession.round().clamp(0.0, 100.0) as u8;
     let away_possession_pct = (100.0 - report.home_possession).round().clamp(0.0, 100.0) as u8;
@@ -112,12 +127,17 @@ pub fn apply_match_report_with_capture<F>(
         })
         .collect();
 
+    let keep_report = game.league.as_ref().is_some_and(|league| {
+        league.fixtures.get(fixture_index).is_some_and(|fixture| {
+            should_keep_fixture_report(game, fixture, home_team_id, away_team_id)
+        })
+    });
     let result = MatchResult {
         home_goals: report.home_goals,
         away_goals: report.away_goals,
         home_scorers,
         away_scorers,
-        report: Some(compact_match_report(report)),
+        report: keep_report.then(|| compact_match_report(report)),
         winner_team_id: None,
         resolution: None,
         home_penalties: None,
@@ -914,6 +934,84 @@ mod tests {
             home_possession: 50.0,
             total_minutes: 90,
         }
+    }
+
+    fn league_fixture(home_team_id: &str, away_team_id: &str) -> domain::league::Fixture {
+        domain::league::Fixture {
+            id: "fixture-1".to_string(),
+            home_team_id: home_team_id.to_string(),
+            away_team_id: away_team_id.to_string(),
+            competition: FixtureCompetition::League,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn ai_league_match_skips_compact_report_but_captures_stats() {
+        let mut game = game_with_players(vec![
+            player("home-1", DomainPosition::CenterBack),
+            player("away-1", DomainPosition::CenterBack),
+        ]);
+        game.manager.team_id = Some("user-team".to_string());
+        game.players[0].team_id = Some("home-team".to_string());
+        game.players[1].team_id = Some("away-team".to_string());
+        game.league = Some(domain::league::League {
+            id: "league-1".to_string(),
+            name: "League".to_string(),
+            season: 2026,
+            fixtures: vec![league_fixture("home-team", "away-team")],
+            standings: vec![],
+            transfer_log: vec![],
+        });
+        let report = report_with_minutes(&["home-1", "away-1"], 90);
+        let mut captures = Vec::new();
+
+        apply_match_report_with_capture(
+            &mut game,
+            0,
+            "home-team",
+            "away-team",
+            &report,
+            &mut |stats| captures.push(stats),
+        );
+
+        let result = game.league.as_ref().unwrap().fixtures[0].result.as_ref().unwrap();
+        assert!(result.report.is_none());
+        assert_eq!(captures.len(), 1);
+        assert_eq!(captures[0].player_matches.len(), 2);
+        assert_eq!(captures[0].team_matches.len(), 2);
+    }
+
+    #[test]
+    fn user_league_match_keeps_compact_report() {
+        let mut game = game_with_players(vec![
+            player("home-1", DomainPosition::CenterBack),
+            player("away-1", DomainPosition::CenterBack),
+        ]);
+        game.manager.team_id = Some("home-team".to_string());
+        game.players[0].team_id = Some("home-team".to_string());
+        game.players[1].team_id = Some("away-team".to_string());
+        game.league = Some(domain::league::League {
+            id: "league-1".to_string(),
+            name: "League".to_string(),
+            season: 2026,
+            fixtures: vec![league_fixture("home-team", "away-team")],
+            standings: vec![],
+            transfer_log: vec![],
+        });
+        let report = report_with_minutes(&["home-1", "away-1"], 90);
+
+        apply_match_report_with_capture(
+            &mut game,
+            0,
+            "home-team",
+            "away-team",
+            &report,
+            &mut |_| {},
+        );
+
+        let result = game.league.as_ref().unwrap().fixtures[0].result.as_ref().unwrap();
+        assert!(result.report.is_some());
     }
 
     #[test]

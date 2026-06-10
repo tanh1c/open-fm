@@ -167,6 +167,18 @@ export function deriveFormationFromGridAssignments(assignments: GridTacticAssign
   const assignedSlotIds = new Set(
     assignments.filter((assignment) => assignment.playerId).map((assignment) => assignment.slotId),
   );
+  const outfieldSlotIds = [...assignedSlotIds].filter((slotId) => slotId !== "gk").sort();
+
+  for (const [formation, presetSlotIds] of Object.entries(PRESET_GRID_SLOT_IDS)) {
+    const presetOutfieldSlotIds = presetSlotIds.filter((slotId) => slotId !== "gk").sort();
+    if (
+      outfieldSlotIds.length === presetOutfieldSlotIds.length &&
+      outfieldSlotIds.every((slotId, index) => slotId === presetOutfieldSlotIds[index])
+    ) {
+      return formation;
+    }
+  }
+
   let defenders = 0;
   let midfielders = 0;
   let forwards = 0;

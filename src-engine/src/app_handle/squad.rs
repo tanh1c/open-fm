@@ -154,6 +154,75 @@ fn to_domain_tactic_slot(slot: CustomTacticSlotInput) -> domain::team::CustomTac
 }
 
 fn formation_from_slots(slots: &[CustomTacticSlotInput]) -> String {
+    let has_assigned = |slot_id: &str| {
+        slots
+            .iter()
+            .any(|slot| slot.slot_id == slot_id && slot.player_id.is_some())
+    };
+    let assigned_slot_ids: std::collections::BTreeSet<String> = slots
+        .iter()
+        .filter(|slot| slot.player_id.is_some() && slot.slot_id != "gk")
+        .map(|slot| slot.slot_id.clone())
+        .collect();
+    let presets: [(&str, &[&str]); 8] = [
+        (
+            "4-4-2",
+            &[
+                "lb", "lcb", "rcb", "rb", "lm", "lcm", "rcm", "rm", "ls", "rs",
+            ],
+        ),
+        (
+            "4-3-3",
+            &[
+                "lb", "lcb", "rcb", "rb", "lcm", "cm", "rcm", "lw", "st", "rw",
+            ],
+        ),
+        (
+            "3-5-2",
+            &[
+                "lcb", "cb", "rcb", "lm", "ldm", "cm", "rdm", "rm", "ls", "rs",
+            ],
+        ),
+        (
+            "4-5-1",
+            &[
+                "lb", "lcb", "rcb", "rb", "lm", "ldm", "cm", "rdm", "rm", "st",
+            ],
+        ),
+        (
+            "4-2-3-1",
+            &[
+                "lb", "lcb", "rcb", "rb", "ldm", "rdm", "lam", "am", "ram", "st",
+            ],
+        ),
+        (
+            "3-4-3",
+            &[
+                "lcb", "cb", "rcb", "lm", "lcm", "rcm", "rm", "lw", "st", "rw",
+            ],
+        ),
+        (
+            "5-3-2",
+            &[
+                "lb", "lcb", "cb", "rcb", "rb", "lcm", "cm", "rcm", "ls", "rs",
+            ],
+        ),
+        (
+            "4-1-4-1",
+            &[
+                "lb", "lcb", "rcb", "rb", "dm", "lm", "lcm", "rcm", "rm", "st",
+            ],
+        ),
+    ];
+
+    for (formation, preset_slots) in presets {
+        if assigned_slot_ids.len() == preset_slots.len()
+            && preset_slots.iter().all(|slot_id| has_assigned(slot_id))
+        {
+            return formation.to_string();
+        }
+    }
+
     let defenders = slots
         .iter()
         .filter(|slot| slot.player_id.is_some() && slot.role == "DEF")

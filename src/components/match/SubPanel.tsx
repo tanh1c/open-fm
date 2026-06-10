@@ -659,7 +659,7 @@ function enginePlayerToPlayerData(enginePlayer: EnginePlayerData, fallback?: Pla
       position: fallback.position || enginePlayer.position,
       natural_position: fallback.natural_position || fallback.position || enginePlayer.position,
       condition: enginePlayer.condition,
-      ovr: enginePlayer.ovr,
+      ovr: fallback.ovr ?? enginePlayer.ovr,
       attributes: {
         ...fallback.attributes,
         pace: enginePlayer.pace,

@@ -25,7 +25,7 @@ fn build_team_with_bench_for_side(
     let (name, formation, play_style, form, tactical_familiarity) = match team {
         Some(t) => (
             t.name.clone(),
-            t.formation.clone(),
+            formation_from_custom_slots(t).unwrap_or_else(|| t.formation.clone()),
             match t.play_style {
                 domain::team::PlayStyle::Attacking => PlayStyle::Attacking,
                 domain::team::PlayStyle::Defensive => PlayStyle::Defensive,
@@ -166,6 +166,34 @@ fn rotation_readiness(player: &domain::player::Player) -> f64 {
     let stamina_mult = 0.92 + (stamina / 100.0) * 0.10;
 
     (condition_mult * fitness_mult * stamina_mult).clamp(0.42, 1.08)
+}
+
+fn formation_from_custom_slots(team: &domain::team::Team) -> Option<String> {
+    let assigned = |slot_id: &str| {
+        team.custom_tactic_slots
+            .iter()
+            .any(|slot| slot.slot_id == slot_id && slot.player_id.is_some())
+    };
+    let assigned_count = team
+        .custom_tactic_slots
+        .iter()
+        .filter(|slot| slot.player_id.is_some() && slot.slot_id != "gk")
+        .count();
+    let presets: [(&str, &[&str]); 8] = [
+        ("4-4-2", &["lb", "lcb", "rcb", "rb", "lm", "lcm", "rcm", "rm", "ls", "rs"]),
+        ("4-3-3", &["lb", "lcb", "rcb", "rb", "lcm", "cm", "rcm", "lw", "st", "rw"]),
+        ("3-5-2", &["lcb", "cb", "rcb", "lm", "ldm", "cm", "rdm", "rm", "ls", "rs"]),
+        ("4-5-1", &["lb", "lcb", "rcb", "rb", "lm", "ldm", "cm", "rdm", "rm", "st"]),
+        ("4-2-3-1", &["lb", "lcb", "rcb", "rb", "ldm", "rdm", "lam", "am", "ram", "st"]),
+        ("3-4-3", &["lcb", "cb", "rcb", "lm", "lcm", "rcm", "rm", "lw", "st", "rw"]),
+        ("5-3-2", &["lb", "lcb", "cb", "rcb", "rb", "lcm", "cm", "rcm", "ls", "rs"]),
+        ("4-1-4-1", &["lb", "lcb", "rcb", "rb", "dm", "lm", "lcm", "rcm", "rm", "st"]),
+    ];
+
+    presets
+        .into_iter()
+        .find(|(_, slot_ids)| assigned_count == slot_ids.len() && slot_ids.iter().all(|slot_id| assigned(slot_id)))
+        .map(|(formation, _)| formation.to_string())
 }
 
 fn shape_profile_from_formation(formation: &str) -> ShapeProfile {

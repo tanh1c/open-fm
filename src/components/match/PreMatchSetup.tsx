@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { FixtureData, GameStateData, PlayerData, TeamData } from "../../store/gameStore";
@@ -8,6 +8,7 @@ import PreMatchLineup, { parseFormationNeeds } from "./PreMatchLineup";
 import {
   buildGridAssignmentsFromFormation,
   buildGridAssignmentsFromSavedSlots,
+  deriveFormationFromGridAssignments,
   GRID_TACTIC_SLOTS,
   mapGridSlotToPosition,
   PRESET_GRID_SLOT_IDS,
@@ -65,7 +66,7 @@ function enginePlayerToPlayerData(enginePlayer: EnginePlayerData, fallback?: Pla
       position: fallback.position || enginePlayer.position,
       natural_position: fallback.natural_position || fallback.position || enginePlayer.position,
       condition: enginePlayer.condition,
-      ovr: enginePlayer.ovr,
+      ovr: fallback.ovr ?? enginePlayer.ovr,
       attributes: {
         ...fallback.attributes,
         pace: enginePlayer.pace,
@@ -242,6 +243,21 @@ export default function PreMatchSetup({
   // Use snapshot bench data (updated after swaps)
   const userBench =
     userSide === "Home" ? snapshot.home_bench || [] : snapshot.away_bench || [];
+  const matchFormation = useMemo(() => {
+    const pool = [...userTeam.players, ...userBench];
+    const availablePlayerIds = new Set(pool.map((player) => player.id));
+    const fallbackAssignments = buildGridAssignmentsFromFormation(
+      userTeam.formation,
+      userTeam.players.map((player) => player.id),
+    );
+    const assignments = buildGridAssignmentsFromSavedSlots(
+      userTeamData?.custom_tactic_slots,
+      fallbackAssignments,
+      availablePlayerIds,
+    );
+
+    return deriveFormationFromGridAssignments(assignments);
+  }, [userBench, userTeam.formation, userTeam.players, userTeamData?.custom_tactic_slots]);
 
   console.info("[PreMatchSetup] render", {
     activeTab,
@@ -318,13 +334,21 @@ export default function PreMatchSetup({
     }
   };
 
-  const formationNeeds = parseFormationNeeds(userTeam.formation);
+  const formationNeeds = parseFormationNeeds(matchFormation);
 
   const handleAssignmentsChange = async (assignments: GridTacticAssignment[]) => {
     try {
       await invoke<GameStateData>("set_tactic_slots", {
         slots: toBackendGridSlots(assignments),
       });
+
+      const nextFormation = deriveFormationFromGridAssignments(assignments);
+      if (nextFormation !== userTeam.formation) {
+        const snap = await invoke<MatchSnapshot>("apply_match_command", {
+          command: { ChangeFormation: { side: userSide, formation: nextFormation } },
+        });
+        onUpdateSnapshot(snap);
+      }
     } catch (err) {
       console.error("Failed to persist matchday tactic slots:", err);
     }
@@ -334,7 +358,7 @@ export default function PreMatchSetup({
     const pool = [...userTeam.players, ...userBench];
     const availablePlayerIds = new Set(pool.map((player) => player.id));
     const fallbackAssignments = buildGridAssignmentsFromFormation(
-      userTeam.formation,
+      matchFormation,
       userTeam.players.map((player) => player.id),
     );
     return buildGridAssignmentsFromSavedSlots(
@@ -352,7 +376,7 @@ export default function PreMatchSetup({
       const pool = enginePool.map((player) => enginePlayerToPlayerData(player, squadById.get(player.id)));
       const availablePlayerIds = new Set(pool.map((player) => player.id));
       const baseAssignments = buildGridAssignmentsFromFormation(
-        userTeam.formation,
+        matchFormation,
         userTeam.players.map((player) => player.id),
       );
       const savedAssignments = buildGridAssignmentsFromSavedSlots(
@@ -367,7 +391,7 @@ export default function PreMatchSetup({
         return { ...existing };
       });
 
-      const activeSlotIds = PRESET_GRID_SLOT_IDS[userTeam.formation] ?? PRESET_GRID_SLOT_IDS["4-4-2"];
+      const activeSlotIds = PRESET_GRID_SLOT_IDS[matchFormation] ?? PRESET_GRID_SLOT_IDS["4-4-2"];
       const takenIds = new Set<string>();
       const nextAssignments = GRID_TACTIC_SLOTS.map((slot) => {
         const slotState = slotAssignments.find((assignment) => assignment.slotId === slot.id);
@@ -484,7 +508,7 @@ export default function PreMatchSetup({
               {t("match.matchDay")}
             </h3>
             <div className="space-y-2 text-xs text-app-text-muted">
-              <div className="flex justify-between gap-3"><span>{t("match.formation")}</span><span className="font-bold text-app-text">{userTeam.formation}</span></div>
+              <div className="flex justify-between gap-3"><span>{t("match.formation")}</span><span className="font-bold text-app-text">{matchFormation}</span></div>
               <div className="flex justify-between gap-3"><span>{t("match.playStyle")}</span><span className="font-bold text-app-text">{t(`common.playStyles.${userTeam.play_style}`)}</span></div>
               <div className="flex justify-between gap-3"><span>{t("match.subs")}</span><span className="font-bold text-app-text">{userBench.length}</span></div>
             </div>
@@ -545,7 +569,7 @@ export default function PreMatchSetup({
         {/* Lineup Tab */}
         {activeTab === "lineup" && (
           <PreMatchLineup
-            userTeam={userTeam}
+            userTeam={{ ...userTeam, formation: matchFormation }}
             userBench={userBench}
             oppTeam={oppTeam}
             userColor={userColor}
@@ -652,7 +676,7 @@ export default function PreMatchSetup({
                   <button
                     key={f}
                     onClick={() => handleFormationChange(f)}
-                    className={`rounded-lg border py-2.5 font-heading text-sm font-bold transition-all ${userTeam.formation === f
+                    className={`rounded-lg border py-2.5 font-heading text-sm font-bold transition-all ${matchFormation === f
                       ? "border-app-green/50 bg-app-green/15 text-app-green shadow-inner"
                       : "border-app-border bg-app-bg text-app-text-muted hover:border-app-green/40 hover:text-app-text"
                       }`}

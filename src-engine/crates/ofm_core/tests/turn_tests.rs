@@ -687,6 +687,41 @@ fn simulate_other_matches_records_ai_substitutions() {
 }
 
 #[test]
+fn simulate_other_matches_fast_sims_background_league_fixture() {
+    let mut game = make_game_with_match();
+    game.manager.team_id = Some("team3".to_string());
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let mut captures = Vec::new();
+
+    turn::simulate_other_matches_with_capture(&mut game, &today, None, &mut |stats| {
+        captures.push(stats)
+    });
+
+    let fixture = &game.league.as_ref().unwrap().fixtures[0];
+    let result = fixture.result.as_ref().expect("fixture should have result");
+    assert_eq!(fixture.status, FixtureStatus::Completed);
+    assert!(result.report.is_none());
+    assert!(!result.home_scorers.is_empty() || !result.away_scorers.is_empty());
+    assert_eq!(captures.len(), 1);
+    assert_eq!(captures[0].team_matches.len(), 2);
+    assert!(captures[0].player_matches.len() >= 22);
+    assert!(captures[0]
+        .player_matches
+        .iter()
+        .all(|record| record.season == 1));
+    assert_eq!(
+        game.league
+            .as_ref()
+            .unwrap()
+            .standings
+            .iter()
+            .map(|standing| standing.played)
+            .sum::<u32>(),
+        2
+    );
+}
+
+#[test]
 fn simulate_other_matches_skips_fixture() {
     let mut game = make_game_with_match();
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();

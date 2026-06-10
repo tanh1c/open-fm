@@ -1,4 +1,5 @@
 use chrono::Utc;
+use domain::league::{Competition, CompetitionFormat, CompetitionKind, League};
 use domain::player::Position;
 use domain::stats::StatsState;
 
@@ -27,7 +28,16 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
-        db.with_write_transaction(|conn| write_game_rows(conn, game, save_id, save_name))
+        db.with_write_transaction(|conn| write_game_rows(conn, game, save_id, save_name, false))
+    }
+
+    pub fn write_game_snapshot(
+        db: &GameDatabase,
+        game: &Game,
+        save_id: &str,
+        save_name: &str,
+    ) -> Result<(), String> {
+        db.with_write_transaction(|conn| write_game_rows(conn, game, save_id, save_name, true))
     }
 
     /// Write the full game snapshot and the match-stats history in a single
@@ -42,7 +52,7 @@ impl GamePersistenceWriter {
         save_name: &str,
     ) -> Result<(), String> {
         db.with_write_transaction(|conn| {
-            write_game_rows(conn, game, save_id, save_name)?;
+            write_game_rows(conn, game, save_id, save_name, false)?;
             stats_repo::upsert_stats_state(conn, stats)
         })
     }
@@ -53,6 +63,7 @@ fn write_game_rows(
     game: &Game,
     save_id: &str,
     save_name: &str,
+    replace_snapshot: bool,
 ) -> Result<(), String> {
         let now = Utc::now().to_rfc3339();
         let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
@@ -106,9 +117,19 @@ fn write_game_rows(
         news_repo::upsert_news_list(conn, &game.news)?;
 
         if let Some(ref league) = game.league {
-            league_repo::upsert_league(conn, league)?;
+            if replace_snapshot {
+                league_repo::upsert_league(conn, league)?;
+            } else {
+                league_repo::upsert_league_metadata(conn, league)?;
+            }
         }
-        league_repo::upsert_competitions(conn, &game.competitions)?;
+        let mut competitions = game.competitions.clone();
+        sync_legacy_league_into_competitions(&mut competitions, game.league.as_ref());
+        if replace_snapshot {
+            league_repo::upsert_competitions(conn, &competitions)?;
+        } else {
+            league_repo::upsert_competitions_incremental(conn, &competitions)?;
+        }
 
         let objective_rows: Vec<objective_repo::BoardObjectiveRow> = game
             .board_objectives
@@ -159,6 +180,54 @@ impl GamePersistenceWriter {
     pub fn write_stats_state(db: &GameDatabase, stats: &StatsState) -> Result<(), String> {
         stats_repo::upsert_stats_state(db.conn(), stats)
     }
+}
+
+fn sync_legacy_league_into_competitions(
+    competitions: &mut Vec<Competition>,
+    league: Option<&League>,
+) {
+    let Some(league) = league else {
+        return;
+    };
+
+    let synced_fixtures = league
+        .fixtures
+        .iter()
+        .cloned()
+        .map(|mut fixture| {
+            fixture.competition_id = Some(league.id.clone());
+            fixture.season = Some(league.season);
+            fixture
+        })
+        .collect();
+
+    if let Some(competition) = competitions
+        .iter_mut()
+        .find(|competition| competition.id == league.id)
+    {
+        competition.fixtures = synced_fixtures;
+        competition.standings = league.standings.clone();
+        competition.transfer_log = league.transfer_log.clone();
+        return;
+    }
+
+    competitions.push(Competition {
+        id: league.id.clone(),
+        name: league.name.clone(),
+        season: league.season,
+        kind: CompetitionKind::DomesticLeague,
+        format: CompetitionFormat::RoundRobin,
+        country: None,
+        tier: Some(1),
+        team_ids: league
+            .standings
+            .iter()
+            .map(|standing| standing.team_id.clone())
+            .collect(),
+        fixtures: synced_fixtures,
+        standings: league.standings.clone(),
+        transfer_log: league.transfer_log.clone(),
+    });
 }
 
 pub struct GamePersistenceReader;
@@ -226,8 +295,18 @@ impl GamePersistenceReader {
         let staff = staff_repo::load_all_staff(conn)?;
         let messages = message_repo::load_all_messages(conn)?;
         let news = news_repo::load_all_news(conn)?;
-        let league = league_repo::load_league(conn)?;
+        let mut league = league_repo::load_league(conn)?;
         let competitions = league_repo::load_competitions(conn)?;
+        if let Some(legacy_league) = league.as_ref() {
+            if legacy_league.fixtures.is_empty() {
+                if let Some(competition) = competitions
+                    .iter()
+                    .find(|competition| competition.id == legacy_league.id)
+                {
+                    league = Some(league_repo::load_league_from_competition(conn, competition)?);
+                }
+            }
+        }
 
         let objective_rows = objective_repo::load_all_objectives(conn)?;
         let board_objectives: Vec<BoardObjective> = objective_rows

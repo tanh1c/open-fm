@@ -277,6 +277,7 @@ impl SaveManager {
         let db = GameDatabase::open(&db_path)?;
         let mut game = GamePersistenceReader::read_game(&db)?;
         let mut needs_resave = false;
+        let mut needs_snapshot_resave = false;
         let manager_count_before = game.managers.len();
         let assigned_manager_count_before = game
             .teams
@@ -336,13 +337,18 @@ impl SaveManager {
             game.league.as_ref().map(|league| league.id.as_str()),
         )? {
             needs_resave = true;
+            needs_snapshot_resave = true;
         }
 
         drop(db);
 
         if needs_resave {
             let db = GameDatabase::open(&db_path)?;
-            GamePersistenceWriter::write_game(&db, &game, save_id, &save_name)?;
+            if needs_snapshot_resave {
+                GamePersistenceWriter::write_game_snapshot(&db, &game, save_id, &save_name)?;
+            } else {
+                GamePersistenceWriter::write_game(&db, &game, save_id, &save_name)?;
+            }
             drop(db);
 
             let now = Utc::now().to_rfc3339();

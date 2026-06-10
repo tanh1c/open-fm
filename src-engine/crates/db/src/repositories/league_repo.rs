@@ -2,7 +2,7 @@ use domain::league::{
     CompletedTransfer, Competition, CompetitionFormat, CompetitionKind, Fixture, FixtureCompetition,
     FixtureStatus, League, StandingEntry,
 };
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
 const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
@@ -113,6 +113,73 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     Ok(())
 }
 
+pub fn upsert_league_metadata(conn: &Connection, league: &League) -> Result<(), String> {
+    conn.execute("DELETE FROM league WHERE id != ?1", params![league.id])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO league (id, name, season) VALUES (?1, ?2, ?3)",
+        params![league.id, league.name, league.season],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    Ok(())
+}
+
+pub fn upsert_league_incremental(conn: &Connection, league: &League) -> Result<(), String> {
+    upsert_league_metadata(conn, league)?;
+
+    upsert_changed_fixtures(conn, &league.fixtures, &league.id, league.season, None)?;
+
+    {
+        let mut standing_stmt = conn
+            .prepare_cached(
+                "INSERT OR REPLACE INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        for s in &league.standings {
+            standing_stmt
+                .execute(params![
+                    league.id,
+                    s.team_id,
+                    s.played,
+                    s.won,
+                    s.drawn,
+                    s.lost,
+                    s.goals_for,
+                    s.goals_against,
+                    s.points,
+                ])
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
+    }
+
+    conn.execute(
+        "DELETE FROM transfer_log WHERE league_id = ?1",
+        params![league.id],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let mut transfer_stmt = conn
+        .prepare_cached(
+            "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    for transfer in &league.transfer_log {
+        transfer_stmt
+            .execute(params![
+                league.id,
+                transfer.date,
+                transfer.from_team_id,
+                transfer.to_team_id,
+                transfer.player_id,
+                transfer.fee as i64,
+            ])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    }
+
+    Ok(())
+}
+
 fn parse_fixture_status(s: &str) -> FixtureStatus {
     match s {
         "InProgress" => FixtureStatus::InProgress,
@@ -160,12 +227,216 @@ fn competition_fixture_value(competition: &Competition) -> FixtureCompetition {
     }
 }
 
+#[derive(PartialEq)]
+struct PersistedFixture {
+    id: String,
+    league_id: String,
+    matchday: u32,
+    date: String,
+    home_team_id: String,
+    away_team_id: String,
+    competition: String,
+    status: String,
+    result: Option<String>,
+    competition_id: String,
+    season: u32,
+    stage: Option<String>,
+    leg: Option<u8>,
+    tie_id: Option<String>,
+}
+
+fn persisted_fixture(
+    fixture: &Fixture,
+    league_id: &str,
+    season: u32,
+    fixture_competition: Option<&FixtureCompetition>,
+) -> PersistedFixture {
+    let competition = match (fixture.competition.clone(), fixture_competition) {
+        (FixtureCompetition::League, Some(value)) => format!("{:?}", value),
+        (value, _) => format!("{:?}", value),
+    };
+
+    PersistedFixture {
+        id: fixture.id.clone(),
+        league_id: league_id.to_string(),
+        matchday: fixture.matchday,
+        date: fixture.date.clone(),
+        home_team_id: fixture.home_team_id.clone(),
+        away_team_id: fixture.away_team_id.clone(),
+        competition,
+        status: format!("{:?}", fixture.status),
+        result: fixture
+            .result
+            .as_ref()
+            .map(|result| serde_json::to_string(result).unwrap_or_default()),
+        competition_id: fixture.competition_id.clone().unwrap_or_else(|| league_id.to_string()),
+        season: fixture.season.unwrap_or(season),
+        stage: fixture.stage.clone(),
+        leg: fixture.leg,
+        tie_id: fixture.tie_id.clone(),
+    }
+}
+
+fn upsert_all_fixtures(
+    conn: &Connection,
+    fixtures: &[Fixture],
+    league_id: &str,
+    season: u32,
+    fixture_competition: Option<FixtureCompetition>,
+) -> Result<(), String> {
+    let mut stmt = prepare_fixture_upsert(conn)?;
+    for fixture in fixtures {
+        execute_fixture_upsert(
+            &mut stmt,
+            &persisted_fixture(fixture, league_id, season, fixture_competition.as_ref()),
+        )?;
+    }
+    Ok(())
+}
+
+fn upsert_changed_fixtures(
+    conn: &Connection,
+    fixtures: &[Fixture],
+    league_id: &str,
+    season: u32,
+    fixture_competition: Option<FixtureCompetition>,
+) -> Result<(), String> {
+    let mut stmt = prepare_fixture_upsert(conn)?;
+    for fixture in fixtures {
+        let persisted = persisted_fixture(fixture, league_id, season, fixture_competition.as_ref());
+        if load_persisted_fixture(conn, &persisted.id)?.as_ref() != Some(&persisted) {
+            execute_fixture_upsert(&mut stmt, &persisted)?;
+        }
+    }
+    Ok(())
+}
+
+fn prepare_fixture_upsert(conn: &Connection) -> Result<rusqlite::CachedStatement<'_>, String> {
+    conn.prepare_cached(
+        "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
+}
+
+fn execute_fixture_upsert(
+    stmt: &mut rusqlite::CachedStatement<'_>,
+    fixture: &PersistedFixture,
+) -> Result<(), String> {
+    stmt.execute(params![
+        fixture.id,
+        fixture.league_id,
+        fixture.matchday,
+        fixture.date,
+        fixture.home_team_id,
+        fixture.away_team_id,
+        fixture.competition,
+        fixture.status,
+        fixture.result,
+        fixture.competition_id,
+        fixture.season,
+        fixture.stage,
+        fixture.leg,
+        fixture.tie_id,
+    ])
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    Ok(())
+}
+
+fn load_persisted_fixture(
+    conn: &Connection,
+    fixture_id: &str,
+) -> Result<Option<PersistedFixture>, String> {
+    conn.query_row(
+        "SELECT id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id
+         FROM fixtures WHERE id = ?1",
+        params![fixture_id],
+        |row| {
+            Ok(PersistedFixture {
+                id: row.get(0)?,
+                league_id: row.get(1)?,
+                matchday: row.get(2)?,
+                date: row.get(3)?,
+                home_team_id: row.get(4)?,
+                away_team_id: row.get(5)?,
+                competition: row.get(6)?,
+                status: row.get(7)?,
+                result: row.get(8)?,
+                competition_id: row.get(9)?,
+                season: row.get(10)?,
+                stage: row.get(11)?,
+                leg: row.get(12)?,
+                tie_id: row.get(13)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())
+}
+
 pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> Result<(), String> {
     conn.execute("DELETE FROM competitions", [])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     conn.execute("DELETE FROM competition_teams", [])
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
+    for competition in competitions {
+        delete_competition_detail_rows(conn, &competition.id)?;
+    }
+
+    upsert_competition_rows(conn, competitions)
+}
+
+pub fn upsert_competitions_incremental(
+    conn: &Connection,
+    competitions: &[Competition],
+) -> Result<(), String> {
+    for competition in competitions {
+        conn.execute(
+            "DELETE FROM transfer_log WHERE league_id = ?1",
+            params![competition.id],
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    }
+
+    upsert_competition_rows_incremental(conn, competitions)
+}
+
+fn delete_competition_detail_rows(conn: &Connection, competition_id: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM fixtures WHERE competition_id = ?1",
+        params![competition_id],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute(
+        "DELETE FROM standings WHERE league_id = ?1",
+        params![competition_id],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute(
+        "DELETE FROM transfer_log WHERE league_id = ?1",
+        params![competition_id],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    Ok(())
+}
+
+fn upsert_competition_rows(conn: &Connection, competitions: &[Competition]) -> Result<(), String> {
+    upsert_competition_rows_with_fixture_mode(conn, competitions, true)
+}
+
+fn upsert_competition_rows_incremental(
+    conn: &Connection,
+    competitions: &[Competition],
+) -> Result<(), String> {
+    upsert_competition_rows_with_fixture_mode(conn, competitions, false)
+}
+
+fn upsert_competition_rows_with_fixture_mode(
+    conn: &Connection,
+    competitions: &[Competition],
+    write_all_fixtures: bool,
+) -> Result<(), String> {
     let mut competition_stmt = conn
         .prepare_cached(
             "INSERT OR REPLACE INTO competitions (id, name, season, kind, format, country, tier)
@@ -175,12 +446,6 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
     let mut team_stmt = conn
         .prepare_cached(
             "INSERT OR REPLACE INTO competition_teams (competition_id, team_id) VALUES (?1, ?2)",
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    let mut fixture_stmt = conn
-        .prepare_cached(
-            "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         )
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let mut standing_stmt = conn
@@ -216,36 +481,22 @@ pub fn upsert_competitions(conn: &Connection, competitions: &[Competition]) -> R
         }
 
         let fixture_competition = competition_fixture_value(competition);
-        for fixture in &competition.fixtures {
-            let competition_str = format!("{:?}", fixture.competition);
-            let competition_str = if competition_str == "League" {
-                format!("{:?}", fixture_competition)
-            } else {
-                competition_str
-            };
-            let status_str = format!("{:?}", fixture.status);
-            let result_json = fixture
-                .result
-                .as_ref()
-                .map(|result| serde_json::to_string(result).unwrap_or_default());
-            fixture_stmt
-                .execute(params![
-                    fixture.id,
-                    competition.id,
-                    fixture.matchday,
-                    fixture.date,
-                    fixture.home_team_id,
-                    fixture.away_team_id,
-                    competition_str,
-                    status_str,
-                    result_json,
-                    fixture.competition_id.as_deref().unwrap_or(&competition.id),
-                    fixture.season.unwrap_or(competition.season),
-                    fixture.stage,
-                    fixture.leg,
-                    fixture.tie_id,
-                ])
-                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        if write_all_fixtures {
+            upsert_all_fixtures(
+                conn,
+                &competition.fixtures,
+                &competition.id,
+                competition.season,
+                Some(fixture_competition),
+            )?;
+        } else {
+            upsert_changed_fixtures(
+                conn,
+                &competition.fixtures,
+                &competition.id,
+                competition.season,
+                Some(fixture_competition),
+            )?;
         }
 
         for standing in &competition.standings {
@@ -400,6 +651,20 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
         standings,
         transfer_log,
     }))
+}
+
+pub fn load_league_from_competition(
+    conn: &Connection,
+    competition: &Competition,
+) -> Result<League, String> {
+    Ok(League {
+        id: competition.id.clone(),
+        name: competition.name.clone(),
+        season: competition.season,
+        fixtures: load_competition_fixtures(conn, &competition.id)?,
+        standings: load_competition_standings(conn, &competition.id)?,
+        transfer_log: load_competition_transfer_log(conn, &competition.id)?,
+    })
 }
 
 pub fn load_competitions(conn: &Connection) -> Result<Vec<Competition>, String> {
@@ -561,41 +826,15 @@ pub fn needs_cleanup(conn: &Connection, active_league_id: Option<&str>) -> Resul
         return Ok(true);
     }
 
-    let stale_fixture_count: i64 = conn
+    let active_league_count: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM fixtures WHERE league_id != ?1",
-            params![active_league_id],
-            |row| row.get(0),
-        )
-        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-    if stale_fixture_count > 0 {
-        return Ok(true);
-    }
-
-    let stale_standings_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM standings WHERE league_id != ?1",
-            params![active_league_id],
-            |row| row.get(0),
-        )
-        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-    if stale_standings_count > 0 {
-        return Ok(true);
-    }
-
-    let stale_transfer_log_count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM transfer_log WHERE league_id != ?1",
+            "SELECT COUNT(*) FROM league WHERE id = ?1",
             params![active_league_id],
             |row| row.get(0),
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
-    if stale_transfer_log_count > 0 {
-        return Ok(true);
-    }
-
-    Ok(false)
+    Ok(active_league_count != 1)
 }
 
 #[cfg(test)]
@@ -674,6 +913,23 @@ mod tests {
         league
     }
 
+    fn sample_competition() -> Competition {
+        let league = sample_league();
+        Competition {
+            id: league.id,
+            name: league.name,
+            season: league.season,
+            kind: CompetitionKind::DomesticLeague,
+            format: CompetitionFormat::RoundRobin,
+            country: Some("England".to_string()),
+            tier: Some(1),
+            team_ids: vec!["team-001".to_string(), "team-002".to_string()],
+            fixtures: league.fixtures,
+            standings: league.standings,
+            transfer_log: league.transfer_log,
+        }
+    }
+
     #[test]
     fn test_upsert_and_load_league() {
         let db = test_db();
@@ -740,6 +996,51 @@ mod tests {
     }
 
     #[test]
+    fn test_upsert_competitions_incremental_keeps_existing_fixtures() {
+        let db = test_db();
+        let competition = sample_competition();
+        upsert_competitions(db.conn(), &[competition.clone()]).unwrap();
+
+        let mut changed = competition;
+        changed.fixtures = vec![changed.fixtures[0].clone()];
+        changed.fixtures[0].status = FixtureStatus::Completed;
+        changed.fixtures[0].result = Some(MatchResult {
+            home_goals: 1,
+            away_goals: 0,
+            home_scorers: vec![],
+            away_scorers: vec![],
+            report: None,
+            winner_team_id: None,
+            resolution: None,
+            home_penalties: None,
+            away_penalties: None,
+        });
+        upsert_competitions_incremental(db.conn(), &[changed]).unwrap();
+
+        let loaded = load_competitions(db.conn()).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].fixtures.len(), 2);
+        assert_eq!(loaded[0].fixtures[0].id, "fix-001");
+        assert_eq!(loaded[0].fixtures[0].status, FixtureStatus::Completed);
+        assert_eq!(loaded[0].fixtures[1].id, "fix-002");
+    }
+
+    #[test]
+    fn test_upsert_competitions_snapshot_replaces_stale_fixtures() {
+        let db = test_db();
+        let competition = sample_competition();
+        upsert_competitions(db.conn(), &[competition.clone()]).unwrap();
+
+        let mut changed = competition;
+        changed.fixtures = vec![changed.fixtures[0].clone()];
+        upsert_competitions(db.conn(), &[changed]).unwrap();
+
+        let loaded = load_competitions(db.conn()).unwrap();
+        assert_eq!(loaded[0].fixtures.len(), 1);
+        assert_eq!(loaded[0].fixtures[0].id, "fix-001");
+    }
+
+    #[test]
     fn test_upsert_league_replaces_fixtures() {
         let db = test_db();
         let mut league = sample_league();
@@ -757,7 +1058,7 @@ mod tests {
             competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
-        
+
             stage: None,
             leg: None,
             tie_id: None,
@@ -767,6 +1068,46 @@ mod tests {
         let loaded = load_league(db.conn()).unwrap().unwrap();
         assert_eq!(loaded.fixtures.len(), 1);
         assert_eq!(loaded.fixtures[0].id, "fix-003");
+    }
+
+    #[test]
+    fn test_upsert_league_incremental_keeps_existing_fixtures() {
+        let db = test_db();
+        let mut league = sample_league();
+        upsert_league(db.conn(), &league).unwrap();
+
+        league.fixtures = vec![Fixture {
+            id: "fix-001".to_string(),
+            matchday: 1,
+            date: "2026-08-15".to_string(),
+            home_team_id: "team-001".to_string(),
+            away_team_id: "team-002".to_string(),
+            competition_id: None,
+            season: None,
+            competition: FixtureCompetition::League,
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 1,
+                away_goals: 0,
+                home_scorers: vec![],
+                away_scorers: vec![],
+                report: None,
+                winner_team_id: None,
+                resolution: None,
+                home_penalties: None,
+                away_penalties: None,
+            }),
+            stage: None,
+            leg: None,
+            tie_id: None,
+        }];
+        upsert_league_incremental(db.conn(), &league).unwrap();
+
+        let loaded = load_league(db.conn()).unwrap().unwrap();
+        assert_eq!(loaded.fixtures.len(), 2);
+        assert_eq!(loaded.fixtures[0].id, "fix-001");
+        assert_eq!(loaded.fixtures[0].status, FixtureStatus::Completed);
+        assert_eq!(loaded.fixtures[1].id, "fix-002");
     }
 
     #[test]

@@ -533,7 +533,18 @@ pub fn simulate_other_matches_with_capture<F>(
         .filter(|index| skip_fixture != Some(*index))
         .collect::<Vec<_>>();
 
-    let prepared_matches = fixture_indices
+    let (fast_fixture_indices, live_fixture_indices): (Vec<_>, Vec<_>) = fixture_indices
+        .into_iter()
+        .partition(|idx| {
+            game.league
+                .as_ref()
+                .and_then(|league| league.fixtures.get(*idx))
+                .is_some_and(|fixture| !should_use_live_ai_managed_match(game, fixture))
+        });
+
+    simulate_fast_legacy_league_matches(game, &fast_fixture_indices, on_capture);
+
+    let prepared_matches = live_fixture_indices
         .into_iter()
         .map(|idx| {
             let fixture = &game.league.as_ref().unwrap().fixtures[idx];
@@ -556,6 +567,58 @@ pub fn simulate_other_matches_with_capture<F>(
         );
     }
     simulate_competition_matches_for_date(game, today, &indexes, on_capture);
+}
+
+fn should_use_live_ai_managed_match(game: &Game, fixture: &Fixture) -> bool {
+    game.manager.team_id.as_deref().is_some_and(|team_id| {
+        team_id == fixture.home_team_id || team_id == fixture.away_team_id
+    })
+}
+
+fn simulate_fast_legacy_league_matches<F>(
+    game: &mut Game,
+    fixture_indices: &[usize],
+    on_capture: &mut F,
+) where
+    F: FnMut(StatsState),
+{
+    if fixture_indices.is_empty() {
+        return;
+    }
+
+    let team_strengths: HashMap<&str, u16> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.reputation as u16))
+        .collect();
+    let synthetic_players_by_team = synthetic_players_for_legacy_fixtures(game, fixture_indices);
+    let completed_fixtures = {
+        let Some(league) = game.league.as_mut() else {
+            return;
+        };
+        let mut standing_index_by_team: HashMap<String, usize> = league
+            .standings
+            .iter()
+            .enumerate()
+            .map(|(standing_index, standing)| (standing.team_id.clone(), standing_index))
+            .collect();
+        fixture_indices
+            .iter()
+            .filter_map(|fixture_index| {
+                apply_fast_league_result(
+                    league,
+                    *fixture_index,
+                    &team_strengths,
+                    &synthetic_players_by_team,
+                    &mut standing_index_by_team,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    for fixture in completed_fixtures {
+        on_capture(build_synthetic_stats_state(game, &fixture));
+    }
 }
 
 fn simulate_competition_matches_for_date<F>(
@@ -634,7 +697,59 @@ fn apply_fast_competition_result(
     synthetic_players_by_team: &HashMap<String, Vec<SyntheticPlayer>>,
     standing_index_by_team: &mut HashMap<String, usize>,
 ) -> Option<Fixture> {
-    let fixture = &competition.fixtures[fixture_index];
+    let completed_fixture = apply_fast_fixture_result(
+        competition.fixtures.get_mut(fixture_index)?,
+        team_strengths,
+        synthetic_players_by_team,
+        |fixture| fixture.stage.is_some() || !fixture.counts_for_competition_standings(),
+    )?;
+
+    if completed_fixture.counts_for_competition_standings() {
+        record_fast_standings_result(
+            &mut competition.standings,
+            standing_index_by_team,
+            &completed_fixture,
+        );
+    }
+
+    Some(completed_fixture)
+}
+
+fn apply_fast_league_result(
+    league: &mut domain::league::League,
+    fixture_index: usize,
+    team_strengths: &HashMap<&str, u16>,
+    synthetic_players_by_team: &HashMap<String, Vec<SyntheticPlayer>>,
+    standing_index_by_team: &mut HashMap<String, usize>,
+) -> Option<Fixture> {
+    let fixture = league.fixtures.get_mut(fixture_index)?;
+    fixture.season = Some(fixture.season.unwrap_or(league.season));
+    fixture.competition_id = Some(
+        fixture
+            .competition_id
+            .clone()
+            .unwrap_or_else(|| league.id.clone()),
+    );
+    let completed_fixture = apply_fast_fixture_result(
+        fixture,
+        team_strengths,
+        synthetic_players_by_team,
+        |fixture| fixture.stage.is_some() || !fixture.counts_for_league_standings(),
+    )?;
+
+    if completed_fixture.counts_for_league_standings() {
+        record_fast_standings_result(&mut league.standings, standing_index_by_team, &completed_fixture);
+    }
+
+    Some(completed_fixture)
+}
+
+fn apply_fast_fixture_result(
+    fixture: &mut Fixture,
+    team_strengths: &HashMap<&str, u16>,
+    synthetic_players_by_team: &HashMap<String, Vec<SyntheticPlayer>>,
+    keep_report: impl Fn(&Fixture) -> bool,
+) -> Option<Fixture> {
     let home_strength = team_strengths
         .get(fixture.home_team_id.as_str())
         .copied()
@@ -649,7 +764,6 @@ fn apply_fast_competition_result(
     let home_goals = ((seed % 3) as i16 + home_bias.max(0) / 8).clamp(0, 5) as u8;
     let away_goals = (((seed / 7) % 3) as i16 + away_bias.max(0) / 8).clamp(0, 5) as u8;
 
-    let fixture = &mut competition.fixtures[fixture_index];
     fixture.status = FixtureStatus::Completed;
     let knockout_resolution = if fixture.stage.is_some() || !fixture.counts_for_competition_standings() {
         let resolution_fixture = Fixture {
@@ -682,8 +796,7 @@ fn apply_fast_competition_result(
     let away_attacking_events = synthetic_attacking_events(away_players, away_goals, seed.wrapping_add(211));
     let home_scorers = goal_events_from_attacking_events(&home_attacking_events);
     let away_scorers = goal_events_from_attacking_events(&away_attacking_events);
-    let keep_report = fixture.stage.is_some() || !fixture.counts_for_competition_standings();
-    let report = keep_report.then(|| {
+    let report = keep_report(fixture).then(|| {
         synthetic_compact_report(
             home_goals,
             away_goals,
@@ -704,22 +817,27 @@ fn apply_fast_competition_result(
         away_penalties: knockout_resolution.as_ref().and_then(|resolution| resolution.away_penalties),
     });
 
-    if fixture.counts_for_competition_standings() {
-        let home_team_id = fixture.home_team_id.clone();
-        let away_team_id = fixture.away_team_id.clone();
-        if let Some(standing_index) = standing_index_by_team.get(home_team_id.as_str()).copied()
-            && let Some(standing) = competition.standings.get_mut(standing_index)
-        {
-            standing.record_result(home_goals, away_goals);
-        }
-        if let Some(standing_index) = standing_index_by_team.get(away_team_id.as_str()).copied()
-            && let Some(standing) = competition.standings.get_mut(standing_index)
-        {
-            standing.record_result(away_goals, home_goals);
-        }
-    }
-
     Some(fixture.clone())
+}
+
+fn record_fast_standings_result(
+    standings: &mut [domain::league::StandingEntry],
+    standing_index_by_team: &HashMap<String, usize>,
+    fixture: &Fixture,
+) {
+    let Some(result) = fixture.result.as_ref() else {
+        return;
+    };
+    if let Some(standing_index) = standing_index_by_team.get(fixture.home_team_id.as_str()).copied()
+        && let Some(standing) = standings.get_mut(standing_index)
+    {
+        standing.record_result(result.home_goals, result.away_goals);
+    }
+    if let Some(standing_index) = standing_index_by_team.get(fixture.away_team_id.as_str()).copied()
+        && let Some(standing) = standings.get_mut(standing_index)
+    {
+        standing.record_result(result.away_goals, result.home_goals);
+    }
 }
 
 fn synthetic_players_for_fixtures(
@@ -727,11 +845,35 @@ fn synthetic_players_for_fixtures(
     competition: &domain::league::Competition,
     fixture_indices: &[usize],
 ) -> HashMap<String, Vec<SyntheticPlayer>> {
+    synthetic_players_for_fixture_refs(
+        game,
+        fixture_indices
+            .iter()
+            .filter_map(|fixture_index| competition.fixtures.get(*fixture_index)),
+    )
+}
+
+fn synthetic_players_for_legacy_fixtures(
+    game: &Game,
+    fixture_indices: &[usize],
+) -> HashMap<String, Vec<SyntheticPlayer>> {
+    let Some(league) = game.league.as_ref() else {
+        return HashMap::new();
+    };
+    synthetic_players_for_fixture_refs(
+        game,
+        fixture_indices
+            .iter()
+            .filter_map(|fixture_index| league.fixtures.get(*fixture_index)),
+    )
+}
+
+fn synthetic_players_for_fixture_refs<'a>(
+    game: &Game,
+    fixtures: impl Iterator<Item = &'a Fixture>,
+) -> HashMap<String, Vec<SyntheticPlayer>> {
     let mut players_by_team = HashMap::new();
-    for fixture_index in fixture_indices {
-        let Some(fixture) = competition.fixtures.get(*fixture_index) else {
-            continue;
-        };
+    for fixture in fixtures {
         for team_id in [&fixture.home_team_id, &fixture.away_team_id] {
             players_by_team.entry(team_id.clone()).or_insert_with(|| {
                 let (team_data, bench) = build_team_with_bench(game, team_id);

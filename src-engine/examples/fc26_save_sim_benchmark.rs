@@ -17,6 +17,7 @@ const SAVE_NAME: &str = "FC26 Benchmark";
 struct BenchArgs {
     days: usize,
     output_path: PathBuf,
+    autosave_daily: bool,
 }
 
 #[derive(Default)]
@@ -34,6 +35,7 @@ fn main() {
     println!("=== FC26 save + sim benchmark ===");
     println!("days: {}", args.days);
     println!("save_path: {}", args.output_path.display());
+    println!("autosave_daily: {}", args.autosave_daily);
 
     let generation = measure(|| build_fc26_game());
     let mut game = generation.value;
@@ -51,11 +53,17 @@ fn main() {
     println!("\n[initial_save]");
     print_save_report(&initial_save);
 
-    let day_1 = advance_and_capture(&mut game, &mut stats, args.days.min(1));
-    let week_rest = advance_and_capture(&mut game, &mut stats, args.days.saturating_sub(1).min(6));
-    let month_rest =
-        advance_and_capture(&mut game, &mut stats, args.days.saturating_sub(7).min(23));
-    let remaining = advance_and_capture(&mut game, &mut stats, args.days.saturating_sub(30));
+    let (day_1, week_rest, month_rest, remaining, autosave_report) = if args.autosave_daily {
+        advance_save_daily_and_capture(&args.output_path, &mut game, &mut stats, args.days)
+    } else {
+        (
+            advance_and_capture(&mut game, &mut stats, args.days.min(1)),
+            advance_and_capture(&mut game, &mut stats, args.days.saturating_sub(1).min(6)),
+            advance_and_capture(&mut game, &mut stats, args.days.saturating_sub(7).min(23)),
+            advance_and_capture(&mut game, &mut stats, args.days.saturating_sub(30)),
+            AutosaveReport::default(),
+        )
+    };
 
     println!("\n[simulation]");
     println!("day_1_ms: {:.2}", ms(day_1));
@@ -70,6 +78,13 @@ fn main() {
         "current_date: {}",
         game.clock.current_date.format("%Y-%m-%d")
     );
+
+    if args.autosave_daily {
+        println!("\n[autosave_daily]");
+        println!("saves: {}", autosave_report.saves);
+        println!("total_save_ms: {:.2}", ms(autosave_report.elapsed));
+        println!("avg_save_ms: {:.2}", autosave_report.avg_ms());
+    }
 
     let counts = fixture_counts(&game);
     println!("\n[fixture_reports]");
@@ -134,6 +149,7 @@ fn main() {
 fn parse_args() -> BenchArgs {
     let mut days = 365;
     let mut output_path = std::env::temp_dir().join("openfootmanager-fc26-benchmark.db");
+    let mut autosave_daily = false;
     let mut args = std::env::args().skip(1);
 
     while let Some(arg) = args.next() {
@@ -145,6 +161,9 @@ fn parse_args() -> BenchArgs {
             "--out" => {
                 output_path = PathBuf::from(args.next().expect("--out requires a file path"));
             }
+            "--autosave-daily" => {
+                autosave_daily = true;
+            }
             _ => {
                 if let Ok(value) = arg.parse::<usize>() {
                     days = value;
@@ -155,7 +174,11 @@ fn parse_args() -> BenchArgs {
         }
     }
 
-    BenchArgs { days, output_path }
+    BenchArgs {
+        days,
+        output_path,
+        autosave_daily,
+    }
 }
 
 fn build_fc26_game() -> Game {
@@ -244,6 +267,63 @@ fn advance_and_capture(game: &mut Game, stats: &mut StatsState, days: usize) -> 
         }
     })
     .elapsed
+}
+
+#[derive(Default)]
+struct AutosaveReport {
+    saves: usize,
+    elapsed: StdDuration,
+}
+
+impl AutosaveReport {
+    fn avg_ms(&self) -> f64 {
+        if self.saves == 0 {
+            0.0
+        } else {
+            ms(self.elapsed) / self.saves as f64
+        }
+    }
+}
+
+fn advance_save_daily_and_capture(
+    path: &Path,
+    game: &mut Game,
+    stats: &mut StatsState,
+    days: usize,
+) -> (
+    StdDuration,
+    StdDuration,
+    StdDuration,
+    StdDuration,
+    AutosaveReport,
+) {
+    let mut simulation = [StdDuration::default(); 4];
+    let mut autosave = AutosaveReport::default();
+
+    for day in 0..days {
+        let elapsed = measure(|| {
+            turn::process_day_with_capture(game, &mut |capture| stats.append(capture));
+        })
+        .elapsed;
+
+        match day {
+            0 => simulation[0] += elapsed,
+            1..=6 => simulation[1] += elapsed,
+            7..=29 => simulation[2] += elapsed,
+            _ => simulation[3] += elapsed,
+        }
+
+        autosave.elapsed += save_and_measure(path, game, stats).elapsed;
+        autosave.saves += 1;
+    }
+
+    (
+        simulation[0],
+        simulation[1],
+        simulation[2],
+        simulation[3],
+        autosave,
+    )
 }
 
 struct Measurement<T> {

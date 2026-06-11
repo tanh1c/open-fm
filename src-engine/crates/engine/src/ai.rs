@@ -57,10 +57,9 @@ pub fn ai_decide<R: Rng>(
 ) -> Vec<MatchCommand> {
     let mut commands = Vec::new();
 
-    let snap = match_state.snapshot();
-    let minute = snap.current_minute;
+    let minute = match_state.minute();
 
-    match snap.phase {
+    match match_state.phase() {
         MatchPhase::FirstHalf
         | MatchPhase::SecondHalf
         | MatchPhase::ExtraTimeFirstHalf
@@ -68,12 +67,9 @@ pub fn ai_decide<R: Rng>(
         _ => return commands,
     }
 
-    let subs_made = match side {
-        Side::Home => snap.home_subs_made,
-        Side::Away => snap.away_subs_made,
-    };
+    let subs_made = match_state.substitutions_made(side);
 
-    if subs_made < snap.max_subs
+    if subs_made < match_state.max_substitutions()
         && let Some(sub_cmd) = consider_substitution(match_state, side, profile, minute, subs_made, rng)
     {
         commands.push(sub_cmd);
@@ -98,27 +94,26 @@ fn consider_substitution<R: Rng>(
     subs_made: u8,
     rng: &mut R,
 ) -> Option<MatchCommand> {
-    let snap = match_state.snapshot();
-    let team = match side {
-        Side::Home => &snap.home_team,
-        Side::Away => &snap.away_team,
-    };
+    let team = match_state.team(side);
     let bench = match_state.bench(side);
 
     if bench.is_empty() {
         return None;
     }
 
-    let state = score_state(&snap, side, profile, minute, subs_made);
+    let state = score_state(match_state, side, profile, minute, subs_made);
     let need = match_need(state);
     let best = team
         .players
         .iter()
-        .filter(|player| !snap.sent_off.contains(&player.id))
-        .filter(|player| player.position != Position::Goalkeeper || player.condition <= 25)
+        .filter(|player| !match_state.is_sent_off(&player.id))
+        .filter(|player| {
+            player.position != Position::Goalkeeper
+                || match_state.player_condition(&player.id, player.condition) <= 25
+        })
         .filter_map(|player| {
-            let on = find_best_bench_replacement(bench, player.position, need, &snap.sent_off)?;
-            let off_score = player_off_score(player, team, side, state, need, &snap);
+            let on = find_best_bench_replacement(bench, player.position, need, match_state)?;
+            let off_score = player_off_score(player, team, state, need, match_state);
             let on_score = bench_fit_score(on, player.position, need);
             let upgrade = (on.effective_overall() - player.effective_overall()).max(-10.0) * 0.25;
             Some((player, on, off_score + on_score + upgrade))
@@ -140,24 +135,23 @@ fn consider_substitution<R: Rng>(
 }
 
 fn score_state(
-    snap: &crate::live_match::MatchSnapshot,
+    match_state: &LiveMatchState,
     side: Side,
     profile: &AiProfile,
     minute: u8,
     subs_made: u8,
 ) -> ScoreState {
-    let (own_goals, opp_goals, yellows) = match side {
-        Side::Home => (snap.home_score, snap.away_score, snap.home_yellows.len()),
-        Side::Away => (snap.away_score, snap.home_score, snap.away_yellows.len()),
-    };
-    let team = match side {
-        Side::Home => &snap.home_team,
-        Side::Away => &snap.away_team,
-    };
+    let (own_goals, opp_goals) = match_state.score_for(side);
+    let team = match_state.team(side);
     let sent_off = team
         .players
         .iter()
-        .filter(|player| snap.sent_off.contains(&player.id))
+        .filter(|player| match_state.is_sent_off(&player.id))
+        .count();
+    let yellows = team
+        .players
+        .iter()
+        .filter(|player| match_state.yellow_count(&player.id) > 0)
         .count();
 
     ScoreState {
@@ -186,21 +180,21 @@ fn match_need(state: ScoreState) -> MatchNeed {
 fn player_off_score(
     player: &PlayerData,
     team: &TeamData,
-    side: Side,
     state: ScoreState,
     need: MatchNeed,
-    snap: &crate::live_match::MatchSnapshot,
+    match_state: &LiveMatchState,
 ) -> f64 {
-    let condition_gap = (72.0 - player.condition as f64).max(0.0);
+    let condition = match_state.player_condition(&player.id, player.condition) as f64;
+    let condition_gap = (72.0 - condition).max(0.0);
     let fatigue_score = if state.minute < 55 {
-        (45.0 - player.condition as f64).max(0.0) * 1.8
+        (45.0 - condition).max(0.0) * 1.8
     } else if state.minute < 70 {
         condition_gap * 1.25
     } else {
         condition_gap * 1.55
     };
 
-    let card_score = yellow_count(player, side, snap) as f64
+    let card_score = match_state.yellow_count(&player.id) as f64
         * match player.position {
             Position::Defender => 24.0,
             Position::Midfielder => 20.0,
@@ -230,7 +224,7 @@ fn player_off_score(
         },
     };
 
-    let starter_protection = if player.ovr >= 82 && player.condition > 58 && state.minute < 78 {
+    let starter_protection = if player.ovr >= 82 && condition > 58.0 && state.minute < 78 {
         -8.0
     } else {
         0.0
@@ -258,19 +252,6 @@ fn red_card_rebalance_score(player: &PlayerData, team: &TeamData) -> f64 {
         Position::Goalkeeper => -50.0,
         _ => 0.0,
     }
-}
-
-fn yellow_count(
-    player: &PlayerData,
-    side: Side,
-    snap: &crate::live_match::MatchSnapshot,
-) -> u8 {
-    match side {
-        Side::Home => snap.home_yellows.get(&player.id),
-        Side::Away => snap.away_yellows.get(&player.id),
-    }
-    .copied()
-    .unwrap_or(0)
 }
 
 fn substitution_threshold(state: ScoreState, need: MatchNeed) -> f64 {
@@ -311,11 +292,11 @@ fn find_best_bench_replacement<'a>(
     bench: &'a [PlayerData],
     preferred_position: Position,
     need: MatchNeed,
-    sent_off: &std::collections::HashSet<String>,
+    match_state: &LiveMatchState,
 ) -> Option<&'a PlayerData> {
     bench
         .iter()
-        .filter(|player| !sent_off.contains(&player.id))
+        .filter(|player| !match_state.is_sent_off(&player.id))
         .max_by(|left, right| {
             bench_candidate_score(left, preferred_position, need)
                 .partial_cmp(&bench_candidate_score(right, preferred_position, need))
@@ -382,12 +363,14 @@ fn consider_tactic_change<R: Rng>(
     minute: u8,
     rng: &mut R,
 ) -> Option<MatchCommand> {
-    let snap = match_state.snapshot();
-    let team = match side {
-        Side::Home => &snap.home_team,
-        Side::Away => &snap.away_team,
-    };
-    let state = score_state(&snap, side, profile, minute, 0);
+    let team = match_state.team(side);
+    let state = score_state(
+        match_state,
+        side,
+        profile,
+        minute,
+        match_state.substitutions_made(side),
+    );
     let need = match_need(state);
 
     if minute < 55 {

@@ -365,12 +365,53 @@ impl LiveMatchState {
         self.current_minute
     }
 
+    /// Get the active team for a side.
+    pub fn team(&self, side: Side) -> &TeamData {
+        match side {
+            Side::Home => &self.home,
+            Side::Away => &self.away,
+        }
+    }
+
     /// Get the bench for a side
     pub fn bench(&self, side: Side) -> &[PlayerData] {
         match side {
             Side::Home => &self.home_bench,
             Side::Away => &self.away_bench,
         }
+    }
+
+    pub fn score_for(&self, side: Side) -> (u8, u8) {
+        match side {
+            Side::Home => (self.home_score, self.away_score),
+            Side::Away => (self.away_score, self.home_score),
+        }
+    }
+
+    pub fn substitutions_made(&self, side: Side) -> u8 {
+        match side {
+            Side::Home => self.home_subs_made,
+            Side::Away => self.away_subs_made,
+        }
+    }
+
+    pub fn max_substitutions(&self) -> u8 {
+        self.max_subs
+    }
+
+    pub fn yellow_count(&self, player_id: &str) -> u8 {
+        self.yellows.get(player_id).copied().unwrap_or(0)
+    }
+
+    pub fn is_sent_off(&self, player_id: &str) -> bool {
+        self.sent_off.contains(player_id)
+    }
+
+    pub fn player_condition(&self, player_id: &str, fallback: u8) -> u8 {
+        self.player_conditions
+            .get(player_id)
+            .map(|condition| condition.round() as u8)
+            .unwrap_or(fallback)
     }
 
     /// Simulate a red card for a player (adds to sent_off set).

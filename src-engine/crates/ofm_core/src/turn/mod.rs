@@ -539,12 +539,20 @@ pub fn simulate_other_matches_with_capture<F>(
             let fixture = &game.league.as_ref().unwrap().fixtures[idx];
             let home_team_id = fixture.home_team_id.clone();
             let away_team_id = fixture.away_team_id.clone();
-            let (home_data, _) = build_team_with_bench(game, &home_team_id);
-            let (away_data, _) = build_team_with_bench(game, &away_team_id);
-            (idx, home_team_id, away_team_id, home_data, away_data)
+            let (home_data, home_bench) = build_team_with_bench(game, &home_team_id);
+            let (away_data, away_bench) = build_team_with_bench(game, &away_team_id);
+            (
+                idx,
+                home_team_id,
+                away_team_id,
+                home_data,
+                away_data,
+                home_bench,
+                away_bench,
+            )
         })
         .collect::<Vec<_>>();
-    for (idx, home_team_id, away_team_id, home_data, away_data) in prepared_matches {
+    for (idx, home_team_id, away_team_id, home_data, away_data, home_bench, away_bench) in prepared_matches {
         simulate_single_match_with_capture(
             game,
             idx,
@@ -552,6 +560,8 @@ pub fn simulate_other_matches_with_capture<F>(
             &away_team_id,
             home_data,
             away_data,
+            home_bench,
+            away_bench,
             on_capture,
         );
     }
@@ -1488,15 +1498,12 @@ fn simulate_single_match_with_capture<F>(
     away_team_id: &str,
     home_data: engine::TeamData,
     away_data: engine::TeamData,
+    home_bench: Vec<engine::PlayerData>,
+    away_bench: Vec<engine::PlayerData>,
     on_capture: &mut F,
 ) where
     F: FnMut(StatsState),
 {
-    let (home_bench, away_bench) = {
-        let (_, home_bench) = build_team_with_bench(game, home_team_id);
-        let (_, away_bench) = build_team_with_bench(game, away_team_id);
-        (home_bench, away_bench)
-    };
     let report = simulate_ai_managed_match(game, home_team_id, away_team_id, home_data, away_data, home_bench, away_bench);
     apply_match_report_with_capture(game, idx, home_team_id, away_team_id, &report, on_capture);
 }

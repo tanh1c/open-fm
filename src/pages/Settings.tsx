@@ -74,6 +74,17 @@ function parseSaveTime(value: string): number {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function findCurrentSave(saves: SaveEntry[], managerName: string | null): SaveEntry | null {
   const candidates = managerName
     ? saves.filter((save) => save.manager_name === managerName)
@@ -97,6 +108,8 @@ export default function Settings({ embedded = false }: SettingsProps) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
   const [exportPath, setExportPath] = useState<string | null>(null);
+  const [saveDbExportPath, setSaveDbExportPath] = useState<string | null>(null);
+  const [isExportingSaveDb, setIsExportingSaveDb] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsViewTab>("Display");
   const [currentSaveSize, setCurrentSaveSize] = useState<string | null>(null);
   const [isLoadingSaveSize, setIsLoadingSaveSize] = useState(false);
@@ -189,20 +202,32 @@ export default function Settings({ embedded = false }: SettingsProps) {
   async function handleExportWorld(): Promise<void> {
     try {
       const json = await invoke<string>("export_world_database");
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      link.href = url;
-      link.download = `ofm-world-${stamp}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setExportPath(link.download);
+      const filename = `ofm-world-${stamp}.json`;
+      downloadBlob(new Blob([json], { type: "application/json" }), filename);
+      setExportPath(filename);
       setTimeout(() => setExportPath(null), 5000);
     } catch (err) {
       console.error("Failed to export world:", err);
+    }
+  }
+
+  async function handleExportSaveDb(): Promise<void> {
+    setIsExportingSaveDb(true);
+    try {
+      const bytes = await invoke<Uint8Array | number[]>("export_current_save_database");
+      const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      const blobBytes = new ArrayBuffer(data.byteLength);
+      new Uint8Array(blobBytes).set(data);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `ofm-save-${stamp}.db`;
+      downloadBlob(new Blob([blobBytes], { type: "application/vnd.sqlite3" }), filename);
+      setSaveDbExportPath(filename);
+      setTimeout(() => setSaveDbExportPath(null), 5000);
+    } catch (err) {
+      console.error("Failed to export save DB:", err);
+    } finally {
+      setIsExportingSaveDb(false);
     }
   }
 
@@ -439,6 +464,23 @@ export default function Settings({ embedded = false }: SettingsProps) {
               </div>
             </SettingRow>
 
+            <SettingRow
+              label={t("settings.exportSaveDb", { defaultValue: "Export Save DB" })}
+              description={t("settings.exportSaveDbDesc", { defaultValue: "Download the active career as a raw SQLite database for diagnostics or backup." })}
+            >
+              <ActionButton onClick={() => void handleExportSaveDb()} tone="success" disabled={isExportingSaveDb}>
+                <Download className="h-4 w-4" />
+                {isExportingSaveDb
+                  ? t("common.loading", { defaultValue: "Loading" })
+                  : t("settings.exportDb", { defaultValue: "Export DB" })}
+              </ActionButton>
+            </SettingRow>
+            {saveDbExportPath ? (
+              <p className="-mt-2 ml-1 text-xs text-app-green">
+                {t("settings.exportedTo", { path: saveDbExportPath })}
+              </p>
+            ) : null}
+
             <SettingRow label={t("settings.exportWorld")} description={t("settings.exportWorldDesc")}>
               <ActionButton onClick={() => void handleExportWorld()} tone="success">
                 <Download className="h-4 w-4" />
@@ -564,16 +606,17 @@ function SettingRow({ label, description, danger, children }: { label: string; d
   );
 }
 
-function ActionButton({ children, onClick, tone = "neutral" }: { children: ReactNode; onClick: () => void; tone?: "neutral" | "success" }) {
+function ActionButton({ children, onClick, tone = "neutral", disabled = false }: { children: ReactNode; onClick: () => void; tone?: "neutral" | "success"; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cx(
-        "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-heading font-bold uppercase tracking-wider transition-colors",
+        "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-heading font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         tone === "success"
-          ? "bg-app-green/10 text-app-green hover:bg-app-green/20"
-          : "border border-app-border bg-app-card text-app-text-muted hover:bg-white/5 hover:text-app-text",
+          ? "bg-app-green/10 text-app-green hover:bg-app-green/20 disabled:hover:bg-app-green/10"
+          : "border border-app-border bg-app-card text-app-text-muted hover:bg-white/5 hover:text-app-text disabled:hover:bg-app-card disabled:hover:text-app-text-muted",
       )}
     >
       {children}

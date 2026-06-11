@@ -33,6 +33,7 @@ export const ENGINE_COMMANDS: Readonly<Record<string, CommandSpec>> = Object.fre
   delete_tactic_preset: { method: "deleteTacticPreset", args: ["presetId"] as const },
   edit_player: { method: "editPlayer", args: ["playerId", "edits"] as const },
   exit_to_menu: { method: "exitToMenu", args: [] as const },
+  export_current_save_database: { method: "exportCurrentSaveDatabase", args: [] as const },
   export_world_database: { method: "exportWorldDatabase", args: [] as const },
   finish_live_match: { method: "finishLiveMatch", args: [] as const },
   get_active_game: { method: "getActiveGame", args: [] as const },

@@ -42,3 +42,14 @@ pub fn delete_db(filename: &str) -> Result<bool, String> {
             .map_err(|e| format!("be.error.opfs.deleteFailed:{e}"))
     })
 }
+
+pub fn export_db(filename: &str) -> Result<Vec<u8>, String> {
+    POOL_UTIL.with(|cell| {
+        let cell = cell.borrow();
+        let util = cell
+            .as_ref()
+            .ok_or_else(|| "be.error.opfs.notInstalled".to_string())?;
+        util.export_db(filename)
+            .map_err(|e| format!("be.error.opfs.exportFailed:{e}"))
+    })
+}

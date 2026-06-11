@@ -9,6 +9,7 @@
 use chrono::TimeZone;
 use domain::manager::Manager;
 use domain::stats::StatsState;
+use js_sys::Uint8Array;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use wasm_bindgen::prelude::*;
@@ -338,6 +339,28 @@ impl AppHandle {
         sm.save_game_with_stats(&game, &stats_state, &save_id)
             .map_err(to_js)?;
         Ok(JsValue::NULL)
+    }
+
+    #[wasm_bindgen(js_name = exportCurrentSaveDatabase)]
+    pub fn export_current_save_database(&self) -> Result<JsValue, JsValue> {
+        let game = self.snapshot_game()?;
+        let save_id = self
+            .state
+            .get_save_id()
+            .ok_or_else(|| to_js(NO_ACTIVE_SAVE_ERROR.to_string()))?;
+        let stats_state = self
+            .state
+            .get_stats_state(|stats| stats.clone())
+            .unwrap_or_default();
+
+        let mut sm = self
+            .save_manager
+            .lock()
+            .map_err(|_| to_js(SAVE_MANAGER_LOCK_ERROR.to_string()))?;
+        sm.save_game_with_stats(&game, &stats_state, &save_id)
+            .map_err(to_js)?;
+        let bytes = sm.export_save_database(&save_id).map_err(to_js)?;
+        Ok(Uint8Array::from(bytes.as_slice()).into())
     }
 
     #[wasm_bindgen(js_name = exitToMenu)]

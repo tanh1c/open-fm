@@ -98,6 +98,24 @@ impl SaveManager {
         Ok((page_count.max(0) as u64).saturating_mul(page_size.max(0) as u64))
     }
 
+    pub fn export_save_database(&mut self, save_id: &str) -> Result<Vec<u8>, String> {
+        self.ensure_save_index_ready()?;
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            fs::read(self.saves_dir.join(&entry.db_filename))
+                .map_err(|_| "be.error.saveExportFailed".to_string())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            crate::opfs::export_db(&entry.db_filename)
+        }
+    }
+
     /// Create a new save from the current in-memory Game state.
     /// Returns the save_id.
     pub fn create_save(&mut self, game: &Game, save_name: &str) -> Result<String, String> {

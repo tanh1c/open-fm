@@ -1238,6 +1238,9 @@
       "matchday": "Matchday",
       "always": "Always"
     },
+    "exportSaveDb": "Export Save DB",
+    "exportSaveDbDesc": "Download the active career as a raw SQLite database for diagnostics or backup.",
+    "exportDb": "Export DB",
     "exportWorld": "Export World Database",
     "exportWorldDesc": "Save the current world data as a shareable JSON file",
     "export": "Export",

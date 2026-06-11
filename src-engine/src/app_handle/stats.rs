@@ -10,7 +10,8 @@ use ofm_core::leaderboards::GlobalPlayerLeaderboardQuery;
 use crate::application::stats::{
     get_global_player_leaderboards_internal, get_match_detail_internal,
     get_player_match_history_internal, get_player_stats_overview_internal,
-    get_team_match_history_internal, get_team_stats_overview_internal,
+    get_team_match_history_internal, get_team_profile_stats_internal,
+    get_team_stats_overview_internal,
 };
 
 use super::{to_js, to_js_value, AppHandle};
@@ -50,6 +51,12 @@ impl AppHandle {
         let entries =
             get_team_match_history_internal(&self.state, &team_id, limit).map_err(to_js)?;
         to_js_value(&entries)
+    }
+
+    #[wasm_bindgen(js_name = getTeamProfileStats)]
+    pub fn get_team_profile_stats(&self, team_id: String) -> Result<JsValue, JsValue> {
+        let stats = get_team_profile_stats_internal(&self.state, &team_id).map_err(to_js)?;
+        to_js_value(&stats)
     }
 
     #[wasm_bindgen(js_name = getMatchDetail)]

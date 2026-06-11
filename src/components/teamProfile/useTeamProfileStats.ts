@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { PlayerData } from "../../store/gameStore";
-import {
-  fetchPlayerSeasonStats,
-  fetchTeamRecentMatches,
-  fetchTeamStatsOverview,
-} from "./TeamProfile.gateway";
+import { fetchTeamProfileStats } from "./TeamProfile.gateway";
 import type {
   TeamRecentMatchEntry,
   TeamRosterStatsByPlayerId,
@@ -18,8 +13,7 @@ interface TeamProfileStatsState {
   rosterStatsByPlayerId: TeamRosterStatsByPlayerId;
 }
 
-export function useTeamProfileStats(teamId: string, roster: PlayerData[]): TeamProfileStatsState {
-  const rosterStatsKey = roster.map((player) => player.id).join("|");
+export function useTeamProfileStats(teamId: string): TeamProfileStatsState {
   const [teamStatsOverview, setTeamStatsOverview] =
     useState<TeamStatsOverview | null>(null);
   const [recentMatches, setRecentMatches] = useState<TeamRecentMatchEntry[]>([]);
@@ -29,38 +23,26 @@ export function useTeamProfileStats(teamId: string, roster: PlayerData[]): TeamP
   useEffect(() => {
     let cancelled = false;
 
-    const loadTeamProfileStats = async (): Promise<void> => {
-      const [overviewResult, historyResult, rosterStatsResult] = await Promise.allSettled([
-        fetchTeamStatsOverview(teamId),
-        fetchTeamRecentMatches(teamId),
-        Promise.all(
-          roster.map(async (player) => {
-            const stats = await fetchPlayerSeasonStats(player.id);
-            return [player.id, stats] as const;
-          }),
-        ),
-      ]);
+    const loadTeamProfileStats = async(): Promise<void> => {
+      try {
+        const result = await fetchTeamProfileStats(teamId);
 
-      if (cancelled) {
-        return;
+        if (cancelled) {
+          return;
+        }
+
+        setTeamStatsOverview(result.teamStatsOverview);
+        setRecentMatches(result.recentMatches);
+        setRosterStatsByPlayerId(result.rosterStatsByPlayerId);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setTeamStatsOverview(null);
+        setRecentMatches([]);
+        setRosterStatsByPlayerId({});
       }
-
-      setTeamStatsOverview(
-        overviewResult.status === "fulfilled" ? overviewResult.value : null,
-      );
-      setRecentMatches(
-        historyResult.status === "fulfilled" ? historyResult.value : [],
-      );
-      const rosterStatsById: TeamRosterStatsByPlayerId =
-        rosterStatsResult.status === "fulfilled"
-          ? rosterStatsResult.value.reduce<TeamRosterStatsByPlayerId>((statsById, [playerId, stats]) => {
-            if (stats) {
-              statsById[playerId] = stats;
-            }
-            return statsById;
-          }, {})
-          : {};
-      setRosterStatsByPlayerId(rosterStatsById);
     };
 
     void loadTeamProfileStats();
@@ -68,7 +50,7 @@ export function useTeamProfileStats(teamId: string, roster: PlayerData[]): TeamP
     return () => {
       cancelled = true;
     };
-  }, [teamId, rosterStatsKey]);
+  }, [teamId]);
 
   return {
     teamStatsOverview,

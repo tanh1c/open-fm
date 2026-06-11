@@ -284,10 +284,7 @@ export default function TeamProfile({
     () => buildTeamProfileViewModel(team, gameState),
     [team, gameState],
   );
-  const { teamStatsOverview, recentMatches, rosterStatsByPlayerId } = useTeamProfileStats(
-    team.id,
-    viewModel.roster,
-  );
+  const { teamStatsOverview, recentMatches, rosterStatsByPlayerId } = useTeamProfileStats(team.id);
 
   return (
     <div className="mx-auto flex min-h-max max-w-[1600px] flex-col gap-4">

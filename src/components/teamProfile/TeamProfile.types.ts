@@ -59,3 +59,9 @@ export interface TeamRecentMatchEntry {
   shots: number;
   shotsOnTarget: number;
 }
+
+export interface TeamProfileStatsPayload {
+  teamStatsOverview: TeamStatsOverview | null;
+  recentMatches: TeamRecentMatchEntry[];
+  rosterStatsByPlayerId: TeamRosterStatsByPlayerId;
+}

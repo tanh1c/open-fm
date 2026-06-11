@@ -158,6 +158,14 @@ pub struct TeamStatsOverviewDto {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct TeamProfileStatsDto {
+    pub team_stats_overview: Option<TeamStatsOverviewDto>,
+    pub recent_matches: Vec<TeamMatchHistoryEntryDto>,
+    pub roster_stats_by_player_id: std::collections::HashMap<String, PlayerSeasonTotalsDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct MatchDetailDto {
     pub fixture_id: String,
     pub date: String,

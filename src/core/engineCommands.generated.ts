@@ -50,6 +50,7 @@ export const ENGINE_COMMANDS: Readonly<Record<string, CommandSpec>> = Object.fre
   get_season_awards: { method: "getSeasonAwards", args: [] as const },
   get_settings: { method: "getSettings", args: [] as const },
   get_team_match_history: { method: "getTeamMatchHistory", args: ["teamId", "limit"] as const },
+  get_team_profile_stats: { method: "getTeamProfileStats", args: ["teamId"] as const },
   get_team_stats_overview: { method: "getTeamStatsOverview", args: ["teamId"] as const },
   hire_staff: { method: "hireStaff", args: ["staffId"] as const },
   list_world_databases: { method: "listWorldDatabases", args: [] as const },

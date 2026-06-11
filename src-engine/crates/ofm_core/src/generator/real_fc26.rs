@@ -478,7 +478,7 @@ fn attributes_from_row(row: &Fc26PlayerRow, position: &Position) -> PlayerAttrib
         return PlayerAttributes {
             pace: row.pace.max((row.acceleration as u16 + row.sprint_speed as u16) as u8 / 2).clamp(25, 99),
             stamina: row.stamina.clamp(35, 99),
-            strength: row.strength.max(row.physical).clamp(35, 99),
+            strength: row.strength.max(row.physical.saturating_sub(6)).clamp(35, 99),
             agility: row.gk_reflexes.max(row.reactions).clamp(35, 99),
             passing: row.gk_kicking.max(row.short_passing).clamp(25, 99),
             shooting: 20,
@@ -500,8 +500,8 @@ fn attributes_from_row(row: &Fc26PlayerRow, position: &Position) -> PlayerAttrib
 
     PlayerAttributes {
         pace: row.pace.max(((row.acceleration as u16 + row.sprint_speed as u16) / 2) as u8).clamp(1, 99),
-        stamina: row.stamina.max(row.physical.saturating_sub(8)).clamp(1, 99),
-        strength: row.strength.max(row.physical.saturating_sub(5)).clamp(1, 99),
+        stamina: row.stamina.clamp(1, 99),
+        strength: row.strength.clamp(1, 99),
         agility: row.dribbling.max(row.reactions).clamp(1, 99),
         passing: row.passing.max(((row.short_passing as u16 + row.long_passing as u16) / 2) as u8).clamp(1, 99),
         shooting: row.shooting.max(((row.finishing as u16 + row.shot_power as u16) / 2) as u8).clamp(1, 99),
@@ -517,8 +517,13 @@ fn attributes_from_row(row: &Fc26PlayerRow, position: &Position) -> PlayerAttrib
         leadership: row.composure.max(row.ovr).saturating_sub(10).clamp(1, 99),
         handling: 12,
         reflexes: 14,
-        aerial: row.heading_accuracy.max(row.jumping).clamp(1, 99),
+        aerial: outfield_aerial(row).clamp(1, 99),
     }
+}
+
+fn outfield_aerial(row: &Fc26PlayerRow) -> u8 {
+    let base = ((row.heading_accuracy as u16 * 2 + row.jumping as u16) / 3) as u8;
+    base.max(row.jumping.saturating_sub(8))
 }
 
 fn apply_skill_reputation_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow) {
@@ -547,7 +552,7 @@ fn apply_skill_reputation_modifiers(attrs: &mut PlayerAttributes, row: &Fc26Play
 fn apply_work_rate_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow) {
     let (attacking, defensive) = parse_work_rate(&row.work_rate);
     if attacking == WorkRate::High || defensive == WorkRate::High {
-        boost(&mut attrs.stamina, 2);
+        boost_capped(&mut attrs.stamina, 1, 88);
         boost(&mut attrs.teamwork, 1);
     }
     if attacking == WorkRate::High {
@@ -563,14 +568,13 @@ fn apply_work_rate_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow) 
 
 fn apply_body_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow, position: &Position) {
     if row.height_cm >= 190 {
-        boost(&mut attrs.aerial, if matches!(position, Position::Goalkeeper) { 4 } else { 3 });
-        boost(&mut attrs.strength, 1);
+        boost(&mut attrs.aerial, if matches!(position, Position::Goalkeeper) { 3 } else { 2 });
     } else if row.height_cm > 0 && row.height_cm <= 175 {
         boost(&mut attrs.agility, 2);
     }
 
     if row.weight_kg >= 85 {
-        boost(&mut attrs.strength, 2);
+        boost_capped(&mut attrs.strength, 1, 88);
     } else if row.weight_kg > 0 && row.weight_kg <= 68 {
         boost(&mut attrs.agility, 1);
         boost(&mut attrs.pace, 1);
@@ -579,6 +583,10 @@ fn apply_body_modifiers(attrs: &mut PlayerAttributes, row: &Fc26PlayerRow, posit
 
 fn boost(value: &mut u8, amount: u8) {
     *value = value.saturating_add(amount).clamp(1, 99);
+}
+
+fn boost_capped(value: &mut u8, amount: u8, cap: u8) {
+    *value = value.saturating_add(amount).min(cap).clamp(1, 99);
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

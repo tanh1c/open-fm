@@ -30,6 +30,7 @@ import {
   ListOrdered,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
 import {
   getTeamName,
@@ -944,7 +945,8 @@ function CompetitionWorldSelector({
   const selectedRegion = regions.find((region) =>
     region.competitions.some((competition) => competition.id === selectedCompetitionId),
   );
-  const [isVisible, setIsVisible] = useState(true);
+  const selectedCompetition = selectedRegion?.competitions.find((competition) => competition.id === selectedCompetitionId) ?? null;
+  const [open, setOpen] = useState(false);
   const [expandedRegionKey, setExpandedRegionKey] = useState<string | null>(selectedRegion?.key ?? regions[0]?.key ?? null);
 
   useEffect(() => {
@@ -954,106 +956,131 @@ function CompetitionWorldSelector({
   }, [selectedRegion?.key]);
 
   return (
-    <TemplateCard className="overflow-hidden bg-app-bg">
+    <>
       <button
         type="button"
-        onClick={() => setIsVisible((visible) => !visible)}
-        className="flex w-full items-center justify-between gap-3 border-b border-app-border/50 bg-app-card px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+        onClick={() => setOpen(true)}
+        className="flex w-fit max-w-full items-center gap-3 rounded-xl border border-app-border bg-app-card px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+        aria-haspopup="dialog"
       >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-app-green/30 bg-app-green/10 text-app-green">
-            <Globe2 className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[10px] font-bold uppercase tracking-widest text-app-green">World selector</span>
-            <span className="block truncate text-xs text-app-text-muted">
-              {selectedRegion ? `${selectedRegion.label} · ${selectedRegion.competitions.length} competitions` : `${regions.length} regions`}
-            </span>
-          </span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-app-green/30 bg-app-green/10 text-app-green">
+          <Globe2 className="h-4 w-4" />
         </span>
-        <span className="shrink-0 rounded border border-app-border bg-app-bg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-          {isVisible ? "Hide" : "Show"}
+        <span className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-app-green">World selector</span>
+          <span className="block truncate text-xs text-app-text-muted">
+            {selectedCompetition ? getCompetitionDisplayName(selectedCompetition) : `${regions.length} regions`}
+          </span>
         </span>
       </button>
 
-      {isVisible ? (
-        <div className="grid gap-2 p-3 lg:grid-cols-2 xl:grid-cols-3">
-          {regions.map((region) => {
-            const regionActive = region.competitions.some((competition) => competition.id === selectedCompetitionId);
-            const expanded = expandedRegionKey === region.key;
-            return (
-              <div
-                key={region.key}
-                className={cx(
-                  "overflow-hidden rounded-lg border bg-app-card transition-colors",
-                  regionActive ? "border-app-green/60" : "border-app-border",
-                )}
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+          <div className="flex max-h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-app-border bg-app-bg shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-app-border/50 bg-app-card px-4 py-3">
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-app-green/30 bg-app-green/10 text-app-green">
+                  <Globe2 className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-bold uppercase tracking-widest text-app-green">World selector</span>
+                  <span className="block truncate text-xs text-app-text-muted">
+                    {selectedRegion ? `${selectedRegion.label} · ${selectedRegion.competitions.length} competitions` : `${regions.length} regions`}
+                  </span>
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg border border-app-border bg-app-bg p-2 text-app-text-muted transition-colors hover:bg-white/5 hover:text-app-text"
+                aria-label="Close world selector"
               >
-                <button
-                  type="button"
-                  onClick={() => setExpandedRegionKey(expanded ? null : region.key)}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-white/5"
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-7 w-9 items-center justify-center rounded border border-app-border bg-app-bg">
-                      <RegionFlag region={region} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className={cx("block truncate text-xs font-bold uppercase tracking-wide", regionActive ? "text-app-green" : "text-app-text")}>{region.label}</span>
-                      <span className="block text-[10px] text-app-text-muted">
-                        {region.competitions.length} comps · {region.leagueCount} lg · {region.cupCount} cup
-                      </span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-                    {expanded ? "−" : "+"}
-                  </span>
-                </button>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-                {expanded ? (
-                  <div className="border-t border-app-border/40 bg-app-bg/60 p-2">
-                    <div className="flex max-h-40 flex-col gap-1 overflow-y-auto pr-1 custom-scrollbar">
-                      {region.competitions.map((competition) => {
-                        const active = competition.id === selectedCompetitionId;
-                        const teamCount = "team_ids" in competition && Array.isArray(competition.team_ids)
-                          ? competition.team_ids.length
-                          : competition.standings.length;
-                        return (
-                          <button
-                            key={competition.id}
-                            type="button"
-                            onClick={() => onSelectCompetition(competition.id)}
-                            className={cx(
-                              "flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
-                              active
-                                ? "bg-app-green/10 text-app-green ring-1 ring-inset ring-app-green/35"
-                                : "text-app-text-muted hover:bg-white/5 hover:text-app-text",
-                            )}
-                          >
-                            <span className="flex min-w-0 items-center gap-2">
-                              <CompetitionLogo competition={competition} className="h-5 w-5" />
-                              <span className="min-w-0">
-                                <span className="block truncate font-semibold">{getCompetitionDisplayName(competition)}</span>
-                                <span className="block text-[10px] text-app-text-muted">
-                                  S{competition.season} · {teamCount} teams
+            <div className="grid gap-2 overflow-y-auto p-3 custom-scrollbar lg:grid-cols-2 xl:grid-cols-3">
+              {regions.map((region) => {
+                const regionActive = region.competitions.some((competition) => competition.id === selectedCompetitionId);
+                const expanded = expandedRegionKey === region.key;
+                return (
+                  <div
+                    key={region.key}
+                    className={cx(
+                      "overflow-hidden rounded-lg border bg-app-card transition-colors",
+                      regionActive ? "border-app-green/60" : "border-app-border",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedRegionKey(expanded ? null : region.key)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-white/5"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex h-7 w-9 items-center justify-center rounded border border-app-border bg-app-bg">
+                          <RegionFlag region={region} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className={cx("block truncate text-xs font-bold uppercase tracking-wide", regionActive ? "text-app-green" : "text-app-text")}>{region.label}</span>
+                          <span className="block text-[10px] text-app-text-muted">
+                            {region.competitions.length} comps · {region.leagueCount} lg · {region.cupCount} cup
+                          </span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+                        {expanded ? "−" : "+"}
+                      </span>
+                    </button>
+
+                    {expanded ? (
+                      <div className="border-t border-app-border/40 bg-app-bg/60 p-2">
+                        <div className="flex max-h-48 flex-col gap-1 overflow-y-auto pr-1 custom-scrollbar">
+                          {region.competitions.map((competition) => {
+                            const active = competition.id === selectedCompetitionId;
+                            const teamCount = "team_ids" in competition && Array.isArray(competition.team_ids)
+                              ? competition.team_ids.length
+                              : competition.standings.length;
+                            return (
+                              <button
+                                key={competition.id}
+                                type="button"
+                                onClick={() => {
+                                  onSelectCompetition(competition.id);
+                                  setOpen(false);
+                                }}
+                                className={cx(
+                                  "flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+                                  active
+                                    ? "bg-app-green/10 text-app-green ring-1 ring-inset ring-app-green/35"
+                                    : "text-app-text-muted hover:bg-white/5 hover:text-app-text",
+                                )}
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <CompetitionLogo competition={competition} className="h-5 w-5" />
+                                  <span className="min-w-0">
+                                    <span className="block truncate font-semibold">{getCompetitionDisplayName(competition)}</span>
+                                    <span className="block text-[10px] text-app-text-muted">
+                                      S{competition.season} · {teamCount} teams
+                                    </span>
+                                  </span>
                                 </span>
-                              </span>
-                            </span>
-                            <span className="shrink-0 rounded bg-black/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                              {competitionTierLabel(competition)}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                                <span className="shrink-0 rounded bg-black/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+                                  {competitionTierLabel(competition)}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
         </div>
       ) : null}
-    </TemplateCard>
+    </>
   );
 }
 

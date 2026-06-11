@@ -181,9 +181,41 @@ export function buildTemplateUpcomingMatch(gameState: GameStateData, lang: strin
     awayTeam,
     homeSideLabel: fixture.home_team_id === teamId ? "Home" : "Away",
     awaySideLabel: fixture.away_team_id === teamId ? "Home" : "Away",
-    homeForm: homeTeam?.form ?? [],
-    awayForm: awayTeam?.form ?? [],
+    homeForm: buildTeamRecentForm(gameState, fixture.home_team_id),
+    awayForm: buildTeamRecentForm(gameState, fixture.away_team_id),
   };
+}
+
+function buildTeamRecentForm(gameState: GameStateData, teamId: string): string[] {
+  const fixtureSources: FixtureData[][] = [];
+  if (gameState.league) {
+    fixtureSources.push(gameState.league.fixtures);
+  }
+  (gameState.competitions ?? []).forEach((competition) => fixtureSources.push(competition.fixtures));
+
+  const seenFixtureIds = new Set<string>();
+  const completedFixtures: FixtureData[] = [];
+  for (const fixtures of fixtureSources) {
+    for (const fixture of fixtures) {
+      if (seenFixtureIds.has(fixture.id)) continue;
+      if (fixture.status !== "Completed" || !fixture.result) continue;
+      if (fixture.home_team_id !== teamId && fixture.away_team_id !== teamId) continue;
+      seenFixtureIds.add(fixture.id);
+      completedFixtures.push(fixture);
+    }
+  }
+
+  return completedFixtures
+    .sort((left, right) => right.date.localeCompare(left.date) || right.matchday - left.matchday)
+    .slice(0, 5)
+    .reverse()
+    .map((fixture) => {
+      const isHome = fixture.home_team_id === teamId;
+      const goalsFor = isHome ? fixture.result?.home_goals : fixture.result?.away_goals;
+      const goalsAgainst = isHome ? fixture.result?.away_goals : fixture.result?.home_goals;
+      if (goalsFor === goalsAgainst) return "D";
+      return (goalsFor ?? 0) > (goalsAgainst ?? 0) ? "W" : "L";
+    });
 }
 
 export function buildTemplateLeagueRows(gameState: GameStateData): TemplateDashboardProps["rightSidebar"]["leagueRows"] {

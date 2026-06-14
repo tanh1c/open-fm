@@ -179,7 +179,7 @@ pub fn advance_to_date(
 
     loop {
         let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-        if today.as_str() >= target_date || days_advanced >= max_days {
+        if today.as_str() > target_date || days_advanced >= max_days {
             break;
         }
 

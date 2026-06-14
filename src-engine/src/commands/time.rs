@@ -195,7 +195,10 @@ pub fn advance_to_date(
 
 #[cfg(test)]
 mod tests {
-    use super::{advance_time_with_mode_internal, compute_blocking_actions, VacationSettings};
+    use super::{
+        advance_time_with_mode_internal, compute_blocking_actions, advance_to_date_service,
+        VacationSettings,
+    };
     use chrono::{TimeZone, Utc};
     use domain::league::{Fixture, FixtureCompetition, FixtureStatus};
     use domain::manager::Manager;
@@ -410,6 +413,36 @@ mod tests {
         );
         assert_eq!(stats.team_matches.len(), 2);
         assert_eq!(stats.player_matches[0].fixture_id, "fixture-1");
+    }
+
+    #[test]
+    fn vacation_processes_matches_on_target_date() {
+        let state = StateManager::new();
+        let game = make_game_with_matchday();
+        let target_date = game.clock.current_date.format("%Y-%m-%d").to_string();
+        state.set_game(game);
+        state.set_stats_state(StatsState::default());
+
+        let response = advance_to_date_service(
+            &state,
+            &target_date,
+            VacationSettings {
+                handle_matches: true,
+                return_for_user_match: false,
+                ..VacationSettings::default()
+            },
+        )
+        .unwrap();
+        let stats = state.get_stats_state(|current| current.clone()).unwrap();
+
+        assert_eq!(response.action, "arrived");
+        assert_eq!(response.days_advanced, 1);
+        assert_eq!(response.report.match_results.len(), 1);
+        assert_eq!(response.report.match_results[0].fixture_id, "fixture-1");
+        assert!(
+            !stats.player_matches.is_empty(),
+            "expected target-date match history to be recorded"
+        );
     }
 
     #[test]

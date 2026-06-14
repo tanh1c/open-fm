@@ -130,6 +130,25 @@ const COMPETITION_COUNTRY_CODES: Record<string, string> = {
 };
 
 const CHAMPIONS_LEAGUE_LOGO = "/images/logo/tournaments/tournaments_uefa-champions-league--no-text-white.football-logos.cc.svg";
+const WORLD_CUP_GROUP_SIZE = 4;
+const WORLD_CUP_GROUP_COUNT = 12;
+
+function goalDifference(entry: { goals_for: number; goals_against: number }): number {
+  return entry.goals_for - entry.goals_against;
+}
+
+function sortStandingEntries<T extends { points: number; goals_for: number; goals_against: number }>(entries: T[]): T[] {
+  return [...entries].sort(
+    (a, b) =>
+      b.points - a.points ||
+      goalDifference(b) - goalDifference(a) ||
+      b.goals_for - a.goals_for,
+  );
+}
+
+function worldCupGroupLabel(index: number): string {
+  return `Group ${String.fromCharCode(65 + index)}`;
+}
 
 function RegionFlag({ region }: { region: CompetitionRegion }) {
   if (region.key === "continental") {
@@ -408,6 +427,10 @@ export default function ScheduleTab({
       return `league-${fixture.matchday}`;
     }
 
+    if (fixture.competition === "WorldCup") {
+      return `worldcup-${fixture.group_label ?? fixture.stage ?? fixture.date}-${fixture.date}`;
+    }
+
     return `${fixture.competition}-${fixture.date}`;
   };
 
@@ -418,6 +441,11 @@ export default function ScheduleTab({
 
     if (fixture.competition === "ContinentalLeague") {
       return `Champions League — ${formatMatchDate(fixture.date)}`;
+    }
+
+    if (fixture.competition === "WorldCup") {
+      const stageLabel = fixture.group_label ?? fixture.stage ?? `Match ${fixture.matchday}`;
+      return `World Cup 2026 · ${stageLabel} — ${formatMatchDate(fixture.date)}`;
     }
 
     if (fixture.competition === "DomesticCup") {
@@ -483,12 +511,16 @@ export default function ScheduleTab({
     ? getFixtureGroupLabel(activeFixtureGroupFixtures[0])
     : t("schedule.fixtures");
 
-  const standings = [...selectedCompetition.standings].sort(
-    (a, b) =>
-      b.points - a.points ||
-      b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
-      b.goals_for - a.goals_for,
-  );
+  const isWorldCupCompetition = "kind" in selectedCompetition && selectedCompetition.kind === "WorldCup";
+  const standings = sortStandingEntries(selectedCompetition.standings);
+  const worldCupGroups = isWorldCupCompetition
+    ? Array.from({ length: WORLD_CUP_GROUP_COUNT }, (_, index) => ({
+      label: worldCupGroupLabel(index),
+      standings: sortStandingEntries(
+        selectedCompetition.standings.slice(index * WORLD_CUP_GROUP_SIZE, (index + 1) * WORLD_CUP_GROUP_SIZE),
+      ),
+    })).filter((group) => group.standings.length > 0)
+    : [];
 
   const userTeamName = userTeamId ? getTeamName(gameState.teams, userTeamId) : t("common.team");
   // Aggregate the user's fixtures from every source — all competitions plus the
@@ -571,6 +603,7 @@ export default function ScheduleTab({
     const awayName = awayTeam?.name ?? getTeamName(gameState.teams, fixture.away_team_id);
     const isUserMatch = fixtureIncludesTeam(fixture, userTeamId);
     const completed = fixture.status === "Completed";
+    const venueParts = [fixture.group_label, fixture.venue_name, fixture.venue_city].filter(Boolean);
     const contextItems = [
       ...(completed
         ? [
@@ -594,46 +627,53 @@ export default function ScheduleTab({
       <ContextMenu items={contextItems} key={fixture.id}>
         <div
           className={cx(
-            "flex items-center rounded-lg border border-app-border/50 bg-app-bg px-4 py-3 transition-colors hover:bg-white/5",
+            "flex flex-col rounded-lg border border-app-border/50 bg-app-bg px-4 py-3 transition-colors hover:bg-white/5",
             isUserMatch && "border-app-green/40 bg-app-green/10",
           )}
           data-testid={`schedule-fixture-${fixture.id}`}
         >
-          <span
-            onClick={() => onSelectTeam(fixture.home_team_id)}
-            className={cx(
-              "flex min-w-0 flex-1 cursor-pointer items-center justify-end gap-2 truncate text-right text-sm font-semibold hover:underline",
-              fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
-            )}
-          >
-            <span className="truncate">{homeName}</span>
-            {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
-          </span>
-          <div className="mx-3 flex w-24 shrink-0 justify-center text-center">
-            {completed && fixture.result ? (
-              <button
-                type="button"
-                onClick={() => setSelectedMatchFixtureId(fixture.id)}
-                className="rounded-lg border border-app-border bg-app-bg px-3 py-1 font-heading text-base font-bold text-app-text transition hover:border-app-green hover:text-app-green"
-              >
-                {fixture.result.home_goals} - {fixture.result.away_goals}
-              </button>
-            ) : (
-              <span className="rounded border border-app-border bg-app-bg px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-                vs
-              </span>
-            )}
+          <div className="flex items-center">
+            <span
+              onClick={() => onSelectTeam(fixture.home_team_id)}
+              className={cx(
+                "flex min-w-0 flex-1 cursor-pointer items-center justify-end gap-2 truncate text-right text-sm font-semibold hover:underline",
+                fixture.home_team_id === userTeamId ? "text-app-green" : "text-app-text",
+              )}
+            >
+              <span className="truncate">{homeName}</span>
+              {homeTeam ? <TeamLogo team={homeTeam} size="sm" /> : null}
+            </span>
+            <div className="mx-3 flex w-24 shrink-0 justify-center text-center">
+              {completed && fixture.result ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedMatchFixtureId(fixture.id)}
+                  className="rounded-lg border border-app-border bg-app-bg px-3 py-1 font-heading text-base font-bold text-app-text transition hover:border-app-green hover:text-app-green"
+                >
+                  {fixture.result.home_goals} - {fixture.result.away_goals}
+                </button>
+              ) : (
+                <span className="rounded border border-app-border bg-app-bg px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
+                  vs
+                </span>
+              )}
+            </div>
+            <span
+              onClick={() => onSelectTeam(fixture.away_team_id)}
+              className={cx(
+                "flex min-w-0 flex-1 cursor-pointer items-center gap-2 truncate text-left text-sm font-semibold hover:underline",
+                fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
+              )}
+            >
+              {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
+              <span className="truncate">{awayName}</span>
+            </span>
           </div>
-          <span
-            onClick={() => onSelectTeam(fixture.away_team_id)}
-            className={cx(
-              "flex min-w-0 flex-1 cursor-pointer items-center gap-2 truncate text-left text-sm font-semibold hover:underline",
-              fixture.away_team_id === userTeamId ? "text-app-green" : "text-app-text",
-            )}
-          >
-            {awayTeam ? <TeamLogo team={awayTeam} size="sm" /> : null}
-            <span className="truncate">{awayName}</span>
-          </span>
+          {fixture.competition === "WorldCup" && venueParts.length > 0 ? (
+            <div className="mt-2 flex justify-center text-center text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">
+              {venueParts.join(" · ")}
+            </div>
+          ) : null}
         </div>
       </ContextMenu>
     );
@@ -863,6 +903,71 @@ export default function ScheduleTab({
                   ? t("season.startsOn", { date: formatMatchDate(seasonContext.season_start) })
                   : t("season.noOpener")}
               </p>
+            </TemplateCard>
+          ) : isWorldCupCompetition ? (
+            <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-app-border/50 bg-app-bg px-4 py-3">
+                <Trophy className="h-4 w-4 text-app-green" />
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-app-text-muted">
+                  {selectedCompetition.name} — {t("schedule.season", { number: selectedCompetition.season })}
+                </h3>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto p-3 custom-scrollbar">
+                <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+                  {worldCupGroups.map((group) => (
+                    <div key={group.label} className="overflow-hidden rounded-xl border border-app-border bg-app-bg">
+                      <div className="flex items-center justify-between border-b border-app-border/50 bg-app-card px-3 py-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-app-green">{group.label}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted">World Cup 2026</span>
+                      </div>
+                      <table className="w-full text-left text-[11px]">
+                        <thead>
+                          <tr className="border-b border-app-border/40 text-[9px] font-bold uppercase tracking-wider text-app-text-muted">
+                            <th className="px-3 py-2 w-8">#</th>
+                            <th className="px-3 py-2">{t("common.team")}</th>
+                            <th className="px-2 py-2 text-center">{t("common.played")}</th>
+                            <th className="px-2 py-2 text-center">{t("common.gd")}</th>
+                            <th className="px-3 py-2 text-center">{t("common.pts")}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-app-border/30 text-app-text">
+                          {group.standings.map((entry, idx) => {
+                            const isUser = entry.team_id === userTeamId;
+                            const standingTeam = teamById.get(entry.team_id);
+                            const gd = entry.goals_for - entry.goals_against;
+                            const contextItems = [buildTeamMenuItem(t("common.viewTeam"), entry.team_id)];
+
+                            return (
+                              <ContextMenu items={contextItems} key={entry.team_id}>
+                                <tr
+                                  className={cx("transition-colors hover:bg-white/5", isUser && "bg-app-green/10")}
+                                  data-testid={`schedule-standings-row-${entry.team_id}`}
+                                >
+                                  <td className="px-3 py-2 font-heading text-sm font-bold text-app-text-muted">{idx + 1}</td>
+                                  <td
+                                    onClick={() => onSelectTeam(entry.team_id)}
+                                    className={cx("cursor-pointer px-3 py-2 text-sm font-semibold hover:underline", isUser ? "text-app-green" : "text-app-text")}
+                                  >
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      {standingTeam ? <TeamLogo team={standingTeam} size="sm" /> : null}
+                                      <span className="truncate">{standingTeam?.name ?? getTeamName(gameState.teams, entry.team_id)}</span>
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-2 text-center text-sm tabular-nums text-app-text-muted">{entry.played}</td>
+                                  <td className={cx("px-2 py-2 text-center text-sm font-semibold tabular-nums", gd > 0 ? "text-app-green" : gd < 0 ? "text-red-400" : "text-app-text-muted")}>
+                                    {gd > 0 ? `+${gd}` : gd}
+                                  </td>
+                                  <td className="px-3 py-2 text-center font-heading text-sm font-bold tabular-nums text-app-text">{entry.points}</td>
+                                </tr>
+                              </ContextMenu>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </TemplateCard>
           ) : (
             <TemplateCard className="flex min-h-0 flex-1 flex-col overflow-hidden">

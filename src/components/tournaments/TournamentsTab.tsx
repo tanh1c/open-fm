@@ -990,27 +990,29 @@ export default function TournamentsTab({
           </TemplateCard>
         </section>
 
-        <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[360px]">
-          <TopScorersCard
-            topScorers={topScorers}
-            teams={gameState.teams}
-            buildPlayerMenuItems={buildPlayerMenuItems}
-            onSelectPlayer={onSelectPlayer}
-            onSelectTeam={onSelectTeam}
-            title={t("tournaments.topScorers")}
-            emptyText={t("tournaments.noGoals")}
-            withTestIds
-          />
-          <SnapshotCard
-            leaderStanding={leaderStanding}
-            userStanding={userStanding}
-            userStandingIndex={userStandingIndex}
-            teamById={teamById}
-            teams={gameState.teams}
-            completedMatches={completedMatches}
-            totalGoals={totalGoals}
-          />
-        </aside>
+        {!isWorldCupCompetition ? (
+          <aside className="hidden h-full w-full shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar lg:flex xl:w-[360px]">
+            <TopScorersCard
+              topScorers={topScorers}
+              teams={gameState.teams}
+              buildPlayerMenuItems={buildPlayerMenuItems}
+              onSelectPlayer={onSelectPlayer}
+              onSelectTeam={onSelectTeam}
+              title={t("tournaments.topScorers")}
+              emptyText={t("tournaments.noGoals")}
+              withTestIds
+            />
+            <SnapshotCard
+              leaderStanding={leaderStanding}
+              userStanding={userStanding}
+              userStandingIndex={userStandingIndex}
+              teamById={teamById}
+              teams={gameState.teams}
+              completedMatches={completedMatches}
+              totalGoals={totalGoals}
+            />
+          </aside>
+        ) : null}
       </div>
 
       <MatchDetailModal

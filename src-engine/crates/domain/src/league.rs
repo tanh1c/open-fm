@@ -100,6 +100,14 @@ pub struct Fixture {
     /// aggregate scores.
     #[serde(default)]
     pub tie_id: Option<String>,
+    #[serde(default)]
+    pub venue_name: Option<String>,
+    #[serde(default)]
+    pub venue_city: Option<String>,
+    #[serde(default)]
+    pub venue_country: Option<String>,
+    #[serde(default)]
+    pub group_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -296,6 +304,10 @@ impl Default for Fixture {
             stage: None,
             leg: None,
             tie_id: None,
+            venue_name: None,
+            venue_city: None,
+            venue_country: None,
+            group_label: None,
         }
     }
 }

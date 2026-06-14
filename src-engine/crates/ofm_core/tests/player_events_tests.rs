@@ -295,6 +295,7 @@ fn bench_complaint_after_5_missed_matches() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 })
         .collect();
     let league = League {
@@ -361,6 +362,7 @@ fn bench_complaint_not_for_gk() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 })
         .collect();
     game.league = Some(League {
@@ -416,6 +418,7 @@ fn bench_complaint_not_with_fewer_than_5_fixtures() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 })
         .collect();
     game.league = Some(League {

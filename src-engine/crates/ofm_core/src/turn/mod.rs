@@ -427,6 +427,7 @@ mod tests {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
         };
 
         let stats = build_synthetic_stats_state(&game, &fixture);

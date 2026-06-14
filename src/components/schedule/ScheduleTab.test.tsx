@@ -283,4 +283,58 @@ describe("ScheduleTab", () => {
     expect(screen.getByTestId("schedule-fixture-cup-1")).toBeInTheDocument();
     expect(screen.getByTestId("schedule-fixture-friendly-1")).toBeInTheDocument();
   });
+
+  it("labels World Cup fixtures with group and venue metadata", () => {
+    const gameState = createGameState(true);
+    gameState.teams = [
+      createTeam({ id: "mexico", name: "Mexico", short_name: "MEX", country: "MX", domestic_tier: null }),
+      createTeam({ id: "south-africa", name: "South Africa", short_name: "RSA", country: "ZA", domestic_tier: null }),
+      createTeam({ id: "south-korea", name: "South Korea", short_name: "KOR", country: "KR", domestic_tier: null }),
+      createTeam({ id: "czechia", name: "Czechia", short_name: "CZE", country: "CZ", domestic_tier: null }),
+    ];
+    gameState.manager.team_id = "mexico";
+    gameState.competitions = [
+      {
+        id: "world-cup-2026",
+        name: "World Cup 2026",
+        season: 2026,
+        kind: "WorldCup",
+        format: "GroupStageKnockout",
+        country: "World",
+        tier: null,
+        team_ids: ["mexico", "south-africa", "south-korea", "czechia"],
+        fixtures: [
+          createFixture({
+            id: "wc-1",
+            matchday: 1,
+            date: "2026-06-11",
+            home_team_id: "mexico",
+            away_team_id: "south-africa",
+            competition: "WorldCup",
+            status: "Scheduled",
+            result: null,
+            group_label: "Group A",
+            venue_name: "Estadio Azteca",
+            venue_city: "Mexico City",
+            venue_country: "Mexico",
+          }),
+        ],
+        standings: [
+          { team_id: "mexico", played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0 },
+          { team_id: "south-africa", played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0 },
+          { team_id: "south-korea", played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0 },
+          { team_id: "czechia", played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0 },
+        ],
+      },
+    ];
+
+    render(<ScheduleTab gameState={gameState} onSelectTeam={vi.fn()} />);
+
+    expect(screen.getAllByText(/World Cup 2026 · Group A/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Group A · Estadio Azteca · Mexico City")).toBeInTheDocument();
+    expect(screen.queryByText(/Friendly/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Standings/i }));
+    expect(screen.getByText("Group A")).toBeInTheDocument();
+  });
 });

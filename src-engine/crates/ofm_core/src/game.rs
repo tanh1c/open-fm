@@ -265,7 +265,19 @@ impl Game {
         else {
             return;
         };
-        competition.fixtures = synced_fixtures;
+        let mut merged_fixtures = synced_fixtures;
+        let synced_fixture_ids: std::collections::HashSet<String> = merged_fixtures
+            .iter()
+            .map(|fixture| fixture.id.clone())
+            .collect();
+        merged_fixtures.extend(
+            competition
+                .fixtures
+                .iter()
+                .filter(|fixture| !synced_fixture_ids.contains(fixture.id.as_str()))
+                .cloned(),
+        );
+        competition.fixtures = merged_fixtures;
         competition.standings = synced_standings;
         competition.transfer_log = synced_transfer_log;
     }
@@ -293,6 +305,7 @@ mod sync_tests {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
         }
     }
 
@@ -368,6 +381,38 @@ mod sync_tests {
         let result = mirrored.result.as_ref().expect("result synced");
         assert_eq!(result.home_goals, 2);
         assert_eq!(result.away_goals, 1);
+    }
+
+    #[test]
+    fn sync_preserves_competition_only_knockout_fixtures() {
+        let group_fixture = scheduled_fixture("group-1", "t1", "t2");
+        let mut knockout_fixture = scheduled_fixture("r32-1", "t3", "t4");
+        knockout_fixture.competition = FixtureCompetition::WorldCup;
+        knockout_fixture.stage = Some("r32".to_string());
+        knockout_fixture.matchday = 200;
+
+        let league = League {
+            id: "league-1".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            fixtures: vec![group_fixture.clone()],
+            standings: vec![
+                StandingEntry::new("t1".to_string()),
+                StandingEntry::new("t2".to_string()),
+            ],
+            transfer_log: vec![],
+        };
+        let mut competition = make_competition(vec![group_fixture, knockout_fixture]);
+        competition.kind = CompetitionKind::WorldCup;
+        competition.format = CompetitionFormat::GroupStageKnockout;
+
+        let mut game = make_game(league, vec![competition]);
+        game.sync_primary_competition_from_legacy_league();
+
+        assert!(game.competitions[0]
+            .fixtures
+            .iter()
+            .any(|fixture| fixture.id == "r32-1" && fixture.stage.as_deref() == Some("r32")));
     }
 
     #[test]

@@ -110,6 +110,7 @@ fn make_game_with_league() -> Game {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 }],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],
@@ -307,6 +308,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
             Fixture {
                 id: "f2".to_string(),
@@ -333,6 +335,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
             Fixture {
                 id: "f3".to_string(),
@@ -359,6 +362,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
         ],
         standings: vec![],
@@ -420,6 +424,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
             Fixture {
                 id: "f2".to_string(),
@@ -446,6 +451,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
             Fixture {
                 id: "f3".to_string(),
@@ -472,6 +478,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
         ],
         standings: vec![],
@@ -516,6 +523,7 @@ fn check_random_events_international_callup_with_upcoming_match() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 }],
         standings: vec![],
         transfer_log: vec![],

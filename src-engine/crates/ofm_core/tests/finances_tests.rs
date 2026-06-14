@@ -812,6 +812,7 @@ fn home_match_generates_income() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 }],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],
@@ -869,6 +870,7 @@ fn away_match_no_income() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 }],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],

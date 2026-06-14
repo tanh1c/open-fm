@@ -149,6 +149,7 @@ fn make_game_with_fixture() -> Game {
         stage: None,
         leg: None,
         tie_id: None,
+        ..Default::default()
 };
 
     let league = League {

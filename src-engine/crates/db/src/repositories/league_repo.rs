@@ -33,8 +33,8 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     {
         let mut fixture_stmt = conn
             .prepare_cached(
-                "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id, venue_name, venue_city, venue_country, group_label)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             )
             .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         for f in &league.fixtures {
@@ -60,6 +60,10 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
                     f.stage,
                     f.leg,
                     f.tie_id,
+                    f.venue_name,
+                    f.venue_city,
+                    f.venue_country,
+                    f.group_label,
                 ])
                 .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         }
@@ -244,6 +248,10 @@ struct PersistedFixture {
     stage: Option<String>,
     leg: Option<u8>,
     tie_id: Option<String>,
+    venue_name: Option<String>,
+    venue_city: Option<String>,
+    venue_country: Option<String>,
+    group_label: Option<String>,
 }
 
 fn persisted_fixture(
@@ -275,6 +283,10 @@ fn persisted_fixture(
         stage: fixture.stage.clone(),
         leg: fixture.leg,
         tie_id: fixture.tie_id.clone(),
+        venue_name: fixture.venue_name.clone(),
+        venue_city: fixture.venue_city.clone(),
+        venue_country: fixture.venue_country.clone(),
+        group_label: fixture.group_label.clone(),
     }
 }
 
@@ -314,8 +326,8 @@ fn upsert_changed_fixtures(
 
 fn prepare_fixture_upsert(conn: &Connection) -> Result<rusqlite::CachedStatement<'_>, String> {
     conn.prepare_cached(
-        "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        "INSERT OR REPLACE INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id, venue_name, venue_city, venue_country, group_label)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
 }
@@ -339,6 +351,10 @@ fn execute_fixture_upsert(
         fixture.stage,
         fixture.leg,
         fixture.tie_id,
+        fixture.venue_name,
+        fixture.venue_city,
+        fixture.venue_country,
+        fixture.group_label,
     ])
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     Ok(())
@@ -349,7 +365,7 @@ fn load_persisted_fixture(
     fixture_id: &str,
 ) -> Result<Option<PersistedFixture>, String> {
     conn.query_row(
-        "SELECT id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id
+        "SELECT id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id, venue_name, venue_city, venue_country, group_label
          FROM fixtures WHERE id = ?1",
         params![fixture_id],
         |row| {
@@ -368,6 +384,10 @@ fn load_persisted_fixture(
                 stage: row.get(11)?,
                 leg: row.get(12)?,
                 tie_id: row.get(13)?,
+                venue_name: row.get(14)?,
+                venue_city: row.get(15)?,
+                venue_country: row.get(16)?,
+                group_label: row.get(17)?,
             })
         },
     )
@@ -558,7 +578,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
     // Load fixtures
     let mut fix_stmt = conn
         .prepare(
-            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id
+            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id, venue_name, venue_city, venue_country, group_label
              FROM fixtures WHERE league_id = ?1 ORDER BY matchday, id",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -582,6 +602,10 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
                 stage: row.get(10)?,
                 leg: row.get(11)?,
                 tie_id: row.get(12)?,
+                venue_name: row.get(13)?,
+                venue_city: row.get(14)?,
+                venue_country: row.get(15)?,
+                group_label: row.get(16)?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -724,7 +748,7 @@ fn load_competition_team_ids(conn: &Connection, competition_id: &str) -> Result<
 fn load_competition_fixtures(conn: &Connection, competition_id: &str) -> Result<Vec<Fixture>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id
+            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result, competition_id, season, stage, leg, tie_id, venue_name, venue_city, venue_country, group_label
              FROM fixtures WHERE competition_id = ?1 ORDER BY matchday, id",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -747,6 +771,10 @@ fn load_competition_fixtures(conn: &Connection, competition_id: &str) -> Result<
                 stage: row.get(10)?,
                 leg: row.get(11)?,
                 tie_id: row.get(12)?,
+                venue_name: row.get(13)?,
+                venue_city: row.get(14)?,
+                venue_country: row.get(15)?,
+                group_label: row.get(16)?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -873,6 +901,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             },
             Fixture {
                 id: "fix-002".to_string(),
@@ -902,6 +931,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             },
         ];
         league.transfer_log = vec![CompletedTransfer {
@@ -1063,6 +1093,7 @@ mod tests {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
         }];
         upsert_league(db.conn(), &league).unwrap();
 
@@ -1101,6 +1132,7 @@ mod tests {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
         }];
         upsert_league_incremental(db.conn(), &league).unwrap();
 
@@ -1136,6 +1168,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             }],
             standings: vec![
                 StandingEntry::new("team-001".to_string()),

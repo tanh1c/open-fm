@@ -750,6 +750,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             }],
             standings: vec![
                 StandingEntry::new("team-001".to_string()),

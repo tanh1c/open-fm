@@ -205,6 +205,7 @@ fn make_game_with_match() -> Game {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 }],
         standings: vec![
             StandingEntry::new("team1".to_string()),
@@ -578,6 +579,7 @@ fn process_day_simulates_background_competition_fixture() {
             stage: None,
             leg: None,
             tie_id: None,
+            ..Default::default()
 }],
         standings: vec![
             StandingEntry::new("team1".to_string()),
@@ -1783,6 +1785,7 @@ fn make_round_summary_game() -> Game {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
             Fixture {
                 id: "fix2".to_string(),
@@ -1818,6 +1821,7 @@ fn make_round_summary_game() -> Game {
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
 },
         ],
         standings: vec![

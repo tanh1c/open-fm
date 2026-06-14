@@ -63,13 +63,21 @@ export default function FixtureInfoModal({ fixture, gameState, onClose, onViewTe
   const isUserHome = fixture.home_team_id === userTeamId;
   const opponentId = isUserHome ? fixture.away_team_id : fixture.home_team_id;
   const opponentName = isUserHome ? awayName : homeName;
-  const venue = userTeamId
-    ? isUserHome
-      ? t("schedule.home", { defaultValue: "Home" })
-      : t("schedule.away", { defaultValue: "Away" })
-    : "—";
-  const stadium = homeTeam?.stadium_name ?? "—";
-  const stadiumCity = homeTeam?.city ? `${stadium} · ${homeTeam.city}` : stadium;
+  const hasNeutralVenue = fixture.venue_name || fixture.venue_city || fixture.venue_country;
+  const venue = hasNeutralVenue
+    ? t("schedule.neutral", { defaultValue: "Neutral" })
+    : userTeamId
+      ? isUserHome
+        ? t("schedule.home", { defaultValue: "Home" })
+        : t("schedule.away", { defaultValue: "Away" })
+      : "—";
+  const stadium = fixture.venue_name ?? homeTeam?.stadium_name ?? "—";
+  const stadiumLocation = [fixture.venue_city, fixture.venue_country].filter(Boolean).join(", ");
+  const stadiumCity = stadiumLocation
+    ? `${stadium} · ${stadiumLocation}`
+    : homeTeam?.city
+      ? `${stadium} · ${homeTeam.city}`
+      : stadium;
 
   return (
     <div

@@ -6,6 +6,7 @@ use domain::league::{
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
+use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -322,6 +323,7 @@ pub fn generate_league(
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             };
             league.fixtures.push(fixture);
         }
@@ -360,6 +362,7 @@ pub fn generate_league(
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             };
             league.fixtures.push(fixture);
         }
@@ -483,6 +486,7 @@ pub fn generate_domestic_cup(
                 stage: Some(stage.clone()),
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             });
         }
     }
@@ -850,6 +854,7 @@ fn build_swiss_league_phase(
                 stage: None, // league-phase matches carry no knockout stage
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             });
         }
         // Rotate all but the first index (circle method).
@@ -917,6 +922,7 @@ pub fn generate_preseason_friendlies(
                 stage: None,
                 leg: None,
                 tie_id: None,
+                ..Default::default()
             });
         }
 
@@ -941,6 +947,114 @@ pub fn append_fixtures(league: &mut League, mut additional_fixtures: Vec<Fixture
 // World Cup 2026 scheduling
 // ---------------------------------------------------------------------------
 
+const WORLD_CUP_2026_SCHEDULE_JSON: &str = include_str!("wc2026_schedule_groups_knockout.json");
+
+#[derive(Debug, Deserialize)]
+struct WorldCupScheduleData {
+    groups: Vec<WorldCupGroupData>,
+    fixtures: Vec<WorldCupFixtureData>,
+    venues: Vec<WorldCupVenueData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorldCupGroupData {
+    group: String,
+    teams: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorldCupFixtureData {
+    match_number: u32,
+    group: String,
+    home: String,
+    away: String,
+    date: String,
+    stadium: String,
+    city: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorldCupVenueData {
+    stadium: String,
+    city: String,
+    country: String,
+}
+
+fn world_cup_team_key(value: &str) -> String {
+    value
+        .to_lowercase()
+        .replace('ç', "c")
+        .replace('ã', "a")
+        .replace('ô', "o")
+        .replace('é', "e")
+        .replace('è', "e")
+        .replace('í', "i")
+        .replace('ï', "i")
+        .replace('ü', "u")
+        .replace('ı', "i")
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .collect()
+}
+
+fn world_cup_team_aliases(name: &str) -> Vec<String> {
+    match name {
+        "Bosnia and Herzegovina" => vec!["Bosnia".to_string(), "Bosnia & Herzegovina".to_string()],
+        "Cape Verde" => vec!["Cabo Verde".to_string(), "Cape Verde Islands".to_string()],
+        "Curaçao" => vec!["Curacao".to_string()],
+        "Czechia" => vec!["Czech Republic".to_string()],
+        "DR Congo" => vec!["Democratic Republic of the Congo".to_string(), "Congo DR".to_string(), "DRC".to_string()],
+        "Ivory Coast" => vec!["Côte d'Ivoire".to_string(), "Cote d'Ivoire".to_string(), "Cote dIvoire".to_string()],
+        "South Korea" => vec!["Korea Republic".to_string(), "Republic of Korea".to_string()],
+        "Turkey" => vec!["Türkiye".to_string(), "Turkiye".to_string()],
+        "United States" => vec!["USA".to_string(), "United States of America".to_string(), "USMNT".to_string()],
+        _ => Vec::new(),
+    }
+}
+
+fn build_world_cup_team_lookup<'a>(teams: &'a [domain::team::Team]) -> HashMap<String, &'a domain::team::Team> {
+    let mut lookup = HashMap::new();
+    for team in teams {
+        lookup.insert(world_cup_team_key(&team.name), team);
+        lookup.insert(world_cup_team_key(&team.short_name), team);
+        lookup.insert(world_cup_team_key(&team.country), team);
+    }
+    lookup
+}
+
+fn find_world_cup_team_id(
+    lookup: &HashMap<String, &domain::team::Team>,
+    name: &str,
+) -> Option<String> {
+    std::iter::once(name.to_string())
+        .chain(world_cup_team_aliases(name))
+        .find_map(|candidate| lookup.get(&world_cup_team_key(&candidate)).map(|team| team.id.clone()))
+}
+
+fn venue_country(schedule: &WorldCupScheduleData, stadium: &str, city: &str) -> Option<String> {
+    schedule
+        .venues
+        .iter()
+        .find(|venue| venue.stadium == stadium && venue.city == city)
+        .map(|venue| venue.country.clone())
+}
+
+fn generate_seeded_world_cup_groups(teams: &[domain::team::Team]) -> Vec<Vec<String>> {
+    const NUM_GROUPS: usize = 12;
+    let mut sorted_indices: Vec<usize> = (0..teams.len()).collect();
+    sorted_indices.sort_by(|&a, &b| {
+        teams[b]
+            .reputation
+            .cmp(&teams[a].reputation)
+            .then(teams[a].id.cmp(&teams[b].id))
+    });
+    let mut groups: Vec<Vec<String>> = vec![Vec::new(); NUM_GROUPS];
+    for (slot, &idx) in sorted_indices.iter().enumerate() {
+        groups[slot % NUM_GROUPS].push(teams[idx].id.clone());
+    }
+    groups
+}
+
 /// Generate the World Cup 2026 competition: 12 groups × 4 teams round-robin → 32-team knockout.
 pub fn generate_world_cup_2026(
     teams: &[domain::team::Team],
@@ -953,59 +1067,103 @@ pub fn generate_world_cup_2026(
     let team_ids: Vec<String> = teams.iter().map(|t| t.id.clone()).collect();
     assert_eq!(team_ids.len(), NUM_GROUPS * GROUP_SIZE);
 
-    // Seed groups by team reputation (best-first). Group A gets teams[0], teams[11], teams[23], teams[35] etc.
-    let mut sorted_indices: Vec<usize> = (0..team_ids.len()).collect();
-    sorted_indices.sort_by(|&a, &b| {
-        teams[b].reputation.cmp(&teams[a].reputation).then(teams[a].id.cmp(&teams[b].id))
-    });
-    let mut groups: Vec<Vec<String>> = vec![Vec::new(); NUM_GROUPS];
-    for (slot, &idx) in sorted_indices.iter().enumerate() {
-        let group = slot % NUM_GROUPS;
-        groups[group].push(team_ids[idx].clone());
+    let schedule: WorldCupScheduleData = serde_json::from_str(WORLD_CUP_2026_SCHEDULE_JSON)
+        .expect("embedded World Cup schedule JSON should be valid");
+    let lookup = build_world_cup_team_lookup(teams);
+    let mut groups: Vec<Vec<String>> = schedule
+        .groups
+        .iter()
+        .filter(|group| group.group.len() == 1 && group.group.as_bytes()[0].is_ascii_uppercase())
+        .map(|group| {
+            group
+                .teams
+                .iter()
+                .filter_map(|name| find_world_cup_team_id(&lookup, name))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    if groups.len() != NUM_GROUPS || groups.iter().any(|group| group.len() != GROUP_SIZE) {
+        groups = generate_seeded_world_cup_groups(teams);
     }
 
-    // Single round-robin per group (3 matches per team)
+    let standings = groups
+        .iter()
+        .flat_map(|group| group.iter().cloned().map(StandingEntry::new))
+        .collect();
+
     let mut fixtures = Vec::new();
-    let mut standings = Vec::new();
-    for (g, group_team_ids) in groups.iter().enumerate() {
-        for team_id in group_team_ids {
-            standings.push(StandingEntry::new(team_id.clone()));
-        }
-        // Round-robin scheduling: each group plays on consecutive days
-        let group_base = start_date + Duration::days(g as i64 * 4);
-        let n = group_team_ids.len();
-        let mut indices: Vec<usize> = (0..n).collect();
-        let half = n / 2;
-        for round in 0..(n - 1) {
-            let matchday = (g * (n - 1) + round) as u32 + 1;
-            let round_date = (group_base + Duration::days(round as i64))
-                .format("%Y-%m-%d")
-                .to_string();
-            for i in 0..half {
-                let (home_idx, away_idx) = if round % 2 == 0 {
-                    (indices[i], indices[n - 1 - i])
-                } else {
-                    (indices[n - 1 - i], indices[i])
-                };
-                fixtures.push(Fixture {
-                    id: Uuid::new_v4().to_string(),
-                    matchday,
-                    date: round_date.clone(),
-                    home_team_id: group_team_ids[home_idx].clone(),
-                    away_team_id: group_team_ids[away_idx].clone(),
-                    competition_id: Some(competition_id.clone()),
-                    season: Some(season),
-                    competition: FixtureCompetition::WorldCup,
-                    status: FixtureStatus::Scheduled,
-                    result: None,
-                    stage: None,
-                    leg: None,
-                    tie_id: None,
-                });
+    for fixture_data in &schedule.fixtures {
+        let Some(home_team_id) = find_world_cup_team_id(&lookup, &fixture_data.home) else {
+            continue;
+        };
+        let Some(away_team_id) = find_world_cup_team_id(&lookup, &fixture_data.away) else {
+            continue;
+        };
+
+        fixtures.push(Fixture {
+            id: Uuid::new_v4().to_string(),
+            matchday: fixture_data.match_number,
+            date: fixture_data.date.clone(),
+            home_team_id,
+            away_team_id,
+            competition_id: Some(competition_id.clone()),
+            season: Some(season),
+            competition: FixtureCompetition::WorldCup,
+            status: FixtureStatus::Scheduled,
+            result: None,
+            stage: None,
+            leg: None,
+            tie_id: None,
+            venue_name: Some(fixture_data.stadium.clone()),
+            venue_city: Some(fixture_data.city.clone()),
+            venue_country: venue_country(&schedule, &fixture_data.stadium, &fixture_data.city),
+            group_label: Some(format!("Group {}", fixture_data.group)),
+        });
+    }
+
+    if fixtures.len() != NUM_GROUPS * 6 {
+        let mut fallback_fixtures = Vec::new();
+        for (g, group_team_ids) in groups.iter().enumerate() {
+            let group_label = format!("Group {}", char::from(b'A' + g as u8));
+            let group_base = start_date + Duration::days(g as i64 * 4);
+            let n = group_team_ids.len();
+            let mut indices: Vec<usize> = (0..n).collect();
+            let half = n / 2;
+            for round in 0..(n - 1) {
+                let matchday = (g * (n - 1) + round) as u32 + 1;
+                let round_date = (group_base + Duration::days(round as i64))
+                    .format("%Y-%m-%d")
+                    .to_string();
+                for i in 0..half {
+                    let (home_idx, away_idx) = if round % 2 == 0 {
+                        (indices[i], indices[n - 1 - i])
+                    } else {
+                        (indices[n - 1 - i], indices[i])
+                    };
+                    fallback_fixtures.push(Fixture {
+                        id: Uuid::new_v4().to_string(),
+                        matchday,
+                        date: round_date.clone(),
+                        home_team_id: group_team_ids[home_idx].clone(),
+                        away_team_id: group_team_ids[away_idx].clone(),
+                        competition_id: Some(competition_id.clone()),
+                        season: Some(season),
+                        competition: FixtureCompetition::WorldCup,
+                        status: FixtureStatus::Scheduled,
+                        result: None,
+                        stage: None,
+                        leg: None,
+                        tie_id: None,
+                        group_label: Some(group_label.clone()),
+                        ..Default::default()
+                    });
+                }
+                let last = indices.pop().unwrap();
+                indices.insert(1, last);
             }
-            let last = indices.pop().unwrap();
-            indices.insert(1, last);
         }
+        fixtures = fallback_fixtures;
     }
 
     Competition {
@@ -1268,6 +1426,129 @@ mod tests {
                     .count();
                 assert_eq!(appearances, 3, "{team_id} should play 3 group matches");
             }
+        }
+    }
+
+    #[test]
+    fn generate_world_cup_2026_maps_fc26_team_names_to_real_groups() {
+        let start = Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap();
+        let (teams, _, _) = crate::generator::generate_worldcup_fc26_world().unwrap();
+
+        let competition = generate_world_cup_2026(&teams, 2026, start);
+        let team_name_by_id: std::collections::HashMap<_, _> = teams
+            .iter()
+            .map(|team| (team.id.as_str(), team.name.as_str()))
+            .collect();
+        let group_a: Vec<_> = competition.standings[..4]
+            .iter()
+            .map(|entry| team_name_by_id[entry.team_id.as_str()])
+            .collect();
+        let group_h: Vec<_> = competition.standings[28..32]
+            .iter()
+            .map(|entry| team_name_by_id[entry.team_id.as_str()])
+            .collect();
+        let opening_fixture = competition
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.matchday == 1)
+            .expect("opening fixture should be present");
+
+        assert_eq!(group_a, vec!["Mexico", "South Africa", "Korea Republic", "Czechia"]);
+        assert_eq!(group_h, vec!["Spain", "Cabo Verde", "Saudi Arabia", "Uruguay"]);
+        assert_eq!(opening_fixture.group_label.as_deref(), Some("Group A"));
+        assert_eq!(opening_fixture.venue_name.as_deref(), Some("Estadio Azteca"));
+        assert!(competition.fixtures.iter().all(|fixture| fixture.venue_name.is_some()));
+    }
+
+    #[test]
+    fn generate_world_cup_2026_uses_real_schedule_metadata_when_teams_match() {
+        let start = Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap();
+        let teams: Vec<_> = [
+            "Mexico",
+            "South Africa",
+            "South Korea",
+            "Czechia",
+            "Canada",
+            "Bosnia and Herzegovina",
+            "Qatar",
+            "Switzerland",
+            "Brazil",
+            "Morocco",
+            "Haiti",
+            "Scotland",
+            "United States",
+            "Paraguay",
+            "Australia",
+            "Turkey",
+            "Germany",
+            "Curaçao",
+            "Ivory Coast",
+            "Ecuador",
+            "Netherlands",
+            "Japan",
+            "Sweden",
+            "Tunisia",
+            "Belgium",
+            "Egypt",
+            "Iran",
+            "New Zealand",
+            "Spain",
+            "Cape Verde",
+            "Saudi Arabia",
+            "Uruguay",
+            "France",
+            "Senegal",
+            "Iraq",
+            "Norway",
+            "Argentina",
+            "Algeria",
+            "Austria",
+            "Jordan",
+            "Portugal",
+            "DR Congo",
+            "Uzbekistan",
+            "Colombia",
+            "England",
+            "Croatia",
+            "Ghana",
+            "Panama",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(index, name)| test_team(&format!("team-{index:02}"), name, name, 1_000 - index as u32))
+        .collect();
+
+        let competition = generate_world_cup_2026(&teams, 2026, start);
+
+        assert_eq!(competition.fixtures.len(), 72);
+        assert!(competition.fixtures.iter().all(|fixture| {
+            fixture.competition == FixtureCompetition::WorldCup
+                && fixture.group_label.is_some()
+                && fixture.venue_name.is_some()
+                && fixture.venue_city.is_some()
+                && fixture.venue_country.is_some()
+        }));
+
+        let opening_fixture = competition
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.matchday == 1)
+            .expect("opening fixture should be present");
+        assert_eq!(opening_fixture.date, "2026-06-11");
+        assert_eq!(opening_fixture.home_team_id, "team-00");
+        assert_eq!(opening_fixture.away_team_id, "team-01");
+        assert_eq!(opening_fixture.group_label.as_deref(), Some("Group A"));
+        assert_eq!(opening_fixture.venue_name.as_deref(), Some("Estadio Azteca"));
+        assert_eq!(opening_fixture.venue_city.as_deref(), Some("Mexico City"));
+        assert_eq!(opening_fixture.venue_country.as_deref(), Some("Mexico"));
+
+        for group_label in (b'A'..=b'L').map(|letter| format!("Group {}", letter as char)) {
+            let fixtures_in_group = competition
+                .fixtures
+                .iter()
+                .filter(|fixture| fixture.group_label.as_deref() == Some(group_label.as_str()))
+                .count();
+            assert_eq!(fixtures_in_group, 6, "{group_label} should have 6 fixtures");
         }
     }
 

@@ -429,6 +429,10 @@ export interface FixtureData {
   leg?: number | null;
   /** Groups both legs of a two-legged tie together. */
   tie_id?: string | null;
+  venue_name?: string | null;
+  venue_city?: string | null;
+  venue_country?: string | null;
+  group_label?: string | null;
 }
 
 export interface CompactMatchEventData {

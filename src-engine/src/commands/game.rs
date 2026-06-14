@@ -54,6 +54,20 @@ fn is_worldcup_source(source: Option<&str>) -> bool {
     matches!(source, Some("worldcup2026" | "worldcup2026_fc26"))
 }
 
+fn start_date_for_world_source(world_source: &str) -> chrono::DateTime<chrono::Utc> {
+    use chrono::TimeZone;
+    if is_worldcup_source(Some(world_source)) {
+        chrono::Utc.with_ymd_and_hms(2026, 5, 25, 0, 0, 0).unwrap()
+    } else {
+        chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap()
+    }
+}
+
+fn worldcup_opening_date() -> chrono::DateTime<chrono::Utc> {
+    use chrono::TimeZone;
+    chrono::Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap()
+}
+
 /// Step 1: Create manager + generate world. No team assigned yet.
 /// Returns the Game object so the frontend can show team selection.
 /// world_source: "random" (default) or a file path to a JSON world database.
@@ -104,12 +118,9 @@ pub async fn start_new_game(
         nationality,
     );
 
-    use chrono::TimeZone;
-    let start_date = chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
-    let clock = GameClock::new(start_date);
-
     // Load world based on source
     let world_source = world_source.unwrap_or_else(|| "random".to_string());
+    let clock = GameClock::new(start_date_for_world_source(&world_source));
     let (teams, players, staff) = match world_source.as_str() {
         "random" => ofm_core::generator::generate_world(None),
         "fc26_real" => ofm_core::generator::generate_fc26_world()?,
@@ -153,8 +164,13 @@ fn finalize_team_selection(
     ofm_core::ai_hiring::seed_ai_managers(&mut game);
 
     use chrono::Duration;
-    let season_start = game.clock.current_date + Duration::days(30);
-    let league_name = if is_worldcup_source(game.world_source.as_deref()) {
+    let is_worldcup = is_worldcup_source(game.world_source.as_deref());
+    let season_start = if is_worldcup {
+        worldcup_opening_date()
+    } else {
+        game.clock.current_date + Duration::days(30)
+    };
+    let league_name = if is_worldcup {
         let wc_competition =
             ofm_core::schedule::generate_world_cup_2026(&game.teams, 2026, season_start);
         let league = domain::league::League {

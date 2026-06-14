@@ -190,23 +190,23 @@ fn is_competitive_fixture(competition: &FixtureCompetition) -> bool {
     )
 }
 
+fn competition_kind_from_fixture(competition: &FixtureCompetition) -> CompetitionKind {
+    match competition {
+        FixtureCompetition::League | FixtureCompetition::DomesticLeague => CompetitionKind::DomesticLeague,
+        FixtureCompetition::DomesticCup => CompetitionKind::DomesticCup,
+        FixtureCompetition::ContinentalLeague => CompetitionKind::ContinentalLeague,
+        FixtureCompetition::Friendly => CompetitionKind::Friendly,
+        FixtureCompetition::PreseasonTournament => CompetitionKind::PreseasonTournament,
+        FixtureCompetition::WorldCup => CompetitionKind::WorldCup,
+    }
+}
+
 fn fixture_competition_matches_kind(competition: &FixtureCompetition, kind: Option<&CompetitionKind>) -> bool {
     if !is_competitive_fixture(competition) {
         return false;
     }
 
-    match kind {
-        Some(CompetitionKind::DomesticLeague) => matches!(
-            competition,
-            FixtureCompetition::League | FixtureCompetition::DomesticLeague
-        ),
-        Some(CompetitionKind::DomesticCup) => matches!(competition, FixtureCompetition::DomesticCup),
-        Some(CompetitionKind::ContinentalLeague) => {
-            matches!(competition, FixtureCompetition::ContinentalLeague)
-        }
-        Some(CompetitionKind::Friendly | CompetitionKind::PreseasonTournament | CompetitionKind::WorldCup) => false,
-        None => true,
-    }
+    kind.is_none_or(|kind| competition_kind_from_fixture(competition) == *kind)
 }
 
 /// Per-competition aggregate of a player's match stats, scoped to one competition.
@@ -800,6 +800,75 @@ mod tests {
         // Must report only the 11 league goals, not the 14 season aggregate.
         assert_eq!(awards.golden_boot[0].player_id, "striker");
         assert_eq!(awards.golden_boot[0].value, 11.0);
+    }
+
+    #[test]
+    fn world_cup_competition_awards_count_world_cup_records() {
+        use super::compute_competition_awards;
+        use domain::league::{
+            Competition, CompetitionFormat, CompetitionKind, FixtureCompetition,
+        };
+        use domain::stats::{PlayerMatchStatsRecord, StatsState};
+
+        let team = make_team("england", "England");
+        let striker = make_player(
+            "striker",
+            "Striker",
+            Some("england"),
+            Position::Forward,
+            "2000-01-01",
+            PlayerSeasonStats::default(),
+        );
+        let mut game = make_game(vec![striker], vec![team]);
+        game.competitions = vec![Competition {
+            id: "world-cup-2026".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            kind: CompetitionKind::WorldCup,
+            format: CompetitionFormat::GroupStageKnockout,
+            country: None,
+            tier: None,
+            team_ids: vec!["england".to_string()],
+            fixtures: vec![],
+            standings: vec![],
+            transfer_log: vec![],
+        }];
+
+        let mut stats = StatsState::default();
+        stats.player_matches.push(PlayerMatchStatsRecord {
+            fixture_id: "world-cup-fixture".to_string(),
+            season: 2026,
+            matchday: 1,
+            date: "2026-06-17".to_string(),
+            competition: FixtureCompetition::WorldCup,
+            player_id: "striker".to_string(),
+            team_id: "england".to_string(),
+            opponent_team_id: "croatia".to_string(),
+            home_team_id: "england".to_string(),
+            away_team_id: "croatia".to_string(),
+            home_goals: 2,
+            away_goals: 0,
+            minutes_played: 90,
+            goals: 2,
+            assists: 1,
+            shots: 0,
+            shots_on_target: 0,
+            passes_completed: 0,
+            passes_attempted: 0,
+            tackles_won: 0,
+            interceptions: 0,
+            fouls_committed: 0,
+            yellow_cards: 0,
+            red_cards: 0,
+            rating: 8.4,
+        });
+
+        let awards = compute_competition_awards(&game, &stats, "world-cup-2026");
+
+        assert_eq!(awards.golden_boot[0].player_id, "striker");
+        assert_eq!(awards.golden_boot[0].value, 2.0);
+        assert_eq!(awards.assist_king[0].value, 1.0);
+        assert_eq!(awards.most_appearances[0].value, 1.0);
     }
 
     #[test]

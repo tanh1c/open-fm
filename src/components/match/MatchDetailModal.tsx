@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 
-import { getTeamLogoUrl } from "../../lib/teamLogos";
+import TeamLogo from "../common/TeamLogo";
 import type { MatchDetailData, MatchDetailEventData, MatchDetailPlayerStatsData, MatchDetailTeamStatsData } from "../../store/types";
 
 interface MatchDetailModalProps {
@@ -224,30 +224,20 @@ function TeamScoreBlock({ name, side }: { name: string; side: "home" | "away" })
 }
 
 function TeamLogoBadge({ name, tone }: { name: string; tone: "home" | "away" }) {
-  const shortName = name.substring(0, 3).toUpperCase();
-  const logoUrl = getTeamLogoUrl({ name, country: "", domestic_tier: undefined });
-
   return (
-    <div
+    <TeamLogo
+      team={{
+        name,
+        short_name: name.substring(0, 3).toUpperCase(),
+        country: name,
+        domestic_tier: null,
+      }}
+      size="md"
       className={cx(
-        "flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border bg-white/95 p-2 shadow-lg md:h-20 md:w-20",
+        "h-16 w-16 rounded-2xl border bg-white/95 p-2 shadow-lg md:h-20 md:w-20",
         tone === "home" ? "border-app-green/60" : "border-indigo-400/60",
       )}
-    >
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt={`${name} logo`}
-          className="h-full w-full object-contain"
-          loading="lazy"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-            event.currentTarget.nextElementSibling?.classList.remove("hidden");
-          }}
-        />
-      ) : null}
-      <span className={cx("font-heading text-sm font-black text-surface-900", logoUrl && "hidden")}>{shortName}</span>
-    </div>
+    />
   );
 }
 

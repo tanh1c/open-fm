@@ -34,6 +34,18 @@ fn is_worldcup_source(source: Option<&str>) -> bool {
     matches!(source, Some("worldcup2026" | "worldcup2026_fc26"))
 }
 
+fn start_date_for_world_source(world_source: Option<&str>) -> chrono::DateTime<chrono::Utc> {
+    if is_worldcup_source(world_source) {
+        chrono::Utc.with_ymd_and_hms(2026, 5, 25, 0, 0, 0).unwrap()
+    } else {
+        chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap()
+    }
+}
+
+fn worldcup_opening_date() -> chrono::DateTime<chrono::Utc> {
+    chrono::Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap()
+}
+
 fn validate_manager_inputs(
     first_name: &str,
     last_name: &str,
@@ -83,9 +95,6 @@ fn build_new_game(
         dob,
         nationality,
     );
-    let start_date = chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
-    let clock = GameClock::new(start_date);
-
     let mut effective_world_source: Option<String> = None;
     let (teams, players, staff) = match world_json {
         Some(json) => {
@@ -106,6 +115,9 @@ fn build_new_game(
         }
     };
 
+    let clock = GameClock::new(start_date_for_world_source(
+        effective_world_source.as_deref(),
+    ));
     let mut game = Game::new(clock, manager, teams, players, staff, vec![]);
     game.world_source = effective_world_source;
     Ok(game)
@@ -184,9 +196,14 @@ impl AppHandle {
         ofm_core::ai_hiring::seed_ai_managers(&mut game);
 
         use chrono::Duration;
-        let season_start = game.clock.current_date + Duration::days(30);
+        let is_worldcup_source = is_worldcup_source(game.world_source.as_deref());
+        let season_start = if is_worldcup_source {
+            worldcup_opening_date()
+        } else {
+            game.clock.current_date + Duration::days(30)
+        };
 
-        let (league_name, is_worldcup) = if is_worldcup_source(game.world_source.as_deref()) {
+        let (league_name, is_worldcup) = if is_worldcup_source {
             let wc_competition =
                 ofm_core::schedule::generate_world_cup_2026(&game.teams, 2026, season_start);
             let name = wc_competition.name.clone();

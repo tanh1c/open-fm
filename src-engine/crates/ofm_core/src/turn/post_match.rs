@@ -150,7 +150,7 @@ pub fn apply_match_report_with_capture<F>(
     if let Some(league) = game.league.as_mut() {
         let fixture = &mut league.fixtures[fixture_index];
         fixture.status = FixtureStatus::Completed;
-        counts_for_standings = fixture.counts_for_league_standings();
+        counts_for_standings = fixture.counts_for_competition_standings();
         generates_match_news = fixture.generates_match_report_news();
 
         if counts_for_standings {
@@ -1012,6 +1012,47 @@ mod tests {
 
         let result = game.league.as_ref().unwrap().fixtures[0].result.as_ref().unwrap();
         assert!(result.report.is_some());
+    }
+
+    #[test]
+    fn world_cup_group_match_updates_legacy_standings() {
+        let mut game = game_with_players(vec![]);
+        let mut fixture = league_fixture("england", "croatia");
+        fixture.competition = FixtureCompetition::WorldCup;
+        fixture.stage = None;
+        game.league = Some(domain::league::League {
+            id: "world-cup-2026".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            fixtures: vec![fixture],
+            standings: vec![
+                domain::league::StandingEntry::new("england".to_string()),
+                domain::league::StandingEntry::new("croatia".to_string()),
+            ],
+            transfer_log: vec![],
+        });
+        let mut report = report_with_minutes(&[], 90);
+        report.home_goals = 2;
+        report.away_goals = 1;
+
+        apply_match_report_with_capture(
+            &mut game,
+            0,
+            "england",
+            "croatia",
+            &report,
+            &mut |_| {},
+        );
+
+        let standings = &game.league.as_ref().unwrap().standings;
+        assert_eq!(standings[0].played, 1);
+        assert_eq!(standings[0].points, 3);
+        assert_eq!(standings[0].goals_for, 2);
+        assert_eq!(standings[0].goals_against, 1);
+        assert_eq!(standings[1].played, 1);
+        assert_eq!(standings[1].points, 0);
+        assert_eq!(standings[1].goals_for, 1);
+        assert_eq!(standings[1].goals_against, 2);
     }
 
     #[test]

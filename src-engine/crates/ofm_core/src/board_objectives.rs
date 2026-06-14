@@ -569,6 +569,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 },
             Fixture {
                 id: "f2".to_string(),
@@ -595,6 +596,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 },
         ];
         game.league = Some(league);
@@ -672,6 +674,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 },
             Fixture {
                 id: "f2".to_string(),
@@ -698,6 +701,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 },
         ];
         game.league = Some(league);
@@ -780,6 +784,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 },
             Fixture {
                 id: "f2".to_string(),
@@ -806,6 +811,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 },
         ];
         game.league = Some(league);
@@ -863,6 +869,7 @@ mod tests {
                 stage: None,
                 leg: None,
                 tie_id: None,
+    ..Default::default()
 }
         };
         league.standings = vec![

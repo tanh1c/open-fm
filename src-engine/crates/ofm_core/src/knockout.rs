@@ -22,6 +22,7 @@ use domain::league::{
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
+use serde::Deserialize;
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -285,6 +286,7 @@ fn progress_cup(game: &mut Game, index: usize, today: &str) {
             stage: Some(stage.clone()),
             leg: None,
             tie_id: None,
+            ..Default::default()
         });
     }
     game.competitions[index].fixtures.extend(new_fixtures);
@@ -561,6 +563,7 @@ fn make_continental_fixture(
         stage: Some(stage.to_string()),
         leg: Some(leg),
         tie_id: Some(tie_id.to_string()),
+        ..Default::default()
     }
 }
 
@@ -582,7 +585,58 @@ fn fnv_seed(source: &str) -> u64 {
 // World Cup knockout progression
 // ---------------------------------------------------------------------------
 
-fn progress_worldcup(game: &mut Game, index: usize, today: &str) {
+const WORLD_CUP_2026_SCHEDULE_JSON: &str = include_str!("wc2026_schedule_groups_knockout.json");
+
+#[derive(Debug, Deserialize)]
+struct WorldCupScheduleData {
+    knockout_fixtures: Vec<WorldCupKnockoutFixtureData>,
+    venues: Vec<WorldCupVenueData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorldCupKnockoutFixtureData {
+    match_number: u32,
+    stage: String,
+    home: String,
+    away: String,
+    date: String,
+    stadium: String,
+    city: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorldCupVenueData {
+    stadium: String,
+    city: String,
+    country: String,
+}
+
+fn worldcup_schedule_data() -> WorldCupScheduleData {
+    serde_json::from_str(WORLD_CUP_2026_SCHEDULE_JSON)
+        .expect("embedded World Cup schedule JSON should be valid")
+}
+
+fn worldcup_stage_key(stage: &str) -> Option<&'static str> {
+    match stage {
+        "Round of 32" => Some("r32"),
+        "Round of 16" => Some("r16"),
+        "Quarterfinals" => Some("qf"),
+        "Semifinals" => Some("sf"),
+        "Final" => Some("final"),
+        "Match for third place" => Some("third_place"),
+        _ => None,
+    }
+}
+
+fn worldcup_venue_country(schedule: &WorldCupScheduleData, stadium: &str, city: &str) -> Option<String> {
+    schedule
+        .venues
+        .iter()
+        .find(|venue| venue.stadium == stadium && venue.city == city)
+        .map(|venue| venue.country.clone())
+}
+
+fn progress_worldcup(game: &mut Game, index: usize, _today: &str) {
     let competition = &game.competitions[index];
     if competition.fixtures.is_empty() {
         return;
@@ -613,130 +667,175 @@ fn progress_worldcup(game: &mut Game, index: usize, today: &str) {
         !legs.is_empty() && legs.iter().all(|f| f.status == FixtureStatus::Completed)
     };
 
-    // First knockout stage: rank top 2 per group + 8 best 3rd → 32 teams
+    let schedule = worldcup_schedule_data();
     if !has_stage("r32") {
-        let qualified = worldcup_qualified_teams(competition);
-        if qualified.len() < 32 {
+        let Some(fixtures) = build_worldcup_template_stage_fixtures(competition, &schedule, "r32") else {
             return;
-        }
-        let mut seeded: Vec<String> = qualified.iter().take(32).cloned().collect();
-        let seed = fnv_seed(&format!("{}-r32", competition.id));
-        let mut rng = StdRng::seed_from_u64(seed);
-        // Shuffle so bracket isn't just group A winner vs group H runner-up
-        seeded.shuffle(&mut rng);
-        let mut fixtures = Vec::new();
-        let base = latest_fixture_date(competition)
-            .map(|d| d + Duration::days(4))
-            .or_else(|| parse_date(today))
-            .unwrap_or_else(Utc::now);
-        let competition_id = competition.id.clone();
-        let season = competition.season;
-        for chunk in seeded.chunks(2) {
-            if chunk.len() == 2 {
-                let date = advance_to_weekday(base, Weekday::Sat)
-                    .format("%Y-%m-%d")
-                    .to_string();
-                fixtures.push(Fixture {
-                    id: Uuid::new_v4().to_string(),
-                    matchday: 200,
-                    date,
-                    home_team_id: chunk[0].clone(),
-                    away_team_id: chunk[1].clone(),
-                    competition_id: Some(competition_id.clone()),
-                    season: Some(season),
-                    competition: FixtureCompetition::WorldCup,
-                    status: FixtureStatus::Scheduled,
-                    result: None,
-                    stage: Some("r32".to_string()),
-                    leg: None,
-                    tie_id: None,
-                });
-            }
-        }
-        game.competitions[index].fixtures.extend(fixtures);
+        };
+        append_worldcup_knockout_fixtures(game, index, fixtures);
         return;
     }
 
-    // Knockout stages: r32 → r16 → qf → sf → final (all single-leg)
     for (stage, next) in [("r32", "r16"), ("r16", "qf"), ("qf", "sf"), ("sf", "final")] {
         if has_stage(stage) && !has_stage(next) {
             if !stage_complete(stage) {
                 return;
             }
-            let winners: Vec<String> = competition
-                .fixtures
-                .iter()
-                .filter(|f| f.stage.as_deref() == Some(stage))
-                .filter_map(single_leg_winner)
-                .collect();
-            if next == "final" && winners.len() >= 2 {
-                let competition_id = competition.id.clone();
-                let season = competition.season;
-                let base = latest_fixture_date(competition)
-                    .map(|d| d + Duration::days(5))
-                    .or_else(|| parse_date(today))
-                    .unwrap_or_else(Utc::now);
-                let final_date = advance_to_weekday(base, Weekday::Sun)
-                    .format("%Y-%m-%d")
-                    .to_string();
-                game.competitions[index].fixtures.push(Fixture {
-                    id: Uuid::new_v4().to_string(),
-                    matchday: 300,
-                    date: final_date,
-                    home_team_id: winners[0].clone(),
-                    away_team_id: winners[1].clone(),
-                    competition_id: Some(competition_id),
-                    season: Some(season),
-                    competition: FixtureCompetition::WorldCup,
-                    status: FixtureStatus::Scheduled,
-                    result: None,
-                    stage: Some("final".to_string()),
-                    leg: None,
-                    tie_id: None,
-                });
-            } else if winners.len() >= 2 {
-                let seed = fnv_seed(&format!("{}-{}", competition.id, next));
-                let mut rng = StdRng::seed_from_u64(seed);
-                let mut shuffled = winners;
-                shuffled.shuffle(&mut rng);
-                let mut new_fixtures = Vec::new();
-                let base = latest_fixture_date(competition)
-                    .map(|d| d + Duration::days(5))
-                    .or_else(|| parse_date(today))
-                    .unwrap_or_else(Utc::now);
-                let competition_id = competition.id.clone();
-                let season = competition.season;
-                for chunk in shuffled.chunks(2) {
-                    if chunk.len() == 2 {
-                        let date = advance_to_weekday(base, Weekday::Sat)
-                            .format("%Y-%m-%d")
-                            .to_string();
-                        new_fixtures.push(Fixture {
-                            id: Uuid::new_v4().to_string(),
-                            matchday: 250,
-                            date,
-                            home_team_id: chunk[0].clone(),
-                            away_team_id: chunk[1].clone(),
-                            competition_id: Some(competition_id.clone()),
-                            season: Some(season),
-                            competition: FixtureCompetition::WorldCup,
-                            status: FixtureStatus::Scheduled,
-                            result: None,
-                            stage: Some(next.to_string()),
-                            leg: None,
-                            tie_id: None,
-                        });
-                    }
-                }
-                game.competitions[index].fixtures.extend(new_fixtures);
+            let Some(mut fixtures) = build_worldcup_template_stage_fixtures(competition, &schedule, next) else {
+                return;
+            };
+            if next == "final"
+                && let Some(third_place_fixtures) =
+                    build_worldcup_template_stage_fixtures(competition, &schedule, "third_place")
+            {
+                fixtures.extend(third_place_fixtures);
             }
+            append_worldcup_knockout_fixtures(game, index, fixtures);
             return;
+        }
+    }
+
+    if has_stage("sf") && !has_stage("third_place") && stage_complete("sf") {
+        if let Some(fixtures) = build_worldcup_template_stage_fixtures(competition, &schedule, "third_place") {
+            append_worldcup_knockout_fixtures(game, index, fixtures);
         }
     }
 }
 
+fn append_worldcup_knockout_fixtures(game: &mut Game, index: usize, fixtures: Vec<Fixture>) {
+    if fixtures.is_empty() {
+        return;
+    }
+
+    if let Some(league) = game.league.as_mut() {
+        if league.id == game.competitions[index].id {
+            league.fixtures.extend(fixtures.iter().cloned());
+        }
+    }
+    game.competitions[index].fixtures.extend(fixtures);
+}
+
+fn build_worldcup_template_stage_fixtures(
+    competition: &Competition,
+    schedule: &WorldCupScheduleData,
+    stage_key: &str,
+) -> Option<Vec<Fixture>> {
+    let mut fixtures = Vec::new();
+    for template in schedule
+        .knockout_fixtures
+        .iter()
+        .filter(|template| worldcup_stage_key(&template.stage) == Some(stage_key))
+    {
+        let home_team_id = resolve_worldcup_placeholder(competition, &template.home)?;
+        let away_team_id = resolve_worldcup_placeholder(competition, &template.away)?;
+        fixtures.push(Fixture {
+            id: Uuid::new_v4().to_string(),
+            matchday: template.match_number,
+            date: template.date.clone(),
+            home_team_id,
+            away_team_id,
+            competition_id: Some(competition.id.clone()),
+            season: Some(competition.season),
+            competition: FixtureCompetition::WorldCup,
+            status: FixtureStatus::Scheduled,
+            result: None,
+            stage: Some(stage_key.to_string()),
+            leg: None,
+            tie_id: Some(format!("wc2026-match-{}", template.match_number)),
+            venue_name: Some(template.stadium.clone()),
+            venue_city: Some(template.city.clone()),
+            venue_country: worldcup_venue_country(schedule, &template.stadium, &template.city),
+            group_label: None,
+        });
+    }
+
+    if fixtures.is_empty() {
+        None
+    } else {
+        Some(fixtures)
+    }
+}
+
+fn resolve_worldcup_placeholder(competition: &Competition, placeholder: &str) -> Option<String> {
+    if let Some(group) = placeholder.strip_prefix("Winner Group ") {
+        return worldcup_group_ranked_team(competition, group, 0);
+    }
+    if let Some(group) = placeholder.strip_prefix("Runner-up Group ") {
+        return worldcup_group_ranked_team(competition, group, 1);
+    }
+    if let Some(groups) = placeholder.strip_prefix("3rd Group ") {
+        return worldcup_best_third_from_groups(competition, groups);
+    }
+    if let Some(match_number) = placeholder.strip_prefix("Winner Match ") {
+        return worldcup_match_resolution(competition, match_number, true);
+    }
+    if let Some(match_number) = placeholder.strip_prefix("Loser Match ") {
+        return worldcup_match_resolution(competition, match_number, false);
+    }
+    None
+}
+
+fn worldcup_group_ranked_team(competition: &Competition, group: &str, rank: usize) -> Option<String> {
+    let group_index = group.as_bytes().first()?.checked_sub(b'A')? as usize;
+    let start = group_index * 4;
+    let end = start + 4;
+    let mut group_standings: Vec<&StandingEntry> = competition.standings.get(start..end)?.iter().collect();
+    group_standings.sort_by(|a, b| {
+        b.points
+            .cmp(&a.points)
+            .then(b.goal_difference().cmp(&a.goal_difference()))
+            .then(b.goals_for.cmp(&a.goals_for))
+    });
+    group_standings.get(rank).map(|standing| standing.team_id.clone())
+}
+
+fn worldcup_best_third_from_groups(competition: &Competition, groups: &str) -> Option<String> {
+    let allowed_groups: HashSet<&str> = groups.split('/').collect();
+    let mut thirds = Vec::new();
+    for group in 'A'..='L' {
+        let group_label = group.to_string();
+        if !allowed_groups.contains(group_label.as_str()) {
+            continue;
+        }
+        let Some(team_id) = worldcup_group_ranked_team(competition, &group_label, 2) else {
+            continue;
+        };
+        let group_index = group as usize - 'A' as usize;
+        let start = group_index * 4;
+        let end = start + 4;
+        let standing = competition
+            .standings
+            .get(start..end)?
+            .iter()
+            .find(|entry| entry.team_id == team_id)?;
+        thirds.push((team_id, standing.clone()));
+    }
+    thirds.sort_by(|a, b| {
+        b.1.points
+            .cmp(&a.1.points)
+            .then(b.1.goal_difference().cmp(&a.1.goal_difference()))
+            .then(b.1.goals_for.cmp(&a.1.goals_for))
+    });
+    thirds.first().map(|(team_id, _)| team_id.clone())
+}
+
+fn worldcup_match_resolution(competition: &Competition, match_number: &str, winner: bool) -> Option<String> {
+    let matchday = match_number.parse::<u32>().ok()?;
+    let fixture = competition
+        .fixtures
+        .iter()
+        .find(|fixture| fixture.matchday == matchday && fixture.competition == FixtureCompetition::WorldCup)?;
+    let resolution = single_leg_resolution(fixture)?;
+    Some(if winner {
+        resolution.winner_team_id
+    } else {
+        resolution.runner_up_team_id
+    })
+}
+
 /// Top 2 from each group + 8 best 3rd-place teams = 32 qualifiers.
 /// Groups are determined by team order in standings (48 teams, 12 groups of 4).
+#[allow(dead_code)]
 fn worldcup_qualified_teams(competition: &Competition) -> Vec<String> {
     const GROUP_SIZE: usize = 4;
     const NUM_GROUPS: usize = 12;
@@ -855,6 +954,106 @@ mod tests {
     }
 
     #[test]
+    fn worldcup_progression_uses_official_r32_template_dates_and_venues() {
+        let mut standings = Vec::new();
+        let mut fixtures = Vec::new();
+        for group_index in 0..12 {
+            let winner = format!("g{group_index}-winner");
+            let runner = format!("g{group_index}-runner");
+            standings.push(worldcup_standing(&winner, 9, 6, 1));
+            standings.push(worldcup_standing(&runner, 6, 4, 2));
+            standings.push(worldcup_standing(
+                &format!("g{group_index}-third"),
+                group_index as u32,
+                group_index as u32 + 1,
+                1,
+            ));
+            standings.push(worldcup_standing(&format!("g{group_index}-fourth"), 0, 1, 6));
+            fixtures.push(Fixture {
+                id: format!("group-{group_index}"),
+                matchday: group_index as u32 + 1,
+                date: "2026-06-27".to_string(),
+                home_team_id: winner,
+                away_team_id: runner,
+                competition_id: Some("worldcup".to_string()),
+                season: Some(2026),
+                competition: FixtureCompetition::WorldCup,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 1,
+                    away_goals: 0,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                    winner_team_id: None,
+                    resolution: None,
+                    home_penalties: None,
+                    away_penalties: None,
+                }),
+                stage: None,
+                ..Default::default()
+            });
+        }
+        let competition = Competition {
+            id: "worldcup".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            kind: CompetitionKind::WorldCup,
+            format: domain::league::CompetitionFormat::GroupStageKnockout,
+            country: None,
+            tier: None,
+            team_ids: standings.iter().map(|entry| entry.team_id.clone()).collect(),
+            fixtures,
+            standings,
+            transfer_log: vec![],
+        };
+        let legacy_fixtures = competition.fixtures.clone();
+        let legacy_standings = competition.standings.clone();
+        let mut game = Game::new(
+            crate::clock::GameClock::new(Utc::now()),
+            domain::manager::Manager::new(
+                "mgr".to_string(),
+                "Test".to_string(),
+                "Manager".to_string(),
+                "1980-01-01".to_string(),
+                "England".to_string(),
+            ),
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+        game.league = Some(domain::league::League {
+            id: "worldcup".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            fixtures: legacy_fixtures,
+            standings: legacy_standings,
+            transfer_log: vec![],
+        });
+        game.competitions = vec![competition];
+
+        process_knockout_progression(&mut game, "2026-06-27");
+
+        let r32 = game.competitions[0]
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.matchday == 73)
+            .expect("match 73 should be scheduled");
+        assert_eq!(r32.stage.as_deref(), Some("r32"));
+        assert_eq!(r32.date, "2026-06-28");
+        assert_eq!(r32.venue_name.as_deref(), Some("SoFi Stadium"));
+        assert_eq!(r32.venue_city.as_deref(), Some("Inglewood"));
+        assert!(game
+            .league
+            .as_ref()
+            .expect("legacy league should exist")
+            .fixtures
+            .iter()
+            .any(|fixture| fixture.matchday == 73 && fixture.date == "2026-06-28"));
+    }
+
+    #[test]
     fn worldcup_qualified_teams_uses_top_two_plus_best_thirds() {
         let mut standings = Vec::new();
         for group_index in 0..12 {
@@ -923,6 +1122,7 @@ mod tests {
             stage: Some("r16".into()),
             leg: Some(1),
             tie_id: Some("tie".into()),
+            ..Default::default()
         };
         let leg2 = Fixture {
             id: "l2".into(),
@@ -948,6 +1148,7 @@ mod tests {
             stage: Some("r16".into()),
             leg: Some(2),
             tie_id: Some("tie".into()),
+            ..Default::default()
         };
         // Aggregate: A scored 1 (away) + 0 (home) = 1; B scored 2 + 0 = 2. B wins.
         assert_eq!(two_leg_winner(&[&leg1, &leg2]), Some("B".to_string()));

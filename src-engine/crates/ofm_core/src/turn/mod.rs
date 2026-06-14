@@ -280,6 +280,7 @@ mod tests {
         SyntheticPlayer {
             id: id.to_string(),
             position,
+            natural_position: String::new(),
             ovr,
             minutes: 90,
             shooting,
@@ -712,8 +713,14 @@ fn apply_fast_fixture_result(
         .unwrap_or(&[]);
     let home_attacking_events = synthetic_attacking_events(home_players, home_goals, seed.wrapping_add(101));
     let away_attacking_events = synthetic_attacking_events(away_players, away_goals, seed.wrapping_add(211));
-    let home_scorers = goal_events_from_attacking_events(&home_attacking_events);
-    let away_scorers = goal_events_from_attacking_events(&away_attacking_events);
+    let mut home_scorers = goal_events_from_attacking_events(&home_attacking_events);
+    let mut away_scorers = goal_events_from_attacking_events(&away_attacking_events);
+    if home_goals > 0 && home_scorers.is_empty() {
+        home_scorers = fallback_goal_events(home_players, home_goals, seed.wrapping_add(101));
+    }
+    if away_goals > 0 && away_scorers.is_empty() {
+        away_scorers = fallback_goal_events(away_players, away_goals, seed.wrapping_add(211));
+    }
     let report = keep_report(fixture).then(|| {
         synthetic_compact_report(
             home_goals,
@@ -896,6 +903,29 @@ fn goal_events_from_attacking_events(events: &[SyntheticAttackingEvent]) -> Vec<
         .collect()
 }
 
+fn fallback_goal_events(players: &[SyntheticPlayer], goals_for: u8, seed: u32) -> Vec<GoalEvent> {
+    if players.is_empty() || goals_for == 0 {
+        return Vec::new();
+    }
+
+    let usage = SyntheticUsage::new(players);
+    let mut scorer_indices = pick_weighted_player_indices(players, goals_for as usize, seed, |player| {
+        usage.scorer_weight(player)
+    });
+    usage.apply_finisher_preference(players, &mut scorer_indices, seed);
+
+    scorer_indices
+        .into_iter()
+        .enumerate()
+        .filter_map(|(goal_index, scorer_index)| {
+            players.get(scorer_index).map(|scorer| GoalEvent {
+                player_id: scorer.id.clone(),
+                minute: synthetic_goal_minute(seed, goal_index),
+            })
+        })
+        .collect()
+}
+
 fn synthetic_compact_report(
     home_goals: u8,
     away_goals: u8,
@@ -960,6 +990,7 @@ fn synthetic_goal_minute(seed: u32, goal_index: usize) -> u8 {
 struct SyntheticPlayer {
     id: String,
     position: engine::Position,
+    natural_position: String,
     ovr: u8,
     minutes: u8,
     shooting: u8,
@@ -970,6 +1001,87 @@ struct SyntheticPlayer {
     composure: u8,
     dribbling: u8,
     aerial: u8,
+}
+
+fn classify_synthetic_role(player: &SyntheticPlayer) -> &'static str {
+    match player.natural_position.as_str() {
+        "Goalkeeper" => "GK",
+        "CenterBack" => "CB",
+        "LeftBack" | "RightBack" => "FB",
+        "LeftWingBack" | "RightWingBack" => "WB",
+        "DefensiveMidfielder" => "DM",
+        "CentralMidfielder" => "CM",
+        "AttackingMidfielder" => "AM",
+        "LeftMidfielder" | "RightMidfielder" => "WM",
+        "LeftWinger" | "RightWinger" => "WG",
+        "Striker" => "ST",
+        _ => match player.position {
+            engine::Position::Goalkeeper => "GK",
+            engine::Position::Defender => "CB",
+            engine::Position::Midfielder => "CM",
+            engine::Position::Forward => "ST",
+        },
+    }
+}
+
+fn synthetic_scorer_role_weight(role: &str) -> u32 {
+    match role {
+        "ST" => 160,
+        "WG" => 110,
+        "AM" => 115,
+        "CM" => 70,
+        "WM" => 72,
+        "DM" => 28,
+        "WB" => 30,
+        "FB" => 15,
+        "CB" => 16,
+        _ => 1,
+    }
+}
+
+fn synthetic_assist_role_weight(role: &str) -> u32 {
+    match role {
+        "ST" => 70,
+        "WG" => 140,
+        "AM" => 150,
+        "CM" => 115,
+        "WM" => 100,
+        "DM" => 40,
+        "WB" => 60,
+        "FB" => 25,
+        "CB" => 18,
+        _ => 1,
+    }
+}
+
+fn synthetic_finisher_role_weight(role: &str) -> u32 {
+    match role {
+        "ST" => 195,
+        "WG" => 160,
+        "AM" => 150,
+        "CM" => 100,
+        "WM" => 105,
+        "DM" => 35,
+        "WB" => 40,
+        "FB" => 25,
+        "CB" => 40,
+        _ => 0,
+    }
+}
+
+fn synthetic_creator_role_weight(role: &str) -> u32 {
+    match role {
+        "ST" => 90,
+        "WG" => 160,
+        "AM" => 245,
+        "CM" => 200,
+        "WM" => 160,
+        "DM" => 70,
+        "WB" => 110,
+        "FB" => 50,
+        "CB" => 35,
+        _ => 0,
+    }
 }
 
 fn synthetic_participants(
@@ -983,6 +1095,7 @@ fn synthetic_participants(
         .map(|player| SyntheticPlayer {
             id: player.id.clone(),
             position: player.position,
+            natural_position: player.natural_position.clone(),
             ovr: player.ovr,
             minutes: 90,
             shooting: player.shooting,
@@ -1009,6 +1122,7 @@ fn synthetic_participants(
         players.push(SyntheticPlayer {
             id: substitute.id.clone(),
             position: substitute.position,
+            natural_position: substitute.natural_position.clone(),
             ovr: substitute.ovr,
             minutes: minute_loss,
             shooting: substitute.shooting,
@@ -1326,12 +1440,8 @@ fn elite_usage_bonus(ovr: u8) -> u32 {
 }
 
 fn finisher_score(player: &SyntheticPlayer) -> u32 {
-    let position_weight = match player.position {
-        engine::Position::Forward => 260,
-        engine::Position::Midfielder => 95,
-        engine::Position::Defender => 24,
-        engine::Position::Goalkeeper => 0,
-    };
+    let role = classify_synthetic_role(player);
+    let position_weight = synthetic_finisher_role_weight(role);
 
     position_weight
         + player.shooting as u32 * 4
@@ -1343,12 +1453,8 @@ fn finisher_score(player: &SyntheticPlayer) -> u32 {
 }
 
 fn creator_score(player: &SyntheticPlayer) -> u32 {
-    let position_weight = match player.position {
-        engine::Position::Midfielder => 245,
-        engine::Position::Forward => 135,
-        engine::Position::Defender => 55,
-        engine::Position::Goalkeeper => 0,
-    };
+    let role = classify_synthetic_role(player);
+    let position_weight = synthetic_creator_role_weight(role);
 
     position_weight
         + player.passing as u32 * 4
@@ -1360,12 +1466,8 @@ fn creator_score(player: &SyntheticPlayer) -> u32 {
 }
 
 fn scorer_weight(player: &SyntheticPlayer) -> u32 {
-    let position_weight = match player.position {
-        engine::Position::Forward => 155,
-        engine::Position::Midfielder => 58,
-        engine::Position::Defender => 12,
-        engine::Position::Goalkeeper => 1,
-    };
+    let role = classify_synthetic_role(player);
+    let position_weight = synthetic_scorer_role_weight(role);
     let skill_weight = player.shooting as u32 * 3
         + player.positioning as u32 * 2
         + player.composure as u32 * 2
@@ -1376,12 +1478,8 @@ fn scorer_weight(player: &SyntheticPlayer) -> u32 {
 }
 
 fn assist_weight(player: &SyntheticPlayer) -> u32 {
-    let position_weight = match player.position {
-        engine::Position::Midfielder => 145,
-        engine::Position::Forward => 86,
-        engine::Position::Defender => 34,
-        engine::Position::Goalkeeper => 1,
-    };
+    let role = classify_synthetic_role(player);
+    let position_weight = synthetic_assist_role_weight(role);
     let skill_weight = player.passing as u32 * 3
         + player.vision as u32 * 3
         + player.decisions as u32 * 2
@@ -1392,19 +1490,19 @@ fn assist_weight(player: &SyntheticPlayer) -> u32 {
 }
 
 fn role_capped_scorer_weight(player: &SyntheticPlayer, weight: u32) -> u32 {
-    match player.position {
-        engine::Position::Goalkeeper => weight.min(8),
-        engine::Position::Defender => weight.min(170),
-        engine::Position::Midfielder => weight.min(540),
-        engine::Position::Forward => weight,
+    match classify_synthetic_role(player) {
+        "GK" => weight.min(8),
+        "CB" | "FB" | "WB" => weight.min(170),
+        "DM" | "CM" | "WM" => weight.min(540),
+        _ => weight,
     }
 }
 
 fn role_capped_assist_weight(player: &SyntheticPlayer, weight: u32) -> u32 {
-    match player.position {
-        engine::Position::Goalkeeper => weight.min(8),
-        engine::Position::Defender => weight.min(420),
-        engine::Position::Midfielder | engine::Position::Forward => weight,
+    match classify_synthetic_role(player) {
+        "GK" => weight.min(8),
+        "CB" | "FB" => weight.min(420),
+        _ => weight,
     }
 }
 

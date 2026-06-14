@@ -156,7 +156,7 @@ function createGameState(): GameStateData {
   };
 }
 
-const gameState = createGameState();
+let gameState = createGameState();
 
 vi.mock("react-router-dom", () => ({
   useLocation: () => ({ pathname: pathnameMock }),
@@ -310,6 +310,7 @@ describe("Dashboard", () => {
     loadSettingsMock.mockReset();
     navigateMock.mockReset();
     pathnameMock = "/dashboard";
+    gameState = createGameState();
     invokeMock.mockImplementation(async (command: string) => {
       if (command === "get_active_game") {
         return gameState;
@@ -412,5 +413,38 @@ describe("Dashboard", () => {
       expect(screen.getByText("Tab Content Tactics")).toBeInTheDocument();
     });
     expect(screen.queryByText("Player Profile Mock")).not.toBeInTheDocument();
+  });
+
+  it("hides club-only navigation in World Cup mode", async () => {
+    gameState = {
+      ...createGameState(),
+      world_source: "worldcup2026_fc26",
+      competitions: [
+        {
+          id: "wc-2026",
+          name: "World Cup 2026",
+          kind: "WorldCup",
+          format: "GroupStageKnockout",
+          season: 2026,
+          country: null,
+          tier: null,
+          team_ids: ["team-1", "team-2"],
+          fixtures: [],
+          standings: [],
+        },
+      ],
+    };
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Tab Content Home")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: /Squad/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Tactics/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Transfers/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Finances/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /dashboard.youthAcademy/i })).not.toBeInTheDocument();
   });
 });

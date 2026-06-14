@@ -30,6 +30,10 @@ fn default_save_name(manager_name: &str) -> String {
     format!("{}'s Career", manager_name)
 }
 
+fn is_worldcup_source(source: Option<&str>) -> bool {
+    matches!(source, Some("worldcup2026" | "worldcup2026_fc26"))
+}
+
 fn validate_manager_inputs(
     first_name: &str,
     last_name: &str,
@@ -82,19 +86,29 @@ fn build_new_game(
     let start_date = chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
     let clock = GameClock::new(start_date);
 
+    let mut effective_world_source: Option<String> = None;
     let (teams, players, staff) = match world_json {
         Some(json) => {
             let world = ofm_core::generator::load_world_from_json(json)?;
             (world.teams, world.players, world.staff)
         }
-        None => match world_source.unwrap_or("random") {
-            "random" => ofm_core::generator::generate_world(None),
-            "fc26_real" => ofm_core::generator::generate_fc26_world()?,
-            _ => return Err("be.error.worldReadFileFailed".to_string()),
-        },
+        None => {
+            let source = world_source.unwrap_or("random").to_string();
+            let entities = match source.as_str() {
+                "random" => ofm_core::generator::generate_world(None),
+                "fc26_real" => ofm_core::generator::generate_fc26_world()?,
+                "worldcup2026" => ofm_core::generator::generate_worldcup_world()?,
+                "worldcup2026_fc26" => ofm_core::generator::generate_worldcup_fc26_world()?,
+                _ => return Err("be.error.worldReadFileFailed".to_string()),
+            };
+            effective_world_source = Some(source);
+            entities
+        }
     };
 
-    Ok(Game::new(clock, manager, teams, players, staff, vec![]))
+    let mut game = Game::new(clock, manager, teams, players, staff, vec![]);
+    game.world_source = effective_world_source;
+    Ok(game)
 }
 
 #[wasm_bindgen]
@@ -171,67 +185,106 @@ impl AppHandle {
 
         use chrono::Duration;
         let season_start = game.clock.current_date + Duration::days(30);
-        game.competitions = ofm_core::schedule::generate_domestic_competitions_by_country(
-            &game.teams,
-            2026,
-            season_start,
-        );
+
+        let (league_name, is_worldcup) = if is_worldcup_source(game.world_source.as_deref()) {
+            let wc_competition =
+                ofm_core::schedule::generate_world_cup_2026(&game.teams, 2026, season_start);
+            let name = wc_competition.name.clone();
+            game.competitions = vec![wc_competition];
+            (name, true)
+        } else {
+            game.competitions = ofm_core::schedule::generate_domestic_competitions_by_country(
+                &game.teams,
+                2026,
+                season_start,
+            );
+            let primary_competition = game
+                .competitions
+                .iter()
+                .find(|competition| {
+                    competition.kind == domain::league::CompetitionKind::DomesticLeague
+                        && competition.team_ids.contains(&team_id)
+                })
+                .cloned();
+            if let Some(primary_competition) = primary_competition {
+                (primary_competition.name.clone(), false)
+            } else {
+                let team_ids: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
+                let league_name = default_league_name();
+                let fallback_league = ofm_core::schedule::generate_league(
+                    &league_name,
+                    2026,
+                    &team_ids,
+                    season_start,
+                );
+                game.competitions
+                    .push(ofm_core::schedule::competition_from_league(
+                        &fallback_league,
+                        league_name.clone(),
+                        Some(team_country.clone()),
+                        Some(1),
+                    ));
+                (league_name, false)
+            }
+        };
+
+        // Build a legacy League from the primary competition for subsystems that
+        // still read game.league directly.
         let primary_competition = game
             .competitions
             .iter()
-            .find(|competition| {
-                competition.kind == domain::league::CompetitionKind::DomesticLeague
-                    && competition.team_ids.contains(&team_id)
-            })
-            .cloned();
-        let mut league = if let Some(primary_competition) = primary_competition {
+            .find(|c| c.team_ids.contains(&team_id))
+            .or_else(|| game.competitions.first());
+        let mut league = if let Some(comp) = primary_competition {
             domain::league::League {
-                id: primary_competition.id.clone(),
-                name: primary_competition.name.clone(),
-                season: primary_competition.season,
-                fixtures: primary_competition.fixtures.clone(),
-                standings: primary_competition.standings.clone(),
-                transfer_log: primary_competition.transfer_log.clone(),
+                id: comp.id.clone(),
+                name: comp.name.clone(),
+                season: comp.season,
+                fixtures: comp.fixtures.clone(),
+                standings: comp.standings.clone(),
+                transfer_log: comp.transfer_log.clone(),
             }
         } else {
             let team_ids: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
-            let league_name = default_league_name();
-            let fallback_league =
-                ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
-            game.competitions
-                .push(ofm_core::schedule::competition_from_league(
-                    &fallback_league,
-                    league_name,
-                    Some(team_country.clone()),
-                    Some(1),
-                ));
-            fallback_league
+            ofm_core::schedule::generate_league(
+                &default_league_name(),
+                2026,
+                &team_ids,
+                season_start,
+            )
         };
-        let league_team_ids: Vec<String> = league
-            .standings
-            .iter()
-            .map(|standing| standing.team_id.clone())
-            .collect();
-        let friendlies =
-            ofm_core::schedule::generate_preseason_friendlies(&league_team_ids, season_start, 4);
-        ofm_core::schedule::append_fixtures(&mut league, friendlies);
-        if let Some(primary_competition) = game
-            .competitions
-            .iter_mut()
-            .find(|competition| competition.id == league.id)
-        {
-            primary_competition.fixtures = league.fixtures.clone();
+
+        if !is_worldcup {
+            let league_team_ids: Vec<String> = league
+                .standings
+                .iter()
+                .map(|standing| standing.team_id.clone())
+                .collect();
+            let friendlies = ofm_core::schedule::generate_preseason_friendlies(
+                &league_team_ids,
+                season_start,
+                4,
+            );
+            ofm_core::schedule::append_fixtures(&mut league, friendlies);
+            if let Some(primary_competition) = game
+                .competitions
+                .iter_mut()
+                .find(|competition| competition.id == league.id)
+            {
+                primary_competition.fixtures = league.fixtures.clone();
+            }
+            if let Some(continental_competition) =
+                ofm_core::schedule::generate_continental_group_stage(
+                    "Champions League",
+                    2026,
+                    &game.competitions,
+                    &game.teams,
+                    season_start + Duration::days(45),
+                )
+            {
+                game.competitions.push(continental_competition);
+            }
         }
-        if let Some(continental_competition) = ofm_core::schedule::generate_continental_group_stage(
-            "Champions League",
-            2026,
-            &game.competitions,
-            &game.teams,
-            season_start + Duration::days(45),
-        ) {
-            game.competitions.push(continental_competition);
-        }
-        let league_name = league.name.clone();
         game.league = Some(league);
         ofm_core::season_context::refresh_game_context(&mut game);
 
@@ -271,6 +324,43 @@ impl AppHandle {
         self.state.set_game(game.clone());
         self.state.set_stats_state(StatsState::default());
         to_js_value(&game)
+    }
+
+    #[wasm_bindgen(js_name = getWorldcupCallupPool)]
+    pub fn get_worldcup_callup_pool(&self, team_id: String) -> Result<JsValue, JsValue> {
+        let game = self.snapshot_game()?;
+        if game.world_source.as_deref() != Some("worldcup2026_fc26") {
+            return Err(to_js(
+                "be.error.worldCupCallup.invalidWorldSource".to_string(),
+            ));
+        }
+        let pool = ofm_core::generator::worldcup_fc26_callup_pool(&team_id).map_err(to_js)?;
+        to_js_value(&pool)
+    }
+
+    #[wasm_bindgen(js_name = selectWorldcupTeamWithCallups)]
+    pub fn select_worldcup_team_with_callups(
+        &self,
+        team_id: String,
+        selected_player_ids: Vec<String>,
+    ) -> Result<JsValue, JsValue> {
+        let mut game = self.snapshot_game()?;
+        if game.world_source.as_deref() != Some("worldcup2026_fc26") {
+            return Err(to_js(
+                "be.error.worldCupCallup.invalidWorldSource".to_string(),
+            ));
+        }
+        let (teams, players, staff) =
+            ofm_core::generator::generate_worldcup_fc26_world_with_user_selection(
+                Some(&team_id),
+                &selected_player_ids,
+            )
+            .map_err(to_js)?;
+        game.teams = teams;
+        game.players = players;
+        game.staff = staff;
+        self.state.set_game(game);
+        self.select_team(team_id)
     }
 
     #[wasm_bindgen(js_name = getSaves)]

@@ -93,7 +93,10 @@ pub fn match_report_article(
     let mut rng = rand::rng();
     let is_league_fixture = matches!(
         competition,
-        FixtureCompetition::League | FixtureCompetition::DomesticLeague | FixtureCompetition::ContinentalLeague
+        FixtureCompetition::League
+            | FixtureCompetition::DomesticLeague
+            | FixtureCompetition::ContinentalLeague
+            | FixtureCompetition::WorldCup
     );
 
     let scorer_parts = scorer_parts(home_name, away_name, home_scorers, away_scorers);
@@ -126,7 +129,8 @@ pub fn match_report_article(
             ),
             FixtureCompetition::League
             | FixtureCompetition::DomesticLeague
-            | FixtureCompetition::ContinentalLeague => unreachable!(),
+            | FixtureCompetition::ContinentalLeague
+            | FixtureCompetition::WorldCup => unreachable!(),
         };
 
         return NewsArticle::new(

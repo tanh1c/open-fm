@@ -103,6 +103,10 @@ pub struct Game {
     /// `Player` is removed from `players` on retirement to keep the roster bounded.
     #[serde(default)]
     pub retired_players: Vec<domain::player::RetiredPlayer>,
+    /// Which world source was used ("random", "fc26_real", "worldcup2026").
+    /// Used to branch scheduling logic in select_team.
+    #[serde(default)]
+    pub world_source: Option<String>,
 }
 
 impl Game {
@@ -137,6 +141,7 @@ impl Game {
             season_honours: vec![],
             records: crate::honours::GameRecords::default(),
             retired_players: vec![],
+            world_source: None,
         };
         crate::football_identity::upgrade_game_football_identities(&mut game);
         crate::season_context::refresh_game_context(&mut game);

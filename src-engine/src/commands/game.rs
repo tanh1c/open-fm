@@ -50,6 +50,10 @@ fn default_save_name(manager_name: &str) -> String {
     save_name
 }
 
+fn is_worldcup_source(source: Option<&str>) -> bool {
+    matches!(source, Some("worldcup2026" | "worldcup2026_fc26"))
+}
+
 /// Step 1: Create manager + generate world. No team assigned yet.
 /// Returns the Game object so the frontend can show team selection.
 /// world_source: "random" (default) or a file path to a JSON world database.
@@ -109,10 +113,13 @@ pub async fn start_new_game(
     let (teams, players, staff) = match world_source.as_str() {
         "random" => ofm_core::generator::generate_world(None),
         "fc26_real" => ofm_core::generator::generate_fc26_world()?,
+        "worldcup2026" => ofm_core::generator::generate_worldcup_world()?,
+        "worldcup2026_fc26" => ofm_core::generator::generate_worldcup_fc26_world()?,
         _ => load_world_entities_from_path(&world_source)?,
     };
 
     let new_game = Game::new(clock, manager, teams, players, staff, vec![]);
+    new_game.world_source = Some(world_source);
 
     info!(
         "[cmd] start_new_game: world generated with {} teams, {} players, {} staff",
@@ -125,19 +132,12 @@ pub async fn start_new_game(
     Ok(new_game)
 }
 
-/// Step 2: User picks a team. Assigns manager, generates welcome message, saves to DB.
-#[tauri::command]
-pub async fn select_team(
-    state: State<'_, StateManager>,
-    sm_state: State<'_, SaveManagerState>,
+fn finalize_team_selection(
+    state: &StateManager,
+    sm_state: &SaveManagerState,
+    mut game: Game,
     team_id: String,
 ) -> Result<Game, String> {
-    info!("[cmd] select_team: team_id={}", team_id);
-    let mut game = state
-        .get_game(|g: &Game| g.clone())
-        .ok_or("be.error.noActiveGameSession".to_string())?;
-
-    // Validate team exists
     let team = game
         .teams
         .iter()
@@ -145,7 +145,6 @@ pub async fn select_team(
         .ok_or("be.error.teamNotFound".to_string())?;
     let team_name = team.name.clone();
 
-    // Assign manager to team
     game.manager.hire(team_id.clone());
     if let Some(t) = game.teams.iter_mut().find(|t| t.id == team_id) {
         t.manager_id = Some(game.manager.id.clone());
@@ -153,42 +152,53 @@ pub async fn select_team(
     game.manager_id = game.manager.id.clone();
     ofm_core::ai_hiring::seed_ai_managers(&mut game);
 
-    // Generate league schedule — season starts 1 month after game start
     use chrono::Duration;
     let season_start = game.clock.current_date + Duration::days(30);
-    let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
-    let league_name = default_league_name();
-    let mut league =
-        ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
-    let friendlies = ofm_core::schedule::generate_preseason_friendlies(&team_ids, season_start, 4);
-    ofm_core::schedule::append_fixtures(&mut league, friendlies);
-    game.league = Some(league);
+    let league_name = if is_worldcup_source(game.world_source.as_deref()) {
+        let wc_competition =
+            ofm_core::schedule::generate_world_cup_2026(&game.teams, 2026, season_start);
+        let league = domain::league::League {
+            id: wc_competition.id.clone(),
+            name: wc_competition.name.clone(),
+            season: wc_competition.season,
+            fixtures: wc_competition.fixtures.clone(),
+            standings: wc_competition.standings.clone(),
+            transfer_log: wc_competition.transfer_log.clone(),
+        };
+        let name = league.name.clone();
+        game.competitions = vec![wc_competition];
+        game.league = Some(league);
+        name
+    } else {
+        let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
+        let league_name = default_league_name();
+        let mut league =
+            ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
+        let friendlies =
+            ofm_core::schedule::generate_preseason_friendlies(&team_ids, season_start, 4);
+        ofm_core::schedule::append_fixtures(&mut league, friendlies);
+        game.league = Some(league);
+        league_name
+    };
     ofm_core::season_context::refresh_game_context(&mut game);
 
-    // Rich templated messages
     let date_str = game.clock.current_date.to_rfc3339();
-    let welcome_msg = ofm_core::messages::welcome_message(&team_name, &team_id, &date_str);
-    game.messages.push(welcome_msg);
-
-    let season_msg = ofm_core::messages::season_schedule_message(
+    game.messages
+        .push(ofm_core::messages::welcome_message(&team_name, &team_id, &date_str));
+    game.messages.push(ofm_core::messages::season_schedule_message(
         &league_name,
         &season_start.format(&long_date_format()).to_string(),
         &date_str,
-    );
-    game.messages.push(season_msg);
-
-    let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
-    game.news.push(ofm_core::news::season_preview_article(
-        &team_names,
-        &date_str,
     ));
 
-    let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
-    game.messages.push(staff_msg);
+    let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
+    game.news
+        .push(ofm_core::news::season_preview_article(&team_names, &date_str));
+    game.messages
+        .push(ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str));
 
     ofm_core::player_events::generate_takeover_contract_review_message(&mut game);
 
-    // Save to new per-save DB
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
     let save_name = default_save_name(&manager_name);
 
@@ -199,6 +209,57 @@ pub async fn select_team(
     state.set_game(game.clone());
     state.set_stats_state(StatsState::default());
     Ok(game)
+}
+
+/// Step 2: User picks a team. Assigns manager, generates welcome message, saves to DB.
+#[tauri::command]
+pub async fn select_team(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
+    team_id: String,
+) -> Result<Game, String> {
+    info!("[cmd] select_team: team_id={}", team_id);
+    let game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+    finalize_team_selection(&state, &sm_state, game, team_id)
+}
+
+#[tauri::command]
+pub async fn get_worldcup_callup_pool(
+    state: State<'_, StateManager>,
+    team_id: String,
+) -> Result<Vec<ofm_core::generator::WorldCupCallupCandidate>, String> {
+    let game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+    if game.world_source.as_deref() != Some("worldcup2026_fc26") {
+        return Err("be.error.worldCupCallup.invalidWorldSource".to_string());
+    }
+    ofm_core::generator::worldcup_fc26_callup_pool(&team_id)
+}
+
+#[tauri::command]
+pub async fn select_worldcup_team_with_callups(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
+    team_id: String,
+    selected_player_ids: Vec<String>,
+) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+    if game.world_source.as_deref() != Some("worldcup2026_fc26") {
+        return Err("be.error.worldCupCallup.invalidWorldSource".to_string());
+    }
+    let (teams, players, staff) = ofm_core::generator::generate_worldcup_fc26_world_with_user_selection(
+        Some(&team_id),
+        &selected_player_ids,
+    )?;
+    game.teams = teams;
+    game.players = players;
+    game.staff = staff;
+    finalize_team_selection(&state, &sm_state, game, team_id)
 }
 
 #[tauri::command]

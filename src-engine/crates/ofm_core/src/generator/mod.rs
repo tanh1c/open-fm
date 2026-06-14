@@ -3,10 +3,16 @@ pub mod definitions;
 mod generation;
 mod real_fc26;
 pub mod world_io;
+mod worldcup;
 
 pub use definitions::*;
-pub use real_fc26::{fc26_real_player_count_estimate, generate_fc26_world};
+pub use real_fc26::{
+    fc26_real_player_count_estimate, generate_fc26_world, generate_worldcup_fc26_world,
+    generate_worldcup_fc26_world_with_user_selection, worldcup_fc26_callup_pool,
+    worldcup_fc26_team_id_by_name, WorldCupCallupCandidate,
+};
 pub use world_io::*;
+pub use worldcup::generate_worldcup_world;
 
 use domain::player::{Player, Position};
 use domain::staff::{Staff, StaffRole};

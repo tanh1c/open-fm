@@ -841,7 +841,7 @@ fn record_season_honours_and_records(
                         });
                     }
                 }
-                CompetitionKind::Friendly | CompetitionKind::PreseasonTournament => {}
+                CompetitionKind::Friendly | CompetitionKind::PreseasonTournament | CompetitionKind::WorldCup => {}
             }
         }
     }

@@ -90,25 +90,6 @@ vi.mock("../components/menu/SavesList", () => ({
   default: () => <div data-testid="saves-list" />,
 }));
 
-vi.mock("../components/menu/WorldSelect", () => ({
-  default: ({
-    onSelectWorld,
-    onStart,
-  }: {
-    onSelectWorld: (id: string) => void;
-    onStart: () => void;
-  }) => (
-    <div data-testid="world-select">
-      <button type="button" onClick={() => onSelectWorld("fc26_real")}>
-        select-fc26
-      </button>
-      <button type="button" onClick={onStart}>
-        start-world
-      </button>
-    </div>
-  ),
-}));
-
 const mockedInvoke = vi.mocked(invoke);
 
 async function openCreateManagerForm(): Promise<void> {
@@ -187,6 +168,22 @@ async function searchAndSelectNationality(
   fireEvent.mouseDown(await screen.findByText(countryLabel));
 }
 
+async function completeManagerStep(nationalityCode = "ENG"): Promise<void> {
+  await openCreateManagerForm();
+  fillManagerDetails();
+  await selectNationality("en", nationalityCode);
+  fireEvent.click(screen.getByText("createManager.chooseWorld"));
+}
+
+async function chooseModeAndData(modeLabel: RegExp, dataLabel: RegExp): Promise<void> {
+  await screen.findByText("Choose Game Mode");
+  fireEvent.click(screen.getByRole("button", { name: modeLabel }));
+  fireEvent.click(screen.getByRole("button", { name: /Continue/i }));
+  await screen.findByText("Choose Data Source");
+  fireEvent.click(screen.getByRole("button", { name: dataLabel }));
+  fireEvent.click(screen.getByRole("button", { name: /Start Game/i }));
+}
+
 describe("MainMenu", () => {
   beforeEach(() => {
     navigateMock.mockReset();
@@ -238,13 +235,9 @@ describe("MainMenu", () => {
       ).toBeInTheDocument();
 
       fireEvent.click(screen.getByText("createManager.chooseWorld"));
+      expect(await screen.findByText("Choose Game Mode")).toBeInTheDocument();
 
-      await waitFor(() => {
-        expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
-      });
-      expect(screen.getByTestId("world-select")).toBeInTheDocument();
-
-      fireEvent.click(screen.getByText("start-world"));
+      await chooseModeAndData(/Club Career/i, /Generated/i);
 
       await waitFor(() => {
         expect(mockedInvoke).toHaveBeenCalledWith(
@@ -254,6 +247,7 @@ describe("MainMenu", () => {
             lastName: "Lovelace",
             dob: "1980-01-01",
             nationality: "ES",
+            worldSource: "random",
           }),
         );
       });
@@ -262,24 +256,23 @@ describe("MainMenu", () => {
     },
   );
 
-  it("passes the selected built-in world source when starting a game", async () => {
+  it.each([
+    { mode: /Club Career/i, data: /Generated/i, worldSource: "random" },
+    { mode: /Club Career/i, data: /FC26 Real/i, worldSource: "fc26_real" },
+    { mode: /World Cup 2026/i, data: /Generated/i, worldSource: "worldcup2026" },
+    { mode: /World Cup 2026/i, data: /FC26 Real/i, worldSource: "worldcup2026_fc26" },
+  ])("maps $worldSource from the setup wizard", async ({ mode, data, worldSource }) => {
     render(<MainMenu />);
 
-    await openCreateManagerForm();
-    fillManagerDetails();
-    await selectNationality("en", "ENG");
-    fireEvent.click(screen.getByText("createManager.chooseWorld"));
-
-    await screen.findByTestId("world-select");
-    fireEvent.click(screen.getByText("select-fc26"));
-    fireEvent.click(screen.getByText("start-world"));
+    await completeManagerStep("ENG");
+    await chooseModeAndData(mode, data);
 
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith(
         "start_new_game",
         expect.objectContaining({
           nationality: "ENG",
-          worldSource: "fc26_real",
+          worldSource,
         }),
       );
     });
@@ -364,18 +357,14 @@ describe("MainMenu", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
-
-    await waitFor(() => {
-      expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
-    });
-
-    fireEvent.click(screen.getByText("start-world"));
+    await chooseModeAndData(/Club Career/i, /Generated/i);
 
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith(
         "start_new_game",
         expect.objectContaining({
           nationality: "AT",
+          worldSource: "random",
         }),
       );
     });
@@ -392,7 +381,7 @@ describe("MainMenu", () => {
         screen.getByPlaceholderText("createManager.placeholderFirst"),
       ).toHaveFocus();
     });
-    expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
+    expect(screen.queryByText("Choose Game Mode")).not.toBeInTheDocument();
   });
 
   it("focuses the next invalid field in order when earlier fields are valid", async () => {
@@ -436,7 +425,7 @@ describe("MainMenu", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("manager-date-of-birth")).toHaveFocus();
     });
-    expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
-    expect(screen.queryByTestId("world-select")).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose Game Mode")).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose Data Source")).not.toBeInTheDocument();
   });
 });

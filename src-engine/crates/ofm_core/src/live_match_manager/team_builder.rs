@@ -466,6 +466,7 @@ fn to_engine_player(p: &domain::player::Player) -> PlayerData {
         id: p.id.clone(),
         name: p.match_name.clone(),
         position: pos,
+        natural_position: format!("{:?}", p.position),
         ovr: p.ovr,
         condition: p.condition,
         morale: p.morale,

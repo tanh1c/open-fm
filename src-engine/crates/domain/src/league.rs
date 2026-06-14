@@ -16,6 +16,7 @@ pub enum CompetitionKind {
     DomesticLeague,
     DomesticCup,
     ContinentalLeague,
+    WorldCup,
     Friendly,
     PreseasonTournament,
 }
@@ -66,6 +67,7 @@ pub enum FixtureCompetition {
     DomesticLeague,
     DomesticCup,
     ContinentalLeague,
+    WorldCup,
     Friendly,
     PreseasonTournament,
 }
@@ -229,6 +231,7 @@ impl Fixture {
         match self.competition {
             FixtureCompetition::League | FixtureCompetition::DomesticLeague => true,
             FixtureCompetition::ContinentalLeague => self.stage.is_none(),
+            FixtureCompetition::WorldCup => self.stage.is_none(),
             _ => false,
         }
     }
@@ -240,6 +243,7 @@ impl Fixture {
                 | FixtureCompetition::DomesticLeague
                 | FixtureCompetition::DomesticCup
                 | FixtureCompetition::ContinentalLeague
+                | FixtureCompetition::WorldCup
                 | FixtureCompetition::Friendly
                 | FixtureCompetition::PreseasonTournament
         )

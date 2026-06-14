@@ -16,6 +16,7 @@ use engine::report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::turn;
+use ofm_core::{generator, schedule};
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
@@ -490,6 +491,62 @@ fn process_day_updates_standings() {
     assert_eq!(
         total_played, 2,
         "Both teams should have played 1 match each"
+    );
+}
+
+#[test]
+fn process_day_simulates_worldcup_fc26_matchday() {
+    let (teams, players, staff) = generator::generate_worldcup_fc26_world().unwrap();
+    let date = Utc.with_ymd_and_hms(2026, 6, 1, 12, 0, 0).unwrap();
+    let clock = GameClock::new(date);
+    let mut manager = Manager::new(
+        "mgr1".to_string(),
+        "Test".to_string(),
+        "Manager".to_string(),
+        "1980-01-01".to_string(),
+        "England".to_string(),
+    );
+    manager.hire(teams[0].id.clone());
+
+    let mut game = Game::new(clock, manager, teams, players, staff, vec![]);
+    game.world_source = Some("worldcup2026_fc26".to_string());
+
+    let competition = schedule::generate_world_cup_2026(&game.teams, 2026, game.clock.current_date);
+    let first_match_date = competition.fixtures[0].date.clone();
+    game.clock.current_date = chrono::NaiveDate::parse_from_str(&first_match_date, "%Y-%m-%d")
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap()
+        .and_utc();
+    game.league = Some(League {
+        id: competition.id.clone(),
+        name: competition.name.clone(),
+        season: competition.season,
+        fixtures: competition.fixtures.clone(),
+        standings: competition.standings.clone(),
+        transfer_log: competition.transfer_log.clone(),
+    });
+    game.competitions = vec![competition];
+
+    turn::process_day(&mut game);
+
+    let completed_count = game
+        .league
+        .as_ref()
+        .unwrap()
+        .fixtures
+        .iter()
+        .filter(|fixture| fixture.date == first_match_date && fixture.status == FixtureStatus::Completed)
+        .count();
+
+    assert_eq!(completed_count, 2);
+    assert_eq!(
+        game.competitions[0]
+            .fixtures
+            .iter()
+            .filter(|fixture| fixture.date == first_match_date && fixture.status == FixtureStatus::Completed)
+            .count(),
+        2
     );
 }
 

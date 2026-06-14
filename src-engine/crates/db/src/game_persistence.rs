@@ -368,6 +368,7 @@ impl GamePersistenceReader {
             season_honours: serde_json::from_str(&meta.season_honours_json).unwrap_or_default(),
             records: serde_json::from_str(&meta.records_json).unwrap_or_default(),
             retired_players: serde_json::from_str(&meta.retired_players_json).unwrap_or_default(),
+            world_source: None,
         };
         game.sync_competitions_from_legacy_league();
         // Repair saves written before per-day sync existed: the legacy league

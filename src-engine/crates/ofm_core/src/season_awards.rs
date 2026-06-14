@@ -204,7 +204,7 @@ fn fixture_competition_matches_kind(competition: &FixtureCompetition, kind: Opti
         Some(CompetitionKind::ContinentalLeague) => {
             matches!(competition, FixtureCompetition::ContinentalLeague)
         }
-        Some(CompetitionKind::Friendly | CompetitionKind::PreseasonTournament) => false,
+        Some(CompetitionKind::Friendly | CompetitionKind::PreseasonTournament | CompetitionKind::WorldCup) => false,
         None => true,
     }
 }

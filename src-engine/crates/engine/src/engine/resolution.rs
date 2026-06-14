@@ -2,15 +2,16 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    ChanceType, PlayStylePhase, PlayerSnap, TraitContext, chance_shot_rating,
-    chance_shooter_weight_modifier, compress_skill, home_mod, morale_performance_modifier,
-    pitch_carry_modifier, pitch_pass_modifier, play_style_modifier, select_chance_type,
-    tactical_buildup_modifier, tactical_counter_press_pressure, tactical_midfield_modifier,
-    tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
-    tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
-    trait_pass_creativity_modifier, trait_pass_safety_modifier, trait_press_work_rate_modifier,
-    trait_shot_quality_modifier, trait_shot_tendency_modifier, trait_tackle_modifier,
-    weather_conversion_modifier, weather_pass_modifier, weather_shot_accuracy_modifier,
+    ChanceType, PlayStylePhase, PlayerSnap, TraitContext, assister_role_weight, chance_shot_rating,
+    classify_role, compress_skill, home_mod, morale_performance_modifier,
+    pitch_carry_modifier, pitch_pass_modifier, play_style_modifier, scorer_role_weight,
+    select_chance_type, tactical_buildup_modifier, tactical_counter_press_pressure,
+    tactical_midfield_modifier, tactical_press_modifier, tactical_shot_quality_modifier,
+    tactical_space_creation_modifier, tactical_turnover_risk, team_cohesion_modifier, trait_bonus,
+    trait_carry_modifier, trait_pass_creativity_modifier, trait_pass_safety_modifier,
+    trait_press_work_rate_modifier, trait_shot_quality_modifier, trait_shot_tendency_modifier,
+    trait_tackle_modifier, weather_conversion_modifier, weather_pass_modifier,
+    weather_shot_accuracy_modifier,
 };
 use crate::types::{Position, Side, TeamData, Zone};
 
@@ -53,30 +54,19 @@ fn weighted_attacker<R: Rng>(
 }
 
 fn shooter_weight(player: &crate::types::PlayerData, chance_type: ChanceType) -> f64 {
-    let role_weight = match player.position {
-        Position::Forward => 1.45,
-        Position::Midfielder => 0.70,
-        Position::Defender => 0.18,
-        Position::Goalkeeper => 0.0,
-    };
+    let role = classify_role(&player.natural_position, player.position);
+    let role_weight = scorer_role_weight(role, chance_type);
     let skill = player.shooting as f64 * 1.35
         + player.composure as f64
         + player.positioning as f64 * 0.75
         + player.decisions as f64 * 0.65
         + player.dribbling as f64 * 0.45;
-    role_weight
-        * skill
-        * chance_shooter_weight_modifier(chance_type, player)
-        * trait_shot_tendency_modifier(&PlayerSnap::from(player))
+    role_weight * skill * trait_shot_tendency_modifier(&PlayerSnap::from(player))
 }
 
-fn assister_weight(player: &crate::types::PlayerData) -> f64 {
-    let role_weight = match player.position {
-        Position::Midfielder => 1.30,
-        Position::Forward => 0.85,
-        Position::Defender => 0.45,
-        Position::Goalkeeper => 0.0,
-    };
+fn assister_weight(player: &crate::types::PlayerData, chance_type: ChanceType) -> f64 {
+    let role = classify_role(&player.natural_position, player.position);
+    let role_weight = assister_role_weight(role, chance_type);
     let skill = player.passing as f64 * 1.30
         + player.vision as f64 * 1.15
         + player.teamwork as f64 * 0.75
@@ -334,7 +324,7 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     let def_team = ctx.adapted_team(def_side);
     let chance_type = select_chance_type(&att_team, &def_team, rng);
     let shooter = weighted_attacker(ctx, att_side, rng, |player| shooter_weight(player, chance_type));
-    let assister = weighted_attacker(ctx, att_side, rng, assister_weight);
+    let assister = weighted_attacker(ctx, att_side, rng, |player| assister_weight(player, chance_type));
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
 
     let base_shoot_rating = compress_skill(

@@ -224,6 +224,7 @@ fn competition_fixture_value(competition: &Competition) -> FixtureCompetition {
         CompetitionKind::ContinentalLeague => FixtureCompetition::ContinentalLeague,
         CompetitionKind::Friendly => FixtureCompetition::Friendly,
         CompetitionKind::PreseasonTournament => FixtureCompetition::PreseasonTournament,
+        CompetitionKind::WorldCup => FixtureCompetition::WorldCup,
     }
 }
 

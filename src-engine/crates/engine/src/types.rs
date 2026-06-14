@@ -35,6 +35,10 @@ pub struct PlayerData {
     pub id: String,
     pub name: String,
     pub position: Position,
+    /// Granular domain position name (e.g. "LeftWinger", "RightMidfielder", "Striker").
+    /// Empty string for synthetic/test players where granular position is unknown.
+    #[serde(default)]
+    pub natural_position: String,
     #[serde(default)]
     pub ovr: u8,
     pub condition: u8, // 0-100
@@ -121,6 +125,7 @@ impl PlayerData {
     pub fn effective_overall(&self) -> f64 {
         self.overall() * (self.condition as f64 / 100.0)
     }
+
 }
 
 // ---------------------------------------------------------------------------

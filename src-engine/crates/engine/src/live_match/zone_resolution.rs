@@ -2,18 +2,18 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{
-    ChanceType, PlayStylePhase, PlayerSnap, TraitContext, chance_shot_rating,
-    chance_shooter_weight_modifier, compress_skill, fitness_injury_risk_modifier,
+    ChanceType, PlayStylePhase, PlayerSnap, TraitContext, assister_role_weight, chance_shot_rating,
+    classify_role, compress_skill, dribble_role_weight, fitness_injury_risk_modifier,
     morale_performance_modifier, morale_risk_modifier, pitch_carry_modifier, pitch_foul_modifier,
     pitch_injury_modifier, pitch_pass_modifier, play_style_modifier, referee_card_modifier,
-    referee_foul_modifier, referee_penalty_modifier, select_chance_type, tactical_buildup_modifier,
-    tactical_counter_press_pressure, tactical_midfield_modifier, tactical_press_modifier,
-    tactical_shot_quality_modifier, tactical_space_creation_modifier, tactical_turnover_risk,
-    team_cohesion_modifier, trait_bonus, trait_carry_modifier, trait_foul_risk_modifier,
-    trait_pass_creativity_modifier, trait_pass_safety_modifier, trait_press_work_rate_modifier,
-    trait_shot_quality_modifier, trait_shot_tendency_modifier, trait_tackle_modifier,
-    weather_conversion_modifier, weather_foul_modifier, weather_injury_modifier,
-    weather_pass_modifier, weather_shot_accuracy_modifier,
+    referee_foul_modifier, referee_penalty_modifier, scorer_role_weight, select_chance_type,
+    tactical_buildup_modifier, tactical_counter_press_pressure, tactical_midfield_modifier,
+    tactical_press_modifier, tactical_shot_quality_modifier, tactical_space_creation_modifier,
+    tactical_turnover_risk, team_cohesion_modifier, trait_bonus, trait_carry_modifier,
+    trait_foul_risk_modifier, trait_pass_creativity_modifier, trait_pass_safety_modifier,
+    trait_press_work_rate_modifier, trait_shot_quality_modifier, trait_shot_tendency_modifier,
+    trait_tackle_modifier, weather_conversion_modifier, weather_foul_modifier,
+    weather_injury_modifier, weather_pass_modifier, weather_shot_accuracy_modifier,
 };
 use crate::types::{PlayerData, Position, Side, Zone};
 
@@ -21,12 +21,8 @@ use super::LiveMatchState;
 use super::helpers::{shape_attack_multiplier, shape_defense_multiplier};
 
 fn shooter_weight(player: &PlayerData, chance_type: ChanceType) -> f64 {
-    let role_weight = match player.position {
-        Position::Forward => 2.10,
-        Position::Midfielder => 0.50,
-        Position::Defender => 0.12,
-        Position::Goalkeeper => 0.0,
-    };
+    let role = classify_role(&player.natural_position, player.position);
+    let role_weight = scorer_role_weight(role, chance_type);
     let skill = player.shooting as f64 * 1.60
         + player.composure as f64 * 1.15
         + player.positioning as f64
@@ -36,22 +32,17 @@ fn shooter_weight(player: &PlayerData, chance_type: ChanceType) -> f64 {
     role_weight
         * skill
         * elite_bonus
-        * chance_shooter_weight_modifier(chance_type, player)
         * trait_shot_tendency_modifier(&PlayerSnap::from(player))
 }
 
-fn assister_weight(player: &PlayerData) -> f64 {
-    let role_weight = match player.position {
-        Position::Midfielder => 1.35,
-        Position::Forward => 1.05,
-        Position::Defender => 0.30,
-        Position::Goalkeeper => 0.0,
-    };
+fn assister_weight(player: &PlayerData, chance_type: ChanceType) -> f64 {
+    let role = classify_role(&player.natural_position, player.position);
+    let role_weight = assister_role_weight(role, chance_type);
     let skill = player.passing as f64 * 1.30
         + player.vision as f64 * 1.20
         + player.teamwork as f64 * 0.65
         + player.decisions as f64 * 0.75
-        + player.dribbling as f64 * 0.35;
+        + player.dribbling as f64 * 0.55;
     let creator_bonus = 1.0
         + f64::from(player.vision.saturating_sub(82)) * 0.014
         + f64::from(player.passing.saturating_sub(84)) * 0.012;
@@ -258,7 +249,13 @@ impl LiveMatchState {
         let mut events = Vec::new();
         let att_team = self.adapted_team(att_side);
         let def_team = self.adapted_team(def_side);
-        let attacker = self.snap_player(att_side, Position::Forward, rng);
+        let attacker = self.weighted_attacker(att_side, rng, |player| {
+            let role = classify_role(&player.natural_position, player.position);
+            let pos_bonus = dribble_role_weight(role);
+            (player.dribbling as f64 * 1.4 + player.pace as f64 + player.agility as f64 * 0.9
+                + player.composure as f64 * 0.8)
+                * pos_bonus
+        });
         let defender = self.snap_player(def_side, Position::Defender, rng);
 
         let att_raw = (attacker.dribbling as f64
@@ -348,7 +345,7 @@ impl LiveMatchState {
         let def_team = self.adapted_team(def_side);
         let chance_type = select_chance_type(&att_team, &def_team, rng);
         let shooter = self.weighted_attacker(att_side, rng, |player| shooter_weight(player, chance_type));
-        let assister = self.weighted_attacker(att_side, rng, assister_weight);
+        let assister = self.weighted_attacker(att_side, rng, |player| assister_weight(player, chance_type));
         let goalkeeper = self.snap_player(def_side, Position::Goalkeeper, rng);
 
         let shoot_raw =

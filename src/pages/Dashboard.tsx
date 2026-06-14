@@ -62,6 +62,14 @@ import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
 
 const CLUB_TABS = new Set(["Squad", "Tactics", "Training", "Staff", "Scouting", "Youth", "Finances", "Transfers"]);
+const WORLDCUP_HIDDEN_TABS = new Set(["Training", "Staff", "Scouting", "Youth", "Finances", "Transfers"]);
+
+function isWorldCupGame(gameState: GameStateData | null): boolean {
+  return Boolean(
+    gameState?.world_source?.startsWith("worldcup2026") ||
+      gameState?.competitions?.some((competition) => competition.kind === "WorldCup"),
+  );
+}
 
 const DASHBOARD_TAB_PATHS: Record<string, string> = {
   Home: "/dashboard",
@@ -166,6 +174,7 @@ export default function Dashboard(): JSX.Element {
   }, [hasActiveGame, navigate, setGameState]);
 
   const isUnemployed = gameState?.manager.team_id === null;
+  const isWorldCupMode = isWorldCupGame(gameState);
   const todayMatchFixture = gameState ? getTodayMatchFixture(gameState) : null;
 
   useEffect(() => {
@@ -235,13 +244,16 @@ export default function Dashboard(): JSX.Element {
     });
   }, [gameState, profileNavigation.activeTab]);
 
-  // Reset to Home tab if current tab is a club tab and manager is unemployed
+  // Reset to Home tab if current tab is unavailable in the current game mode.
   useEffect(() => {
-    if (isUnemployed && profileNavigation.activeTab && CLUB_TABS.has(profileNavigation.activeTab)) {
+    const activeTab = profileNavigation.activeTab;
+    if (!activeTab) return;
+
+    if ((isUnemployed && CLUB_TABS.has(activeTab)) || (isWorldCupMode && WORLDCUP_HIDDEN_TABS.has(activeTab))) {
       navigate("/dashboard");
       setProfileNavigation((s) => navigateDashboardProfiles(s, "Home"));
     }
-  }, [isUnemployed, navigate, profileNavigation.activeTab]);
+  }, [isUnemployed, isWorldCupMode, navigate, profileNavigation.activeTab]);
 
   const seasonComplete = isLeagueSeasonComplete(gameState?.league);
 
@@ -481,6 +493,19 @@ export default function Dashboard(): JSX.Element {
       onNavigate: handleNavigate,
     },
   });
+  const clubSidebarItems: TemplateSidebarItem[] = [
+    { id: "Squad", label: t("dashboard.squad"), icon: <Users /> },
+    { id: "Tactics", label: t("dashboard.tactics"), icon: <Crosshair /> },
+    { id: "Training", label: t("dashboard.training"), icon: <Dumbbell /> },
+    { id: "Staff", label: t("dashboard.staff"), icon: <UserCog /> },
+    { id: "Scouting", label: t("dashboard.scouting"), icon: <EyeIcon /> },
+    { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
+    { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
+    { id: "Transfers", label: t("dashboard.transfers"), icon: <ArrowRightLeft /> },
+  ];
+  const visibleClubSidebarItems = isWorldCupMode
+    ? clubSidebarItems.filter((item) => !WORLDCUP_HIDDEN_TABS.has(item.id))
+    : clubSidebarItems;
 
   return (
     <div
@@ -496,18 +521,7 @@ export default function Dashboard(): JSX.Element {
           { id: "Inbox", label: t("dashboard.inbox"), icon: <MailIcon />, badge: unreadMessagesCount },
           { id: "News", label: t("dashboard.news"), icon: <Newspaper /> },
           { id: "Schedule", label: t("dashboard.schedule"), icon: <CalendarIcon /> },
-          ...(isUnemployed
-            ? []
-            : ([
-                { id: "Squad", label: t("dashboard.squad"), icon: <Users /> },
-                { id: "Tactics", label: t("dashboard.tactics"), icon: <Crosshair /> },
-                { id: "Training", label: t("dashboard.training"), icon: <Dumbbell /> },
-                { id: "Staff", label: t("dashboard.staff"), icon: <UserCog /> },
-                { id: "Scouting", label: t("dashboard.scouting"), icon: <EyeIcon /> },
-                { id: "Youth", label: t("dashboard.youthAcademy"), icon: <GraduationCap /> },
-                { id: "Finances", label: t("dashboard.finances"), icon: <DollarSign /> },
-                { id: "Transfers", label: t("dashboard.transfers"), icon: <ArrowRightLeft /> },
-              ] as TemplateSidebarItem[])),
+          ...(isUnemployed ? [] : visibleClubSidebarItems),
           { id: "Players", label: t("dashboard.players"), icon: <UsersRound /> },
           { id: "Teams", label: t("dashboard.teams"), icon: <Building2 /> },
           { id: "Tournaments", label: t("dashboard.tournaments"), icon: <Trophy /> },

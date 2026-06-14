@@ -398,6 +398,7 @@ export type FixtureCompetitionData =
   | "DomesticLeague"
   | "DomesticCup"
   | "ContinentalLeague"
+  | "WorldCup"
   | "Friendly"
   | "PreseasonTournament";
 
@@ -544,7 +545,7 @@ export interface LeagueData {
   standings: StandingData[];
 }
 
-export type CompetitionKindData = "DomesticLeague" | "DomesticCup" | "ContinentalLeague" | "Friendly" | "PreseasonTournament";
+export type CompetitionKindData = "DomesticLeague" | "DomesticCup" | "ContinentalLeague" | "WorldCup" | "Friendly" | "PreseasonTournament";
 
 export type CompetitionFormatData = "RoundRobin" | "GroupStageKnockout" | "Knockout";
 
@@ -664,6 +665,7 @@ export interface GameStateData {
   season_honours?: SeasonHonours[];
   records?: GameRecords;
   retired_players?: RetiredPlayer[];
+  world_source?: string | null;
 }
 
 export interface SeasonAwardEntry {

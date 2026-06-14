@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 use domain::player::{Footedness, Player, PlayerAttributes, PlayerTrait, Position, SquadTier};
 use domain::staff::StaffRole;
 use domain::team::{Facilities, Team, TeamColors};
 use rand::RngExt;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::definitions::{default_names_definition, default_teams_definition, TeamDef};
@@ -21,7 +23,9 @@ use crate::player_rating::{generate_potential, refresh_player_derived};
 
 const FC26_CSV: &str = include_str!("FC26_20250921.csv");
 const EAFC26_CSV: &str = include_str!("EAFC26-Men.csv");
+const WORLDCUP_ADDITIONS_JSON: &str = include_str!("data/fc26_worldcup_2026_additions.json");
 const MAX_REAL_SQUAD_SIZE: usize = 35;
+const WORLDCUP_SQUAD_SIZE: usize = 26;
 
 #[derive(Clone, Debug)]
 struct Fc26PlayerRow {
@@ -86,7 +90,20 @@ struct Fc26PlayerRow {
 }
 
 pub fn fc26_real_player_count_estimate() -> usize {
-    parse_fc26_rows().len().min(248 * MAX_REAL_SQUAD_SIZE)
+    fc26_rows().len().min(248 * MAX_REAL_SQUAD_SIZE)
+}
+
+fn fc26_rows() -> &'static [Fc26PlayerRow] {
+    static ROWS: OnceLock<Vec<Fc26PlayerRow>> = OnceLock::new();
+    ROWS.get_or_init(parse_fc26_rows).as_slice()
+}
+
+fn worldcup_additions() -> Result<&'static WorldCupAdditionsFile, String> {
+    static ADDITIONS: OnceLock<Result<WorldCupAdditionsFile, String>> = OnceLock::new();
+    ADDITIONS
+        .get_or_init(|| serde_json::from_str(WORLDCUP_ADDITIONS_JSON).map_err(|_| "be.error.worldParseFailed".to_string()))
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 pub fn generate_fc26_world() -> Result<(Vec<Team>, Vec<Player>, Vec<domain::staff::Staff>), String> {
@@ -179,6 +196,421 @@ pub fn generate_fc26_world() -> Result<(Vec<Team>, Vec<Player>, Vec<domain::staf
     Ok((teams_out, players, staff))
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WorldCupCallupCandidate {
+    pub id: String,
+    pub full_name: String,
+    pub match_name: String,
+    pub position: Position,
+    pub alternate_positions: Vec<Position>,
+    pub ovr: u8,
+    pub age: u8,
+    pub club: String,
+    pub nationality: String,
+}
+
+#[derive(Clone)]
+struct WorldCupCandidatePlayer {
+    player: Player,
+    club: String,
+}
+
+#[derive(Clone, Copy)]
+struct WorldCupNationalTeamDef {
+    name: &'static str,
+    iso_code: &'static str,
+    aliases: &'static [&'static str],
+    strength: u8,
+    play_style: &'static str,
+}
+
+const WORLDCUP_FC26_TEAMS: &[WorldCupNationalTeamDef] = &[
+    WorldCupNationalTeamDef { name: "Australia", iso_code: "AU", aliases: &["Australia"], strength: 73, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Iran", iso_code: "IR", aliases: &["Iran"], strength: 74, play_style: "Defensive" },
+    WorldCupNationalTeamDef { name: "Iraq", iso_code: "IQ", aliases: &["Iraq"], strength: 67, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Japan", iso_code: "JP", aliases: &["Japan"], strength: 81, play_style: "Possession" },
+    WorldCupNationalTeamDef { name: "Jordan", iso_code: "JO", aliases: &["Jordan"], strength: 64, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Korea Republic", iso_code: "KR", aliases: &["Korea Republic", "South Korea"], strength: 79, play_style: "HighPress" },
+    WorldCupNationalTeamDef { name: "Saudi Arabia", iso_code: "SA", aliases: &["Saudi Arabia"], strength: 72, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Qatar", iso_code: "QA", aliases: &["Qatar"], strength: 68, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Uzbekistan", iso_code: "UZ", aliases: &["Uzbekistan"], strength: 68, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Algeria", iso_code: "DZ", aliases: &["Algeria"], strength: 74, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Côte d'Ivoire", iso_code: "CI", aliases: &["Côte d'Ivoire", "Ivory Coast", "Cote d'Ivoire"], strength: 76, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "Cabo Verde", iso_code: "CV", aliases: &["Cabo Verde", "Cape Verde", "Cape Verde Islands"], strength: 66, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Congo DR", iso_code: "CD", aliases: &["Congo DR", "Congo", "DR Congo"], strength: 70, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Egypt", iso_code: "EG", aliases: &["Egypt"], strength: 75, play_style: "Defensive" },
+    WorldCupNationalTeamDef { name: "Ghana", iso_code: "GH", aliases: &["Ghana"], strength: 73, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Morocco", iso_code: "MA", aliases: &["Morocco"], strength: 83, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "South Africa", iso_code: "ZA", aliases: &["South Africa"], strength: 68, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Senegal", iso_code: "SN", aliases: &["Senegal"], strength: 79, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Tunisia", iso_code: "TN", aliases: &["Tunisia"], strength: 72, play_style: "Defensive" },
+    WorldCupNationalTeamDef { name: "Canada", iso_code: "CA", aliases: &["Canada"], strength: 76, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "United States", iso_code: "US", aliases: &["United States", "USA", "United States of America"], strength: 82, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Mexico", iso_code: "MX", aliases: &["Mexico"], strength: 80, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "Curaçao", iso_code: "CW", aliases: &["Curaçao", "Curacao"], strength: 65, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Haiti", iso_code: "HT", aliases: &["Haiti"], strength: 64, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Panama", iso_code: "PA", aliases: &["Panama"], strength: 69, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Argentina", iso_code: "AR", aliases: &["Argentina"], strength: 94, play_style: "Possession" },
+    WorldCupNationalTeamDef { name: "Brazil", iso_code: "BR", aliases: &["Brazil"], strength: 93, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "Colombia", iso_code: "CO", aliases: &["Colombia"], strength: 80, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Ecuador", iso_code: "EC", aliases: &["Ecuador"], strength: 74, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Paraguay", iso_code: "PY", aliases: &["Paraguay"], strength: 72, play_style: "Defensive" },
+    WorldCupNationalTeamDef { name: "Uruguay", iso_code: "UY", aliases: &["Uruguay"], strength: 82, play_style: "Defensive" },
+    WorldCupNationalTeamDef { name: "Austria", iso_code: "AT", aliases: &["Austria"], strength: 77, play_style: "HighPress" },
+    WorldCupNationalTeamDef { name: "Belgium", iso_code: "BE", aliases: &["Belgium"], strength: 83, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Bosnia and Herzegovina", iso_code: "BA", aliases: &["Bosnia and Herzegovina", "Bosnia Herzegovina"], strength: 70, play_style: "Counter" },
+    WorldCupNationalTeamDef { name: "Croatia", iso_code: "HR", aliases: &["Croatia"], strength: 82, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Czechia", iso_code: "CZ", aliases: &["Czechia", "Czech Republic", "Czech"], strength: 74, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "England", iso_code: "ENG", aliases: &["England"], strength: 90, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "France", iso_code: "FR", aliases: &["France"], strength: 92, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "Germany", iso_code: "DE", aliases: &["Germany"], strength: 86, play_style: "HighPress" },
+    WorldCupNationalTeamDef { name: "Netherlands", iso_code: "NL", aliases: &["Netherlands"], strength: 84, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "Norway", iso_code: "NO", aliases: &["Norway"], strength: 78, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Portugal", iso_code: "PT", aliases: &["Portugal"], strength: 87, play_style: "Possession" },
+    WorldCupNationalTeamDef { name: "Scotland", iso_code: "SCO", aliases: &["Scotland"], strength: 74, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Spain", iso_code: "ES", aliases: &["Spain"], strength: 89, play_style: "Possession" },
+    WorldCupNationalTeamDef { name: "Sweden", iso_code: "SE", aliases: &["Sweden"], strength: 76, play_style: "Balanced" },
+    WorldCupNationalTeamDef { name: "Switzerland", iso_code: "CH", aliases: &["Switzerland"], strength: 78, play_style: "Defensive" },
+    WorldCupNationalTeamDef { name: "Türkiye", iso_code: "TR", aliases: &["Türkiye", "Turkey"], strength: 76, play_style: "Attacking" },
+    WorldCupNationalTeamDef { name: "New Zealand", iso_code: "NZ", aliases: &["New Zealand"], strength: 66, play_style: "Balanced" },
+];
+
+#[derive(Clone, Deserialize)]
+struct WorldCupAdditionsFile {
+    teams: Vec<WorldCupAdditionTeam>,
+}
+
+#[derive(Clone, Deserialize)]
+struct WorldCupAdditionTeam {
+    country: String,
+    players_to_add: Vec<WorldCupAdditionPlayer>,
+}
+
+#[derive(Clone, Deserialize)]
+struct WorldCupAdditionPlayer {
+    full_name: String,
+    known_as: String,
+    date_of_birth: String,
+    age_2026: u8,
+    nationality_name: String,
+    primary_position: String,
+    #[serde(default)]
+    alternate_positions: Vec<String>,
+    current_club: String,
+    #[serde(default)]
+    height_cm: u8,
+    preferred_foot: String,
+    fc26_style_attributes: WorldCupAdditionAttributes,
+}
+
+#[derive(Clone, Deserialize)]
+struct WorldCupAdditionAttributes {
+    overall: u8,
+    potential: u8,
+    pace: u8,
+    shooting: u8,
+    passing: u8,
+    dribbling: u8,
+    defending: u8,
+    physic: u8,
+    movement_acceleration: u8,
+    movement_sprint_speed: u8,
+    attacking_finishing: u8,
+    power_shot_power: u8,
+    mentality_positioning: u8,
+    mentality_vision: u8,
+    attacking_short_passing: u8,
+    skill_long_passing: u8,
+    skill_ball_control: u8,
+    movement_reactions: u8,
+    mentality_composure: u8,
+    mentality_interceptions: u8,
+    attacking_heading_accuracy: u8,
+    defending_marking_awareness: u8,
+    defending_standing_tackle: u8,
+    defending_sliding_tackle: u8,
+    power_jumping: u8,
+    power_stamina: u8,
+    power_strength: u8,
+    mentality_aggression: u8,
+    goalkeeping_diving: u8,
+    goalkeeping_handling: u8,
+    goalkeeping_kicking: u8,
+    goalkeeping_positioning: u8,
+    goalkeeping_reflexes: u8,
+    weak_foot: u8,
+    skill_moves: u8,
+    international_reputation: u8,
+}
+
+pub fn generate_worldcup_fc26_world() -> Result<(Vec<Team>, Vec<Player>, Vec<domain::staff::Staff>), String> {
+    generate_worldcup_fc26_world_with_user_selection(None, &[])
+}
+
+pub fn generate_worldcup_fc26_world_with_user_selection(
+    user_team_id: Option<&str>,
+    selected_player_ids: &[String],
+) -> Result<(Vec<Team>, Vec<Player>, Vec<domain::staff::Staff>), String> {
+    let mut rng = rand::rng();
+    let names_def = default_names_definition();
+    let mut teams = Vec::with_capacity(WORLDCUP_FC26_TEAMS.len());
+    let mut players = Vec::with_capacity(WORLDCUP_FC26_TEAMS.len() * WORLDCUP_SQUAD_SIZE);
+    let mut staff = Vec::with_capacity(WORLDCUP_FC26_TEAMS.len());
+
+    for team_def in WORLDCUP_FC26_TEAMS {
+        let team_id = worldcup_team_id(team_def.name);
+        let mut team = build_worldcup_national_team(team_def, &team_id, &mut rng);
+        let team_player_start = players.len();
+        let mut candidates = worldcup_candidate_players_for_team(team_def, &team_id)?;
+        candidates.sort_by(|left, right| right.player.ovr.cmp(&left.player.ovr));
+        let selected = if user_team_id == Some(team_id.as_str()) && !selected_player_ids.is_empty() {
+            select_worldcup_players_by_id(candidates, selected_player_ids)?
+        } else {
+            auto_select_worldcup_players(candidates)
+        };
+        players.extend(selected.into_iter().map(|candidate| candidate.player));
+        assign_squad_numbers(&mut players[team_player_start..]);
+        normalize_generated_team(&mut team, &mut players[team_player_start..], None, None);
+        team.tactical_instructions = generated_tactical_instructions_for_team(&team, &players[team_player_start..]);
+        let staff_nat = canonicalize_generated_nationality(team_def.iso_code);
+        staff.push(generate_random_staff_from_def(&team_id, StaffRole::AssistantManager, &staff_nat, &names_def, &mut rng));
+        teams.push(team);
+    }
+
+    Ok((teams, players, staff))
+}
+
+pub fn worldcup_fc26_callup_pool(team_id: &str) -> Result<Vec<WorldCupCallupCandidate>, String> {
+    let team_def = WORLDCUP_FC26_TEAMS
+        .iter()
+        .find(|team| worldcup_team_id(team.name) == team_id)
+        .ok_or_else(|| "be.error.teamNotFound".to_string())?;
+    let players = worldcup_candidate_players_for_team(team_def, team_id)?;
+    Ok(players
+        .into_iter()
+        .map(|candidate| WorldCupCallupCandidate {
+            id: candidate.player.id,
+            full_name: candidate.player.full_name,
+            match_name: candidate.player.match_name,
+            position: candidate.player.natural_position,
+            alternate_positions: candidate.player.alternate_positions,
+            ovr: candidate.player.ovr,
+            age: player_age_2026(&candidate.player.date_of_birth),
+            club: candidate.club,
+            nationality: candidate.player.nationality,
+        })
+        .collect())
+}
+
+pub fn worldcup_fc26_team_id_by_name(name: &str) -> String {
+    worldcup_team_id(name)
+}
+
+fn worldcup_team_id(name: &str) -> String {
+    format!("wc26-{}", normalize_key(name))
+}
+
+fn build_worldcup_national_team(team_def: &WorldCupNationalTeamDef, team_id: &str, rng: &mut impl rand::Rng) -> Team {
+    let mut team = Team::new(
+        team_id.to_string(),
+        team_def.name.to_string(),
+        team_def.name.to_string(),
+        team_def.iso_code.to_string(),
+        team_def.name.to_string(),
+        format!("{} National Stadium", team_def.name),
+        60_000 + rng.random_range(0..40_000),
+    );
+    team.play_style = play_style_from_str(team_def.play_style);
+    team.formation = default_formation_for_team(&team.play_style, 65, 50);
+    team.reputation = (team_def.strength as u32 * 10).min(1000);
+    team.finance = 0;
+    team.wage_budget = 0;
+    team.transfer_budget = 0;
+    team.domestic_tier = None;
+    team
+}
+
+fn worldcup_candidate_players_for_team(team_def: &WorldCupNationalTeamDef, team_id: &str) -> Result<Vec<WorldCupCandidatePlayer>, String> {
+    let alias_keys = team_def.aliases.iter().map(|alias| normalize_key(alias)).collect::<HashSet<_>>();
+    let mut rows = fc26_rows()
+        .iter()
+        .filter(|row| alias_keys.contains(&normalize_key(&row.nation)))
+        .collect::<Vec<_>>();
+    rows.sort_by(|left, right| right.ovr.cmp(&left.ovr));
+
+    let mut players = rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| {
+            let mut player = row_to_player(row, team_id, index);
+            player.id = format!("wc26-{}", player.id);
+            player.contract_end = None;
+            player.wage = 0;
+            player.market_value = 0;
+            WorldCupCandidatePlayer {
+                player,
+                club: row.team.clone(),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    players.extend(addition_players_for_team(team_def, team_id, players.len())?);
+    Ok(players)
+}
+
+fn addition_players_for_team(team_def: &WorldCupNationalTeamDef, team_id: &str, offset: usize) -> Result<Vec<WorldCupCandidatePlayer>, String> {
+    let additions = worldcup_additions()?;
+    let alias_keys = team_def.aliases.iter().map(|alias| normalize_key(alias)).collect::<HashSet<_>>();
+    let Some(team) = additions
+        .teams
+        .iter()
+        .find(|team| alias_keys.contains(&normalize_key(&team.country)))
+    else {
+        return Ok(Vec::new());
+    };
+
+    Ok(team
+        .players_to_add
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(index, addition)| addition_to_player(addition, team_def, team_id, offset + index))
+        .collect())
+}
+
+fn addition_to_player(
+    addition: WorldCupAdditionPlayer,
+    team_def: &WorldCupNationalTeamDef,
+    team_id: &str,
+    index: usize,
+) -> WorldCupCandidatePlayer {
+    let position = map_position(&addition.primary_position).unwrap_or(Position::CentralMidfielder);
+    let row = Fc26PlayerRow {
+        id: format!("wc-add-{}-{}", normalize_key(team_def.name), index),
+        name: if addition.known_as.trim().is_empty() { addition.full_name.clone() } else { addition.known_as.clone() },
+        ovr: addition.fc26_style_attributes.overall,
+        potential: addition.fc26_style_attributes.potential,
+        position: addition.primary_position,
+        alternate_positions: addition.alternate_positions.join(","),
+        position_ratings: HashMap::from([(position.clone(), addition.fc26_style_attributes.overall)]),
+        age: addition.age_2026,
+        dob: addition.date_of_birth,
+        nation: addition.nationality_name,
+        team: addition.current_club,
+        preferred_foot: addition.preferred_foot,
+        weak_foot: addition.fc26_style_attributes.weak_foot,
+        value_eur: 0,
+        wage_eur: 0,
+        jersey_number: None,
+        contract_end_year: None,
+        skill_moves: addition.fc26_style_attributes.skill_moves,
+        international_reputation: addition.fc26_style_attributes.international_reputation,
+        work_rate: "Medium/Medium".to_string(),
+        player_tags: String::new(),
+        player_traits: String::new(),
+        club_loaned_from: String::new(),
+        club_joined_date: String::new(),
+        release_clause_eur: 0,
+        height_cm: addition.height_cm,
+        weight_kg: 75,
+        pace: addition.fc26_style_attributes.pace,
+        shooting: addition.fc26_style_attributes.shooting,
+        passing: addition.fc26_style_attributes.passing,
+        dribbling: addition.fc26_style_attributes.dribbling,
+        defending: addition.fc26_style_attributes.defending,
+        physical: addition.fc26_style_attributes.physic,
+        acceleration: addition.fc26_style_attributes.movement_acceleration,
+        sprint_speed: addition.fc26_style_attributes.movement_sprint_speed,
+        positioning: addition.fc26_style_attributes.mentality_positioning,
+        finishing: addition.fc26_style_attributes.attacking_finishing,
+        shot_power: addition.fc26_style_attributes.power_shot_power,
+        vision: addition.fc26_style_attributes.mentality_vision,
+        short_passing: addition.fc26_style_attributes.attacking_short_passing,
+        long_passing: addition.fc26_style_attributes.skill_long_passing,
+        ball_control: addition.fc26_style_attributes.skill_ball_control,
+        reactions: addition.fc26_style_attributes.movement_reactions,
+        composure: addition.fc26_style_attributes.mentality_composure,
+        interceptions: addition.fc26_style_attributes.mentality_interceptions,
+        heading_accuracy: addition.fc26_style_attributes.attacking_heading_accuracy,
+        defensive_awareness: addition.fc26_style_attributes.defending_marking_awareness,
+        standing_tackle: addition.fc26_style_attributes.defending_standing_tackle,
+        sliding_tackle: addition.fc26_style_attributes.defending_sliding_tackle,
+        jumping: addition.fc26_style_attributes.power_jumping,
+        stamina: addition.fc26_style_attributes.power_stamina,
+        strength: addition.fc26_style_attributes.power_strength,
+        aggression: addition.fc26_style_attributes.mentality_aggression,
+        gk_diving: addition.fc26_style_attributes.goalkeeping_diving,
+        gk_handling: addition.fc26_style_attributes.goalkeeping_handling,
+        gk_kicking: addition.fc26_style_attributes.goalkeeping_kicking,
+        gk_positioning: addition.fc26_style_attributes.goalkeeping_positioning,
+        gk_reflexes: addition.fc26_style_attributes.goalkeeping_reflexes,
+    };
+    let club = row.team.clone();
+    let mut player = row_to_player(&row, team_id, index);
+    player.id = format!("wc26-add-{}-{}", normalize_key(team_def.name), index);
+    player.contract_end = None;
+    player.wage = 0;
+    player.market_value = 0;
+    WorldCupCandidatePlayer { player, club }
+}
+
+fn select_worldcup_players_by_id(
+    candidates: Vec<WorldCupCandidatePlayer>,
+    selected_player_ids: &[String],
+) -> Result<Vec<WorldCupCandidatePlayer>, String> {
+    if selected_player_ids.len() != WORLDCUP_SQUAD_SIZE {
+        return Err("be.error.worldCupCallup.invalidSquadSize".to_string());
+    }
+    let selected_ids = selected_player_ids.iter().cloned().collect::<HashSet<_>>();
+    let selected = candidates
+        .into_iter()
+        .filter(|candidate| selected_ids.contains(&candidate.player.id))
+        .collect::<Vec<_>>();
+    if selected.len() != WORLDCUP_SQUAD_SIZE {
+        return Err("be.error.worldCupCallup.invalidPlayerIds".to_string());
+    }
+    if selected.iter().filter(|candidate| candidate.player.position == Position::Goalkeeper).count() < 3 {
+        return Err("be.error.worldCupCallup.minGoalkeepers".to_string());
+    }
+    Ok(selected)
+}
+
+fn auto_select_worldcup_players(candidates: Vec<WorldCupCandidatePlayer>) -> Vec<WorldCupCandidatePlayer> {
+    let mut selected = Vec::new();
+    let mut used_ids = HashSet::new();
+    for (group, quota) in [(Position::Goalkeeper, 3), (Position::Defender, 8), (Position::Midfielder, 8), (Position::Forward, 7)] {
+        let mut group_players = candidates
+            .iter()
+            .filter(|candidate| candidate.player.position.to_group_position() == group)
+            .collect::<Vec<_>>();
+        group_players.sort_by(|left, right| right.player.ovr.cmp(&left.player.ovr));
+        for candidate in group_players.into_iter().take(quota) {
+            if used_ids.insert(candidate.player.id.clone()) {
+                selected.push(candidate.clone());
+            }
+        }
+    }
+    let mut remaining = candidates.iter().collect::<Vec<_>>();
+    remaining.sort_by(|left, right| right.player.ovr.cmp(&left.player.ovr));
+    for candidate in remaining {
+        if selected.len() >= WORLDCUP_SQUAD_SIZE {
+            break;
+        }
+        if used_ids.insert(candidate.player.id.clone()) {
+            selected.push(candidate.clone());
+        }
+    }
+    selected
+}
+
+fn player_age_2026(date_of_birth: &str) -> u8 {
+    date_of_birth
+        .get(0..4)
+        .and_then(|year| year.parse::<u16>().ok())
+        .map(|year| 2026u16.saturating_sub(year).min(99) as u8)
+        .unwrap_or(0)
+}
+
 fn build_team_from_def(tdef: &TeamDef, team_id: &str, rng: &mut impl rand::Rng) -> Team {
     let short_name = if tdef.short_name.is_empty() {
         tdef.name
@@ -236,8 +668,8 @@ fn build_team_from_def(tdef: &TeamDef, team_id: &str, rng: &mut impl rand::Rng) 
 
 fn rows_by_team() -> HashMap<String, Vec<Fc26PlayerRow>> {
     let mut grouped = HashMap::<String, Vec<Fc26PlayerRow>>::new();
-    for row in parse_fc26_rows() {
-        grouped.entry(row.team.clone()).or_default().push(row);
+    for row in fc26_rows() {
+        grouped.entry(row.team.clone()).or_default().push(row.clone());
     }
     grouped
 }
@@ -333,6 +765,10 @@ fn rows_for_generated_team_name<'a>(
         .iter()
         .find(|(name, _)| normalized_team_key(name) == target_key)
         .map(|(_, rows)| rows.as_slice())
+}
+
+fn normalize_key(name: &str) -> String {
+    normalized_team_key(name)
 }
 
 fn normalized_team_key(name: &str) -> String {
@@ -918,7 +1354,7 @@ fn row_from_record(
     let eafc_name = eafc_names.get(&id).map(String::as_str).unwrap_or_default();
     let name = preferred_player_name(eafc_name, &get("short_name"), &full_name);
     let team = get("club_name");
-    if id.is_empty() || name.is_empty() || team.is_empty() {
+    if id.is_empty() || name.is_empty() {
         return None;
     }
 
@@ -1280,6 +1716,18 @@ mod tests {
         for (name, rep, avg, top, len) in rows.iter().rev().take(12) {
             println!("  {name}: avg={avg:.2} top={top} rep={rep:.0} squad={len}");
         }
+    }
+
+    #[test]
+    fn worldcup_fc26_qatar_has_a_full_squad() {
+        let (teams, players, _) = generate_worldcup_fc26_world().unwrap();
+        let qatar = teams.iter().find(|team| team.name == "Qatar").expect("Qatar");
+        let squad_count = players
+            .iter()
+            .filter(|player| player.team_id.as_deref() == Some(qatar.id.as_str()))
+            .count();
+
+        assert_eq!(squad_count, WORLDCUP_SQUAD_SIZE);
     }
 
     #[test]

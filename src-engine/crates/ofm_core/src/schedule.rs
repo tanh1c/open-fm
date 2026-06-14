@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike, Duration, Utc, Weekday};
 use domain::league::{
     Competition, CompetitionFormat, CompetitionKind, Fixture, FixtureCompetition, FixtureStatus,
-    League,
+    League, StandingEntry,
 };
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -935,6 +935,92 @@ pub fn append_fixtures(league: &mut League, mut additional_fixtures: Vec<Fixture
             .then(left.matchday.cmp(&right.matchday))
             .then(left.id.cmp(&right.id))
     });
+}
+
+// ---------------------------------------------------------------------------
+// World Cup 2026 scheduling
+// ---------------------------------------------------------------------------
+
+/// Generate the World Cup 2026 competition: 12 groups × 4 teams round-robin → 32-team knockout.
+pub fn generate_world_cup_2026(
+    teams: &[domain::team::Team],
+    season: u32,
+    start_date: DateTime<Utc>,
+) -> Competition {
+    const GROUP_SIZE: usize = 4;
+    const NUM_GROUPS: usize = 12;
+    let competition_id = Uuid::new_v4().to_string();
+    let team_ids: Vec<String> = teams.iter().map(|t| t.id.clone()).collect();
+    assert_eq!(team_ids.len(), NUM_GROUPS * GROUP_SIZE);
+
+    // Seed groups by team reputation (best-first). Group A gets teams[0], teams[11], teams[23], teams[35] etc.
+    let mut sorted_indices: Vec<usize> = (0..team_ids.len()).collect();
+    sorted_indices.sort_by(|&a, &b| {
+        teams[b].reputation.cmp(&teams[a].reputation).then(teams[a].id.cmp(&teams[b].id))
+    });
+    let mut groups: Vec<Vec<String>> = vec![Vec::new(); NUM_GROUPS];
+    for (slot, &idx) in sorted_indices.iter().enumerate() {
+        let group = slot % NUM_GROUPS;
+        groups[group].push(team_ids[idx].clone());
+    }
+
+    // Single round-robin per group (3 matches per team)
+    let mut fixtures = Vec::new();
+    let mut standings = Vec::new();
+    for (g, group_team_ids) in groups.iter().enumerate() {
+        for team_id in group_team_ids {
+            standings.push(StandingEntry::new(team_id.clone()));
+        }
+        // Round-robin scheduling: each group plays on consecutive days
+        let group_base = start_date + Duration::days(g as i64 * 4);
+        let n = group_team_ids.len();
+        let mut indices: Vec<usize> = (0..n).collect();
+        let half = n / 2;
+        for round in 0..(n - 1) {
+            let matchday = (g * (n - 1) + round) as u32 + 1;
+            let round_date = (group_base + Duration::days(round as i64))
+                .format("%Y-%m-%d")
+                .to_string();
+            for i in 0..half {
+                let (home_idx, away_idx) = if round % 2 == 0 {
+                    (indices[i], indices[n - 1 - i])
+                } else {
+                    (indices[n - 1 - i], indices[i])
+                };
+                fixtures.push(Fixture {
+                    id: Uuid::new_v4().to_string(),
+                    matchday,
+                    date: round_date.clone(),
+                    home_team_id: group_team_ids[home_idx].clone(),
+                    away_team_id: group_team_ids[away_idx].clone(),
+                    competition_id: Some(competition_id.clone()),
+                    season: Some(season),
+                    competition: FixtureCompetition::WorldCup,
+                    status: FixtureStatus::Scheduled,
+                    result: None,
+                    stage: None,
+                    leg: None,
+                    tie_id: None,
+                });
+            }
+            let last = indices.pop().unwrap();
+            indices.insert(1, last);
+        }
+    }
+
+    Competition {
+        id: competition_id,
+        name: "World Cup 2026".to_string(),
+        season,
+        kind: CompetitionKind::WorldCup,
+        format: CompetitionFormat::GroupStageKnockout,
+        country: None,
+        tier: None,
+        team_ids,
+        fixtures,
+        standings,
+        transfer_log: Vec::new(),
+    }
 }
 
 #[cfg(test)]

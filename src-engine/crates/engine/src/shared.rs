@@ -3,6 +3,187 @@ use rand::{Rng, RngExt};
 use crate::types::{MatchConfig, PitchCondition, PlayStyle, PlayerData, Position, Side, TeamData, WeatherCondition};
 
 // ---------------------------------------------------------------------------
+// PositionRole — granular functional role classified from natural_position
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PositionRole {
+    Goalkeeper,
+    CenterBack,
+    FullBack,
+    WingBack,
+    DefensiveMidfielder,
+    CentralMidfielder,
+    AttackingMidfielder,
+    WideMidfielder,
+    Winger,
+    Striker,
+}
+
+pub(crate) fn classify_role(natural_position: &str, fallback: Position) -> PositionRole {
+    match natural_position {
+        "Goalkeeper" => PositionRole::Goalkeeper,
+        "CenterBack" => PositionRole::CenterBack,
+        "LeftBack" | "RightBack" => PositionRole::FullBack,
+        "LeftWingBack" | "RightWingBack" => PositionRole::WingBack,
+        "DefensiveMidfielder" => PositionRole::DefensiveMidfielder,
+        "CentralMidfielder" => PositionRole::CentralMidfielder,
+        "AttackingMidfielder" => PositionRole::AttackingMidfielder,
+        "LeftMidfielder" | "RightMidfielder" => PositionRole::WideMidfielder,
+        "LeftWinger" | "RightWinger" => PositionRole::Winger,
+        "Striker" => PositionRole::Striker,
+        "" => classify_role_from_coarse(fallback),
+        _ => classify_role_from_coarse(fallback),
+    }
+}
+
+fn classify_role_from_coarse(position: Position) -> PositionRole {
+    match position {
+        Position::Goalkeeper => PositionRole::Goalkeeper,
+        Position::Defender => PositionRole::CenterBack,
+        Position::Midfielder => PositionRole::CentralMidfielder,
+        Position::Forward => PositionRole::Striker,
+    }
+}
+
+pub(crate) fn scorer_role_weight(role: PositionRole, chance_type: ChanceType) -> f64 {
+    use ChanceType::*;
+    match (role, chance_type) {
+        (PositionRole::Goalkeeper, _) => 0.0,
+
+        (PositionRole::Striker, CentralCombination) => 1.60,
+        (PositionRole::Striker, WideCross) => 1.35,
+        (PositionRole::Striker, CounterBreak) => 1.40,
+        (PositionRole::Striker, SetPiece) => 0.85,
+        (PositionRole::Striker, LongShot) => 0.70,
+
+        (PositionRole::Winger, CentralCombination) => 1.10,
+        (PositionRole::Winger, WideCross) => 1.15,
+        (PositionRole::Winger, CounterBreak) => 1.60,
+        (PositionRole::Winger, SetPiece) => 0.60,
+        (PositionRole::Winger, LongShot) => 0.80,
+
+        (PositionRole::AttackingMidfielder, CentralCombination) => 1.15,
+        (PositionRole::AttackingMidfielder, WideCross) => 0.80,
+        (PositionRole::AttackingMidfielder, CounterBreak) => 1.05,
+        (PositionRole::AttackingMidfielder, SetPiece) => 0.75,
+        (PositionRole::AttackingMidfielder, LongShot) => 1.35,
+
+        (PositionRole::CentralMidfielder, CentralCombination) => 0.70,
+        (PositionRole::CentralMidfielder, WideCross) => 0.55,
+        (PositionRole::CentralMidfielder, CounterBreak) => 0.70,
+        (PositionRole::CentralMidfielder, SetPiece) => 0.65,
+        (PositionRole::CentralMidfielder, LongShot) => 1.50,
+
+        (PositionRole::WideMidfielder, CentralCombination) => 0.72,
+        (PositionRole::WideMidfielder, WideCross) => 0.90,
+        (PositionRole::WideMidfielder, CounterBreak) => 0.95,
+        (PositionRole::WideMidfielder, SetPiece) => 0.65,
+        (PositionRole::WideMidfielder, LongShot) => 0.90,
+
+        (PositionRole::DefensiveMidfielder, CentralCombination) => 0.28,
+        (PositionRole::DefensiveMidfielder, WideCross) => 0.30,
+        (PositionRole::DefensiveMidfielder, CounterBreak) => 0.28,
+        (PositionRole::DefensiveMidfielder, SetPiece) => 0.50,
+        (PositionRole::DefensiveMidfielder, LongShot) => 0.70,
+
+        (PositionRole::WingBack, CentralCombination) => 0.30,
+        (PositionRole::WingBack, WideCross) => 0.50,
+        (PositionRole::WingBack, CounterBreak) => 0.45,
+        (PositionRole::WingBack, SetPiece) => 0.50,
+        (PositionRole::WingBack, LongShot) => 0.40,
+
+        (PositionRole::FullBack, CentralCombination) => 0.15,
+        (PositionRole::FullBack, WideCross) => 0.20,
+        (PositionRole::FullBack, CounterBreak) => 0.18,
+        (PositionRole::FullBack, SetPiece) => 0.30,
+        (PositionRole::FullBack, LongShot) => 0.20,
+
+        (PositionRole::CenterBack, CentralCombination) => 0.12,
+        (PositionRole::CenterBack, WideCross) => 0.50,
+        (PositionRole::CenterBack, CounterBreak) => 0.10,
+        (PositionRole::CenterBack, SetPiece) => 1.20,
+        (PositionRole::CenterBack, LongShot) => 0.12,
+    }
+}
+
+pub(crate) fn assister_role_weight(role: PositionRole, chance_type: ChanceType) -> f64 {
+    use ChanceType::*;
+    match (role, chance_type) {
+        (PositionRole::Goalkeeper, _) => 0.0,
+
+        (PositionRole::Striker, CentralCombination) => 0.70,
+        (PositionRole::Striker, WideCross) => 0.50,
+        (PositionRole::Striker, CounterBreak) => 0.75,
+        (PositionRole::Striker, SetPiece) => 0.40,
+        (PositionRole::Striker, LongShot) => 0.45,
+
+        (PositionRole::Winger, CentralCombination) => 1.20,
+        (PositionRole::Winger, WideCross) => 2.80,
+        (PositionRole::Winger, CounterBreak) => 2.20,
+        (PositionRole::Winger, SetPiece) => 1.60,
+        (PositionRole::Winger, LongShot) => 0.60,
+
+        (PositionRole::AttackingMidfielder, CentralCombination) => 1.50,
+        (PositionRole::AttackingMidfielder, WideCross) => 0.80,
+        (PositionRole::AttackingMidfielder, CounterBreak) => 1.10,
+        (PositionRole::AttackingMidfielder, SetPiece) => 1.00,
+        (PositionRole::AttackingMidfielder, LongShot) => 1.10,
+
+        (PositionRole::CentralMidfielder, CentralCombination) => 1.15,
+        (PositionRole::CentralMidfielder, WideCross) => 0.65,
+        (PositionRole::CentralMidfielder, CounterBreak) => 1.00,
+        (PositionRole::CentralMidfielder, SetPiece) => 0.80,
+        (PositionRole::CentralMidfielder, LongShot) => 1.00,
+
+        (PositionRole::WideMidfielder, CentralCombination) => 0.80,
+        (PositionRole::WideMidfielder, WideCross) => 1.60,
+        (PositionRole::WideMidfielder, CounterBreak) => 1.20,
+        (PositionRole::WideMidfielder, SetPiece) => 1.20,
+        (PositionRole::WideMidfielder, LongShot) => 0.55,
+
+        (PositionRole::DefensiveMidfielder, CentralCombination) => 0.40,
+        (PositionRole::DefensiveMidfielder, WideCross) => 0.25,
+        (PositionRole::DefensiveMidfielder, CounterBreak) => 0.35,
+        (PositionRole::DefensiveMidfielder, SetPiece) => 0.40,
+        (PositionRole::DefensiveMidfielder, LongShot) => 0.35,
+
+        (PositionRole::WingBack, CentralCombination) => 0.35,
+        (PositionRole::WingBack, WideCross) => 1.30,
+        (PositionRole::WingBack, CounterBreak) => 0.70,
+        (PositionRole::WingBack, SetPiece) => 1.00,
+        (PositionRole::WingBack, LongShot) => 0.25,
+
+        (PositionRole::FullBack, CentralCombination) => 0.20,
+        (PositionRole::FullBack, WideCross) => 0.60,
+        (PositionRole::FullBack, CounterBreak) => 0.30,
+        (PositionRole::FullBack, SetPiece) => 0.40,
+        (PositionRole::FullBack, LongShot) => 0.15,
+
+        (PositionRole::CenterBack, CentralCombination) => 0.15,
+        (PositionRole::CenterBack, WideCross) => 0.20,
+        (PositionRole::CenterBack, CounterBreak) => 0.12,
+        (PositionRole::CenterBack, SetPiece) => 0.35,
+        (PositionRole::CenterBack, LongShot) => 0.10,
+    }
+}
+
+pub(crate) fn dribble_role_weight(role: PositionRole) -> f64 {
+    match role {
+        PositionRole::Goalkeeper => 0.0,
+        PositionRole::CenterBack => 0.20,
+        PositionRole::FullBack => 0.55,
+        PositionRole::WingBack => 0.85,
+        PositionRole::DefensiveMidfielder => 0.40,
+        PositionRole::CentralMidfielder => 0.90,
+        PositionRole::AttackingMidfielder => 1.20,
+        PositionRole::WideMidfielder => 1.10,
+        PositionRole::Winger => 1.60,
+        PositionRole::Striker => 1.15,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // PlayerSnap — lightweight snapshot of a player to avoid borrow conflicts
 // ---------------------------------------------------------------------------
 
@@ -33,6 +214,7 @@ pub(crate) struct PlayerSnap {
     pub reflexes: u8,
     pub aerial: u8,
     pub traits: Vec<String>,
+    pub natural_position: String,
 }
 
 impl PlayerSnap {
@@ -62,12 +244,14 @@ impl PlayerSnap {
             reflexes: p.reflexes,
             aerial: p.aerial,
             traits: p.traits.clone(),
+            natural_position: p.natural_position.clone(),
         }
     }
 
     pub fn has_trait(&self, name: &str) -> bool {
         self.traits.iter().any(|t| t == name)
     }
+
 }
 
 // ---------------------------------------------------------------------------
@@ -617,42 +801,6 @@ pub(crate) fn select_chance_type<R: Rng>(att_team: &TeamData, def_team: &TeamDat
         roll -= weight;
     }
     ChanceType::CentralCombination
-}
-
-pub(crate) fn chance_shooter_weight_modifier(chance_type: ChanceType, player: &PlayerData) -> f64 {
-    match chance_type {
-        ChanceType::CentralCombination => match player.position {
-            Position::Forward => 1.04,
-            Position::Midfielder => 1.08,
-            Position::Defender => 0.82,
-            Position::Goalkeeper => 0.0,
-        },
-        ChanceType::WideCross | ChanceType::SetPiece => {
-            let aerial_bonus = 1.0 + f64::from(player.aerial.saturating_sub(65)) * 0.006;
-            match player.position {
-                Position::Forward => 1.08 * aerial_bonus,
-                Position::Midfielder => 0.92 * aerial_bonus,
-                Position::Defender => 1.28 * aerial_bonus,
-                Position::Goalkeeper => 0.0,
-            }
-        }
-        ChanceType::CounterBreak => {
-            let pace_bonus = 1.0 + f64::from(player.pace.saturating_sub(65)) * 0.006;
-            match player.position {
-                Position::Forward => 1.22 * pace_bonus,
-                Position::Midfielder => 0.92 * pace_bonus,
-                Position::Defender => 0.62 * pace_bonus,
-                Position::Goalkeeper => 0.0,
-            }
-        }
-        ChanceType::LongShot => match player.position {
-            Position::Forward => 0.94,
-            Position::Midfielder => 1.30,
-            Position::Defender => 0.78,
-            Position::Goalkeeper => 0.0,
-        },
-    }
-    .clamp(0.45, 1.65)
 }
 
 pub(crate) fn chance_shot_rating(chance_type: ChanceType, shooter: &PlayerSnap, base_rating: f64) -> f64 {

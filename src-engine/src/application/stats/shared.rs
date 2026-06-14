@@ -9,6 +9,7 @@ pub(super) fn competition_label(competition: &FixtureCompetition) -> String {
         FixtureCompetition::ContinentalLeague => "ContinentalLeague".to_string(),
         FixtureCompetition::Friendly => "Friendly".to_string(),
         FixtureCompetition::PreseasonTournament => "PreseasonTournament".to_string(),
+        FixtureCompetition::WorldCup => "WorldCup".to_string(),
     }
 }
 

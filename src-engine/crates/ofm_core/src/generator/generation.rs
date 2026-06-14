@@ -232,7 +232,7 @@ fn generated_position_for_slot(index: usize) -> Position {
     }
 }
 
-fn quality_offset(quality: PlayerGenerationQuality, index: usize) -> i16 {
+pub(crate) fn quality_offset(quality: PlayerGenerationQuality, index: usize) -> i16 {
     let reputation_offset = ((quality.reputation as i16 - 600) / 45).clamp(-8, 7);
     let tier_offset = match quality.domestic_tier.unwrap_or(2) {
         1 => 1,
@@ -272,7 +272,7 @@ fn adjust_attr(value: u8, offset: i16, weight: i16) -> u8 {
     (value as i16 + (offset * weight) / 10).clamp(1, 99) as u8
 }
 
-fn apply_generation_quality(attributes: &mut PlayerAttributes, position: &Position, offset: i16) {
+pub(crate) fn apply_generation_quality(attributes: &mut PlayerAttributes, position: &Position, offset: i16) {
     attributes.pace = adjust_attr(attributes.pace, offset, 8);
     attributes.stamina = adjust_attr(attributes.stamina, offset, 7);
     attributes.strength = adjust_attr(attributes.strength, offset, 7);
@@ -300,7 +300,7 @@ fn apply_generation_quality(attributes: &mut PlayerAttributes, position: &Positi
     }
 }
 
-fn generate_position_attributes(position: &Position, rng: &mut impl Rng) -> PlayerAttributes {
+pub(crate) fn generate_position_attributes(position: &Position, rng: &mut impl Rng) -> PlayerAttributes {
     match position {
         Position::Goalkeeper => PlayerAttributes {
             pace: attr(rng, 34..62),

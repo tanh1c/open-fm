@@ -14,6 +14,7 @@ fn make_player(id: &str, position: Position, skill: u8) -> PlayerData {
         id: id.to_string(),
         name: id.to_string(),
         position,
+        natural_position: String::new(),
         ovr: skill,
         condition: 90,
         morale: 50,

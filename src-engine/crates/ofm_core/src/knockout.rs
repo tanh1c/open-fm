@@ -191,6 +191,7 @@ pub fn process_knockout_progression(game: &mut Game, today: &str) {
         match kind {
             CompetitionKind::DomesticCup => progress_cup(game, index, today),
             CompetitionKind::ContinentalLeague => progress_continental(game, index, today),
+            CompetitionKind::WorldCup => progress_worldcup(game, index, today),
             _ => {}
         }
     }
@@ -576,6 +577,210 @@ fn fnv_seed(source: &str) -> u64 {
         (acc ^ byte as u64).wrapping_mul(1099511628211)
     })
 }
+
+// ---------------------------------------------------------------------------
+// World Cup knockout progression
+// ---------------------------------------------------------------------------
+
+fn progress_worldcup(game: &mut Game, index: usize, today: &str) {
+    let competition = &game.competitions[index];
+    if competition.fixtures.is_empty() {
+        return;
+    }
+
+    let group_stage_done = competition
+        .fixtures
+        .iter()
+        .filter(|f| f.stage.is_none())
+        .all(|f| f.status == FixtureStatus::Completed)
+        && competition.fixtures.iter().any(|f| f.stage.is_none());
+    if !group_stage_done {
+        return;
+    }
+
+    let has_stage = |stage: &str| {
+        competition
+            .fixtures
+            .iter()
+            .any(|f| f.stage.as_deref() == Some(stage))
+    };
+    let stage_complete = |stage: &str| {
+        let legs: Vec<&Fixture> = competition
+            .fixtures
+            .iter()
+            .filter(|f| f.stage.as_deref() == Some(stage))
+            .collect();
+        !legs.is_empty() && legs.iter().all(|f| f.status == FixtureStatus::Completed)
+    };
+
+    // First knockout stage: rank top 2 per group + 8 best 3rd → 32 teams
+    if !has_stage("r32") {
+        let qualified = worldcup_qualified_teams(competition);
+        if qualified.len() < 32 {
+            return;
+        }
+        let mut seeded: Vec<String> = qualified.iter().take(32).cloned().collect();
+        let seed = fnv_seed(&format!("{}-r32", competition.id));
+        let mut rng = StdRng::seed_from_u64(seed);
+        // Shuffle so bracket isn't just group A winner vs group H runner-up
+        seeded.shuffle(&mut rng);
+        let mut fixtures = Vec::new();
+        let base = latest_fixture_date(competition)
+            .map(|d| d + Duration::days(4))
+            .or_else(|| parse_date(today))
+            .unwrap_or_else(Utc::now);
+        let competition_id = competition.id.clone();
+        let season = competition.season;
+        for chunk in seeded.chunks(2) {
+            if chunk.len() == 2 {
+                let date = advance_to_weekday(base, Weekday::Sat)
+                    .format("%Y-%m-%d")
+                    .to_string();
+                fixtures.push(Fixture {
+                    id: Uuid::new_v4().to_string(),
+                    matchday: 200,
+                    date,
+                    home_team_id: chunk[0].clone(),
+                    away_team_id: chunk[1].clone(),
+                    competition_id: Some(competition_id.clone()),
+                    season: Some(season),
+                    competition: FixtureCompetition::WorldCup,
+                    status: FixtureStatus::Scheduled,
+                    result: None,
+                    stage: Some("r32".to_string()),
+                    leg: None,
+                    tie_id: None,
+                });
+            }
+        }
+        game.competitions[index].fixtures.extend(fixtures);
+        return;
+    }
+
+    // Knockout stages: r32 → r16 → qf → sf → final (all single-leg)
+    for (stage, next) in [("r32", "r16"), ("r16", "qf"), ("qf", "sf"), ("sf", "final")] {
+        if has_stage(stage) && !has_stage(next) {
+            if !stage_complete(stage) {
+                return;
+            }
+            let winners: Vec<String> = competition
+                .fixtures
+                .iter()
+                .filter(|f| f.stage.as_deref() == Some(stage))
+                .filter_map(single_leg_winner)
+                .collect();
+            if next == "final" && winners.len() >= 2 {
+                let competition_id = competition.id.clone();
+                let season = competition.season;
+                let base = latest_fixture_date(competition)
+                    .map(|d| d + Duration::days(5))
+                    .or_else(|| parse_date(today))
+                    .unwrap_or_else(Utc::now);
+                let final_date = advance_to_weekday(base, Weekday::Sun)
+                    .format("%Y-%m-%d")
+                    .to_string();
+                game.competitions[index].fixtures.push(Fixture {
+                    id: Uuid::new_v4().to_string(),
+                    matchday: 300,
+                    date: final_date,
+                    home_team_id: winners[0].clone(),
+                    away_team_id: winners[1].clone(),
+                    competition_id: Some(competition_id),
+                    season: Some(season),
+                    competition: FixtureCompetition::WorldCup,
+                    status: FixtureStatus::Scheduled,
+                    result: None,
+                    stage: Some("final".to_string()),
+                    leg: None,
+                    tie_id: None,
+                });
+            } else if winners.len() >= 2 {
+                let seed = fnv_seed(&format!("{}-{}", competition.id, next));
+                let mut rng = StdRng::seed_from_u64(seed);
+                let mut shuffled = winners;
+                shuffled.shuffle(&mut rng);
+                let mut new_fixtures = Vec::new();
+                let base = latest_fixture_date(competition)
+                    .map(|d| d + Duration::days(5))
+                    .or_else(|| parse_date(today))
+                    .unwrap_or_else(Utc::now);
+                let competition_id = competition.id.clone();
+                let season = competition.season;
+                for chunk in shuffled.chunks(2) {
+                    if chunk.len() == 2 {
+                        let date = advance_to_weekday(base, Weekday::Sat)
+                            .format("%Y-%m-%d")
+                            .to_string();
+                        new_fixtures.push(Fixture {
+                            id: Uuid::new_v4().to_string(),
+                            matchday: 250,
+                            date,
+                            home_team_id: chunk[0].clone(),
+                            away_team_id: chunk[1].clone(),
+                            competition_id: Some(competition_id.clone()),
+                            season: Some(season),
+                            competition: FixtureCompetition::WorldCup,
+                            status: FixtureStatus::Scheduled,
+                            result: None,
+                            stage: Some(next.to_string()),
+                            leg: None,
+                            tie_id: None,
+                        });
+                    }
+                }
+                game.competitions[index].fixtures.extend(new_fixtures);
+            }
+            return;
+        }
+    }
+}
+
+/// Top 2 from each group + 8 best 3rd-place teams = 32 qualifiers.
+/// Groups are determined by team order in standings (48 teams, 12 groups of 4).
+fn worldcup_qualified_teams(competition: &Competition) -> Vec<String> {
+    const GROUP_SIZE: usize = 4;
+    const NUM_GROUPS: usize = 12;
+    let standings = &competition.standings;
+    if standings.len() < NUM_GROUPS * GROUP_SIZE {
+        return Vec::new();
+    }
+
+    let mut group_winners = Vec::new();
+    let mut group_runners_up = Vec::new();
+    let mut third_place = Vec::new();
+
+    for g in 0..NUM_GROUPS {
+        let start = g * GROUP_SIZE;
+        let end = start + GROUP_SIZE;
+        let mut group: Vec<&StandingEntry> = standings[start..end].iter().collect();
+        group.sort_by(|a, b| {
+            b.points
+                .cmp(&a.points)
+                .then(b.goal_difference().cmp(&a.goal_difference()))
+                .then(b.goals_for.cmp(&a.goals_for))
+        });
+        if group.len() >= 3 {
+            group_winners.push(group[0].team_id.clone());
+            group_runners_up.push(group[1].team_id.clone());
+            third_place.push((group[2].team_id.clone(), group[2].clone()));
+        }
+    }
+
+    let mut best_thirds = third_place;
+    best_thirds.sort_by(|a, b| {
+        b.1.points
+            .cmp(&a.1.points)
+            .then(b.1.goal_difference().cmp(&a.1.goal_difference()))
+            .then(b.1.goals_for.cmp(&a.1.goals_for))
+    });
+
+    let mut qualified = group_winners;
+    qualified.extend(group_runners_up);
+    qualified.extend(best_thirds.into_iter().take(8).map(|(id, _)| id));
+    qualified
+}
+
+use domain::league::StandingEntry;
 
 /// Identify the champion of a finished knockout competition, if decided.
 pub fn knockout_champion(competition: &Competition) -> Option<String> {

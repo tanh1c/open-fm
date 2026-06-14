@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import type { CreateManagerFormData } from "../components/menu/CreateManagerForm";
-import type { WorldDatabaseInfo } from "../components/menu/WorldSelect";
+import GameModeSelect, { type GameMode } from "../components/menu/GameModeSelect";
+import DataSourceSelect, { type DataSource } from "../components/menu/DataSourceSelect";
 import { resolveBackendError } from "../utils/backendI18n";
 import {
   FolderOpen,
@@ -20,7 +21,6 @@ const CreateManagerForm = lazy(
   () => import("../components/menu/CreateManagerForm"),
 );
 const SavesList = lazy(() => import("../components/menu/SavesList"));
-const WorldSelect = lazy(() => import("../components/menu/WorldSelect"));
 
 interface SaveEntry {
   id: string;
@@ -40,8 +40,12 @@ interface SaveEntry {
  * leaving as-is until product agrees.
  */
 const MANAGER_MINIMUM_AGE = 30;
-const DEFAULT_WORLD_TEAM_COUNT = 248;
-const DEFAULT_WORLD_PLAYER_COUNT = 5456;
+function resolveWorldSource(mode: GameMode, dataSource: DataSource): string {
+  if (mode === "club" && dataSource === "generated") return "random";
+  if (mode === "club" && dataSource === "fc26") return "fc26_real";
+  if (mode === "worldcup" && dataSource === "generated") return "worldcup2026";
+  return "worldcup2026_fc26";
+}
 
 const RANDOM_MANAGER_FIRST_NAMES = [
   "Alex",
@@ -153,9 +157,11 @@ export default function MainMenu() {
   const { t } = useTranslation();
   const appName = t("app.name");
 
-  const [menuState, setMenuState] = useState<
-    "main" | "create" | "world" | "load"
-  >("main");
+  const [menuState, setMenuState] = useState<"main" | "create" | "load">("main");
+  const [newGameStep, setNewGameStep] = useState<"manager" | "mode" | "data">("manager");
+  const [selectedGameMode, setSelectedGameMode] = useState<GameMode>("club");
+  const [selectedDataSource, setSelectedDataSource] = useState<DataSource>("generated");
+  const [importedWorldName, setImportedWorldName] = useState<string | null>(null);
   const [saves, setSaves] = useState<SaveEntry[]>([]);
   const [isLoadingSaves, setIsLoadingSaves] = useState(false);
   const [loadingSaveId, setLoadingSaveId] = useState<string | null>(null);
@@ -172,10 +178,6 @@ export default function MainMenu() {
     Partial<Record<keyof CreateManagerFormData, string>>
   >({});
 
-  // World database state
-  const [worldDatabases, setWorldDatabases] = useState<WorldDatabaseInfo[]>([]);
-  const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
-  const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
 
   /** Same messages as `validateForm` for DOB, so the age rule surfaces as the user edits. */
   const dobLiveRuleMessage = (() => {
@@ -281,32 +283,20 @@ export default function MainMenu() {
       );
       return;
     }
-    setMenuState("world");
-    loadWorldDatabases();
+    setMenuState("create");
+    setNewGameStep("mode");
   };
 
-  const loadWorldDatabases = async () => {
-    setIsLoadingWorlds(true);
-    try {
-      const dbs = await invoke<WorldDatabaseInfo[]>("list_world_databases");
-      setWorldDatabases(dbs);
-    } catch (error) {
-      console.error("Failed to load world databases:", error);
-      // Always have random available even if scan fails
-      setWorldDatabases([
-        {
-          id: "random",
-          name: t("worldSelect.randomWorld"),
-          description: t("worldSelect.randomDescription"),
-          team_count: DEFAULT_WORLD_TEAM_COUNT,
-          player_count: DEFAULT_WORLD_PLAYER_COUNT,
-          source: "builtin",
-          path: "",
-        },
-      ]);
-    } finally {
-      setIsLoadingWorlds(false);
-    }
+  const clearImportedWorld = () => {
+    sessionStorage.removeItem("imported_world_json");
+    setImportedWorldName(null);
+  };
+
+  const closeNewGameFlow = () => {
+    setMenuState("main");
+    setNewGameStep("manager");
+    setFormErrors({});
+    clearImportedWorld();
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -317,22 +307,9 @@ export default function MainMenu() {
       try {
         const json = reader.result as string;
         const parsed = JSON.parse(json);
-        const info: WorldDatabaseInfo = {
-          id: `file:${file.name}`,
-          name: parsed.name || file.name.replace(".json", ""),
-          description: parsed.description || t("menu.importedDescription"),
-          team_count: parsed.teams?.length ?? 0,
-          player_count: parsed.players?.length ?? 0,
-          source: "imported",
-          path: "", // will use the parsed data directly
-        };
-        // Store the raw JSON in sessionStorage so we can write it to a temp path
+        const importedName = parsed.name || file.name.replace(".json", "");
         sessionStorage.setItem("imported_world_json", json);
-        setWorldDatabases((prev) => {
-          const filtered = prev.filter((d) => d.source !== "imported");
-          return [...filtered, info];
-        });
-        setSelectedWorldId(info.id);
+        setImportedWorldName(importedName);
       } catch (err) {
         alert(t("menu.invalidWorldDb", { error: String(err) }));
       }
@@ -345,9 +322,8 @@ export default function MainMenu() {
   const handleStartGame = async () => {
     setIsStarting(true);
     try {
-      const importedJson =
-        selectedWorldId.startsWith("file:") &&
-        sessionStorage.getItem("imported_world_json");
+      const importedJson = selectedGameMode === "club" && sessionStorage.getItem("imported_world_json");
+      const worldSource = resolveWorldSource(selectedGameMode, selectedDataSource);
 
       const game = importedJson
         ? await invoke<GameStateData>("start_new_game_with_world", {
@@ -362,9 +338,10 @@ export default function MainMenu() {
             lastName: formData.lastName,
             dob: formData.dob,
             nationality: formData.nationality,
-            worldSource: selectedWorldId,
+            worldSource,
           });
       sessionStorage.removeItem("imported_world_json");
+      setImportedWorldName(null);
       setGameState(game);
       navigate("/select-team");
     } catch (error) {
@@ -560,8 +537,8 @@ export default function MainMenu() {
             </div>
           )}
 
-          {/* Step 1: Create Manager Form */}
-          {menuState === "create" && (
+          {/* New Game Wizard */}
+          {menuState === "create" && newGameStep === "manager" && (
             <Suspense fallback={<MenuPanelFallback />}>
               <CreateManagerForm
                 formData={formData}
@@ -570,30 +547,43 @@ export default function MainMenu() {
                 onChange={updateFormField}
                 onClearError={clearFormError}
                 onRandomize={randomizeManager}
-                onClose={() => {
-                  setMenuState("main");
-                  setFormErrors({});
-                }}
+                onClose={closeNewGameFlow}
                 onSubmit={handleGoToWorldSelect}
               />
             </Suspense>
           )}
 
-          {/* Step 2: World Database Selection */}
-          {menuState === "world" && (
-            <Suspense fallback={<MenuPanelFallback />}>
-              <WorldSelect
-                worldDatabases={worldDatabases}
-                selectedWorldId={selectedWorldId}
-                isLoadingWorlds={isLoadingWorlds}
-                isStarting={isStarting}
-                onSelectWorld={setSelectedWorldId}
-                onImportFile={handleImportFile}
-                onStart={handleStartGame}
-                onBack={() => setMenuState("create")}
-                onClose={() => setMenuState("main")}
-              />
-            </Suspense>
+          {menuState === "create" && newGameStep === "mode" && (
+            <GameModeSelect
+              selectedMode={selectedGameMode}
+              onSelectMode={(mode) => {
+                setSelectedGameMode(mode);
+                if (mode === "worldcup") {
+                  clearImportedWorld();
+                }
+              }}
+              onBack={() => setNewGameStep("manager")}
+              onClose={closeNewGameFlow}
+              onContinue={() => setNewGameStep("data")}
+            />
+          )}
+
+          {menuState === "create" && newGameStep === "data" && (
+            <DataSourceSelect
+              selectedMode={selectedGameMode}
+              selectedDataSource={selectedDataSource}
+              importedWorldName={importedWorldName}
+              isStarting={isStarting}
+              onSelectDataSource={(dataSource) => {
+                setSelectedDataSource(dataSource);
+                clearImportedWorld();
+              }}
+              onImportFile={handleImportFile}
+              onClearImport={clearImportedWorld}
+              onBack={() => setNewGameStep("mode")}
+              onClose={closeNewGameFlow}
+              onStart={handleStartGame}
+            />
           )}
 
           {/* Load Game List */}

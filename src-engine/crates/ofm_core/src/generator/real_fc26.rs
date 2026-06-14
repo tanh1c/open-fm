@@ -207,6 +207,7 @@ pub struct WorldCupCallupCandidate {
     pub age: u8,
     pub club: String,
     pub nationality: String,
+    pub player: Player,
 }
 
 #[derive(Clone)]
@@ -389,15 +390,16 @@ pub fn worldcup_fc26_callup_pool(team_id: &str) -> Result<Vec<WorldCupCallupCand
     Ok(players
         .into_iter()
         .map(|candidate| WorldCupCallupCandidate {
-            id: candidate.player.id,
-            full_name: candidate.player.full_name,
-            match_name: candidate.player.match_name,
-            position: candidate.player.natural_position,
-            alternate_positions: candidate.player.alternate_positions,
+            id: candidate.player.id.clone(),
+            full_name: candidate.player.full_name.clone(),
+            match_name: candidate.player.match_name.clone(),
+            position: candidate.player.natural_position.clone(),
+            alternate_positions: candidate.player.alternate_positions.clone(),
             ovr: candidate.player.ovr,
             age: player_age_2026(&candidate.player.date_of_birth),
             club: candidate.club,
-            nationality: candidate.player.nationality,
+            nationality: candidate.player.nationality.clone(),
+            player: candidate.player,
         })
         .collect())
 }

@@ -10,7 +10,8 @@ import { positionCode, translatePositionAbbreviation } from "../components/squad
 import { Card, CardBody, Badge, TeamLocation, ThemeToggle, CountryFlag } from "../components/ui";
 import DivisionLogo from "../components/common/DivisionLogo";
 import TeamLogo from "../components/common/TeamLogo";
-import { ArrowLeft, Users, Trophy, Landmark, ChevronRight, Star, Loader2, Search, ArrowUpDown, X } from "lucide-react";
+import PlayerProfile from "../components/playerProfile/PlayerProfile";
+import { ArrowLeft, Users, Trophy, Landmark, ChevronRight, Star, Loader2, Search, ArrowUpDown } from "lucide-react";
 import { resolveBackendError } from "../utils/backendI18n";
 
 type WorldCupCallupCandidate = {
@@ -23,6 +24,7 @@ type WorldCupCallupCandidate = {
   age: number;
   club: string;
   nationality: string;
+  player: PlayerData;
 };
 
 type CallupSortKey = "selected" | "name" | "position" | "ovr" | "age" | "nationality" | "club";
@@ -398,7 +400,7 @@ export default function TeamSelection() {
             {profileCallupPlayer && (
               <CallupPlayerDetailModal
                 player={profileCallupPlayer}
-                locale={i18n.language}
+                gameState={gameState}
                 onClose={() => setProfileCallupPlayer(null)}
               />
             )}
@@ -617,7 +619,7 @@ function CallupSelectionPanel({
                   value={search}
                   onChange={(event) => onSearchChange(event.target.value)}
                   placeholder="Search name, club, nation or position..."
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-800 outline-none transition focus:border-primary-400 focus:bg-white dark:border-surface-600 dark:bg-surface-900 dark:text-gray-100 dark:focus:border-primary-500"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-800 outline-none transition focus:border-primary-400 focus:bg-white dark:border-surface-600 dark:bg-surface-900 dark:text-gray-100 dark:focus:border-primary-500 dark:focus:bg-surface-900"
                 />
               </label>
               <div className="flex items-center justify-between gap-3 md:justify-end">
@@ -751,53 +753,24 @@ function CallupPositionCell({ player }: { player: WorldCupCallupCandidate }) {
   );
 }
 
-function CallupPlayerDetailModal({ player, locale, onClose }: { player: WorldCupCallupCandidate; locale: string; onClose: () => void }) {
-  const primary = translatePositionAbbreviation((_, options) => options?.defaultValue ?? "", player.position);
-  const alternates = [...new Set((player.alternate_positions || []).map(positionCode).filter((code) => code && code !== primary))];
+function CallupPlayerDetailModal({ player, gameState, onClose }: { player: WorldCupCallupCandidate; gameState: GameStateData; onClose: () => void }) {
+  const profileGameState = useMemo<GameStateData>(() => ({
+    ...gameState,
+    players: gameState.players.some((existing) => existing.id === player.player.id)
+      ? gameState.players
+      : [...gameState.players, player.player],
+  }), [gameState, player.player]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl dark:border-surface-700 dark:bg-surface-800">
-        <div className="flex items-start justify-between gap-4 border-b border-gray-100 p-5 dark:border-surface-700">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white p-2 shadow-sm ring-1 ring-gray-200">
-              <CountryFlag code={player.nationality} locale={locale} className="text-3xl leading-none" />
-            </div>
-            <div>
-              <p className="text-xs font-heading font-bold uppercase tracking-[0.24em] text-primary-600 dark:text-primary-400">Player detail</p>
-              <h3 className="font-heading text-2xl font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">{player.match_name || player.full_name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{player.full_name}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-surface-700 dark:hover:text-gray-100"
-            aria-label="Close player detail"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4">
-          <CallupProfileStat label="OVR" value={player.ovr} highlight />
-          <CallupProfileStat label="Age" value={player.age} />
-          <CallupProfileStat label="Position" value={alternates.length > 0 ? `${primary} (${alternates.join(", ")})` : primary} />
-          <CallupProfileStat label="Nation" value={<CountryFlag code={player.nationality} locale={locale} className="text-xl leading-none" />} />
-        </div>
-        <div className="border-t border-gray-100 p-5 dark:border-surface-700">
-          <p className="text-xs font-heading font-bold uppercase tracking-[0.2em] text-gray-400">Club</p>
-          <p className="mt-1 font-heading text-lg font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">{player.club || "Free agent"}</p>
-        </div>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 p-4 backdrop-blur-sm">
+      <div className="mx-auto max-w-[1640px] rounded-3xl border border-app-border bg-app-bg p-4 shadow-2xl">
+        <PlayerProfile
+          player={player.player}
+          gameState={profileGameState}
+          isOwnClub={true}
+          onClose={onClose}
+        />
       </div>
-    </div>
-  );
-}
-
-function CallupProfileStat({ label, value, highlight = false }: { label: string; value: React.ReactNode; highlight?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 dark:border-surface-700 dark:bg-surface-900">
-      <p className="text-[10px] font-heading font-bold uppercase tracking-[0.2em] text-gray-400">{label}</p>
-      <div className={`mt-1 font-heading text-xl font-bold uppercase tracking-wide ${highlight ? "text-primary-600 dark:text-primary-300" : "text-gray-900 dark:text-gray-100"}`}>{value}</div>
     </div>
   );
 }

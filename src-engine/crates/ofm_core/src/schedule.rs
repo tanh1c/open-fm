@@ -1219,6 +1219,59 @@ mod tests {
     }
 
     #[test]
+    fn generate_world_cup_2026_uses_real_48_team_format() {
+        let start = Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap();
+        let teams: Vec<_> = (0..48)
+            .map(|index| {
+                test_team(
+                    &format!("team-{index:02}"),
+                    &format!("Team {index:02}"),
+                    "Testland",
+                    1_000 - index as u32,
+                )
+            })
+            .collect();
+
+        let competition = generate_world_cup_2026(&teams, 2026, start);
+
+        assert_eq!(competition.kind, CompetitionKind::WorldCup);
+        assert_eq!(competition.format, CompetitionFormat::GroupStageKnockout);
+        assert_eq!(competition.team_ids.len(), 48);
+        assert_eq!(competition.standings.len(), 48);
+        assert_eq!(competition.fixtures.len(), 72);
+        assert!(competition.fixtures.iter().all(|fixture| {
+            fixture.competition == FixtureCompetition::WorldCup
+                && fixture.competition_id.as_deref() == Some(competition.id.as_str())
+                && fixture.stage.is_none()
+        }));
+
+        for group in competition.standings.chunks(4) {
+            let group_team_ids: std::collections::HashSet<_> =
+                group.iter().map(|entry| entry.team_id.as_str()).collect();
+            let group_fixture_count = competition
+                .fixtures
+                .iter()
+                .filter(|fixture| {
+                    group_team_ids.contains(fixture.home_team_id.as_str())
+                        && group_team_ids.contains(fixture.away_team_id.as_str())
+                })
+                .count();
+            assert_eq!(group_fixture_count, 6);
+
+            for team_id in group_team_ids {
+                let appearances = competition
+                    .fixtures
+                    .iter()
+                    .filter(|fixture| {
+                        fixture.home_team_id == team_id || fixture.away_team_id == team_id
+                    })
+                    .count();
+                assert_eq!(appearances, 3, "{team_id} should play 3 group matches");
+            }
+        }
+    }
+
+    #[test]
     fn generate_domestic_competitions_uses_pyramid_for_defined_country() {
         let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
         let mut teams = vec![

@@ -66,6 +66,7 @@ vi.mock("react-i18next", () => ({
       if (key === "positions.midfielder") return "Midfielder";
       if (key === "positions.forward") return "Forward";
       if (key.startsWith("season.phases.")) return key.replace("season.phases.", "");
+      if (params?.defaultValue != null) return params.defaultValue.toString();
       return key;
     },
   }),
@@ -285,6 +286,84 @@ function createGameState(withLeague = true): GameStateData {
   };
 }
 
+function createWorldCupGameState(): GameStateData {
+  const teams = Array.from({ length: 48 }, (_, index) => {
+    const teamNumber = index + 1;
+    return createTeam({
+      id: `wc-team-${teamNumber}`,
+      name: `Nation ${teamNumber}`,
+      short_name: `N${teamNumber}`,
+      country: "US",
+      manager_id: `wc-manager-${teamNumber}`,
+    });
+  });
+  const standings = teams.map((team, index) => {
+    const groupSlot = index % 4;
+    const groupIndex = Math.floor(index / 4);
+    const points = groupSlot === 0 ? 9 : groupSlot === 1 ? 6 : groupSlot === 2 ? groupIndex : 0;
+    return {
+      team_id: team.id,
+      played: 3,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goals_for: groupSlot === 2 ? groupIndex + 1 : 6 - groupSlot,
+      goals_against: groupSlot === 3 ? 7 : 1 + groupSlot,
+      points,
+    };
+  });
+  const fixtures: FixtureData[] = [];
+  for (let groupIndex = 0; groupIndex < 12; groupIndex += 1) {
+    const groupTeams = teams.slice(groupIndex * 4, groupIndex * 4 + 4);
+    fixtures.push(createFixture({
+      id: `wc-group-${groupIndex + 1}`,
+      matchday: groupIndex + 1,
+      date: "2026-06-11",
+      home_team_id: groupTeams[0].id,
+      away_team_id: groupTeams[1].id,
+      competition: "WorldCup",
+      status: "Scheduled",
+      result: null,
+      stage: null,
+    }));
+  }
+  fixtures.push(createFixture({
+    id: "wc-r32-1",
+    matchday: 73,
+    date: "2026-07-01",
+    home_team_id: teams[0].id,
+    away_team_id: teams[4].id,
+    competition: "WorldCup",
+    status: "Scheduled",
+    result: null,
+    stage: "r32",
+  }));
+
+  return {
+    ...createGameState(false),
+    manager: {
+      ...createGameState(false).manager,
+      team_id: teams[0].id,
+    },
+    teams,
+    players: [],
+    competitions: [
+      {
+        id: "worldcup-2026",
+        name: "World Cup 2026",
+        season: 2026,
+        kind: "WorldCup",
+        format: "GroupStageKnockout",
+        country: null,
+        tier: null,
+        team_ids: teams.map((team) => team.id),
+        fixtures,
+        standings,
+      },
+    ],
+  };
+}
+
 function globalLeaderboardResponse() {
   return {
     season: 1,
@@ -420,6 +499,35 @@ describe("TournamentsTab", () => {
     expect(onSelectTeam).toHaveBeenCalledWith("team-1");
   });
 
+  it("shows World Cup bracket tab before knockout fixtures are completed", () => {
+    render(<TournamentsTab gameState={createWorldCupGameState()} onSelectTeam={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: /Bracket/i })).toBeInTheDocument();
+  });
+
+  it("renders World Cup standings as groups with qualification markers", () => {
+    render(<TournamentsTab gameState={createWorldCupGameState()} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Standings/i }));
+
+    expect(screen.getByText("Group A")).toBeInTheDocument();
+    expect(screen.getByText("Group L")).toBeInTheDocument();
+    expect(screen.getByText("Best third-place ranking")).toBeInTheDocument();
+    expect(screen.getAllByText("Qualified").length).toBeGreaterThanOrEqual(24);
+    expect(screen.getAllByText("Best 3rd").length).toBe(16);
+  });
+
+  it("renders World Cup fixtures by group and Round of 32 stage", () => {
+    render(<TournamentsTab gameState={createWorldCupGameState()} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Fixtures/i }));
+
+    expect(screen.getByRole("button", { name: "Group A" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Group L" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Round of 32" }));
+    expect(screen.getByTestId("tournaments-fixture-wc-r32-1")).toBeInTheDocument();
+  });
+
   it("shows penalty resolution for a drawn knockout fixture", () => {
     const gameState = createGameState(true);
     const cupFinal = createFixture({
@@ -514,7 +622,7 @@ describe("TournamentsTab", () => {
 
     render(<TournamentsTab gameState={gameState} onSelectTeam={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /recordsTab/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Records/i }));
 
     // The record value (41) is unique to the records panel.
     expect(screen.getByText("41")).toBeInTheDocument();
@@ -580,7 +688,7 @@ describe("TournamentsTab", () => {
 
     render(<TournamentsTab gameState={createGameState(true)} onSelectTeam={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /leaderboardsTab/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Leaderboards/i }));
     fireEvent.click(await screen.findByRole("button", { name: "View Global Leaderboard" }));
 
     expect(await screen.findByText("John Smith")).toBeInTheDocument();
@@ -640,7 +748,7 @@ describe("TournamentsTab", () => {
 
     render(<TournamentsTab gameState={gameState} onSelectTeam={onSelectTeam} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /hallOfFameTab/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Hall of Fame/i }));
 
     // Both legends render; the higher peak OVR appears first.
     const star = screen.getByText("Star Striker");

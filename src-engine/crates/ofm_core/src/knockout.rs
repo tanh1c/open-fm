@@ -841,6 +841,62 @@ mod tests {
         assert_eq!(knockout_stage_label(32), "round_32");
     }
 
+    fn worldcup_standing(team_id: &str, points: u32, goals_for: u32, goals_against: u32) -> StandingEntry {
+        StandingEntry {
+            team_id: team_id.to_string(),
+            played: 3,
+            won: 0,
+            drawn: 0,
+            lost: 0,
+            goals_for,
+            goals_against,
+            points,
+        }
+    }
+
+    #[test]
+    fn worldcup_qualified_teams_uses_top_two_plus_best_thirds() {
+        let mut standings = Vec::new();
+        for group_index in 0..12 {
+            standings.push(worldcup_standing(&format!("g{group_index}-winner"), 9, 6, 1));
+            standings.push(worldcup_standing(&format!("g{group_index}-runner"), 6, 4, 2));
+            standings.push(worldcup_standing(
+                &format!("g{group_index}-third"),
+                group_index as u32,
+                group_index as u32 + 1,
+                1,
+            ));
+            standings.push(worldcup_standing(&format!("g{group_index}-fourth"), 0, 1, 6));
+        }
+        let competition = Competition {
+            id: "worldcup".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            kind: CompetitionKind::WorldCup,
+            format: domain::league::CompetitionFormat::GroupStageKnockout,
+            country: None,
+            tier: None,
+            team_ids: standings.iter().map(|entry| entry.team_id.clone()).collect(),
+            fixtures: vec![],
+            standings,
+            transfer_log: vec![],
+        };
+
+        let qualified = worldcup_qualified_teams(&competition);
+
+        assert_eq!(qualified.len(), 32);
+        for group_index in 0..12 {
+            assert!(qualified.contains(&format!("g{group_index}-winner")));
+            assert!(qualified.contains(&format!("g{group_index}-runner")));
+        }
+        for group_index in 4..12 {
+            assert!(qualified.contains(&format!("g{group_index}-third")));
+        }
+        for group_index in 0..4 {
+            assert!(!qualified.contains(&format!("g{group_index}-third")));
+        }
+    }
+
     #[test]
     fn two_leg_aggregate_decides_winner() {
         let leg1 = Fixture {

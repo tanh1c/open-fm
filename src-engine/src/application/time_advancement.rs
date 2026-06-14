@@ -50,6 +50,15 @@ fn scheduled_user_fixture_index(game: &Game, today: &str) -> Option<usize> {
         })
 }
 
+fn fixture_allows_extra_time(game: &Game, fixture_index: usize) -> bool {
+    game.league
+        .as_ref()
+        .and_then(|league| league.fixtures.get(fixture_index))
+        .is_some_and(|fixture| {
+            fixture.stage.is_some() || !fixture.counts_for_competition_standings()
+        })
+}
+
 pub fn advance_time_with_mode(
     state: &StateManager,
     mode: &str,
@@ -59,7 +68,9 @@ pub fn advance_time_with_mode(
         .get_game(|current_game| current_game.clone())
         .ok_or("be.error.noActiveGameSession")?;
 
+    game.repair_legacy_league_from_primary_competition();
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    ofm_core::knockout::process_knockout_progression(&mut game, &today);
     let round_context = round_context_for_today(&game, &today);
     let user_fixture_idx = scheduled_user_fixture_index(&game, &today);
 
@@ -75,7 +86,12 @@ pub fn advance_time_with_mode(
             } else {
                 MatchMode::Spectator
             };
-            let session = live_match_manager::create_live_match(&game, index, match_mode, false)?;
+            let session = live_match_manager::create_live_match(
+                &game,
+                index,
+                match_mode,
+                fixture_allows_extra_time(&game, index),
+            )?;
             let snapshot = session.snapshot();
             info!(
                 "[cmd] advance_time_with_mode: live_match fixture_idx={}, phase={:?}, home_team={}, away_team={}",
@@ -118,8 +134,12 @@ pub fn advance_time_with_mode(
                 "[cmd] advance_time_with_mode: delegate fixture_idx={}, date={}",
                 index, today
             );
-            let mut session =
-                live_match_manager::create_live_match(&game, index, MatchMode::Instant, false)?;
+            let mut session = live_match_manager::create_live_match(
+                &game,
+                index,
+                MatchMode::Instant,
+                fixture_allows_extra_time(&game, index),
+            )?;
             session.user_side = None;
             session.run_to_completion();
 

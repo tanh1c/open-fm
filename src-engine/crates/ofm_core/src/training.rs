@@ -102,6 +102,17 @@ struct TeamTrainingPlan {
 /// Players assigned to a training group use that group's focus instead of
 /// the team default.
 /// `weekday_num` is 0=Mon .. 6=Sun (chrono Weekday::num_days_from_monday()).
+pub fn recover_players_after_matchday(game: &mut Game) {
+    for player in game.players.iter_mut() {
+        if player.injury.is_some() {
+            continue;
+        }
+        let stamina_factor = player.attributes.stamina as f64 / 100.0;
+        let recovery = (5.0 * (0.6 + stamina_factor * 0.4)).round() as u8;
+        player.condition = player.condition.saturating_add(recovery).min(100);
+    }
+}
+
 pub fn process_training(game: &mut Game, weekday_num: u32) {
     // Derive the current year from the game clock for accurate age calculations.
     let current_year = game

@@ -53,13 +53,16 @@ pub fn process_day_with_capture<F>(game: &mut Game, on_capture: &mut F)
 where
     F: FnMut(StatsState),
 {
+    game.repair_legacy_league_from_primary_competition();
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    crate::knockout::process_knockout_progression(game, &today);
 
     let has_match_today = has_scheduled_fixture_today(game, &today);
 
     if has_match_today {
         info!("[turn] process_day {}: matchday", today);
         simulate_matchday_with_capture(game, &today, on_capture);
+        training::recover_players_after_matchday(game);
     } else {
         let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
         training::process_training(game, weekday_num);
@@ -112,6 +115,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     info!("[turn] finish_live_match_day: {}", today);
     generate_matchday_news(game, &today);
+    training::recover_players_after_matchday(game);
 
     // Advance any knockout brackets whose latest round just completed.
     crate::knockout::process_knockout_progression(game, &today);
@@ -148,13 +152,15 @@ pub fn finish_live_match_day(game: &mut Game) {
 mod tests {
     use super::{
         assist_weight, build_synthetic_stats_state, finish_live_match_day, goal_events_from_attacking_events,
-        scorer_weight, star_minutes_priority, synthetic_attacking_events, synthetic_compact_report,
-        synthetic_replaced_starter_index, SyntheticPlayer, SyntheticUsage,
+        process_day_with_capture, scorer_weight, star_minutes_priority, synthetic_attacking_events,
+        synthetic_compact_report, synthetic_replaced_starter_index, SyntheticPlayer, SyntheticUsage,
     };
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
-    use domain::league::{Fixture, FixtureCompetition, FixtureStatus, GoalEvent, MatchResult};
+    use domain::league::{
+        CompetitionKind, Fixture, FixtureCompetition, FixtureStatus, GoalEvent, League, MatchResult,
+    };
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
     use domain::staff::{Staff, StaffAttributes, StaffRole};
@@ -292,6 +298,100 @@ mod tests {
             dribbling: passing,
             aerial: shooting.saturating_sub(10),
         }
+    }
+
+    #[test]
+    fn process_day_generates_and_simulates_worldcup_r32_on_first_knockout_date() {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 6, 28, 12, 0, 0).unwrap());
+        let (teams, players, staff) = crate::generator::generate_worldcup_fc26_world().unwrap();
+        let mut manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire(
+            teams
+                .iter()
+                .find(|team| team.name == "England")
+                .map(|team| team.id.clone())
+                .expect("England should exist"),
+        );
+
+        let mut world_cup = crate::schedule::generate_world_cup_2026(&teams, 2026, clock.current_date);
+        for fixture in &mut world_cup.fixtures {
+            fixture.status = FixtureStatus::Completed;
+            fixture.result = Some(MatchResult {
+                home_goals: 2,
+                away_goals: 1,
+                home_scorers: Vec::<GoalEvent>::new(),
+                away_scorers: Vec::<GoalEvent>::new(),
+                report: None,
+                winner_team_id: None,
+                resolution: None,
+                home_penalties: None,
+                away_penalties: None,
+            });
+        }
+        for standing in &mut world_cup.standings {
+            standing.played = 3;
+            standing.won = 1;
+            standing.drawn = 1;
+            standing.lost = 1;
+            standing.goals_for = 4;
+            standing.goals_against = 4;
+            standing.points = 4;
+        }
+
+        let legacy_league = League {
+            id: world_cup.id.clone(),
+            name: world_cup.name.clone(),
+            season: world_cup.season,
+            fixtures: world_cup.fixtures.clone(),
+            standings: world_cup.standings.clone(),
+            transfer_log: Vec::new(),
+        };
+        let mut game = Game::new(clock, manager, teams, players, staff, vec![]);
+        game.league = Some(legacy_league);
+        game.competitions = vec![world_cup];
+
+        assert!(game.competitions[0].fixtures.iter().all(|fixture| fixture.stage.is_none()));
+
+        let mut captures = Vec::new();
+        process_day_with_capture(&mut game, &mut |capture| captures.push(capture));
+
+        assert_eq!(game.clock.current_date.format("%Y-%m-%d").to_string(), "2026-06-29");
+        let competition = game
+            .competitions
+            .iter()
+            .find(|competition| competition.kind == CompetitionKind::WorldCup)
+            .expect("World Cup should remain present");
+        let r32_match_73 = competition
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.matchday == 73 && fixture.stage.as_deref() == Some("r32"))
+            .expect("R32 match 73 should be generated");
+        assert_eq!(r32_match_73.date, "2026-06-28");
+        assert_eq!(r32_match_73.status, FixtureStatus::Completed);
+        assert!(r32_match_73.result.is_some(), "R32 match 73 should be simulated on June 28");
+        assert!(captures.iter().any(|capture| {
+            capture
+                .team_matches
+                .iter()
+                .any(|record| record.fixture_id == r32_match_73.id)
+        }));
+
+        let legacy_r32 = game
+            .league
+            .as_ref()
+            .expect("legacy league should exist")
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.id == r32_match_73.id)
+            .expect("legacy league should include generated R32 fixture");
+        assert_eq!(legacy_r32.status, FixtureStatus::Completed);
+        assert!(legacy_r32.result.is_some());
     }
 
     #[test]
@@ -541,12 +641,14 @@ pub fn simulate_other_matches_with_capture<F>(
             let fixture = &game.league.as_ref().unwrap().fixtures[idx];
             let home_team_id = fixture.home_team_id.clone();
             let away_team_id = fixture.away_team_id.clone();
+            let allows_extra_time = fixture.stage.is_some() || !fixture.counts_for_competition_standings();
             let (home_data, home_bench) = build_team_with_bench(game, &home_team_id);
             let (away_data, away_bench) = build_team_with_bench(game, &away_team_id);
             (
                 idx,
                 home_team_id,
                 away_team_id,
+                allows_extra_time,
                 home_data,
                 away_data,
                 home_bench,
@@ -554,12 +656,13 @@ pub fn simulate_other_matches_with_capture<F>(
             )
         })
         .collect::<Vec<_>>();
-    for (idx, home_team_id, away_team_id, home_data, away_data, home_bench, away_bench) in prepared_matches {
+    for (idx, home_team_id, away_team_id, allows_extra_time, home_data, away_data, home_bench, away_bench) in prepared_matches {
         simulate_single_match_with_capture(
             game,
             idx,
             &home_team_id,
             &away_team_id,
+            allows_extra_time,
             home_data,
             away_data,
             home_bench,
@@ -1595,6 +1698,7 @@ fn simulate_single_match_with_capture<F>(
     idx: usize,
     home_team_id: &str,
     away_team_id: &str,
+    allows_extra_time: bool,
     home_data: engine::TeamData,
     away_data: engine::TeamData,
     home_bench: Vec<engine::PlayerData>,
@@ -1603,7 +1707,16 @@ fn simulate_single_match_with_capture<F>(
 ) where
     F: FnMut(StatsState),
 {
-    let report = simulate_ai_managed_match(game, home_team_id, away_team_id, home_data, away_data, home_bench, away_bench);
+    let report = simulate_ai_managed_match(
+        game,
+        home_team_id,
+        away_team_id,
+        allows_extra_time,
+        home_data,
+        away_data,
+        home_bench,
+        away_bench,
+    );
     apply_match_report_with_capture(game, idx, home_team_id, away_team_id, &report, on_capture);
 }
 
@@ -1611,6 +1724,7 @@ fn simulate_ai_managed_match(
     game: &Game,
     home_team_id: &str,
     away_team_id: &str,
+    allows_extra_time: bool,
     home_data: engine::TeamData,
     away_data: engine::TeamData,
     home_bench: Vec<engine::PlayerData>,
@@ -1623,7 +1737,7 @@ fn simulate_ai_managed_match(
         MatchConfig::default(),
         home_bench,
         away_bench,
-        false,
+        allows_extra_time,
     );
     let home_ai = ai_profile_for_team(game, home_team_id);
     let away_ai = ai_profile_for_team(game, away_team_id);

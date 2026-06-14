@@ -102,25 +102,29 @@ impl LiveMatchState {
     }
 
     pub(super) fn pick_penalty_taker<R: Rng>(&self, side: Side, rng: &mut R) -> PlayerSnap {
-        // Use designated taker if set
-        if let Some(ref id) = self.set_pieces_ref(side).penalty_taker {
-            let team = self.team_ref(side);
-            if let Some(p) = team
-                .players
-                .iter()
-                .find(|p| p.id == *id && !self.sent_off.contains(&p.id))
-            {
-                return PlayerSnap::from(p);
-            }
-        }
-        // Fallback: pick the forward with highest shooting
         let team = self.team_ref(side);
+        let previous_takers = match side {
+            Side::Home => &self.penalty_state.home_takers,
+            Side::Away => &self.penalty_state.away_takers,
+        };
         let mut candidates: Vec<&PlayerData> = team
             .players
             .iter()
             .filter(|p| !self.sent_off.contains(&p.id))
             .collect();
-        candidates.sort_by(|a, b| b.shooting.cmp(&a.shooting));
+        let fresh_candidates = candidates
+            .iter()
+            .copied()
+            .filter(|p| !previous_takers.iter().any(|id| id == &p.id))
+            .collect::<Vec<_>>();
+        if !fresh_candidates.is_empty() {
+            candidates = fresh_candidates;
+        }
+        candidates.sort_by(|a, b| {
+            let left = u16::from(a.shooting) + u16::from(a.composure);
+            let right = u16::from(b.shooting) + u16::from(b.composure);
+            right.cmp(&left)
+        });
         if let Some(p) = candidates.first() {
             PlayerSnap::from(p)
         } else {

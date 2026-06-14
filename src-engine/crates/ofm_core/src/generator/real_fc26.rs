@@ -371,7 +371,6 @@ pub fn generate_worldcup_fc26_world_with_user_selection(
         };
         players.extend(selected.into_iter().map(|candidate| candidate.player));
         assign_squad_numbers(&mut players[team_player_start..]);
-        normalize_generated_team(&mut team, &mut players[team_player_start..], None, None);
         team.tactical_instructions = generated_tactical_instructions_for_team(&team, &players[team_player_start..]);
         let staff_nat = canonicalize_generated_nationality(team_def.iso_code);
         staff.push(generate_random_staff_from_def(&team_id, StaffRole::AssistantManager, &staff_nat, &names_def, &mut rng));
@@ -1730,6 +1729,26 @@ mod tests {
             .count();
 
         assert_eq!(squad_count, WORLDCUP_SQUAD_SIZE);
+    }
+
+    #[test]
+    fn worldcup_fc26_keeps_imported_player_ovr() {
+        let team_id = worldcup_team_id("England");
+        let pool = worldcup_fc26_callup_pool(&team_id).unwrap();
+        let pool_bellingham = pool
+            .iter()
+            .find(|candidate| candidate.full_name == "Jude Bellingham")
+            .expect("Jude Bellingham in England call-up pool");
+        let (_, players, _) = generate_worldcup_fc26_world().unwrap();
+        let squad_bellingham = players
+            .iter()
+            .find(|player| {
+                player.team_id.as_deref() == Some(team_id.as_str())
+                    && player.full_name == "Jude Bellingham"
+            })
+            .expect("Jude Bellingham in England World Cup squad");
+
+        assert_eq!(squad_bellingham.ovr, pool_bellingham.ovr);
     }
 
     #[test]

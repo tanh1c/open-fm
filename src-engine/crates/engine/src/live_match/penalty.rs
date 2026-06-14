@@ -71,8 +71,14 @@ impl LiveMatchState {
         }
 
         match kicking_side {
-            Side::Home => self.penalty_state.home_taken += 1,
-            Side::Away => self.penalty_state.away_taken += 1,
+            Side::Home => {
+                self.penalty_state.home_taken += 1;
+                self.penalty_state.home_takers.push(taker.id.clone());
+            }
+            Side::Away => {
+                self.penalty_state.away_taken += 1;
+                self.penalty_state.away_takers.push(taker.id.clone());
+            }
         }
 
         // Check if shootout is decided
@@ -172,5 +178,98 @@ impl LiveMatchState {
         }
 
         events
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{MatchConfig, PlayStyle, PlayerData, Position, TeamData};
+    use rand::SeedableRng;
+    use std::collections::HashSet;
+
+    fn player(id: &str, position: Position, shooting: u8) -> PlayerData {
+        PlayerData {
+            id: id.to_string(),
+            name: id.to_string(),
+            position,
+            natural_position: String::new(),
+            ovr: shooting,
+            condition: 100,
+            morale: 80,
+            fitness: 90,
+            pace: 70,
+            stamina: 70,
+            strength: 70,
+            agility: 70,
+            passing: 70,
+            shooting,
+            tackling: 70,
+            dribbling: 70,
+            defending: 70,
+            positioning: 70,
+            vision: 70,
+            decisions: 70,
+            composure: shooting,
+            aggression: 50,
+            teamwork: 70,
+            leadership: 70,
+            handling: 70,
+            reflexes: 70,
+            aerial: 70,
+            traits: vec![],
+        }
+    }
+
+    fn team(id: &str) -> TeamData {
+        let mut players = vec![player(&format!("{id}-gk"), Position::Goalkeeper, 60)];
+        for index in 0..10 {
+            players.push(player(&format!("{id}-{index}"), Position::Forward, 90 - index));
+        }
+        TeamData {
+            id: id.to_string(),
+            name: id.to_string(),
+            formation: "4-3-3".to_string(),
+            play_style: PlayStyle::Balanced,
+            players,
+            form: vec![],
+            tactical_familiarity: 0.8,
+            shape_profile: Default::default(),
+            tactical_profile: Default::default(),
+        }
+    }
+
+    #[test]
+    fn shootout_uses_distinct_takers_before_repeating() {
+        let mut match_state = LiveMatchState::new(
+            team("home"),
+            team("away"),
+            MatchConfig::default(),
+            vec![],
+            vec![],
+            true,
+        );
+        match_state.phase = super::super::MatchPhase::PenaltyShootout;
+        match_state.current_minute = 121;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+
+        for _ in 0..10 {
+            match_state.play_penalty_round(&mut rng);
+        }
+
+        let home_unique = match_state
+            .penalty_state
+            .home_takers
+            .iter()
+            .take(5)
+            .collect::<HashSet<_>>();
+        let away_unique = match_state
+            .penalty_state
+            .away_takers
+            .iter()
+            .take(5)
+            .collect::<HashSet<_>>();
+        assert_eq!(home_unique.len(), 5);
+        assert_eq!(away_unique.len(), 5);
     }
 }

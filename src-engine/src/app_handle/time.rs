@@ -127,8 +127,7 @@ impl AppHandle {
         }))
     }
 
-    /// Advance day-by-day until the in-game date reaches `target_date`
-    /// (inclusive lower bound: stops once `current_date >= target_date`).
+    /// Advance day-by-day through `target_date`, then stop on the following day.
     ///
     /// Vacation = FM-style holiday: the assistant takes full charge and
     /// auto-plays every match (the user's own fixtures are simulated instantly)

@@ -394,6 +394,7 @@ export default function ScheduleTab({
     [gameState.teams],
   );
   const seasonContext = resolveSeasonContext(gameState);
+  const todayIso = gameState.clock.current_date.slice(0, 10);
   const isPreseason = seasonContext.phase === "Preseason";
   const canShowStandings = selectedCompetition?.standings.length > 0;
   const competitionLabel = selectedCompetition ? getCompetitionDisplayName(selectedCompetition) : "";
@@ -500,6 +501,11 @@ export default function ScheduleTab({
       leftFixture.matchday - rightFixture.matchday
     );
   });
+  const nearestFixtureGroupIndex = (() => {
+    if (sortedMatchdays.length === 0) return 0;
+    const upcomingIndex = sortedMatchdays.findIndex(([, fixtures]) => fixtures[0]?.date >= todayIso);
+    return upcomingIndex >= 0 ? upcomingIndex : sortedMatchdays.length - 1;
+  })();
 
   const activeFixtureGroupSafeIndex = Math.min(
     activeFixtureGroupIndex,
@@ -554,8 +560,7 @@ export default function ScheduleTab({
     .slice(0, 5);
   const completedFixtureCount = selectedCompetition.fixtures.filter((fixture) => fixture.status === "Completed").length;
   const upcomingFixtureCount = selectedCompetition.fixtures.length - completedFixtureCount;
-  const currentDate = formatMatchDate(gameState.clock.current_date.slice(0, 10));
-  const todayIso = gameState.clock.current_date.slice(0, 10);
+  const currentDate = formatMatchDate(todayIso);
 
   // Calendar events for the My Club grid: each user fixture becomes a marker on
   // its day, green for upcoming and muted for completed (with the score shown).
@@ -795,7 +800,10 @@ export default function ScheduleTab({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFixtureScope("all")}
+                        onClick={() => {
+                          setActiveFixtureGroupIndex(nearestFixtureGroupIndex);
+                          setFixtureScope("all");
+                        }}
                         className={cx(
                           "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
                           fixtureScope === "all" ? "bg-app-green text-app-bg" : "text-app-text-muted hover:text-app-text",

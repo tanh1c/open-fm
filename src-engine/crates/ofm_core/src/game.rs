@@ -233,6 +233,31 @@ impl Game {
         self.competitions.get_mut(competition_index)
     }
 
+    pub fn repair_legacy_league_from_primary_competition(&mut self) {
+        let Some(league) = self.league.as_mut() else {
+            return;
+        };
+        let Some(competition) = self
+            .competitions
+            .iter()
+            .find(|competition| competition.id == league.id)
+        else {
+            return;
+        };
+        let league_fixture_ids: std::collections::HashSet<String> = league
+            .fixtures
+            .iter()
+            .map(|fixture| fixture.id.clone())
+            .collect();
+        league.fixtures.extend(
+            competition
+                .fixtures
+                .iter()
+                .filter(|fixture| !league_fixture_ids.contains(fixture.id.as_str()))
+                .cloned(),
+        );
+    }
+
     /// Propagate the legacy `league` fixtures/standings back into the mirrored
     /// competition that shares its id. Day simulation mutates only the legacy
     /// `game.league`, so without this the competition copy — which the frontend

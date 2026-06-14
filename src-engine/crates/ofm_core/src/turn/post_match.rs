@@ -1,9 +1,10 @@
 use crate::game::Game;
 use crate::messages;
 use domain::league::{
-    CompactMatchEvent, CompactMatchReport, CompactTeamMatchStats, FixtureCompetition, FixtureStatus,
-    GoalEvent, MatchResult,
+    CompactMatchEvent, CompactMatchReport, CompactTeamMatchStats, Fixture, FixtureCompetition,
+    FixtureStatus, GoalEvent, MatchResolution, MatchResult,
 };
+use engine::{EventType, Side};
 use domain::player::{
     Injury, PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
 };
@@ -38,6 +39,94 @@ fn should_keep_fixture_report(
         .is_some_and(|team_id| team_id == home_team_id || team_id == away_team_id);
 
     is_user_match || fixture.stage.is_some() || !fixture.counts_for_league_standings()
+}
+
+#[derive(Default)]
+struct ShootoutScore {
+    home: u8,
+    away: u8,
+}
+
+struct OfficialMatchScore {
+    home: u8,
+    away: u8,
+}
+
+fn official_match_score(report: &engine::MatchReport, shootout: &ShootoutScore) -> OfficialMatchScore {
+    OfficialMatchScore {
+        home: report.home_goals.saturating_sub(shootout.home),
+        away: report.away_goals.saturating_sub(shootout.away),
+    }
+}
+
+fn shootout_goals_by_player(report: &engine::MatchReport) -> std::collections::HashMap<&str, u8> {
+    report
+        .events
+        .iter()
+        .filter(|event| event.minute > 120 && event.event_type == EventType::PenaltyGoal)
+        .filter_map(|event| event.player_id.as_deref())
+        .fold(std::collections::HashMap::new(), |mut goals, player_id| {
+            *goals.entry(player_id).or_insert(0) += 1;
+            goals
+        })
+}
+
+fn penalty_shootout_score(report: &engine::MatchReport) -> ShootoutScore {
+    if report.total_minutes <= 120 {
+        return ShootoutScore::default();
+    }
+
+    report
+        .events
+        .iter()
+        .filter(|event| event.minute > 120 && event.event_type == EventType::PenaltyGoal)
+        .fold(ShootoutScore::default(), |mut score, event| {
+            match event.side {
+                Side::Home => score.home += 1,
+                Side::Away => score.away += 1,
+            }
+            score
+        })
+}
+
+fn apply_knockout_resolution(
+    fixture: &Fixture,
+    result: &mut MatchResult,
+    total_minutes: u8,
+    shootout: &ShootoutScore,
+) {
+    if fixture.stage.is_none() && fixture.counts_for_competition_standings() {
+        return;
+    }
+
+    if total_minutes > 120 {
+        result.resolution = Some(MatchResolution::AfterPenalties);
+        result.home_penalties = Some(shootout.home);
+        result.away_penalties = Some(shootout.away);
+        result.winner_team_id = if shootout.home > shootout.away {
+            Some(fixture.home_team_id.clone())
+        } else {
+            Some(fixture.away_team_id.clone())
+        };
+        return;
+    }
+
+    let resolution_fixture = Fixture {
+        result: Some(result.clone()),
+        ..fixture.clone()
+    };
+    let Some(resolution) = crate::knockout::single_leg_resolution(&resolution_fixture) else {
+        return;
+    };
+
+    result.winner_team_id = Some(resolution.winner_team_id);
+    result.resolution = Some(if total_minutes > 90 {
+        MatchResolution::AfterExtraTime
+    } else {
+        resolution.resolution
+    });
+    result.home_penalties = resolution.home_penalties;
+    result.away_penalties = resolution.away_penalties;
 }
 
 fn compact_match_report(report: &engine::MatchReport) -> CompactMatchReport {
@@ -111,7 +200,7 @@ pub fn apply_match_report_with_capture<F>(
     let home_scorers: Vec<GoalEvent> = report
         .goals
         .iter()
-        .filter(|g| g.side == engine::Side::Home)
+        .filter(|g| g.side == engine::Side::Home && g.minute <= 120)
         .map(|g| GoalEvent {
             player_id: g.scorer_id.clone(),
             minute: g.minute,
@@ -120,21 +209,25 @@ pub fn apply_match_report_with_capture<F>(
     let away_scorers: Vec<GoalEvent> = report
         .goals
         .iter()
-        .filter(|g| g.side == engine::Side::Away)
+        .filter(|g| g.side == engine::Side::Away && g.minute <= 120)
         .map(|g| GoalEvent {
             player_id: g.scorer_id.clone(),
             minute: g.minute,
         })
         .collect();
 
-    let keep_report = game.league.as_ref().is_some_and(|league| {
-        league.fixtures.get(fixture_index).is_some_and(|fixture| {
-            should_keep_fixture_report(game, fixture, home_team_id, away_team_id)
-        })
+    let fixture = game
+        .league
+        .as_ref()
+        .and_then(|league| league.fixtures.get(fixture_index));
+    let keep_report = fixture.is_some_and(|fixture| {
+        should_keep_fixture_report(game, fixture, home_team_id, away_team_id)
     });
-    let result = MatchResult {
-        home_goals: report.home_goals,
-        away_goals: report.away_goals,
+    let shootout = penalty_shootout_score(report);
+    let official_score = official_match_score(report, &shootout);
+    let mut result = MatchResult {
+        home_goals: official_score.home,
+        away_goals: official_score.away,
         home_scorers,
         away_scorers,
         report: keep_report.then(|| compact_match_report(report)),
@@ -143,6 +236,9 @@ pub fn apply_match_report_with_capture<F>(
         home_penalties: None,
         away_penalties: None,
     };
+    if let Some(fixture) = fixture {
+        apply_knockout_resolution(fixture, &mut result, report.total_minutes, &shootout);
+    }
     let mut counts_for_standings = false;
     let mut generates_match_news = false;
 
@@ -179,6 +275,7 @@ pub fn apply_match_report_with_capture<F>(
         home_team_id,
         away_team_id,
         report,
+        &official_score,
     );
     let counts_for_official_player_stats = stats_capture
         .player_matches
@@ -187,7 +284,7 @@ pub fn apply_match_report_with_capture<F>(
     on_capture(stats_capture);
 
     if counts_for_official_player_stats {
-        apply_player_stats(game, report, home_team_id, away_team_id);
+        apply_player_stats(game, report, home_team_id, away_team_id, &official_score);
     }
     resolve_post_match_promises(game, report, home_team_id, away_team_id);
 
@@ -197,12 +294,12 @@ pub fn apply_match_report_with_capture<F>(
     persist_match_injuries(game, report, home_team_id, away_team_id);
 
     // Update morale based on result and individual performance
-    update_post_match_morale(game, report, home_team_id, away_team_id);
+    update_post_match_morale(game, report, home_team_id, away_team_id, &official_score);
     improve_tactical_familiarity_from_match(game, home_team_id, away_team_id);
 
     // Update team form (last 5 results)
     if counts_for_standings {
-        update_team_form(game, report, home_team_id, away_team_id);
+        update_team_form(game, home_team_id, away_team_id, &official_score);
     }
 
     // Update board satisfaction based on match result
@@ -211,14 +308,14 @@ pub fn apply_match_report_with_capture<F>(
         && (*user_team_id == home_team_id || *user_team_id == away_team_id)
     {
         let user_goals = if *user_team_id == home_team_id {
-            report.home_goals
+            official_score.home
         } else {
-            report.away_goals
+            official_score.away
         };
         let opp_goals = if *user_team_id == home_team_id {
-            report.away_goals
+            official_score.away
         } else {
-            report.home_goals
+            official_score.home
         };
         let sat_delta: i8 = if user_goals > opp_goals {
             2
@@ -307,6 +404,7 @@ fn build_stats_state_capture(
     home_team_id: &str,
     away_team_id: &str,
     report: &engine::MatchReport,
+    official_score: &OfficialMatchScore,
 ) -> StatsState {
     let Some(league) = game.league.as_ref() else {
         return StatsState::default();
@@ -328,6 +426,7 @@ fn build_stats_state_capture(
         })
         .collect();
 
+    let shootout_goals = shootout_goals_by_player(report);
     let player_matches = report
         .player_stats
         .iter()
@@ -354,10 +453,10 @@ fn build_stats_state_capture(
                 opponent_team_id: opponent_team_id.to_string(),
                 home_team_id: home_team_id.to_string(),
                 away_team_id: away_team_id.to_string(),
-                home_goals: report.home_goals,
-                away_goals: report.away_goals,
+                home_goals: official_score.home,
+                away_goals: official_score.away,
                 minutes_played: stats.minutes_played,
-                goals: stats.goals,
+                goals: stats.goals.saturating_sub(*shootout_goals.get(player_id.as_str()).unwrap_or(&0)),
                 assists: stats.assists,
                 shots: stats.shots,
                 shots_on_target: stats.shots_on_target,
@@ -384,8 +483,8 @@ fn build_stats_state_capture(
             opponent_team_id: away_team_id.to_string(),
             home_team_id: home_team_id.to_string(),
             away_team_id: away_team_id.to_string(),
-            goals_for: report.home_goals,
-            goals_against: report.away_goals,
+            goals_for: official_score.home,
+            goals_against: official_score.away,
             possession_pct: home_possession_pct,
             shots: report.home_stats.shots,
             shots_on_target: report.home_stats.shots_on_target,
@@ -408,8 +507,8 @@ fn build_stats_state_capture(
             opponent_team_id: home_team_id.to_string(),
             home_team_id: home_team_id.to_string(),
             away_team_id: away_team_id.to_string(),
-            goals_for: report.away_goals,
-            goals_against: report.home_goals,
+            goals_for: official_score.away,
+            goals_against: official_score.home,
             possession_pct: away_possession_pct,
             shots: report.away_stats.shots,
             shots_on_target: report.away_stats.shots_on_target,
@@ -446,11 +545,14 @@ fn apply_player_stats(
     report: &engine::MatchReport,
     home_team_id: &str,
     away_team_id: &str,
+    official_score: &OfficialMatchScore,
 ) {
+    let shootout_goals = shootout_goals_by_player(report);
     for player in game.players.iter_mut() {
         if let Some(ps) = report.player_stats.get(&player.id) {
             player.stats.appearances += 1;
-            player.stats.goals += ps.goals as u32;
+            let official_goals = ps.goals.saturating_sub(*shootout_goals.get(player.id.as_str()).unwrap_or(&0));
+            player.stats.goals += official_goals as u32;
             player.stats.assists += ps.assists as u32;
             player.stats.yellow_cards += ps.yellow_cards as u32;
             player.stats.red_cards += ps.red_cards as u32;
@@ -475,9 +577,9 @@ fn apply_player_stats(
             if matches!(player.position, DomainPosition::Goalkeeper) {
                 let tid = player.team_id.as_deref().unwrap_or("");
                 let conceded_zero = if tid == home_team_id {
-                    report.away_goals == 0
+                    official_score.away == 0
                 } else if tid == away_team_id {
-                    report.home_goals == 0
+                    official_score.home == 0
                 } else {
                     false
                 };
@@ -592,13 +694,15 @@ fn update_post_match_morale(
     report: &engine::MatchReport,
     home_team_id: &str,
     away_team_id: &str,
+    official_score: &OfficialMatchScore,
 ) {
     use rand::RngExt;
     let mut rng = rand::rng();
 
-    let home_won = report.home_goals > report.away_goals;
-    let away_won = report.away_goals > report.home_goals;
-    let is_draw = report.home_goals == report.away_goals;
+    let home_won = official_score.home > official_score.away;
+    let away_won = official_score.away > official_score.home;
+    let is_draw = official_score.home == official_score.away;
+    let shootout_goals = shootout_goals_by_player(report);
 
     for player in game.players.iter_mut() {
         let tid = match player.team_id.as_deref() {
@@ -610,7 +714,7 @@ fn update_post_match_morale(
         let base_morale = player.morale as i16;
 
         // Team result effect — scale loss impact by goal difference
-        let goal_diff = (report.home_goals as i16 - report.away_goals as i16).abs();
+        let goal_diff = (official_score.home as i16 - official_score.away as i16).abs();
         let result_delta: i16 = if (is_home && home_won) || (!is_home && away_won) {
             rng.random_range(3..=8) // Win boost
         } else if is_draw {
@@ -626,7 +730,8 @@ fn update_post_match_morale(
         let mut individual_delta: i16 = 0;
         if let Some(ps) = report.player_stats.get(&player.id) {
             // Goals scored boost morale
-            individual_delta += ps.goals as i16 * 3;
+            let official_goals = ps.goals.saturating_sub(*shootout_goals.get(player.id.as_str()).unwrap_or(&0));
+            individual_delta += official_goals as i16 * 3;
             // Assists boost morale
             individual_delta += ps.assists as i16 * 2;
             // Red card tanks morale
@@ -658,23 +763,23 @@ fn improve_tactical_familiarity_from_match(game: &mut Game, home_team_id: &str, 
 /// Also applies streak-based morale bonus/penalty to all players on teams with streaks.
 fn update_team_form(
     game: &mut Game,
-    report: &engine::MatchReport,
     home_team_id: &str,
     away_team_id: &str,
+    official_score: &OfficialMatchScore,
 ) {
     use rand::RngExt;
     let mut rng = rand::rng();
 
-    let home_result = if report.home_goals > report.away_goals {
+    let home_result = if official_score.home > official_score.away {
         "W"
-    } else if report.home_goals < report.away_goals {
+    } else if official_score.home < official_score.away {
         "L"
     } else {
         "D"
     };
-    let away_result = if report.away_goals > report.home_goals {
+    let away_result = if official_score.away > official_score.home {
         "W"
-    } else if report.away_goals < report.home_goals {
+    } else if official_score.away < official_score.home {
         "L"
     } else {
         "D"
@@ -1081,5 +1186,84 @@ mod tests {
         assert!(goalkeeper_depletion <= 8);
         assert!(outfielder_depletion >= 18);
         assert!(goalkeeper_depletion < outfielder_depletion);
+    }
+
+    #[test]
+    fn penalty_shootout_goals_are_excluded_from_official_player_stats() {
+        let mut home = player("home-striker", DomainPosition::Striker);
+        home.team_id = Some("home-team".to_string());
+        let mut away = player("away-striker", DomainPosition::Striker);
+        away.team_id = Some("away-team".to_string());
+        let mut game = game_with_players(vec![home, away]);
+        game.league = Some(domain::league::League {
+            id: "world-cup-2026".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            fixtures: vec![domain::league::Fixture {
+                id: "fixture-1".to_string(),
+                home_team_id: "home-team".to_string(),
+                away_team_id: "away-team".to_string(),
+                competition: FixtureCompetition::WorldCup,
+                stage: Some("r32".to_string()),
+                ..Default::default()
+            }],
+            standings: vec![],
+            transfer_log: vec![],
+        });
+
+        let mut report = report_with_minutes(&["home-striker", "away-striker"], 120);
+        report.total_minutes = 121;
+        report.home_goals = 2;
+        report.away_goals = 1;
+        report.player_stats.get_mut("home-striker").unwrap().goals = 2;
+        report.player_stats.get_mut("away-striker").unwrap().goals = 1;
+        report.events = vec![
+            engine::MatchEvent::new(121, EventType::PenaltyGoal, Side::Home, engine::Zone::AwayBox)
+                .with_player("home-striker"),
+            engine::MatchEvent::new(121, EventType::PenaltyGoal, Side::Away, engine::Zone::HomeBox)
+                .with_player("away-striker"),
+            engine::MatchEvent::new(121, EventType::PenaltyGoal, Side::Home, engine::Zone::AwayBox)
+                .with_player("home-striker"),
+        ];
+
+        let mut captures = Vec::new();
+        apply_match_report_with_capture(
+            &mut game,
+            0,
+            "home-team",
+            "away-team",
+            &report,
+            &mut |stats| captures.push(stats),
+        );
+
+        let result = game.league.as_ref().unwrap().fixtures[0].result.as_ref().unwrap();
+        assert_eq!(result.home_goals, 0);
+        assert_eq!(result.away_goals, 0);
+        assert_eq!(result.home_penalties, Some(2));
+        assert_eq!(result.away_penalties, Some(1));
+
+        let capture = captures.first().expect("stats capture should be emitted");
+        let home_record = capture
+            .player_matches
+            .iter()
+            .find(|record| record.player_id == "home-striker")
+            .unwrap();
+        let away_record = capture
+            .player_matches
+            .iter()
+            .find(|record| record.player_id == "away-striker")
+            .unwrap();
+        assert_eq!(home_record.goals, 0);
+        assert_eq!(away_record.goals, 0);
+        assert!(capture.team_matches.iter().all(|record| record.goals_for == 0));
+        assert_eq!(
+            game.players
+                .iter()
+                .find(|player| player.id == "home-striker")
+                .unwrap()
+                .stats
+                .goals,
+            0
+        );
     }
 }

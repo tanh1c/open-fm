@@ -158,6 +158,8 @@ struct PenaltyShootoutState {
     home_scored: u8,
     away_scored: u8,
     sudden_death: bool,
+    home_takers: Vec<String>,
+    away_takers: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------

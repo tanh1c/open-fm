@@ -200,7 +200,7 @@ mod tests {
         VacationSettings,
     };
     use chrono::{TimeZone, Utc};
-    use domain::league::{Fixture, FixtureCompetition, FixtureStatus};
+    use domain::league::{Fixture, FixtureCompetition, FixtureStatus, MatchResolution};
     use domain::manager::Manager;
     use domain::message::{InboxMessage, MessagePriority};
     use domain::player::{
@@ -443,6 +443,216 @@ mod tests {
             !stats.player_matches.is_empty(),
             "expected target-date match history to be recorded"
         );
+    }
+
+    fn make_worldcup_r32_vacation_game() -> Game {
+        let mut game = make_game_with_matchday();
+        game.clock = GameClock::new(Utc.with_ymd_and_hms(2026, 6, 27, 12, 0, 0).unwrap());
+        let fixture = game.league.as_mut().unwrap().fixtures.get_mut(0).unwrap();
+        fixture.id = "wc-r32-73".to_string();
+        fixture.matchday = 73;
+        fixture.date = "2026-06-28".to_string();
+        fixture.competition = FixtureCompetition::WorldCup;
+        fixture.stage = Some("r32".to_string());
+        fixture.competition_id = Some("world-cup-2026".to_string());
+        game.league.as_mut().unwrap().id = "world-cup-2026".to_string();
+        game.league.as_mut().unwrap().name = "World Cup 2026".to_string();
+        let league = game.league.as_ref().unwrap();
+        game.competitions = vec![domain::league::Competition {
+            id: "world-cup-2026".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            kind: domain::league::CompetitionKind::WorldCup,
+            format: domain::league::CompetitionFormat::GroupStageKnockout,
+            country: None,
+            tier: None,
+            team_ids: vec!["team1".to_string(), "team2".to_string()],
+            fixtures: league.fixtures.clone(),
+            standings: league.standings.clone(),
+            transfer_log: vec![],
+        }];
+        game
+    }
+
+    #[test]
+    fn vacation_processes_worldcup_knockout_fixture_on_target_date() {
+        let state = StateManager::new();
+        state.set_game(make_worldcup_r32_vacation_game());
+        state.set_stats_state(StatsState::default());
+
+        let response = advance_to_date_service(
+            &state,
+            "2026-06-28",
+            VacationSettings {
+                handle_matches: true,
+                return_for_user_match: false,
+                ..VacationSettings::default()
+            },
+        )
+        .unwrap();
+        let saved = state.get_game(|current| current.clone()).unwrap();
+        let fixture = &saved.league.as_ref().unwrap().fixtures[0];
+        let result = fixture.result.as_ref().expect("R32 result");
+        let mirrored = saved
+            .competitions
+            .iter()
+            .flat_map(|competition| competition.fixtures.iter())
+            .find(|fixture| fixture.id == "wc-r32-73")
+            .expect("mirrored competition fixture");
+
+        assert_eq!(response.action, "arrived");
+        assert_eq!(response.days_advanced, 2);
+        assert_eq!(fixture.status, FixtureStatus::Completed);
+        assert!(result.winner_team_id.is_some());
+        assert!(result.resolution.is_some());
+        assert_eq!(mirrored.status, FixtureStatus::Completed);
+        assert!(mirrored.result.is_some());
+        assert_eq!(response.report.match_results[0].fixture_id, "wc-r32-73");
+    }
+
+    #[test]
+    fn vacation_processes_worldcup_knockout_fixture_missing_from_legacy_league() {
+        let state = StateManager::new();
+        let mut game = make_worldcup_r32_vacation_game();
+        let r32_fixture = game.league.as_ref().unwrap().fixtures[0].clone();
+        game.league.as_mut().unwrap().fixtures.clear();
+        game.competitions.push(domain::league::Competition {
+            id: "world-cup-2026".to_string(),
+            name: "World Cup 2026".to_string(),
+            season: 2026,
+            kind: domain::league::CompetitionKind::WorldCup,
+            format: domain::league::CompetitionFormat::GroupStageKnockout,
+            country: None,
+            tier: None,
+            team_ids: vec!["team1".to_string(), "team2".to_string()],
+            fixtures: vec![r32_fixture],
+            standings: vec![
+                domain::league::StandingEntry::new("team1".to_string()),
+                domain::league::StandingEntry::new("team2".to_string()),
+            ],
+            transfer_log: vec![],
+        });
+        state.set_game(game);
+        state.set_stats_state(StatsState::default());
+
+        let response = advance_to_date_service(
+            &state,
+            "2026-06-28",
+            VacationSettings {
+                handle_matches: true,
+                return_for_user_match: false,
+                ignore_soft_blockers: true,
+                ..VacationSettings::default()
+            },
+        )
+        .unwrap();
+        let saved = state.get_game(|current| current.clone()).unwrap();
+        let fixture = saved
+            .league
+            .as_ref()
+            .unwrap()
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.id == "wc-r32-73")
+            .unwrap();
+
+        let mirrored = saved
+            .competitions
+            .iter()
+            .flat_map(|competition| competition.fixtures.iter())
+            .find(|fixture| fixture.id == "wc-r32-73")
+            .expect("mirrored competition fixture");
+
+        assert_eq!(response.action, "arrived");
+        assert_eq!(response.days_advanced, 2);
+        assert_eq!(fixture.status, FixtureStatus::Completed);
+        assert!(fixture.result.is_some());
+        assert_eq!(mirrored.status, FixtureStatus::Completed);
+        assert!(mirrored.result.is_some());
+        assert_eq!(response.report.match_results[0].fixture_id, "wc-r32-73");
+    }
+
+    #[test]
+    fn vacation_saves_worldcup_knockout_result_in_competition_view() {
+        let state = StateManager::new();
+        let mut game = make_worldcup_r32_vacation_game();
+        game.clock = GameClock::new(Utc.with_ymd_and_hms(2026, 5, 25, 12, 0, 0).unwrap());
+        game.league.as_mut().unwrap().fixtures.clear();
+        state.set_game(game);
+        state.set_stats_state(StatsState::default());
+
+        let response = advance_to_date_service(
+            &state,
+            "2026-06-28",
+            VacationSettings {
+                handle_matches: true,
+                return_for_user_match: false,
+                ignore_soft_blockers: true,
+                ..VacationSettings::default()
+            },
+        )
+        .unwrap();
+        let saved = state.get_game(|current| current.clone()).unwrap();
+        let legacy_fixture = saved
+            .league
+            .as_ref()
+            .unwrap()
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.id == "wc-r32-73")
+            .expect("legacy R32 fixture");
+        let competition_fixture = saved
+            .competitions
+            .iter()
+            .flat_map(|competition| competition.fixtures.iter())
+            .find(|fixture| fixture.id == "wc-r32-73")
+            .expect("competition R32 fixture");
+
+        assert_eq!(response.action, "arrived");
+        assert_eq!(response.report.ended_at, "2026-06-29");
+        assert_eq!(legacy_fixture.status, FixtureStatus::Completed);
+        assert_eq!(competition_fixture.status, FixtureStatus::Completed);
+        assert!(legacy_fixture.result.is_some());
+        assert!(competition_fixture.result.is_some());
+    }
+
+    #[test]
+    fn vacation_ignores_soft_contract_blockers_before_target_date() {
+        let state = StateManager::new();
+        let mut game = make_worldcup_r32_vacation_game();
+        game.teams[0].wage_budget = 50_000;
+        let player = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "p10")
+            .unwrap();
+        player.contract_end = Some("2026-07-01".to_string());
+        player.wage = 60_000;
+        player.attributes.pace = 92;
+        player.attributes.shooting = 94;
+        player.attributes.dribbling = 90;
+        state.set_game(game);
+        state.set_stats_state(StatsState::default());
+
+        let response = advance_to_date_service(
+            &state,
+            "2026-06-28",
+            VacationSettings {
+                handle_matches: true,
+                return_for_user_match: false,
+                ignore_soft_blockers: true,
+                ..VacationSettings::default()
+            },
+        )
+        .unwrap();
+        let saved = state.get_game(|current| current.clone()).unwrap();
+        let fixture = &saved.league.as_ref().unwrap().fixtures[0];
+
+        assert_eq!(response.action, "arrived");
+        assert_eq!(response.days_advanced, 2);
+        assert_eq!(fixture.status, FixtureStatus::Completed);
+        assert!(fixture.result.is_some());
+        assert_eq!(response.report.match_results[0].fixture_id, "wc-r32-73");
     }
 
     #[test]
